@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Напоминалка">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Напоминалка: тест уведомлений</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; background:#1e293b; color:#f1f5f9;
+         margin:0; padding:24px; padding-top:calc(24px + env(safe-area-inset-top)); }
+  h1 { font-size:22px; margin:0 0 16px; }
+  p { line-height:1.5; }
+  button { width:100%; padding:16px; font-size:17px; border:0; border-radius:12px;
+           background:#60a5fa; color:#0f172a; font-weight:600; margin:8px 0; }
+  #log { background:#0f172a; border-radius:12px; padding:12px; font-size:14px; white-space:pre-wrap; min-height:60px; }
+</style>
+</head>
+<body>
+<h1>Тест уведомлений</h1>
+<p>Нажмите кнопку, разрешите уведомления, и телефон подпишется на пуши.</p>
+<button id="btn">Включить уведомления</button>
+<div id="log">Ожидание…</div>
+
+<script>
+// ===== ЗАМЕНИТЕ ЭТИ ДВА ЗНАЧЕНИЯ НА СВОИ ИЗ SUPABASE =====
+const SUPABASE_URL = 'ВСТАВЬТЕ_PROJECT_URL';
+const SUPABASE_KEY = 'ВСТАВЬТЕ_ANON_PUBLIC_KEY';
+// =========================================================
+const VAPID_PUBLIC = 'BNLThhEBoIT1sgFRviDsI33JdA_Rz18EY5SN7ANL8_gXdctCj4vYguPYopLrBMhAsfgIropWotPwypRexGUeZYU';
+
+const log = (t) => { document.getElementById('log').textContent += '\n' + t; };
+
+function urlB64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+document.getElementById('btn').addEventListener('click', async () => {
+  try {
+    const standalone = window.navigator.standalone === true;
+    if (!standalone) { log('Откройте страницу с экрана «Домой», а не из Safari.'); return; }
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) { log('Push не поддерживается.'); return; }
+
+    const reg = await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+
+    const perm = await Notification.requestPermission();
+    log('Разрешение: ' + perm);
+    if (perm !== 'granted') return;
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC)
+    });
+    log('Подписка создана.');
+
+    const j = sub.toJSON();
+    const res = await fetch(SUPABASE_URL + '/rest/v1/push_subscriptions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+      },
+      body: JSON.stringify({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth })
+    });
+    log((res.ok || res.status === 409) ? 'Сохранено на сервере. Готово!' : 'Ошибка сохранения: ' + res.status + ' ' + await res.text());
+  } catch (e) {
+    log('Ошибка: ' + e.message);
+  }
+});
+</script>
+</body>
+</html>
