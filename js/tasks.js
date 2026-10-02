@@ -1,0 +1,176 @@
+// ---- Задачи: неделя по дням, «Мои задачи», сводка по приоритетам, фокус месяца, динамика ----
+// Задача — это обычное событие календаря с task:true и приоритетом prio, поэтому видна и в календаре.
+const PRIO = { urgent:{ n:'Срочно', c:'var(--c-red)' }, high:{ n:'Высокий', c:'var(--c-violet)' }, mid:{ n:'Средний', c:'var(--c-yellow)' }, low:{ n:'Низкий', c:'var(--c-blue)' } };
+const PRIO_ORDER = ['urgent', 'high', 'mid', 'low'];
+const prioOf = e => PRIO[e.prio] ? e.prio : 'mid';
+const prioRank = e => PRIO_ORDER.indexOf(prioOf(e));
+const NDAY = ['день', 'дня', 'дней'];
+
+onMigrate(() => {
+  if (!S.focus || typeof S.focus !== 'object' || Array.isArray(S.focus)) S.focus = {};
+  // Один раз: дела без времени и без повтора становятся задачами
+  if (!S.settings.tasksMig) { S.events.forEach(e => { if (e.task == null && !e.time && !isRec(e)) { e.task = true; e.prio = 'mid'; } }); S.settings.tasksMig = 1; }
+});
+
+let tFilter = 'active', tPrio = '';
+const tasksAll = () => S.events.filter(e => e.task && !hiddenCats.has(e.cat));
+const dayTasks = k => evOn(k).filter(e => e.task);
+const taskWeek = () => { const s = weekStartOf(sel); return [...Array(7)].map((_, i) => addDays(s, i)); };
+const shortDate = k => { const d = pd(k); return d.getDate() + ' ' + MONS[d.getMonth()]; };
+function newTask(date) {
+  const wk = taskWeek(), d = date || (sec === 'tasks' && !wk.includes(todayK()) ? wk[0] : todayK());
+  openEvent(null, { task:true, date:d, prio: tPrio || 'mid' });
+}
+function addTaskQuick(raw, d) {
+  raw = raw.trim(); if (!raw) return;
+  const p = parseNL(raw, d);
+  quickCreate(p.found && p.title ? p.title : raw, p.date || d, p.time || '', p.time2 || '', p.cat, { task:true, prio: tPrio || 'mid' });
+}
+
+// Строки таблицы: у повторяющейся задачи — ближайшее повторение
+function taskRows() {
+  let list = tasksAll().map(e => { const k = isRec(e) ? nextOcc(e) : e.date; return { e, k, done: isDone(e, k) }; });
+  if (tFilter === 'active') list = list.filter(x => !x.done); else if (tFilter === 'done') list = list.filter(x => x.done);
+  if (tPrio) list = list.filter(x => prioOf(x.e) === tPrio);
+  const dir = tFilter === 'done' ? -1 : 1;
+  return list.sort((a, b) => a.done - b.done || dir * a.k.localeCompare(b.k) || prioRank(a.e) - prioRank(b.e) || (a.e.time || '').localeCompare(b.e.time || ''));
+}
+const leftTxt = (k, done) => {
+  if (done) return ['—', ''];
+  const n = dayDiff(todayK(), k);
+  return n < 0 ? ['просрочено на ' + plural(-n, NDAY), 'late'] : n === 0 ? ['сегодня', 'now'] : n === 1 ? ['завтра', ''] : ['через ' + plural(n, NDAY), ''];
+};
+const prioSel = e => `<label class="prio-pill" style="--c:${PRIO[prioOf(e)].c}"><select data-prio="${e.id}" aria-label="Приоритет">${PRIO_ORDER.map(p => `<option value="${p}"${prioOf(e) === p ? ' selected' : ''}>${PRIO[p].n}</option>`).join('')}</select></label>`;
+const prioTag = e => `<span class="prio-tag" style="--c:${PRIO[prioOf(e)].c}">${PRIO[prioOf(e)].n}</span>`;
+
+function weekBoard() {
+  const t = todayK();
+  return `<div class="tw">${taskWeek().map(k => {
+    const list = dayTasks(k), done = list.filter(e => e.done).length, n = list.length, d = pd(k);
+    const rows = list.map(e => `<div class="tw-row${e.done ? ' done' : ''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено">${e.done ? I(IC.check, 13) : ''}</button><button class="tw-t" data-act="edit" data-id="${e.id}" data-d="${k}">${esc(e.title)}${e.time ? ` <small>${esc(e.time)}</small>` : ''}</button>${prioOf(e) === 'urgent' || prioOf(e) === 'high' ? `<i class="tw-p" style="--c:${PRIO[prioOf(e)].c}" title="${PRIO[prioOf(e)].n}"></i>` : ''}</div>`).join('');
+    return `<div class="tw-day${k === t ? ' is-today' : ''}${k < t ? ' past' : ''}">
+      <div class="tw-h"><span>${d.getDate()} ${MONS[d.getMonth()]}</span><b>${DOWF[dowIdx(k)]}</b></div>
+      <div class="tw-list">${rows || '<p class="tw-empty">Пусто</p>'}</div>
+      <input class="tw-add" data-d="${k}" type="text" placeholder="+ задача" autocomplete="off" aria-label="Новая задача на ${esc(fmtLong(k))}">
+      <div class="tw-ring">${ringSVG(n ? done / n : 0, 58, 'var(--good)', n ? Math.round(done / n * 100) + '%' : '—', n ? done + ' из ' + n : '')}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function taskTable() {
+  const rows = taskRows();
+  const fl = [['active', 'Активные'], ['done', 'Выполненные'], ['all', 'Все']];
+  return `<div class="card tk-card">
+    <div class="card-h"><b>Мои задачи</b><div class="seg2">${fl.map(([v, n]) => `<button class="${tFilter === v ? 'on' : ''}" data-act="tfilter" data-f="${v}">${n}</button>`).join('')}</div></div>
+    ${tPrio ? `<div class="tk-flt">Только ${prioTag({ prio:tPrio })}<button class="pill sm" data-act="tprio" data-p="">${I(IC.x, 13)} Показать все</button></div>` : ''}
+    <div class="tk-add"><input id="tk_new" class="fin" type="text" placeholder="Новая задача, например «отчёт в пятницу #работа»" autocomplete="off"><div id="tk_hint" class="nlhint"></div></div>
+    <div class="tk-tbl">
+      <div class="tk-row tk-head"><span></span><span>Задача</span><span>Срок</span><span>Осталось</span><span>Приоритет</span><span>Категория</span></div>
+      ${rows.map(({ e, k, done }) => { const [lt, lc] = leftTxt(k, done); return `<div class="tk-row${done ? ' done' : ''}" style="--c:${cat(e.cat).color}">
+        <button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено">${done ? I(IC.check, 13) : ''}</button>
+        <button class="tk-t" data-act="edit" data-id="${e.id}" data-d="${k}"><b>${esc(e.title)}</b>${isRec(e) ? ' <i class="tk-rep" title="Повторяется">↻</i>' : ''}</button>
+        <span class="tk-date">${shortDate(k)}${e.time ? ', ' + esc(e.time) : ''}</span>
+        <span class="tk-left ${lc}">${lt}</span>
+        ${prioSel(e)}
+        <span class="tk-cat"><i></i>${esc(cat(e.cat).name)}</span>
+      </div>`; }).join('') || `<p class="empty" style="padding:10px 4px">${tFilter === 'done' ? 'Выполненных задач пока нет.' : 'Задач нет — напишите первую в поле выше.'}</p>`}
+    </div>
+  </div>`;
+}
+
+function taskSummary() {
+  const act = tasksAll().map(e => ({ e, k: isRec(e) ? nextOcc(e) : e.date })).filter(x => !isDone(x.e, x.k));
+  const cnt = p => act.filter(x => prioOf(x.e) === p).length;
+  const segs = PRIO_ORDER.map(p => ({ name:PRIO[p].n, val:cnt(p), color:PRIO[p].c, tip:`${PRIO[p].n}\n${plural(cnt(p), ['задача', 'задачи', 'задач'])}` }));
+  const byCat = S.cats.map(c => ({ c, n: act.filter(x => x.e.cat === c.id).length })).filter(x => x.n);
+  const wk = taskWeek(), wl = wk.flatMap(k => dayTasks(k)), wd = wl.filter(e => e.done).length;
+  return `<div class="card tk-sum">
+    <div class="card-h"><b>Сводка</b><small>активные задачи</small></div>
+    <div class="tk-sum-top">${donutSVG(segs, 128, String(act.length), act.length === 1 ? 'задача' : 'задач')}
+      <div class="tk-prios">${PRIO_ORDER.map(p => `<button class="tk-pr${tPrio === p ? ' on' : ''}" data-act="tprio" data-p="${p}" style="--c:${PRIO[p].c}"><i></i>${PRIO[p].n}<b>${cnt(p)}</b></button>`).join('')}</div></div>
+    ${byCat.length ? `<div class="tk-cats">${byCat.map(x => `<span style="--c:${x.c.color}"><i></i>${esc(x.c.name)} <b>${x.n}</b></span>`).join('')}</div>` : ''}
+    <div class="tk-week-stat"><span>Выполнено за неделю</span><b>${wd} из ${wl.length}</b></div>
+    <div class="ds-bar"><i style="width:${wl.length ? Math.round(wd / wl.length * 100) : 0}%"></i></div>
+  </div>`;
+}
+
+const focusGet = ym => S.focus[ym] || { title:'', items:[] };
+const focusSet = ym => S.focus[ym] || (S.focus[ym] = { title:'', items:[] });
+function focusCard() {
+  const ym = ymOf(sel), f = focusGet(ym), done = f.items.filter(i => i.done).length;
+  return `<div class="card fz-card">
+    <div class="card-h"><b>Фокус месяца</b><small>${ymTitle(ym)}</small></div>
+    <input id="fz_title" class="fz-title" type="text" value="${esc(f.title)}" placeholder="Главное на месяц, например «закончить проект»" autocomplete="off">
+    <div class="fz-list">${f.items.map((it, i) => `<div class="fz-it${it.done ? ' done' : ''}"><button class="chk" data-act="fzcheck" data-i="${i}" aria-label="Выполнено">${it.done ? I(IC.check, 13) : ''}</button><span>${esc(it.t)}</span><button class="fz-x" data-act="fzdel" data-i="${i}" aria-label="Удалить шаг">${I(IC.x, 14)}</button></div>`).join('')}</div>
+    <input id="fz_add" class="fz-add" type="text" placeholder="+ шаг к цели (Enter)" autocomplete="off">
+    ${f.items.length ? `<div class="fz-prog"><div class="ds-bar"><i style="width:${Math.round(done / f.items.length * 100)}%"></i></div><span>${done} из ${f.items.length}</span></div>` : ''}
+  </div>`;
+}
+
+function taskDynamics() {
+  const ym = ymOf(sel), days = ymDays(ym), t = todayK();
+  const plan = days.map(k => { const n = dayTasks(k).length; return k > t && !n ? null : n; }), done = days.map((k, i) => k <= t ? dayTasks(k).filter(e => e.done).length : null);
+  const top = Math.max(4, Math.ceil(Math.max(0, ...plan.filter(v => v != null)) / 2) * 2);
+  return `<div class="card dyn-card">
+    <div class="card-h"><b>Динамика</b><small>${ymTitle(ym)}</small></div>
+    ${legendHTML([{ name:'Поставлено', color:'var(--mut)' }, { name:'Выполнено', color:'var(--c-blue)' }])}
+    ${chartBox({ kind:'line', xs: days.map(k => String(+k.slice(8))), max:top, yTicks:[0, top / 2, top], tipTitle: i => fmtLong(days[i]),
+      series:[{ name:'поставлено', color:'var(--mut)', vals:plan, dim:true }, { name:'выполнено', color:'var(--c-blue)', vals:done }] }, 170, 'Поставлено и выполнено задач по дням')}
+  </div>`;
+}
+
+function tasksHTML() {
+  const wk = taskWeek(), a = pd(wk[0]), b = pd(wk[6]);
+  const hasAny = S.events.some(e => e.task), demo = S.events.some(e => e.demo);
+  return `${missedBar(true)}${demoBar('tasks', demo)}
+  ${!hasAny ? emptyCard('tasks', 'Задачи', 'Здесь задачи по дням недели, сроки и приоритеты. Задача с датой видна и в календаре. Пишите прямо в колонку дня: «позвонить маме», «отчёт в 15:00 #работа».') : ''}
+  <div class="card tw-card"><div class="card-h"><b>Неделя ${isoWeek(wk[0])}</b><small>${a.getDate()} ${MONS[a.getMonth()]} – ${b.getDate()} ${MONS[b.getMonth()]}</small></div>${weekBoard()}</div>
+  <div class="tk-mid">${taskTable()}${taskSummary()}</div>
+  <div class="tk-bot">${focusCard()}${taskDynamics()}</div>`;
+}
+
+SEC.tasks = {
+  name:'Задачи', icon:IC.tasks, newLabel:'Задача',
+  title: () => { const wk = taskWeek(), a = pd(wk[0]), b = pd(wk[6]); const r = a.getMonth() === b.getMonth() ? `${a.getDate()}–${b.getDate()} ${MONS[b.getMonth()]}` : `${a.getDate()} ${MONS[a.getMonth()]} – ${b.getDate()} ${MONS[b.getMonth()]}`; return innerWidth >= 900 ? `Задачи<span class="sub">неделя ${isoWeek(wk[0])} · ${r}</span>` : r; },
+  html: tasksHTML,
+  move: n => { sel = addDays(sel, 7 * n); syncMini(); },
+  create: () => newTask(),
+  info: () => { const l = dayTasks(todayK()), d = l.filter(e => e.done).length; return l.length ? `Сегодня: <b>${d} из ${l.length}</b>` : 'На сегодня задач нет'; },
+  demo: on => {
+    if (!on) { S.events = S.events.filter(e => !e.demo); Object.keys(S.focus).forEach(k => { if (S.focus[k].demo) delete S.focus[k]; }); return; }
+    const wk = taskWeek(), t = todayK(), c = i => S.cats[i % S.cats.length].id;
+    const L = [[0, 'Составить план на неделю', 'high', 0, 1], [0, 'Ответить на письма', 'mid', 0, 1], [1, '10 000 шагов', 'mid', 2, 1], [1, 'Отчёт для руководителя', 'urgent', 0, 1],
+      [2, 'Позвонить маме', 'high', 1, 0], [2, 'Прочитать 20 страниц', 'low', 3, 1], [3, 'Подготовить презентацию', 'urgent', 0, 0], [3, 'Медитация 10 минут', 'low', 1, 1],
+      [4, 'Оплатить интернет', 'mid', 1, 0], [4, 'Встреча с командой', 'high', 0, 0], [5, 'Уборка в квартире', 'mid', 1, 0], [5, 'Спортзал', 'mid', 2, 0], [6, 'Отдых без телефона', 'low', 1, 0], [6, 'Задачи на следующую неделю', 'high', 0, 0]];
+    L.forEach(([d, title, prio, ci, done]) => { const k = wk[d]; S.events.push({ id:uid(), demo:true, task:true, prio, title, date:k, time:'', time2:'', cat:c(ci), note:'', loc:'', repeat:{ type:'none' }, reminder:{ enabled:false, offset:15, repeat:'none', days:[] }, done: !!done && k <= t, doneDates:[], skip:[] }); });
+    const ym = ymOf(sel);
+    if (!S.focus[ym] || (!S.focus[ym].title && !S.focus[ym].items.length)) S.focus[ym] = { demo:true, title:'Закончить проект по работе', items:[{ t:'Согласовать задачи с руководителем', done:true }, { t:'Составить карту проекта', done:true }, { t:'Закрыть вопросы с отделом', done:false }, { t:'Запуск', done:false }] };
+  },
+};
+
+// Ввод с клавиатуры: Enter в колонке дня, в «Моих задачах» и в «Фокусе месяца»
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  const t = e.target;
+  if (t.classList && t.classList.contains('tw-add')) {
+    e.preventDefault(); const d = t.dataset.d; addTaskQuick(t.value, d);
+    const i = $(`.tw-add[data-d="${d}"]`); if (i) i.focus();
+  } else if (t.id === 'tk_new') {
+    e.preventDefault(); addTaskQuick(t.value, todayK());
+    const i = $('#tk_new'); if (i) i.focus();
+  } else if (t.id === 'fz_add') {
+    e.preventDefault(); const v = t.value.trim(); if (!v) return;
+    snap(); focusSet(ymOf(sel)).items.push({ t:v, done:false }); save(); render();
+    const i = $('#fz_add'); if (i) i.focus();
+  }
+});
+document.addEventListener('input', e => { if (e.target.id === 'tk_new') nlHint(e.target.value.trim() ? parseNL(e.target.value, todayK()) : null, '#tk_hint'); });
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.prio) { const ev = S.events.find(x => x.id === t.dataset.prio); if (!ev) return; snap(); ev.prio = t.value; save(); render(); toast('Приоритет: ' + PRIO[t.value].n, true); }
+  else if (t.id === 'fz_title') { focusSet(ymOf(sel)).title = t.value.trim(); save(); }
+});
+ACT.tfilter = el => { tFilter = el.dataset.f; render(); };
+ACT.tprio = el => { tPrio = tPrio === el.dataset.p ? '' : el.dataset.p; if (tPrio && tFilter === 'done') tFilter = 'active'; render(); };
+ACT.fzcheck = el => { const f = focusSet(ymOf(sel)), it = f.items[+el.dataset.i]; if (!it) return; it.done = !it.done; save(); render(); if (f.items.every(x => x.done)) toast('Все шаги месяца выполнены 🎉'); };
+ACT.fzdel = el => { const f = focusSet(ymOf(sel)); snap(); f.items.splice(+el.dataset.i, 1); save(); render(); toast('Шаг удалён', true); };
