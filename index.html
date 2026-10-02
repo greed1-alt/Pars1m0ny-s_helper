@@ -307,6 +307,28 @@ select.fin{padding-right:6px}
 .cdot.custom input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
 .addcat{width:100%;height:40px;border:1px dashed var(--line);border-radius:var(--r2);color:var(--mut);font-size:13.5px}
 .addcat:hover{color:var(--tx);border-color:var(--mut)}
+.cshare{width:36px;height:36px;border-radius:9px;color:var(--mut);display:grid;place-items:center;flex:none}
+.cshare:hover{background:var(--hov);color:var(--tx)}
+
+/* Поделиться и присланное */
+.shv{border-radius:var(--r2);padding:10px 12px;margin:4px 0 12px;background:color-mix(in srgb,var(--c) var(--mix),var(--bg));box-shadow:inset 3px 0 0 var(--c)}
+.shv b{display:block;font-size:15px;font-weight:600;overflow-wrap:anywhere;color:color-mix(in srgb,var(--c) var(--mixtx),var(--tx))}
+.shv small{display:block;font-size:12.5px;color:var(--tx2);margin-top:2px}
+.shv p{margin:6px 0 0;font-size:13px;color:var(--tx2);white-space:pre-wrap;overflow-wrap:anywhere}
+.shlist{border:1px solid var(--line);border-radius:var(--r2);margin:4px 0 12px;max-height:280px;overflow:auto}
+.shrow{display:flex;align-items:center;gap:10px;padding:7px 10px;border-top:1px solid var(--line)}
+.shrow:first-child{border-top:0}
+.shrow i{width:3px;height:28px;border-radius:2px;background:var(--c);flex:none}
+.shrow div{min-width:0}
+.shrow b{display:block;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shrow small{display:block;font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shmore{padding:7px 10px;font-size:12.5px;color:var(--mut);border-top:1px solid var(--line)}
+.shbtns{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.shbtns .row{display:flex;gap:8px}
+.shbtns .row .btn{flex:1;white-space:nowrap}
+.shnote{font-size:13px;color:var(--tx2);background:var(--bg2);border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px;margin:12px 0 0}
+.shnote b{color:var(--tx)}
+.shlink{width:100%;margin-top:8px;font-size:12px!important;color:var(--tx2)}
 .help{width:100%;border-collapse:collapse;font-size:14px}
 .help td{padding:8px 0;border-top:1px solid var(--line)}
 .help td:last-child{text-align:right;white-space:nowrap}
@@ -383,7 +405,9 @@ select.fin{padding-right:6px}
   #side{display:flex;flex-direction:column;width:264px;flex:none;height:100vh;position:sticky;top:0;overflow-y:auto;background:var(--bg2);border-right:1px solid var(--line);padding:14px 12px 12px}
   .sb-top{display:flex;align-items:center;justify-content:space-between;margin:0 2px 12px}
   .sb-title{font-size:15px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
-  .sb-logo{width:22px;height:22px;border-radius:6px;background:var(--red);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700}
+  .sb-logo{width:22px;height:24px;border-radius:5px;background:var(--sf);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden;display:flex;flex-direction:column;font-size:11px;font-weight:700;line-height:1;color:var(--tx)}
+  .sb-logo::before{content:'';height:6px;flex:none;background:var(--red)}
+  .sb-logo span{flex:1;display:grid;place-items:center}
   .sb-ic{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--tx2)}
   .sb-ic:hover{background:var(--hov);color:var(--tx)}
   .newbtn{width:100%;height:40px;border-radius:var(--r2);font-size:14px;font-weight:600;background:var(--acc);color:var(--accfg);display:flex;align-items:center;justify-content:center;gap:6px;transition:filter .12s,transform .1s}
@@ -417,6 +441,10 @@ select.fin{padding-right:6px}
   .sb-box{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--c);display:grid;place-items:center;color:#fff;flex:none;transition:background .12s}
   .sb-cat.on .sb-box{background:var(--c)}
   .sb-cat .cnt{margin-left:auto;font-size:11.5px;color:var(--mut)}
+  .sb-catw{position:relative}
+  .sb-catw .cshare{position:absolute;right:2px;top:50%;width:26px;height:26px;border-radius:6px;transform:translateY(-50%);opacity:0;transition:opacity .12s}
+  .sb-catw:hover .cshare,.sb-catw .cshare:focus-visible{opacity:1}
+  .sb-catw:hover .cnt{visibility:hidden}
   .sb-add{display:flex;align-items:center;gap:8px;width:100%;padding:6px;font-size:13px;color:var(--mut);border-radius:7px;text-align:left}
   .sb-add:hover{background:var(--hov);color:var(--tx)}
   .tpl{position:relative;display:block;width:100%;text-align:left;border-radius:var(--r2);padding:8px 10px;margin-bottom:6px;background:color-mix(in srgb,var(--c) var(--mix),var(--bg2));box-shadow:inset 3px 0 0 var(--c);cursor:pointer;transition:filter .12s}
@@ -527,6 +555,8 @@ function migrate() {
 migrate();
 const evCache = new Map();
 const save = () => { evCache.clear(); try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} };
+// Метка этого устройства: по ней узнаём свои же ссылки и обновляем присланное, а не дублируем
+if (!S.settings.dev) { S.settings.dev = uid(); save(); }
 let hiddenCats = new Set();
 
 // ---- Иконки ----
@@ -549,7 +579,9 @@ const IC = {
   tpl:'<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>', clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
   day:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M10 14h4"/>',
-  spark:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>'
+  spark:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
+  share:'<path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/>',
+  link:'<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>'
 };
 
 // ---- Даты ----
@@ -805,13 +837,13 @@ const tplSub = t => t.time ? (t.time2 ? t.time + '–' + t.time2 : t.time) : 'В
 function sideHTML() {
   const open = S.settings.tplOpen !== false, n = nextUp();
   const cnt = id => S.events.filter(e => e.cat === id).length;
-  return `<div class="sb-top"><span class="sb-title"><span class="sb-logo">${pd(todayK()).getDate()}</span>Напоминалка</span><button class="sb-ic" data-act="search" aria-label="Поиск" title="Поиск и команды (Ctrl+K)">${I(IC.search)}</button></div>
+  return `<div class="sb-top"><span class="sb-title"><span class="sb-logo" title="Сегодня ${esc(fmtLong(todayK()))}"><span>${pd(todayK()).getDate()}</span></span>Напоминалка</span><button class="sb-ic" data-act="search" aria-label="Поиск" title="Поиск и команды (Ctrl+K)">${I(IC.search)}</button></div>
   <button class="newbtn" data-act="add">${I(IC.plus,16)} Создать событие <kbd>N</kbd></button>
   ${n ? `<div class="sb-next">${nextCard(n)}</div>` : ''}
   <div class="mini-head"><b>${MON[miniAnchor.getMonth()]} ${miniAnchor.getFullYear()}</b><div><button data-act="mprev" aria-label="Предыдущий месяц">${I(IC.left,16)}</button><button data-act="mnext" aria-label="Следующий месяц">${I(IC.right,16)}</button></div></div>
   <div id="mini">${miniHTML()}</div>
   <div class="sb-sec"><div class="sb-h">Мои календари</div>
-  ${S.cats.map(c => `<button type="button" class="sb-cat${hiddenCats.has(c.id)?'':' on'}" data-act="catfilter" data-id="${c.id}" style="--c:${c.color}"><span class="sb-box">${hiddenCats.has(c.id)?'':I(IC.check,11)}</span>${esc(c.name)}<span class="cnt">${cnt(c.id) || ''}</span></button>`).join('')}
+  ${S.cats.map(c => `<div class="sb-catw"><button type="button" class="sb-cat${hiddenCats.has(c.id)?'':' on'}" data-act="catfilter" data-id="${c.id}" style="--c:${c.color}"><span class="sb-box">${hiddenCats.has(c.id)?'':I(IC.check,11)}</span>${esc(c.name)}<span class="cnt">${cnt(c.id) || ''}</span></button><button type="button" class="cshare" data-act="sharecat" data-id="${c.id}" aria-label="Поделиться календарём «${esc(c.name)}»" title="Поделиться">${I(IC.share,14)}</button></div>`).join('')}
   <button class="sb-add" data-act="addcat">${I(IC.plus,15)} Добавить календарь</button></div>
   <div class="sb-sec"><button class="sb-h" data-act="tpltoggle">Шаблоны событий <span>${open?'▾':'▸'}</span></button>
   ${open ? (S.templates.length ? S.templates.map(t => `<div class="tpl" data-act="usetpl" data-id="${t.id}" style="--c:${cat(t.cat).color}" role="button"><b>${esc(t.title)}</b><small>${esc(tplSub(t))}</small><button class="tpx" data-act="deltpl" data-id="${t.id}" aria-label="Удалить шаблон">${I(IC.x,13)}</button></div>`).join('') : '<p class="empty" style="font-size:12.5px;margin:0 4px">Шаблонов нет. Откройте событие и нажмите «В шаблоны».</p>') : ''}
@@ -886,7 +918,7 @@ function toast(msg, withUndo) {
 
 // ---- Окна ----
 const sheet = (h, keep) => { const sh = $('#sh'), top = sh.scrollTop; sh.innerHTML = '<span class="grab"></span>' + h; $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; };
-const closeSheet = () => { $('#ov').classList.remove('show'); delAsk = null; palOpen = null; };
+const closeSheet = () => { $('#ov').classList.remove('show'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; };
 const sheetOpen = () => $('#ov').classList.contains('show');
 const catChips = (selId, act) => S.cats.map(c => `<button type="button" class="ccat${c.id===selId?' on':''}" data-act="${act}" data-id="${c.id}" style="--c:${c.color}"><i></i>${esc(c.name)}</button>`).join('');
 
@@ -927,9 +959,9 @@ function openEvent(id, preset, instDate) {
   window._fe = { id, cat: validCat(e.cat), days: new Set(rep.days && rep.days.length ? rep.days : [dowIdx(e.date)]), inst: instDate || e.date, nl:null, nlOff: !!id, daysTouched: !!(rep.days && rep.days.length) };
   const rec = isRec(e);
   sheet(`<div class="sh-head"><h3>${id ? 'Событие' : 'Новое событие'}</h3>
-    ${id ? `<button class="ic" data-act="dup" title="Дублировать" aria-label="Дублировать">${I(IC.copy,17)}</button><button class="ic" data-act="del" title="Удалить" aria-label="Удалить" style="color:var(--dng)">${I(IC.trash,17)}</button>` : ''}
+    ${id ? `<button class="ic" data-act="shareev" title="Поделиться" aria-label="Поделиться">${I(IC.share,17)}</button><button class="ic" data-act="dup" title="Дублировать" aria-label="Дублировать">${I(IC.copy,17)}</button><button class="ic" data-act="del" title="Удалить" aria-label="Удалить" style="color:var(--dng)">${I(IC.trash,17)}</button>` : ''}
     <button class="ic" data-act="close" title="Закрыть (Esc)" aria-label="Закрыть">${I(IC.x,18)}</button></div>
-  <input id="f_t" class="f-title" placeholder="Название, можно «обед завтра в 13»" value="${esc(e.title)}" autocomplete="off">
+  <input id="f_t" class="f-title" placeholder="Название" value="${esc(e.title)}" autocomplete="off">
   <div id="f_hint" class="nlhint" style="margin:-2px 0 8px"></div>
   ${rec ? `<div class="f-rec">${I(IC.rep,14)} ${esc(repText(e))} · изменения применятся ко всем повторениям</div>` : ''}
   <div class="frow"><span class="fl">Дата</span><input id="f_d" class="fin" type="date" value="${e.date}"></div>
@@ -968,9 +1000,11 @@ function openSettings(keep) {
     <button class="askyes" data-act="delyes" data-id="${c.id}">Удалить</button><button class="askno" data-act="delno">Отмена</button></div>` : `<div class="catedit">
     <button class="cswatch" data-act="catpal" data-id="${c.id}" style="--c:${c.color}" aria-label="Выбрать цвет"></button>
     <input class="cname" data-cat="${c.id}" data-f="name" value="${esc(c.name)}" placeholder="Название">
+    <button class="cshare" data-act="sharecat" data-id="${c.id}" aria-label="Поделиться календарём" title="Поделиться">${I(IC.share,17)}</button>
     <button class="cdel" data-act="delcat" data-id="${c.id}" aria-label="Удалить категорию"${S.cats.length <= 1 ? ' disabled title="Нужна хотя бы одна категория"' : ''}>${I(IC.trash)}</button></div>
     ${palOpen === c.id ? `<div class="cpal">${PALETTE.map(col => `<button class="cdot${col.toLowerCase() === c.color.toLowerCase() ? ' on' : ''}" data-act="setcolor" data-id="${c.id}" data-c="${col}" style="--c:${col}" aria-label="${col}"></button>`).join('')}<label class="cdot custom" title="Свой цвет"><input type="color" data-cat="${c.id}" data-f="color" value="${c.color}"></label></div>` : ''}`).join('')}</div>
   <button class="addcat" data-act="addcat">+ Добавить категорию</button>
+  <button class="btn" style="width:100%;margin-top:8px" data-act="shareall">${I(IC.share,16)} Поделиться всем календарём</button>
   <div class="set-sec">Уведомления</div>
   <div class="nstat"><i class="ndot ${notif.state}"></i><span id="nstat_t">${esc(notif.text)}</span></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri grow" data-act="push">${I(IC.bell,16)} Включить уведомления</button><button class="btn grow" data-act="ntest">Проверить</button></div>
@@ -1012,11 +1046,14 @@ const COMMANDS = () => [
   { ic:IC.gear, t:'Настройки', run:() => openSettings() },
   { ic:IC.key, t:'Горячие клавиши', k:'?', run:openHelp },
   { ic:IC.down, t:'Скачать резервную копию', run:exportData },
+  { ic:IC.share, t:'Поделиться всем календарём', run:() => openShare({ kind:'a' }) },
+  ...S.cats.map(c => ({ ic:IC.share, t:`Поделиться календарём «${c.name}»`, run:() => openShare({ kind:'c', id:c.id }) })),
   { ic:IC.undo, t:'Отменить последнее действие', k:'Ctrl Z', run:undo },
 ];
 function cmdUpdate() {
   const q = $('#cmd_q').value.trim(), ql = q.toLowerCase(), items = [];
-  if (q) {
+  if (shareCode(q)) items.push({ sec:'Присланное', ic:IC.link, t:'Открыть присланную ссылку', s:'событие или календарь', run:() => openShareCode(shareCode(q)) });
+  else if (q) {
     const p = parseNL(q, sel);
     if (p.title) items.push({ sec:'Создать', ic:IC.plus, t:`Создать «${p.title}»`, s: p.found ? p.desc : relDay(sel), run:() => quickCreate(p.title, p.date || sel, p.time || '', p.time2 || '', p.cat) });
     S.events.filter(e => (e.title + ' ' + (e.note||'') + ' ' + (e.loc||'')).toLowerCase().includes(ql))
@@ -1141,6 +1178,16 @@ document.addEventListener('click', async ev => {
   else if (a === 'ntest') testNotif();
   else if (a === 'export') exportData();
   else if (a === 'import') $('#imp_file').click();
+  else if (a === 'shareev') openShare({ kind:'e', id:window._fe.id, inst:window._fe.inst, back:true });
+  else if (a === 'sharecat') openShare({ kind:'c', id, back: sheetOpen() && !!$('.catlist') });
+  else if (a === 'shareall') openShare({ kind:'a', back: sheetOpen() && !!$('.catlist') });
+  else if (a === 'shback') shareBack();
+  else if (a === 'shsend') shareSend();
+  else if (a === 'shcopy') { if (shareCtx && shareCtx.link) copyText(shareCtx.link, 'Ссылка скопирована'); }
+  else if (a === 'shics') shareIcs();
+  else if (a === 'incat') { inbox.target = id; $$('#in_cats .ccat').forEach(b => b.classList.toggle('on', b.dataset.id === id)); }
+  else if (a === 'inadd') applyIncoming();
+  else if (a === 'incopy') copyText(shareURL(inbox.code), 'Ссылка скопирована — вставьте её в поиск Напоминалки');
 });
 document.addEventListener('dblclick', ev => {
   const mc = ev.target.closest('.mc'); if (!mc || ev.target.closest('.mchip,.mmore,.mc-n')) return;
@@ -1203,6 +1250,7 @@ document.addEventListener('input', e => {
     nlHint(p, '#f_hint');
   }
   else if (t.id === 'ds_new') nlHint(t.value.trim() ? parseNL(t.value, sel) : null, '#ds_hint');
+  else if (t.id === 'sh_by') refreshShareLink();
 });
 document.addEventListener('change', e => {
   const t = e.target, st = S.settings;
@@ -1216,6 +1264,7 @@ document.addEventListener('change', e => {
   else if (t.id === 'f_d') syncRepDays();
   else if (t.id === 'f_rep') { syncRepDays(); $('#f_repx').style.display = t.value === 'none' ? 'none' : 'block'; $('#f_days').style.display = t.value === 'weekly' ? 'flex' : 'none'; }
   else if (t.id === 'imp_file') importData(t);
+  else if (t.id === 'sh_notes') refreshShareLink();
 });
 
 // ---- Перетаскивание и растягивание событий ----
@@ -1376,11 +1425,254 @@ document.addEventListener('touchend', e => {
   if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5) move(dx < 0 ? 1 : -1);
 }, {passive:true});
 
+// ---- Поделиться: ссылка, файл .ics и приём присланного ----
+// Ссылка несёт сами события (сжатые) после «#share=». Часть адреса после «#» не уходит на сервер.
+// Это копия: повторная отправка обновляет копию у получателя (по полю src), а не дублирует.
+// Друзья и общие календари, которые обновляются сами, появятся вместе с аккаунтами.
+const SHARE_MAX = 12000;   // ссылки длиннее мессенджеры могут обрезать
+const plural = (n, f) => n + ' ' + f[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
+const NEV = ['событие','события','событий'];
+const safeColor = c => /^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '#94a3b8';
+const isDate = s => /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(s || '');
+const isTime = s => /^([01]\d|2[0-3]):[0-5]\d$/.test(s || '');
+const b64u = bytes => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); };
+const pipeBytes = (bytes, stream) => new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer().then(b => new Uint8Array(b));
+async function packShare(obj) {
+  const raw = new TextEncoder().encode(JSON.stringify(obj));
+  if (typeof CompressionStream === 'function') { try { return 'z' + b64u(await pipeBytes(raw, new CompressionStream('deflate-raw'))); } catch (x) {} }
+  return 'j' + b64u(raw);
+}
+async function unpackShare(code) {
+  const bytes = b64(code.slice(1));
+  const raw = code[0] === 'z' ? await pipeBytes(bytes, new DecompressionStream('deflate-raw')) : bytes;
+  const p = JSON.parse(new TextDecoder().decode(raw));
+  if (!p || p.v !== 1 || !Array.isArray(p.ev) || !Array.isArray(p.cs) || !p.cs.length) throw new Error('не та ссылка');
+  p.dv = String(p.dv || '').slice(0, 40); p.by = String(p.by || '').slice(0, 40);
+  p.cs = p.cs.map(c => ({ i:String(c.i), n:String(c.n || 'Календарь').slice(0, 60), c:safeColor(c.c) }));
+  return p;
+}
+const shareCode = s => { const m = String(s || '').match(/#share=([zj][A-Za-z0-9_-]+)/); return m ? m[1] : ''; };
+const shareURL = code => location.origin + location.pathname + '#share=' + code;
+const liveEv = e => isRec(e) ? !(e.repeat.until && e.repeat.until < todayK()) : e.date >= todayK();
+const evWhen = e => relDay(nextOcc(e)) + (e.time ? ', ' + e.time + (e.time2 ? '–' + e.time2 : '') : '') + (isRec(e) ? ' · ' + repText(e).toLowerCase() : '');
+const shareListHTML = (list, max) => list.length ? `<div class="shlist">${list.slice(0, max).map(e => `<div class="shrow"><i style="--c:${e.color || cat(e.cat).color}"></i><div><b>${esc(e.title)}</b><small>${esc(evWhen(e))}</small></div></div>`).join('')}${list.length > max ? `<div class="shmore">и ещё ${list.length - max}</div>` : ''}</div>` : '';
+// Присланное событие → обычное событие (всё проверяем: ссылка пришла извне)
+const fromShared = o => ({
+  title: String(o.t || 'Без названия').slice(0, 200), date: isDate(o.d) ? o.d : todayK(),
+  time: isTime(o.s) ? o.s : '', time2: isTime(o.s) && isTime(o.e) ? o.e : '',
+  repeat: o.r && o.r.type !== 'none' && REP[o.r.type] ? { type:o.r.type, until: isDate(o.r.until) ? o.r.until : '', days: Array.isArray(o.r.days) ? o.r.days.filter(d => Number.isInteger(d) && d >= 0 && d <= 6) : [] } : { type:'none' },
+  skip: Array.isArray(o.k) ? o.k.filter(isDate) : [], loc: String(o.l || '').slice(0, 500), note: String(o.n || '').slice(0, 5000),
+  reminder: { enabled: o.m != null, offset: o.m != null ? Number(o.m) || 0 : 15, repeat:'none', days:[] } });
+
+let shareCtx = null, inbox = null;
+// kind: 'e' — одно событие, 'c' — календарь (категория), 'a' — все календари
+function shareItems(c) {
+  if (c.kind === 'e') return S.events.filter(e => e.id === c.id);
+  return S.events.filter(e => (c.kind === 'a' || e.cat === c.id) && liveEv(e)).sort((a, b) => nextOcc(a).localeCompare(nextOcc(b)) || (a.time||'').localeCompare(b.time||''));
+}
+function sharePayload(c) {
+  const list = shareItems(c), ids = new Set(list.map(e => e.cat));
+  if (c.kind === 'c') ids.add(c.id);
+  const cs = S.cats.filter(x => ids.has(x.id)).map(x => ({ i:x.id, n:x.name, c:x.color }));
+  if (!cs.length) cs.push({ i:'none', n:'Без категории', c:'#94a3b8' });
+  const ev = list.map(e => {
+    const o = { i:e.id, c:e.cat, t:e.title, d:e.date };
+    if (e.time) o.s = e.time; if (e.time2) o.e = e.time2;
+    if (isRec(e)) { o.r = e.repeat; if (e.skip && e.skip.length) o.k = e.skip; }
+    if (e.reminder && e.reminder.enabled) o.m = Number(e.reminder.offset) || 0;
+    if (c.notes) { if (e.loc) o.l = e.loc; if (e.note) o.n = e.note; }
+    return o;
+  });
+  const p = { v:1, k:c.kind, dv:S.settings.dev, cs, ev }, by = (S.settings.name || '').trim();
+  if (by) p.by = by;
+  return p;
+}
+function openShare(c) {
+  closeQuick();
+  const list = shareItems(c);
+  if (c.kind === 'e' && !list.length) return;
+  shareCtx = Object.assign({ notes: c.kind === 'e', link:'', tok:0 }, c);
+  const e0 = list[0], cc = c.kind === 'c' ? cat(c.id) : null, hasNotes = list.some(e => e.note || e.loc);
+  const what = c.kind === 'e' ? 'событием' : 'календарём';
+  const preview = c.kind === 'e'
+    ? `<div class="shv" style="--c:${cat(e0.cat).color}"><b>${esc(e0.title)}</b><small>${esc(evWhen(e0))}</small>${e0.loc ? `<small>${esc(e0.loc)}</small>` : ''}</div>`
+    : `<div class="shv" style="--c:${cc ? cc.color : 'var(--acc)'}"><b>${cc ? esc(cc.name) : 'Все календари'}</b><small>${list.length ? plural(list.length, NEV) + ' — текущие и будущие' : 'Пока нет текущих и будущих событий'}</small></div>${shareListHTML(list, 5)}`;
+  sheet(`<div class="sh-head">${c.back ? `<button class="ic" data-act="shback" aria-label="Назад" title="Назад">${I(IC.left,18)}</button>` : ''}<h3>Поделиться ${what}</h3><button class="ic" data-act="close" title="Закрыть (Esc)" aria-label="Закрыть">${I(IC.x,18)}</button></div>
+  ${preview}
+  <div class="frow"><span class="fl">Подпись</span><input id="sh_by" class="fin" type="text" value="${esc(S.settings.name || '')}" placeholder="Ваше имя" maxlength="40" autocomplete="off"></div>
+  ${hasNotes ? `<div class="frow"><span class="fl">Заметки</span><label class="swl" style="margin-top:9px"><input id="sh_notes" class="sw" type="checkbox"${shareCtx.notes ? ' checked' : ''}> Отправить с заметками и местом</label></div>` : ''}
+  <div class="shbtns">
+    ${navigator.share ? `<button class="btn pri" data-act="shsend" disabled>${I(IC.share,16)} Отправить…</button>` : ''}
+    <div class="row"><button class="btn${navigator.share ? '' : ' pri'}" data-act="shcopy" disabled>${I(IC.link,16)} Скопировать ссылку</button><button class="btn" data-act="shics">${I(IC.down,16)} Файл .ics</button></div>
+  </div>
+  <div id="sh_msg"></div>
+  <p class="set-note">Получатель откроет ссылку в Напоминалке и добавит ${c.kind === 'e' ? 'событие' : 'события'} к себе. Это копия: если что-то поменяете — отправьте ссылку ещё раз, у получателя всё обновится без дублей.</p>
+  <p class="set-note">Файл .ics открывается в Google, Apple и Яндекс Календаре.</p>`);
+  refreshShareLink();
+}
+// Ссылку готовим заранее: iPhone разрешает «Поделиться» и копирование только сразу после нажатия
+async function refreshShareLink() {
+  const c = shareCtx; if (!c) return;
+  const by = $('#sh_by'), nt = $('#sh_notes'), tok = ++c.tok;
+  if (by && by.value.trim() !== (S.settings.name || '')) { S.settings.name = by.value.trim(); save(); }
+  if (nt) c.notes = nt.checked;
+  const code = await packShare(sharePayload(c));
+  if (shareCtx !== c || tok !== c.tok) return;
+  c.link = shareURL(code);
+  const long = c.link.length > SHARE_MAX;
+  $$('[data-act=shsend],[data-act=shcopy]').forEach(b => b.disabled = long);
+  const m = $('#sh_msg'); if (m) m.innerHTML = long ? '<p class="shnote">Слишком много событий для одной ссылки — мессенджер может её обрезать. Отправьте <b>файл .ics</b> или поделитесь календарями по отдельности.</p>' : '';
+}
+function shareSend() {
+  const c = shareCtx; if (!c || !c.link) return;
+  const list = shareItems(c);
+  const text = c.kind === 'e' ? `${list[0].title} — ${evWhen(list[0])}` : `${c.kind === 'c' ? 'Календарь «' + cat(c.id).name + '»' : 'Мой календарь'} в Напоминалке · ${plural(list.length, NEV)}`;
+  navigator.share({ title:'Напоминалка', text, url:c.link }).catch(x => { if (x.name !== 'AbortError') copyText(c.link, 'Ссылка скопирована'); });
+}
+function copyText(s, ok) {
+  const showField = () => { const m = $('#sh_msg'); if (!m) return; m.innerHTML = `<input class="fin shlink" readonly value="${esc(s)}">`; const i = m.querySelector('input'); i.focus(); i.select(); toast('Скопируйте ссылку из поля'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(s).then(() => toast(ok), showField);
+  else showField();
+}
+function shareBack() {
+  const c = shareCtx; shareCtx = null;
+  if (!c) return closeSheet();
+  if (c.kind === 'e') return openEvent(c.id, null, c.inst);
+  palOpen = null; delAsk = null; openSettings();
+  setTimeout(() => { const l = $('.catlist'); if (l) l.scrollIntoView({ block:'center' }); }, 30);
+}
+
+// Файл .ics (стандарт RFC 5545): время «плавающее» — у получателя событие встанет на те же часы
+function icsText(list, calName, notes) {
+  const dt = (d, t) => d.replace(/-/g, '') + (t ? 'T' + t.replace(':', '') + '00' : '');
+  const txt = s => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  const fold = line => {   // строки не длиннее 75 байт
+    const parts = []; let cur = '', n = 0, lim = 75;
+    for (const ch of line) { const cp = ch.codePointAt(0), b = cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4; if (n + b > lim) { parts.push(cur); cur = ''; n = 0; lim = 74; } cur += ch; n += b; }
+    parts.push(cur); return parts.join('\r\n ');
+  };
+  const BY = ['MO','TU','WE','TH','FR','SA','SU'], stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Napominalka//RU', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+  if (calName) L.push('X-WR-CALNAME:' + txt(calName));
+  list.forEach(e => {
+    L.push('BEGIN:VEVENT', 'UID:' + e.id + '@napominalka', 'DTSTAMP:' + stamp, 'SUMMARY:' + txt(e.title));
+    // Начало — первый настоящий день повтора: другие календари всегда показывают DTSTART, даже если он не по правилу
+    let d0 = e.date;
+    if (isRec(e)) for (let i = 0; i < 400 && !occurs(e, d0); i++) d0 = addDays(d0, 1);
+    if (e.time) { const end = e.time2 && timeMin(e.time2) > timeMin(e.time) ? e.time2 : fmtMin(Math.min(1439, timeMin(e.time) + 60)); L.push('DTSTART:' + dt(d0, e.time), 'DTEND:' + dt(d0, end)); }
+    else L.push('DTSTART;VALUE=DATE:' + dt(d0), 'DTEND;VALUE=DATE:' + dt(addDays(d0, 1)));
+    if (isRec(e)) {
+      const r = e.repeat;
+      let rule = { daily:'FREQ=DAILY', weekdays:'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', weekly:'FREQ=WEEKLY;BYDAY=' + (r.days && r.days.length ? r.days : [dowIdx(e.date)]).map(i => BY[i]).join(','), monthly:'FREQ=MONTHLY', yearly:'FREQ=YEARLY' }[r.type];
+      if (rule) { if (r.until) rule += ';UNTIL=' + dt(r.until) + (e.time ? 'T235959' : ''); L.push('RRULE:' + rule); }
+      (e.skip || []).forEach(k => L.push(e.time ? 'EXDATE:' + dt(k, e.time) : 'EXDATE;VALUE=DATE:' + dt(k)));
+    }
+    if (notes && e.loc) L.push('LOCATION:' + txt(e.loc));
+    if (notes && e.note) L.push('DESCRIPTION:' + txt(e.note));
+    if (e.reminder && e.reminder.enabled) L.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + txt(e.title), 'TRIGGER:-PT' + (Number(e.reminder.offset) || 0) + 'M', 'END:VALARM');
+    L.push('END:VEVENT');
+  });
+  L.push('END:VCALENDAR');
+  return L.map(fold).join('\r\n') + '\r\n';
+}
+function shareIcs() {
+  const c = shareCtx; if (!c) return;
+  const list = shareItems(c); if (!list.length) return toast('Нет событий для файла');
+  const name = c.kind === 'c' ? cat(c.id).name : c.kind === 'a' ? 'Напоминалка' : '';
+  const fname = (c.kind === 'e' ? list[0].title : name).replace(/[\\/:*?"<>|#%]+/g, ' ').trim().slice(0, 40) || 'napominalka';
+  const file = new File([icsText(list, name, c.notes)], fname + '.ics', { type:'text/calendar' });
+  // На телефоне — меню «Поделиться» (там есть «Сохранить в Файлы» и мессенджеры), на ПК — обычное скачивание
+  if (matchMedia('(pointer:coarse)').matches && navigator.canShare && navigator.canShare({ files:[file] })) navigator.share({ files:[file], title:fname }).catch(() => {});
+  else { saveFile(file, file.name); toast('Файл .ics сохранён'); }
+}
+
+// ---- Приём присланной ссылки ----
+async function openShareCode(code) {
+  let p;
+  try { p = await unpackShare(code); } catch (x) { return toast('Ссылка повреждена или обрезана — попросите прислать её ещё раз'); }
+  closeCmd(); closeQuick();
+  const sc = p.cs[0], pre = p.dv + ':';
+  const prev = S.cats.find(x => x.src === pre + sc.i), same = S.cats.find(x => x.name.trim().toLowerCase() === sc.n.trim().toLowerCase());
+  const own = p.dv === S.settings.dev && S.cats.find(x => x.id === sc.i);
+  // Куда класть: прежняя копия этого календаря → свой календарь → для события тот же по названию, для календаря новый
+  const target = prev ? prev.id : own ? own.id : p.k === 'e' ? (same || S.cats[0]).id : 'new';
+  inbox = { p, code, target };
+  drawInbox();
+}
+function drawInbox() {
+  const b = inbox, p = b.p, sc = p.cs[0], pre = p.dv + ':';
+  const colorOf = o => (p.cs.find(x => x.i === o.c) || sc).c;
+  const evs = p.ev.map(o => Object.assign(fromShared(o), { color: colorOf(o) }));
+  const prev = S.cats.find(x => x.src === pre + sc.i), own = p.dv === S.settings.dev;
+  const safari = isIOS && navigator.standalone !== true;
+  let body;
+  if (p.k === 'e') { const e = evs[0] || fromShared({}); body = `<div class="shv" style="--c:${e.color || sc.c}"><b>${esc(e.title)}</b><small>${esc(evWhen(e))}</small>${e.loc ? `<small>${esc(e.loc)}</small>` : ''}${e.note ? `<p>${esc(e.note)}</p>` : ''}</div>`; }
+  else body = `<div class="shv" style="--c:${p.k === 'c' ? sc.c : 'var(--acc)'}"><b>${p.k === 'c' ? esc(sc.n) : esc(p.cs.map(c => c.n).join(', '))}</b><small>${evs.length ? plural(evs.length, NEV) : 'Пока без событий'}</small></div>${shareListHTML(evs, 30)}`;
+  const where = p.k === 'a'
+    ? `<p class="set-note" style="margin-top:0">Каждый календарь появится у вас отдельно${p.by ? ` с подписью «· ${esc(p.by)}»` : ''}. Если вы уже добавляли их раньше — они обновятся.</p>`
+    : `<div class="frow" style="border-top:0"><span class="fl">Куда</span><div class="ccats" id="in_cats">${prev ? '' : `<button type="button" class="ccat${b.target === 'new' ? ' on' : ''}" data-act="incat" data-id="new" style="--c:${sc.c}"><i></i>Новый «${esc(sc.n)}»</button>`}${catChips(b.target, 'incat')}</div></div>
+      ${prev && p.k === 'c' ? '<p class="set-note" style="margin-top:0">Вы уже добавляли этот календарь — он обновится: новые события появятся, изменённые поменяются.</p>' : ''}`;
+  const n = evs.length, addLbl = p.k === 'e' ? 'Добавить в календарь' : n ? 'Добавить ' + plural(n, NEV) : 'Добавить календарь';
+  sheet(`<div class="sh-head"><h3>Вам прислали</h3><button class="ic" data-act="close" title="Закрыть (Esc)" aria-label="Закрыть">${I(IC.x,18)}</button></div>
+  ${p.by ? `<p class="set-note" style="margin:0 0 8px"><b style="color:var(--tx)">${esc(p.by)}</b> делится ${p.k === 'e' ? 'событием' : 'календарём'}</p>` : ''}
+  ${body}${where}
+  ${own ? '<p class="shnote">Это ваша собственная ссылка — эти события уже есть в календаре. Если добавить, появятся копии.</p>' : ''}
+  ${safari ? '<p class="shnote">Ссылка открылась в Safari, а не в приложении на экране «Домой» — у них раздельная память. Чтобы добавить в приложение: <b>скопируйте ссылку</b>, откройте Напоминалку с экрана «Домой», нажмите поиск и вставьте ссылку.</p>' : ''}
+  <div class="shbtns">${safari
+    ? `<button class="btn pri" data-act="incopy">${I(IC.link,16)} Скопировать ссылку</button><div class="row"><button class="btn" data-act="inadd">Добавить здесь</button><button class="btn" data-act="close">Не нужно</button></div>`
+    : `<div class="row"><button class="btn pri" data-act="inadd">${I(IC.plus,16)} ${addLbl}</button><button class="btn" data-act="close" style="flex:0 0 auto">Не нужно</button></div>`}</div>
+  <div id="sh_msg"></div>`);
+}
+function applyIncoming() {
+  const b = inbox; if (!b) return;
+  const p = b.p, pre = p.dv + ':', tmap = {};
+  snap();
+  const newCat = sc => { const c = { id:'c' + uid(), name: sc.n + (p.by ? ' · ' + p.by : ''), color:sc.c, src:pre + sc.i }; S.cats.push(c); return c.id; };
+  p.cs.forEach(sc => {
+    if (p.k === 'a') { const prev = S.cats.find(x => x.src === pre + sc.i); tmap[sc.i] = prev ? prev.id : newCat(sc); }
+    else tmap[sc.i] = b.target === 'new' ? newCat(sc) : validCat(b.target);
+  });
+  let added = 0, upd = 0, first = null;
+  const seen = new Set();
+  p.ev.forEach(o => {
+    const src = pre + String(o.i), data = Object.assign(fromShared(o), { cat: tmap[o.c] || tmap[p.cs[0].i] });
+    seen.add(src);
+    let ex = S.events.find(x => x.src === src);
+    if (ex) { Object.assign(ex, data); upd++; }
+    else { ex = Object.assign({ id:uid(), src, done:false, doneDates:[], skip:[] }, data); S.events.push(ex); added++; }
+    first = first || ex;
+  });
+  // Календарь прислали снова: убираем из нашей копии текущие события, которых у отправителя больше нет
+  let rem = 0;
+  if (p.k !== 'e') {
+    const copies = new Set(Object.values(tmap).filter(id => { const c = S.cats.find(x => x.id === id); return c && c.src && c.src.startsWith(pre); }));
+    const before = S.events.length;
+    S.events = S.events.filter(x => !(copies.has(x.cat) && x.src && x.src.startsWith(pre) && !seen.has(x.src) && liveEv(x)));
+    rem = before - S.events.length;
+  }
+  Object.values(tmap).forEach(id => hiddenCats.delete(id));
+  inbox = null;
+  if (first) { sel = nextOcc(first); syncMini(); monthAnchor = pd(sel); monthAnchor.setDate(1); }
+  save(); closeSheet(); render();
+  const parts = []; if (added) parts.push('добавлено ' + plural(added, NEV)); if (upd) parts.push('обновлено ' + plural(upd, NEV)); if (rem) parts.push('убрано ' + plural(rem, NEV));
+  const msg = parts.length ? parts.join(', ') : 'календарь добавлен';
+  toast(msg[0].toUpperCase() + msg.slice(1), true);
+}
+function checkShareHash() {
+  const code = shareCode(location.hash); if (!code) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  openShareCode(code);
+}
+addEventListener('hashchange', checkShareHash);
+
 // ---- Данные: копия и загрузка ----
-function exportData() {
-  const blob = new Blob([JSON.stringify(S, null, 2)], { type:'application/json' }), a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = `napominalka-${todayK()}.json`;
+function saveFile(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function exportData() {
+  saveFile(new Blob([JSON.stringify(S, null, 2)], { type:'application/json' }), `napominalka-${todayK()}.json`);
   toast('Копия сохранена в файл');
 }
 function importData(input) {
@@ -1471,6 +1763,7 @@ $('.btn-new').innerHTML = I(IC.plus, 17) + 'Создать';
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 render();
 checkNotif();
+checkShareHash();
 </script>
 </body>
 </html>
