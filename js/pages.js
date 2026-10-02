@@ -80,7 +80,7 @@ function homeHTML() {
   const hero = `<div class="card hm-hero">
     <div class="hm-hi">
       <div class="hm-date">${DOWF[dowIdx(t)]}, ${d.getDate()} ${MONG[d.getMonth()]}</div>
-      <h2 class="hm-greet">${greet()}${name ? `, <span>${esc(name)}</span>` : ''}</h2>
+      <h2 class="hm-greet">${greet()}${name ? ', ' + esc(name) : ''}</h2>
       <p class="hm-line">${esc(DAY_LINES[dnum(t) % DAY_LINES.length])}</p>
       <div class="hm-quick">${QUICK.map(([k, ic, n]) => `<button class="btn" data-act="hmnew" data-k="${k}">${I(ic, 16)} ${n}</button>`).join('')}</div>
       ${name ? '' : `<button class="hm-ask" data-act="sec" data-s="profile">${I(IC.user, 14)} Как вас зовут? Заполните профиль</button>`}
@@ -232,13 +232,21 @@ const ACH = [
   ['🎯', 'Большая мечта', 'Поставить цель на год', s => s.ygSet ? 1 : 0, 1],
   ['🗓️', 'Месяц вместе', `30 дней с ${APP_NAME}`, s => s.days, 30],
 ];
-// Уровень: опыт за задачи, привычки, самочувствие, заметки, записи о деньгах и достижения
-function levelOf(s) {
-  const got = ACH.filter(a => a[3](s) >= a[4]).length;
-  const xp = s.tasksDone * 10 + s.marks * 5 + s.bioDays * 3 + s.notes * 5 + s.ops * 2 + got * 50;
-  const n = Math.floor(Math.sqrt(xp / 40)) + 1, from = 40 * (n - 1) ** 2, to = 40 * n ** 2;
-  return { n, xp, from, to, got, pct: Math.round((xp - from) / (to - from) * 100) };
+// Достижения: получено ли и насколько близко к цели
+const achState = s => ACH.map(([e, n, dsc, f, goal]) => { const v = f(s); return { e, n, dsc, v, goal, ok: v >= goal, p: Math.min(1, v / goal) }; });
+const achSorted = l => [...l.filter(a => a.ok), ...l.filter(a => !a.ok).sort((a, b) => b.p - a.p)];   // сначала полученные, потом самые близкие
+const achHTML = a => `<div class="ach-i${a.ok ? '' : ' lock'}"><span class="ach-e" aria-hidden="true">${a.e}</span><span class="ach-t"><b>${esc(a.n)}</b><small>${esc(a.dsc)}</small>${a.ok ? '<em>Получено</em>' : `<span class="ach-p"><span class="ds-bar"><i style="width:${Math.round(a.p * 100)}%"></i></span><small>${a.goal >= 1000 ? rub0(a.v) + ' / ' + rub0(a.goal) : NF0.format(Math.min(a.v, a.goal)) + ' / ' + NF0.format(a.goal)}</small></span>`}</span></div>`;
+function openAchievements() {
+  const l = achState(profileStats());
+  sheet(`<div class="sh-head"><h3>Достижения · ${l.filter(a => a.ok).length} из ${ACH.length}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  <div class="ach ach-all">${achSorted(l).map(achHTML).join('')}</div>`);
 }
+ACT.achall = openAchievements;
+// «Пригласить друга»: пока просто ссылка на приложение; друзья появятся вместе с аккаунтами
+ACT.invite = () => {
+  const url = location.origin + location.pathname, text = `Попробуй ${APP_NAME} — календарь, задачи, привычки и финансы в одном месте.`;
+  if (navigator.share) navigator.share({ title:APP_NAME, text, url }).catch(() => {}); else copyText(text + ' ' + url, 'Ссылка скопирована — отправьте её другу');
+};
 // Обложки профиля: градиенты с мягкими бликами (или своё фото)
 const COVERS = {
   dusk:'linear-gradient(120deg,#3a1c71 0%,#d76d77 55%,#ffaf7b 100%)', ocean:'linear-gradient(120deg,#0f2027 0%,#2c5364 50%,#4ca1af 100%)',
@@ -260,7 +268,7 @@ function bdayInfo(b) {
 }
 
 function profileHTML() {
-  const st = S.settings, s = profileStats(), lv = levelOf(s), name = (st.name || '').trim(), sd = pd(st.since || todayK()), bd = bdayInfo(st.birthday);
+  const st = S.settings, s = profileStats(), ach = achState(s), got = ach.filter(a => a.ok).length, name = (st.name || '').trim(), sd = pd(st.since || todayK()), bd = bdayInfo(st.birthday);
   const place = [st.city, st.country].filter(Boolean).join(', '), soc = (st.socials || []).filter(x => x && safeUrl(x.url));
   const tile = (label, val, sub) => `<div class="ft-t"><span>${label}</span><b>${val}</b><small>${sub}</small></div>`;
   const det = [
@@ -274,8 +282,7 @@ function profileHTML() {
       <button class="pf-ava" data-act="pe" data-tab="look" aria-label="Сменить аватар" title="Сменить аватар">${avatarHTML(104)}<span class="pf-edit">${I(IC.edit, 14)}</span></button>
       <div class="pf-who">
         <h2 class="pf-nm">${name ? esc(name) : '<span class="ph">Как вас зовут?</span>'}</h2>
-        <div class="pf-tags"><span class="lvl" title="${NF0.format(lv.xp)} очков опыта"><b>${lv.n}</b> уровень</span>${st.nick ? `<span class="pf-nick">@${esc(st.nick)}</span>` : ''}${st.motto ? `<span class="pf-motto-t">${esc(st.motto)}</span>` : ''}</div>
-        <div class="lvl-bar" title="До ${lv.n + 1} уровня — ${NF0.format(lv.to - lv.xp)} очков"><i style="width:${lv.pct}%"></i></div>
+        ${st.nick || st.motto ? `<div class="pf-tags">${st.nick ? `<span class="pf-nick">@${esc(st.nick)}</span>` : ''}${st.motto ? `<span class="pf-motto-t">${esc(st.motto)}</span>` : ''}</div>` : ''}
       </div>
       <div class="pf-acts"><button class="btn pri" data-act="pe" data-tab="main">${I(IC.edit, 15)} Редактировать профиль</button><button class="btn pf-more" data-act="pfmenu" aria-label="Ещё" title="Ещё">${I(IC.more, 18)}</button></div>
     </div>
@@ -295,9 +302,20 @@ function profileHTML() {
       ${tile('Заметок', NF0.format(s.notes), 'в архиве')}
     </div>
   </div>
-  <div class="card"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения</b><small>${lv.got} из ${ACH.length} · ${NF0.format(lv.xp)} очков опыта</small></div>
-    <div class="ach">${ACH.map(([e, n, dsc, f, goal]) => { const v = f(s), ok = v >= goal;
-      return `<div class="ach-i${ok ? '' : ' lock'}"><span class="ach-e" aria-hidden="true">${e}</span><span class="ach-t"><b>${esc(n)}</b><small>${esc(dsc)}</small>${ok ? '<em>Получено</em>' : `<span class="ach-p"><span class="ds-bar"><i style="width:${Math.min(100, Math.round(v / goal * 100))}%"></i></span><small>${goal >= 1000 ? rub0(v) + ' / ' + rub0(goal) : NF0.format(Math.min(v, goal)) + ' / ' + NF0.format(goal)}</small></span>`}</span></div>`; }).join('')}</div></div>`;
+  <div class="card"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения</b><span class="card-h-r"><small>${got} из ${ACH.length}</small><button class="pill sm" data-act="achall">Все достижения →</button></span></div>
+    <div class="ach ach4">${achSorted(ach).slice(0, 4).map(achHTML).join('')}</div></div>
+  <div class="pf-two">
+    <div class="card pf-friends"><div class="card-h"><b>${I(IC.users, 17)} Друзья</b><span class="soon">Скоро</span></div>
+      <div class="fr-ghost" aria-hidden="true">${[0, 1, 2, 3, 4].map(i => `<span style="--i:${i}"></span>`).join('')}</div>
+      <p class="hm-empty">Добавляйте друзей, смотрите их календари и соревнуйтесь в привычках. Появится вместе с аккаунтами.</p>
+      <div class="hm-foot"><button class="btn" data-act="invite">${I(IC.share, 15)} Пригласить друга</button></div>
+    </div>
+    <div class="card pf-plans"><div class="card-h"><b>${I(IC.spark, 17)} Тарифы</b><span class="soon">Скоро</span></div>
+      <div class="plans"><div class="plan cur"><small>Сейчас</small><b>Базовый</b><span>бесплатно</span></div><div class="plan pro"><small>Скоро</small><b>Премиум</b><span>стоимость — позже</span></div></div>
+      <ul class="plan-perks"><li>${I(IC.spark, 14)} Переливающееся имя в профиле и на Главной</li><li>${I(IC.check, 14)} Синхронизация iPhone и компьютера</li><li>${I(IC.check, 14)} Друзья и общие календари</li></ul>
+      <p class="set-note" style="margin-top:6px">Здесь будут тарифы, их возможности и цены.</p>
+    </div>
+  </div>`;
 }
 // Меню «⋯» рядом с «Редактировать профиль»
 ACT.pfmenu = el => {
@@ -309,8 +327,8 @@ ACT.pfmenu = el => {
 };
 ACT.pfshare = () => {
   closeQuick();
-  const st = S.settings, s = profileStats(), lv = levelOf(s), url = location.origin + location.pathname;
-  const text = `${(st.name || '').trim() || 'Я'} в ${APP_NAME}: ${lv.n} уровень, выполнено задач — ${s.tasksDone}, серия привычек — ${plural(s.cur, NDAY)}, достижений — ${lv.got} из ${ACH.length}.`;
+  const st = S.settings, s = profileStats(), got = achState(s).filter(a => a.ok).length, url = location.origin + location.pathname;
+  const text = `${(st.name || '').trim() || 'Я'} в ${APP_NAME}: выполнено задач — ${s.tasksDone}, серия привычек — ${plural(s.cur, NDAY)}, достижений — ${got} из ${ACH.length}.`;
   if (navigator.share) navigator.share({ title:APP_NAME, text, url }).catch(() => {}); else copyText(text + ' ' + url, 'Скопировано — можно вставить в мессенджер');
 };
 ACT.pe = el => { peTab = el.dataset.tab || 'main'; closeQuick(); if (sec === 'profedit') render(); else setSec('profedit'); };
@@ -366,9 +384,9 @@ function profEditHTML() {
         <label class="pe-f full"><span>Девиз</span><input class="fin" data-pf="motto" value="${v('motto')}" maxlength="90" placeholder="Каждый день — шаг к мечте" autocomplete="off"></label>
         <label class="pe-f full"><span>Обо мне</span><textarea class="fin hn-text" data-pf="about" maxlength="2048" placeholder="Напишите что-нибудь о себе…">${v('about')}</textarea><em class="pe-cnt" id="pe_cnt">${(st.about || '').length}/2048</em></label>
         <label class="pe-f"><span>День рождения</span><input class="fin" type="date" data-pf="birthday" value="${v('birthday')}" max="${todayK()}"></label>
-        <label class="pe-f"><span>Страна</span><input class="fin" data-pf="country" value="${v('country')}" list="pe_countries" placeholder="Россия" autocomplete="country-name"><datalist id="pe_countries">${COUNTRIES.map(c => `<option value="${c}">`).join('')}</datalist></label>
-        <label class="pe-f"><span>Город</span><input class="fin" data-pf="city" value="${v('city')}" placeholder="Москва" autocomplete="address-level2"></label>
-        <label class="pe-f"><span>Ник</span><span class="pe-pre"><i>@</i><input class="fin" data-pf="nick" value="${v('nick')}" maxlength="24" placeholder="greed_g" autocomplete="off"></span></label>
+        <label class="pe-f"><span>Страна</span><input class="fin" data-pf="country" value="${v('country')}" list="pe_countries" placeholder="Ваша страна" autocomplete="country-name"><datalist id="pe_countries">${COUNTRIES.map(c => `<option value="${c}">`).join('')}</datalist></label>
+        <label class="pe-f"><span>Город</span><input class="fin" data-pf="city" value="${v('city')}" placeholder="Ваш город" autocomplete="address-level2"></label>
+        <label class="pe-f"><span>Ник</span><input class="fin" data-pf="nick" value="${v('nick')}" maxlength="24" placeholder="Ваш ник" autocomplete="off"></label>
       </div></div>
     <div class="card"><div class="pe-sec">Я в социальных сетях<small>Покажите, где вас ещё найти — ссылки появятся в профиле</small></div>
       ${(st.socials || []).map((x, i) => `<div class="pe-soc"><input class="fin" data-soc="${i}" data-f="url" value="${esc(x.url || '')}" placeholder="https://" inputmode="url" autocomplete="off" aria-label="Ссылка"><input class="fin" data-soc="${i}" data-f="title" value="${esc(x.title || '')}" placeholder="Я в соцсети" autocomplete="off" aria-label="Заголовок"><button class="cdel" data-act="socdel" data-i="${i}" aria-label="Удалить ссылку">${I(IC.trash)}</button></div>`).join('')}

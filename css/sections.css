@@ -43,8 +43,11 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .hm-hero{display:flex;align-items:center;gap:16px;padding:18px 18px;background:linear-gradient(135deg,color-mix(in srgb,var(--wm) 10%,var(--bg)) 0%,var(--bg) 62%)}
 .hm-hi{flex:1;min-width:0}
 .hm-date{font-size:13px;color:var(--mut);font-weight:500}
-.hm-greet{margin:2px 0 6px;font-family:var(--serif);font-weight:400;font-size:32px;line-height:1.1;letter-spacing:-.005em}
-.hm-greet span{font-style:italic;background-image:linear-gradient(100deg,var(--tx),var(--wm));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;padding-right:.06em}
+.hm-greet{margin:2px 0 6px;font-family:var(--font);font-weight:700;font-size:28px;line-height:1.15;letter-spacing:-.025em}
+/* ПЛАТНАЯ ПОДПИСКА (раздел «Тарифы», позже): переливающееся имя. Сейчас класс нигде не включён — имя везде обычное.
+   Чтобы включить для подписчиков: добавить .name-shine к имени на Главной и в профиле. */
+.name-shine{background-image:linear-gradient(100deg,var(--tx) 0%,var(--tx) 25%,var(--wm) 50%,var(--tx) 75%,var(--tx) 100%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:nameShine 6s ease-in-out infinite}
+@keyframes nameShine{0%,100%{background-position:100% 0}50%{background-position:0% 0}}
 .hm-line{margin:0 0 14px;color:var(--tx2);font-size:14px;max-width:560px}
 .hm-quick{display:flex;flex-wrap:wrap;gap:6px}
 .hm-quick .btn{height:34px;font-size:13px;padding:0 11px;background:var(--bg)}
@@ -127,12 +130,8 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .pf-nm{margin:0;font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15;overflow-wrap:anywhere}
 .pf-nm .ph{color:var(--mut);font-weight:500}
 .pf-tags{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
-.lvl{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px 0 3px;border-radius:7px;background:color-mix(in srgb,var(--wm) 18%,var(--bg));color:color-mix(in srgb,var(--wm) 70%,var(--tx));font-size:12.5px;font-weight:600}
-.lvl b{display:grid;place-items:center;min-width:20px;height:18px;padding:0 5px;border-radius:5px;background:var(--wm);color:#fff;font-size:12px}
 .pf-nick{font-size:13px;color:var(--tx2);font-weight:500}
 .pf-motto-t{font-size:13.5px;color:var(--tx2)}
-.lvl-bar{height:4px;border-radius:2px;background:var(--hov2);overflow:hidden;margin-top:9px;max-width:260px}
-.lvl-bar i{display:block;height:100%;border-radius:2px;background:var(--wm)}
 .pf-acts{display:flex;gap:8px;align-items:center}
 .pf-acts .btn{height:38px}
 .pf-more{width:38px;padding:0}
@@ -164,9 +163,6 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .pe-f>span:first-child{font-size:12.5px;color:var(--tx2);font-weight:500}
 .pe-f textarea{min-height:110px}
 .pe-cnt{position:absolute;right:10px;bottom:8px;font-style:normal;font-size:11px;color:var(--mut);pointer-events:none}
-.pe-pre{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding-left:10px}
-.pe-pre i{font-style:normal;color:var(--mut)}
-.pe-pre .fin{border:0;box-shadow:none!important;padding-left:4px}
 .pe-soc{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:8px;margin-bottom:8px;align-items:center}
 .pe-ava{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .pe-btns{display:flex;gap:8px;flex-wrap:wrap}
@@ -188,6 +184,24 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .pf-id small{display:block;font-size:12.5px;color:var(--mut);margin-top:6px}
 .pf-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .ach{display:grid;grid-template-columns:1fr;gap:8px}
+.card-h-r{display:inline-flex;align-items:center;gap:10px}
+.card-h-r small{font-size:12.5px;color:var(--mut)}
+.ach-all{grid-template-columns:1fr!important}
+.pf-two{display:flex;flex-direction:column;gap:12px}
+.pf-friends,.pf-plans{display:flex;flex-direction:column}
+.pf-friends .card-h,.pf-plans .card-h{margin-bottom:12px}
+.fr-ghost{display:flex;margin:0 0 12px 6px}
+.fr-ghost span{width:40px;height:40px;border-radius:50%;margin-left:-8px;border:3px solid var(--bg);background:color-mix(in srgb,var(--c-blue) calc(10% + var(--i) * 6%),var(--hov))}
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.plan{border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px}
+.plan small{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+.plan b{display:block;font-size:15px;margin:2px 0}
+.plan span{font-size:12.5px;color:var(--tx2)}
+.plan.cur{background:var(--hov)}
+.plan.pro{border-color:color-mix(in srgb,var(--wm) 45%,var(--line));background:color-mix(in srgb,var(--wm) 7%,var(--bg))}
+.plan-perks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.plan-perks li{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx2)}
+.plan-perks svg{color:var(--wm);flex:none}
 .ach-i{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r2);min-width:0}
 .ach-e{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:22px;flex:none;background:color-mix(in srgb,var(--c-yellow) 18%,var(--bg))}
 .ach-i.lock .ach-e{filter:grayscale(1);opacity:.45;background:var(--hov)}
@@ -632,7 +646,9 @@ button.sbl:hover{background:var(--hov)}
 @media(min-width:900px){
   main.sec{padding:18px 24px 48px;gap:16px}
   .hm-hero{padding:24px 28px;gap:24px}
-  .hm-greet{font-size:42px}
+  .hm-greet{font-size:36px}
+  .ach4{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .pf-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch}
   .hm-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:stretch}
   .pf-cover{height:200px}
   .pf-bar{padding:0 24px 20px}
