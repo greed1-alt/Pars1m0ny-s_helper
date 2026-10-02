@@ -1556,8 +1556,11 @@ function icsText(list, calName, notes) {
   if (calName) L.push('X-WR-CALNAME:' + txt(calName));
   list.forEach(e => {
     L.push('BEGIN:VEVENT', 'UID:' + e.id + '@napominalka', 'DTSTAMP:' + stamp, 'SUMMARY:' + txt(e.title));
-    if (e.time) { const end = e.time2 && timeMin(e.time2) > timeMin(e.time) ? e.time2 : fmtMin(Math.min(1439, timeMin(e.time) + 60)); L.push('DTSTART:' + dt(e.date, e.time), 'DTEND:' + dt(e.date, end)); }
-    else L.push('DTSTART;VALUE=DATE:' + dt(e.date), 'DTEND;VALUE=DATE:' + dt(addDays(e.date, 1)));
+    // Начало — первый настоящий день повтора: другие календари всегда показывают DTSTART, даже если он не по правилу
+    let d0 = e.date;
+    if (isRec(e)) for (let i = 0; i < 400 && !occurs(e, d0); i++) d0 = addDays(d0, 1);
+    if (e.time) { const end = e.time2 && timeMin(e.time2) > timeMin(e.time) ? e.time2 : fmtMin(Math.min(1439, timeMin(e.time) + 60)); L.push('DTSTART:' + dt(d0, e.time), 'DTEND:' + dt(d0, end)); }
+    else L.push('DTSTART;VALUE=DATE:' + dt(d0), 'DTEND;VALUE=DATE:' + dt(addDays(d0, 1)));
     if (isRec(e)) {
       const r = e.repeat;
       let rule = { daily:'FREQ=DAILY', weekdays:'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', weekly:'FREQ=WEEKLY;BYDAY=' + (r.days && r.days.length ? r.days : [dowIdx(e.date)]).map(i => BY[i]).join(','), monthly:'FREQ=MONTHLY', yearly:'FREQ=YEARLY' }[r.type];
