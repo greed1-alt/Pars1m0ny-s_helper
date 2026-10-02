@@ -3,7 +3,7 @@
 const SEC = {};
 // SEC_ORDER — основные разделы (боковая панель и вкладки телефона); «Профиль» и «Настройки» — внизу панели
 const SEC_ORDER = ['home', 'cal', 'tasks', 'habits', 'fin'];
-const SEC_ALL = [...SEC_ORDER, 'profile', 'settings'];
+const SEC_ALL = [...SEC_ORDER, 'profile', 'profedit', 'settings'];
 // При запуске — «Главная» (или последний раздел, если так выбрано в настройках)
 let sec = S.settings.startSec === 'last' && SEC_ALL.includes(S.settings.sec) ? S.settings.sec : 'home';
 SEC.cal = { name:'Календарь', icon:IC.cal, newLabel:'Создать' };

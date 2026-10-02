@@ -133,11 +133,11 @@ function sideHTML() {
   const top = `<div class="sb-top"><button class="sb-title" data-act="sec" data-s="home" title="Главная"><span class="sb-logo" title="Сегодня ${esc(fmtLong(todayK()))}"><span>${pd(todayK()).getDate()}</span></span><span class="wordmark">${APP_NAME}</span></button><button class="sb-ic" data-act="search" aria-label="Поиск" title="Поиск и команды (Ctrl+K)">${I(IC.search)}</button></div>
   ${navHTML()}`;
   const foot = `<div class="sb-foot">
-    <button class="sb-link sb-prof${sec === 'profile' ? ' on' : ''}" data-act="sec" data-s="profile">${avatarHTML(22)}<span>${esc((S.settings.name || '').trim() || 'Профиль')}</span></button>
+    <button class="sb-link sb-prof${sec === 'profile' || sec === 'profedit' ? ' on' : ''}" data-act="sec" data-s="profile">${avatarHTML(22)}<span>${esc((S.settings.name || '').trim() || 'Профиль')}</span></button>
     <button class="sb-link${sec === 'settings' ? ' on' : ''}" data-act="sec" data-s="settings" title="Уведомления: ${esc(notif.short)}">${I(IC.gear,15)} Настройки</button>
     <button class="sb-link" data-act="help">${I(IC.key,15)} Горячие клавиши <kbd>?</kbd></button>
   </div>`;
-  if (sec === 'profile' || sec === 'settings') return `${top}${foot}`;
+  if (sec === 'profile' || sec === 'profedit' || sec === 'settings') return `${top}${foot}`;
   const mini = `<div class="mini-head"><b>${MON[miniAnchor.getMonth()]} ${miniAnchor.getFullYear()}</b><div><button data-act="mprev" aria-label="Предыдущий месяц">${I(IC.left,16)}</button><button data-act="mnext" aria-label="Следующий месяц">${I(IC.right,16)}</button></div></div>
   <div id="mini">${miniHTML()}</div>`;
   if (sec !== 'cal') return `${top}<button class="newbtn" data-act="add">${I(IC.plus,16)} ${SEC[sec].newLabel} <kbd>N</kbd></button>
@@ -182,6 +182,7 @@ function render(dir) {
   $('#ttl').innerHTML = cal ? titleHTML() : S2.title();
   $$('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === view));
   const bn = $('.btn-new'); if (bn) bn.innerHTML = I(IC.plus, 17) + (S2.newLabel || '');
+  const ha = $('.hdr-ava'); if (ha) { ha.innerHTML = avatarHTML(28); ha.classList.toggle('on', sec === 'profile' || sec === 'profedit'); }
   const si = $('#secinfo'); if (si) si.innerHTML = !cal && S2.info ? S2.info() : '';
   root.style.setProperty('--hh', $('header').offsetHeight + 'px');
   const main = $('#main'), oldW = $('.wgwrap'), oldTop = oldW ? oldW.scrollTop : null;

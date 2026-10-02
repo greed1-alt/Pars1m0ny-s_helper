@@ -15,11 +15,31 @@ onMigrate(() => {
   }
 });
 
-// Аватар: эмодзи или буквы имени на цветном кружке
 const initials = n => (n || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+// Аватар: своё фото, эмодзи или буквы имени на цветном кружке
+const okImg = s => /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s || '');
 function avatarHTML(size) {
   const a = S.settings.avatar || {}, n = initials(S.settings.name), c = /^#[0-9a-f]{3,8}$/i.test(a.c || '') ? a.c : '#6366f1';
+  if (okImg(a.img)) return `<span class="ava img" style="--c:${c};--s:${size}px;background-image:url(${a.img})" aria-hidden="true"></span>`;
   return `<span class="ava${a.e ? ' em' : ''}" style="--c:${c};--s:${size}px" aria-hidden="true">${a.e ? esc(a.e) : n ? esc(n) : I(IC.user, Math.round(size * .55))}</span>`;
+}
+// Картинка с устройства → квадрат или полоса нужного размера (обрезка по центру), JPEG — чтобы влезло в память браузера
+function loadImageFile(file, w, h) {
+  return new Promise((ok, fail) => {
+    if (!file || !/^image\//.test(file.type)) return fail(new Error('это не картинка'));
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.max(w / img.naturalWidth, h / img.naturalHeight), sw = w / k, sh = h / k;
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      let q = .85, d = cv.toDataURL('image/jpeg', q);
+      while (d.length > 450000 && q > .4) { q -= .15; d = cv.toDataURL('image/jpeg', q); }
+      ok(d);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); fail(new Error('не получилось открыть картинку')); };
+    img.src = url;
+  });
 }
 
 // ---- Главная: всё на сегодня в одном месте ----
@@ -48,6 +68,9 @@ const DAY_LINES = [
 ];
 const QUICK = [['event', IC.cal, 'Событие'], ['task', IC.tasks, 'Задача'], ['habit', IC.habit, 'Привычка'], ['op', IC.wallet, 'Расход'], ['note', IC.note, 'Заметка']];
 let hmNoteDraft = '';
+// На Главной в карточке не больше нескольких пунктов, остальное — ссылкой в раздел
+const HM_MAX = { tasks:5, habits:6, events:5, bio:6 };
+const hmMore = (n, forms, s) => n > 0 ? `<button class="hm-more" data-act="sec" data-s="${s}">Ещё ${plural(n, forms)} →</button>` : '';
 
 function homeHTML() {
   const t = todayK(), d = pd(t), name = (S.settings.name || '').trim(), nm = nowMin();
@@ -66,21 +89,24 @@ function homeHTML() {
   </div>`;
 
   const tomorrowN = dayTasks(addDays(t, 1)).length;
+  const tShow = [...tasks.filter(e => !e.done), ...tasks.filter(e => e.done)].slice(0, HM_MAX.tasks);   // сначала невыполненные
   const taskCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.tasks, 17)} Задачи на сегодня</b><small>${tasks.length ? tDone + ' из ' + tasks.length : ''}</small></div>
-    <div class="hm-list">${tasks.map(e => `<div class="tw-row${e.done ? ' done' : ''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${t}" aria-label="Выполнено">${e.done ? I(IC.check, 13) : ''}</button><button class="tw-t" data-act="edit" data-id="${e.id}" data-d="${t}">${esc(e.title)}${e.time ? ` <small>${esc(e.time)}</small>` : ''}</button>${prioOf(e) === 'urgent' || prioOf(e) === 'high' ? `<i class="tw-p" style="--c:${PRIO[prioOf(e)].c}" title="${PRIO[prioOf(e)].n}"></i>` : ''}</div>`).join('') || '<p class="hm-empty">На сегодня задач нет — напишите первую ниже.</p>'}</div>
+    <div class="hm-list">${tShow.map(e => `<div class="tw-row${e.done ? ' done' : ''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${t}" aria-label="Выполнено">${e.done ? I(IC.check, 13) : ''}</button><button class="tw-t" data-act="edit" data-id="${e.id}" data-d="${t}">${esc(e.title)}${e.time ? ` <small>${esc(e.time)}</small>` : ''}</button>${prioOf(e) === 'urgent' || prioOf(e) === 'high' ? `<i class="tw-p" style="--c:${PRIO[prioOf(e)].c}" title="${PRIO[prioOf(e)].n}"></i>` : ''}</div>`).join('') || '<p class="hm-empty">На сегодня задач нет — напишите первую ниже.</p>'}${hmMore(tasks.length - tShow.length, ['задача', 'задачи', 'задач'], 'tasks')}</div>
     <input class="tw-add" data-d="${t}" type="text" placeholder="+ задача, например «позвонить в 18»" autocomplete="off" aria-label="Новая задача на сегодня">
     <div class="hm-foot"><span>${tomorrowN ? 'Завтра: ' + plural(tomorrowN, ['задача', 'задачи', 'задач']) : 'На завтра пока пусто'}</span><button data-act="sec" data-s="tasks">Все задачи →</button></div></div>`;
 
-  const sk = habitStreaks();
+  const sk = habitStreaks(), hShow = [...habs.filter(h => !h.log[t]), ...habs.filter(h => h.log[t])].slice(0, HM_MAX.habits);
   const habCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.habit, 17)} Привычки сегодня</b><small>${habs.length ? hDone + ' из ' + habs.length : ''}</small></div>
-    ${habs.length ? `<div class="hm-habs">${habs.map(h => { const on = !!h.log[t]; return `<button class="hm-hab${on ? ' on' : ''}" data-act="hmark" data-id="${h.id}" data-k="${t}" aria-pressed="${on}"><span class="em">${esc(h.emoji || '•')}</span><span class="nm">${esc(h.name)}</span><i>${on ? I(IC.check, 14) : ''}</i></button>`; }).join('')}</div>`
+    ${habs.length ? `<div class="hm-habs">${hShow.map(h => { const on = !!h.log[t]; return `<button class="hm-hab${on ? ' on' : ''}" data-act="hmark" data-id="${h.id}" data-k="${t}" aria-pressed="${on}"><span class="em">${esc(h.emoji || '•')}</span><span class="nm">${esc(h.name)}</span><i>${on ? I(IC.check, 14) : ''}</i></button>`; }).join('')}${hmMore(habs.length - hShow.length, ['привычка', 'привычки', 'привычек'], 'habits')}</div>`
       : `<div class="hm-list"><p class="hm-empty">Привычек пока нет. Начните с одной — например, «2 литра воды».</p><button class="btn" data-act="hmnew" data-k="habit" style="align-self:flex-start">${I(IC.plus, 15)} Добавить привычку</button></div>`}
     <div class="hm-foot"><span>${sk.cur > 1 ? `🔥 ${plural(sk.cur, NDAY)} подряд` : sk.best > 1 ? `Лучшая серия: ${plural(sk.best, NDAY)}` : ''}</span><button data-act="sec" data-s="habits">Трекер →</button></div></div>`;
 
-  const evs = evOn(t).filter(e => !e.task), nx = nextUp(t);
-  const calCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.cal, 17)} Сегодня в календаре</b><small>${evs.length ? plural(evs.length, NEV) : ''}</small></div>
-    <div class="hm-evs">${evs.map(e => { const end = timeMin(e.time2) != null && timeMin(e.time2) > timeMin(e.time) ? timeMin(e.time2) : timeMin(e.time) + 60, past = e.time && end <= nm, next = nx && nx.e.id === e.id;
-      return `<button class="hm-ev${past ? ' past' : ''}${next ? ' next' : ''}" data-act="edit" data-id="${e.id}" data-d="${t}" style="--c:${cat(e.cat).color}"><span class="t">${e.time ? timeRange(e) : 'весь день'}</span><i></i><span class="n">${esc(e.title)}${next ? `<small>${esc(nx.label)}</small>` : ''}</span></button>`; }).join('') || '<p class="hm-empty">Событий нет — свободный день.</p>'}</div>
+  const evAll = evOn(t).filter(e => !e.task), nx = nextUp(t);
+  const evEnd = e => timeMin(e.time2) != null && timeMin(e.time2) > timeMin(e.time) ? timeMin(e.time2) : timeMin(e.time) + 60;
+  const evs = [...evAll.filter(e => !e.time || evEnd(e) > nm), ...evAll.filter(e => e.time && evEnd(e) <= nm)].slice(0, HM_MAX.events);   // сначала предстоящие
+  const calCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.cal, 17)} Сегодня в календаре</b><small>${evAll.length ? plural(evAll.length, NEV) : ''}</small></div>
+    <div class="hm-evs">${evs.map(e => { const past = e.time && evEnd(e) <= nm, next = nx && nx.e.id === e.id;
+      return `<button class="hm-ev${past ? ' past' : ''}${next ? ' next' : ''}" data-act="edit" data-id="${e.id}" data-d="${t}" style="--c:${cat(e.cat).color}"><span class="t">${e.time ? timeRange(e) : 'весь день'}</span><i></i><span class="n">${esc(e.title)}${next ? `<small>${esc(nx.label)}</small>` : ''}</span></button>`; }).join('') || '<p class="hm-empty">Событий нет — свободный день.</p>'}${hmMore(evAll.length - evs.length, NEV, 'cal')}</div>
     <div class="hm-foot"><button data-act="hmnew" data-k="event">+ Событие</button><button data-act="sec" data-s="cal">Календарь →</button></div></div>`;
 
   const ym = ymOf(t), st = finStat(ym), lim = dailyLimit(st, ym);
@@ -92,7 +118,7 @@ function homeHTML() {
     ${ops.length ? `<div class="hm-ops">${ops.slice(0, 4).map(o => { const c = fcat(o.cat), plus = c.g === 'inc'; return `<button class="hm-op" data-act="opedit" data-id="${o.id}"><span class="em">${esc(c.emoji || '•')}</span><span class="n">${esc(o.note || c.name)}</span><b class="${plus ? 'plus' : ''}">${plus ? '+' : '−'}${rub0(o.amt)}</b></button>`; }).join('')}</div>` : '<div class="hm-list"></div>'}
     <div class="hm-foot"><span>Расходы за месяц: ${rub0(st.spent)}</span><button data-act="sec" data-s="fin">Финансы →</button></div></div>`;
 
-  const M = S.bio.metrics, filled = M.filter(m => bioVal(t, m.id) != null).length;
+  const M = S.bio.metrics.slice(0, HM_MAX.bio), filled = M.filter(m => bioVal(t, m.id) != null).length;
   const bioCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.spark, 17)} Самочувствие</b><small>${filled ? filled + ' из ' + M.length : 'как вы сегодня?'}</small></div>
     <div class="hm-bio">${M.map(m => { const v = bioVal(t, m.id), opts = m.type === 'hours' ? [5, 6, 7, 8, 9, 10] : [1, 2, 3, 4, 5];
       return `<div class="hm-bm"><span class="nm">${esc(m.emoji || '')} ${esc(m.name)}${v != null && !opts.includes(v) ? ` <small>${fmtNum(v)}</small>` : ''}</span><div class="hm-sc">${opts.map(o => `<button class="${v === o ? 'on' : ''}" data-act="hmbio" data-m="${m.id}" data-v="${o}" aria-label="${esc(m.name)}: ${o}" aria-pressed="${v === o}">${o}</button>`).join('')}</div></div>`; }).join('')}</div>
@@ -206,56 +232,189 @@ const ACH = [
   ['🎯', 'Большая мечта', 'Поставить цель на год', s => s.ygSet ? 1 : 0, 1],
   ['🗓️', 'Месяц вместе', `30 дней с ${APP_NAME}`, s => s.days, 30],
 ];
-function profileHTML() {
-  const st = S.settings, s = profileStats(), sd = pd(st.since || todayK());
+// Уровень: опыт за задачи, привычки, самочувствие, заметки, записи о деньгах и достижения
+function levelOf(s) {
   const got = ACH.filter(a => a[3](s) >= a[4]).length;
+  const xp = s.tasksDone * 10 + s.marks * 5 + s.bioDays * 3 + s.notes * 5 + s.ops * 2 + got * 50;
+  const n = Math.floor(Math.sqrt(xp / 40)) + 1, from = 40 * (n - 1) ** 2, to = 40 * n ** 2;
+  return { n, xp, from, to, got, pct: Math.round((xp - from) / (to - from) * 100) };
+}
+// Обложки профиля: градиенты с мягкими бликами (или своё фото)
+const COVERS = {
+  dusk:'linear-gradient(120deg,#3a1c71 0%,#d76d77 55%,#ffaf7b 100%)', ocean:'linear-gradient(120deg,#0f2027 0%,#2c5364 50%,#4ca1af 100%)',
+  aurora:'linear-gradient(120deg,#0b486b 0%,#3b8686 45%,#79bd9a 100%)', lavender:'linear-gradient(120deg,#a18cd1 0%,#fbc2eb 100%)',
+  forest:'linear-gradient(120deg,#134e5e 0%,#71b280 100%)', sand:'linear-gradient(120deg,#c79081 0%,#dfa579 100%)',
+  night:'linear-gradient(120deg,#141e30 0%,#243b55 100%)', peach:'linear-gradient(120deg,#ffecd2 0%,#fcb69f 100%)',
+  sky:'linear-gradient(120deg,#89f7fe 0%,#66a6ff 100%)', rose:'linear-gradient(120deg,#ee9ca7 0%,#ffdde1 100%)',
+  mint:'linear-gradient(120deg,#d4fc79 0%,#96e6a1 100%)', mono:'linear-gradient(120deg,#232526 0%,#414345 100%)',
+};
+const COVER_GLOW = 'radial-gradient(circle at 15% 125%,rgba(255,255,255,.32),transparent 45%),radial-gradient(circle at 88% -30%,rgba(255,255,255,.26),transparent 42%)';
+const coverCSS = () => { const c = S.settings.cover || {}; return okImg(c.img) ? `background-image:url(${c.img})` : `background-image:${COVER_GLOW},${COVERS[c.p] || COVERS.dusk}`; };
+// Ссылки на соцсети: только http(s), без «https://» пользователь может не писать
+const safeUrl = u => { u = String(u || '').trim(); if (!u) return ''; if (!/^https?:\/\//i.test(u)) u = 'https://' + u; try { const x = new URL(u); return /^https?:$/.test(x.protocol) && x.hostname.includes('.') ? x.href : ''; } catch (e) { return ''; } };
+const hostOf = u => { try { return new URL(safeUrl(u)).hostname.replace(/^www\./, ''); } catch (e) { return ''; } };
+function bdayInfo(b) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(b || '')) return null;
+  const t = todayK(), y = Number(t.slice(0, 4)); let next = y + b.slice(4); if (next < t) next = (y + 1) + b.slice(4);
+  return { d: pd(b), days: dayDiff(t, next), age: Number(next.slice(0, 4)) - Number(b.slice(0, 4)) };
+}
+
+function profileHTML() {
+  const st = S.settings, s = profileStats(), lv = levelOf(s), name = (st.name || '').trim(), sd = pd(st.since || todayK()), bd = bdayInfo(st.birthday);
+  const place = [st.city, st.country].filter(Boolean).join(', '), soc = (st.socials || []).filter(x => x && safeUrl(x.url));
   const tile = (label, val, sub) => `<div class="ft-t"><span>${label}</span><b>${val}</b><small>${sub}</small></div>`;
-  return `<div class="card pf-head">
-    <button class="pf-ava" data-act="pfava" aria-label="Выбрать аватар" title="Выбрать аватар">${avatarHTML(84)}<span class="pf-edit">${I(IC.edit, 14)}</span></button>
-    <div class="pf-id">
-      <input id="pf_name" class="pf-name" type="text" value="${esc(st.name || '')}" placeholder="Как вас зовут?" maxlength="40" autocomplete="name" aria-label="Имя">
-      <input id="pf_motto" class="pf-motto" type="text" value="${esc(st.motto || '')}" placeholder="Девиз или главная мечта — будет мотивировать" maxlength="90" autocomplete="off" aria-label="Девиз">
-      <small>С ${APP_NAME} с ${sd.getDate()} ${MONG[sd.getMonth()]} ${sd.getFullYear()} · ${plural(s.days, NDAY)}</small>
+  const det = [
+    bd ? `<li>${I(IC.gift, 16)}<span>День рождения — ${bd.d.getDate()} ${MONG[bd.d.getMonth()]}${bd.days === 0 ? ' · сегодня! 🎉' : bd.days <= 30 ? ' · через ' + plural(bd.days, NDAY) : ''}</span></li>` : '',
+    place ? `<li>${I(IC.globe, 16)}<span>${esc(place)}</span></li>` : '',
+    `<li>${I(IC.cal, 16)}<span>С ${APP_NAME} с ${sd.getDate()} ${MONG[sd.getMonth()]} ${sd.getFullYear()} · ${plural(s.days, NDAY)}</span></li>`,
+  ].join('');
+  return `<div class="card pf-card">
+    <div class="pf-cover" style="${coverCSS()}"><button class="pf-cover-edit" data-act="pe" data-tab="look">${I(IC.edit, 14)} Обложка</button></div>
+    <div class="pf-bar">
+      <button class="pf-ava" data-act="pe" data-tab="look" aria-label="Сменить аватар" title="Сменить аватар">${avatarHTML(104)}<span class="pf-edit">${I(IC.edit, 14)}</span></button>
+      <div class="pf-who">
+        <h2 class="pf-nm">${name ? esc(name) : '<span class="ph">Как вас зовут?</span>'}</h2>
+        <div class="pf-tags"><span class="lvl" title="${NF0.format(lv.xp)} очков опыта"><b>${lv.n}</b> уровень</span>${st.nick ? `<span class="pf-nick">@${esc(st.nick)}</span>` : ''}${st.motto ? `<span class="pf-motto-t">${esc(st.motto)}</span>` : ''}</div>
+        <div class="lvl-bar" title="До ${lv.n + 1} уровня — ${NF0.format(lv.to - lv.xp)} очков"><i style="width:${lv.pct}%"></i></div>
+      </div>
+      <div class="pf-acts"><button class="btn pri" data-act="pe" data-tab="main">${I(IC.edit, 15)} Редактировать профиль</button><button class="btn pf-more" data-act="pfmenu" aria-label="Ещё" title="Ещё">${I(IC.more, 18)}</button></div>
     </div>
   </div>
-  <div class="pf-stats">
-    ${tile('Задач выполнено', NF0.format(s.tasksDone), 'за всё время')}
-    ${tile('Серия привычек', plural(s.cur, NDAY), 'лучшая — ' + plural(s.best, NDAY))}
-    ${tile('Отметок привычек', NF0.format(s.marks), 'за всё время')}
-    ${tile('Отложено', rub0(s.saved), 'раздел «Накопления»')}
-    ${tile('Записей о деньгах', NF0.format(s.ops), 'доходы и траты')}
-    ${tile('Заметок', NF0.format(s.notes), 'в архиве')}
+  <div class="pf-cols">
+    <div class="card pf-about"><div class="card-h"><b>Обо мне</b><button class="pill sm" data-act="pe" data-tab="main">${I(IC.edit, 13)} Изменить</button></div>
+      ${st.about ? `<p class="pf-about-t">${esc(st.about)}</p>` : '<p class="hm-empty">Расскажите о себе: чем занимаетесь, что для вас важно, к чему стремитесь.</p>'}
+      <ul class="pf-det">${det}</ul>
+      ${soc.length ? `<div class="pf-soc">${soc.map(x => `<a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener noreferrer">${I(IC.link, 14)} ${esc((x.title || '').trim() || hostOf(x.url))}</a>`).join('')}</div>` : ''}
+    </div>
+    <div class="pf-stats">
+      ${tile('Задач выполнено', NF0.format(s.tasksDone), 'за всё время')}
+      ${tile('Серия привычек', plural(s.cur, NDAY), 'лучшая — ' + plural(s.best, NDAY))}
+      ${tile('Отметок привычек', NF0.format(s.marks), 'за всё время')}
+      ${tile('Отложено', rub0(s.saved), 'раздел «Накопления»')}
+      ${tile('Записей о деньгах', NF0.format(s.ops), 'доходы и траты')}
+      ${tile('Заметок', NF0.format(s.notes), 'в архиве')}
+    </div>
   </div>
-  <div class="card"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения</b><small>${got} из ${ACH.length}</small></div>
+  <div class="card"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения</b><small>${lv.got} из ${ACH.length} · ${NF0.format(lv.xp)} очков опыта</small></div>
     <div class="ach">${ACH.map(([e, n, dsc, f, goal]) => { const v = f(s), ok = v >= goal;
-      return `<div class="ach-i${ok ? '' : ' lock'}"><span class="ach-e" aria-hidden="true">${e}</span><span class="ach-t"><b>${esc(n)}</b><small>${esc(dsc)}</small>${ok ? '<em>Получено</em>' : `<span class="ach-p"><span class="ds-bar"><i style="width:${Math.min(100, Math.round(v / goal * 100))}%"></i></span><small>${goal >= 1000 ? rub0(v) + ' / ' + rub0(goal) : NF0.format(Math.min(v, goal)) + ' / ' + NF0.format(goal)}</small></span>`}</span></div>`; }).join('')}</div></div>
-  <div class="card"><div class="card-h"><b>${I(IC.user, 17)} Аккаунт</b></div>
-    <div class="acc-row"><span class="acc-t"><b>Данные на этом устройстве</b><small>Всё хранится в браузере. Делайте копию, чтобы ничего не потерять.</small></span><button class="btn" data-act="export">${I(IC.down, 15)} Скачать копию</button></div>
-    <div class="acc-row"><span class="acc-t"><b>Вход и синхронизация</b><small>Один аккаунт для iPhone и компьютера — события и задачи будут везде одинаковые.</small></span><span class="soon">Скоро</span></div>
-    <div class="acc-row"><span class="acc-t"><b>Друзья</b><small>Добавлять друзей, смотреть их календарь и соревноваться в привычках.</small></span><span class="soon">Скоро</span></div>
-  </div>`;
+      return `<div class="ach-i${ok ? '' : ' lock'}"><span class="ach-e" aria-hidden="true">${e}</span><span class="ach-t"><b>${esc(n)}</b><small>${esc(dsc)}</small>${ok ? '<em>Получено</em>' : `<span class="ach-p"><span class="ds-bar"><i style="width:${Math.min(100, Math.round(v / goal * 100))}%"></i></span><small>${goal >= 1000 ? rub0(v) + ' / ' + rub0(goal) : NF0.format(Math.min(v, goal)) + ' / ' + NF0.format(goal)}</small></span>`}</span></div>`; }).join('')}</div></div>`;
 }
+// Меню «⋯» рядом с «Редактировать профиль»
+ACT.pfmenu = el => {
+  const qc = $('#qc');
+  qc.innerHTML = `<div class="pmenu"><button data-act="pfshare">${I(IC.share, 16)} Поделиться профилем</button><button data-act="pe" data-tab="main">${I(IC.edit, 16)} Редактировать</button><button data-act="pe" data-tab="look">${I(IC.spark, 16)} Аватар и обложка</button><button data-act="sec" data-s="settings">${I(IC.gear, 16)} Настройки</button></div>`;
+  qc.classList.add('show', 'menu');
+  const r = el.getBoundingClientRect(), w = qc.offsetWidth;
+  qc.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px'; qc.style.top = (r.bottom + 6) + 'px';
+};
+ACT.pfshare = () => {
+  closeQuick();
+  const st = S.settings, s = profileStats(), lv = levelOf(s), url = location.origin + location.pathname;
+  const text = `${(st.name || '').trim() || 'Я'} в ${APP_NAME}: ${lv.n} уровень, выполнено задач — ${s.tasksDone}, серия привычек — ${plural(s.cur, NDAY)}, достижений — ${lv.got} из ${ACH.length}.`;
+  if (navigator.share) navigator.share({ title:APP_NAME, text, url }).catch(() => {}); else copyText(text + ' ' + url, 'Скопировано — можно вставить в мессенджер');
+};
+ACT.pe = el => { peTab = el.dataset.tab || 'main'; closeQuick(); if (sec === 'profedit') render(); else setSec('profedit'); };
 function openAvatar() {
   const a = S.settings.avatar || {};
   sheet(`<div class="sh-head"><h3>Аватар</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   <div class="ava-pv">${avatarHTML(96)}</div>
   <div class="set-sec">Значок</div>
-  <div class="emj"><button type="button" class="emb ava-ini${a.e ? '' : ' on'}" data-act="pfemoji" data-e="" title="Буквы имени">${esc(initials(S.settings.name) || 'Аа')}</button>${AVA_EMOJI.map(e => `<button type="button" class="emb${a.e === e ? ' on' : ''}" data-act="pfemoji" data-e="${e}" aria-label="${e}">${e}</button>`).join('')}</div>
+  <div class="emj"><button type="button" class="emb ava-ini${a.e || okImg(a.img) ? '' : ' on'}" data-act="pfemoji" data-e="" title="Буквы имени">${esc(initials(S.settings.name) || 'Аа')}</button>${AVA_EMOJI.map(e => `<button type="button" class="emb${a.e === e && !okImg(a.img) ? ' on' : ''}" data-act="pfemoji" data-e="${e}" aria-label="${e}">${e}</button>`).join('')}</div>
   <div class="set-sec">Цвет</div>
   <div class="cpal" style="padding:0">${PALETTE.map(c => `<button class="cdot${(a.c || '').toLowerCase() === c ? ' on' : ''}" data-act="pfcolor" data-c="${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}</div>
-  <button class="btn pri" style="width:100%;margin-top:20px" data-act="close">Готово</button>`, true);
+  <button class="btn" style="width:100%;margin-top:18px" data-act="upava">${I(IC.up, 16)} Загрузить своё фото</button>
+  <button class="btn pri" style="width:100%;margin-top:8px" data-act="close">Готово</button>`, true);
 }
+const profTouch = () => { S.settings.profUpd = Date.now(); save(); $('#side').innerHTML = sideHTML(); const h = $('.hdr-ava'); if (h) h.innerHTML = avatarHTML(28); const u = $('#pe_upd'); if (u) u.textContent = 'Обновлён: только что'; };
 ACT.pfava = openAvatar;
-ACT.pfemoji = el => { S.settings.avatar = Object.assign({}, S.settings.avatar, { e: el.dataset.e }); save(); render(); openAvatar(); };
-ACT.pfcolor = el => { S.settings.avatar = Object.assign({}, S.settings.avatar, { c: el.dataset.c }); save(); render(); openAvatar(); };
-document.addEventListener('change', e => {
-  const t = e.target;
-  if (t.id === 'pf_name') { S.settings.name = t.value.trim().slice(0, 40); save(); $('#side').innerHTML = sideHTML(); const a = $('.pf-ava'); if (a) a.innerHTML = avatarHTML(84) + `<span class="pf-edit">${I(IC.edit, 14)}</span>`; }
-  else if (t.id === 'pf_motto') { S.settings.motto = t.value.trim().slice(0, 90); save(); }
-});
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.target.id === 'pf_name' || e.target.id === 'pf_motto')) { e.preventDefault(); e.target.blur(); } });
+ACT.pfemoji = el => { S.settings.avatar = Object.assign({}, S.settings.avatar, { e: el.dataset.e, img: '' }); profTouch(); render(); openAvatar(); };
+ACT.pfcolor = el => { S.settings.avatar = Object.assign({}, S.settings.avatar, { c: el.dataset.c }); profTouch(); render(); if (sheetOpen()) openAvatar(); };
 
 SEC.profile = { name:'Профиль', icon:IC.user, noNav:true, title: () => 'Профиль', html: profileHTML, move: () => {} };
+
+// ---- Редактирование профиля: личные данные, оформление, аккаунт ----
+let peTab = 'main', peUpload = null;
+const PE_TABS = [['main', IC.user, 'Личные данные'], ['look', IC.spark, 'Аватар и обложка'], ['acc', IC.key, 'Аккаунт']];
+const COUNTRIES = ['Россия', 'Беларусь', 'Казахстан', 'Украина', 'Узбекистан', 'Кыргызстан', 'Таджикистан', 'Армения', 'Азербайджан', 'Грузия', 'Молдова', 'Латвия', 'Литва', 'Эстония', 'Германия', 'Польша', 'Сербия', 'Турция', 'Израиль', 'ОАЭ', 'США'];
+const ago = ts => {
+  if (!ts) return 'ещё не менялся';
+  const m = Math.round((Date.now() - ts) / 60000);
+  return m < 1 ? 'только что' : m < 60 ? plural(m, ['минуту', 'минуты', 'минут']) + ' назад' : m < 1440 ? plural(Math.round(m / 60), ['час', 'часа', 'часов']) + ' назад'
+    : m < 43200 ? plural(Math.round(m / 1440), NDAY) + ' назад' : plural(Math.round(m / 43200), ['месяц', 'месяца', 'месяцев']) + ' назад';
+};
+function profEditHTML() {
+  const st = S.settings, a = st.avatar || {}, cv = st.cover || {}, v = k => esc(st[k] || '');
+  let body;
+  if (peTab === 'look') body = `<div class="card"><div class="pe-sec">Аватар</div>
+      <div class="pe-ava">${avatarHTML(88)}<div class="pe-btns"><button class="btn" data-act="upava">${I(IC.up, 15)} Загрузить фото</button><button class="btn" data-act="pfava">Эмодзи или буквы</button>${okImg(a.img) ? `<button class="btn dng" data-act="rmava">Убрать фото</button>` : ''}</div></div>
+      <div class="pe-sec">Цвет аватара</div>
+      <div class="cpal" style="padding:0">${PALETTE.map(c => `<button class="cdot${(a.c || '').toLowerCase() === c ? ' on' : ''}" data-act="pfcolor" data-c="${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}</div></div>
+    <div class="card"><div class="pe-sec">Обложка профиля</div>
+      <div class="pe-cover" style="${coverCSS()}"></div>
+      <div class="pe-covers">${Object.keys(COVERS).map(k => `<button class="pe-cv${!okImg(cv.img) && (cv.p || 'dusk') === k ? ' on' : ''}" data-act="pecover" data-p="${k}" style="background-image:${COVER_GLOW},${COVERS[k]}" aria-label="Обложка ${k}"></button>`).join('')}</div>
+      <div class="pe-btns"><button class="btn" data-act="upcover">${I(IC.up, 15)} Загрузить своё фото</button>${okImg(cv.img) ? '<button class="btn dng" data-act="rmcover">Убрать фото</button>' : ''}</div>
+      <p class="set-note">Лучше всего подходит широкая картинка. Фото хранится только на этом устройстве.</p></div>`;
+  else if (peTab === 'acc') body = `<div class="card"><div class="pe-sec">Аккаунт</div>
+      <div class="acc-row"><span class="acc-t"><b>Данные на этом устройстве</b><small>Всё хранится в браузере. Делайте копию, чтобы ничего не потерять.</small></span><div class="pe-btns"><button class="btn" data-act="export">${I(IC.down, 15)} Скачать копию</button><button class="btn" data-act="import">${I(IC.up, 15)} Загрузить</button></div></div>
+      <div class="acc-row"><span class="acc-t"><b>Вход и синхронизация</b><small>Один аккаунт для iPhone и компьютера — события и задачи будут везде одинаковые.</small></span><span class="soon">Скоро</span></div>
+      <div class="acc-row"><span class="acc-t"><b>Ссылка на профиль</b><small>Своя страница по нику${st.nick ? ` <b>@${esc(st.nick)}</b>` : ''} — чтобы делиться ей с друзьями.</small></span><span class="soon">Скоро</span></div>
+      <div class="acc-row"><span class="acc-t"><b>Друзья</b><small>Добавлять друзей, смотреть их календарь и соревноваться в привычках.</small></span><span class="soon">Скоро</span></div></div>`;
+  else body = `<div class="card"><div class="pe-sec">Личные данные</div>
+      <div class="pe-grid">
+        <label class="pe-f"><span>Имя или никнейм</span><input class="fin" data-pf="name" value="${v('name')}" maxlength="40" placeholder="Как вас называть" autocomplete="nickname"></label>
+        <label class="pe-f"><span>Пол</span><select class="fin" data-pf="gender"><option value="">Не указан</option><option value="m"${st.gender === 'm' ? ' selected' : ''}>Мужской</option><option value="f"${st.gender === 'f' ? ' selected' : ''}>Женский</option></select></label>
+        <label class="pe-f full"><span>Девиз</span><input class="fin" data-pf="motto" value="${v('motto')}" maxlength="90" placeholder="Каждый день — шаг к мечте" autocomplete="off"></label>
+        <label class="pe-f full"><span>Обо мне</span><textarea class="fin hn-text" data-pf="about" maxlength="2048" placeholder="Напишите что-нибудь о себе…">${v('about')}</textarea><em class="pe-cnt" id="pe_cnt">${(st.about || '').length}/2048</em></label>
+        <label class="pe-f"><span>День рождения</span><input class="fin" type="date" data-pf="birthday" value="${v('birthday')}" max="${todayK()}"></label>
+        <label class="pe-f"><span>Страна</span><input class="fin" data-pf="country" value="${v('country')}" list="pe_countries" placeholder="Россия" autocomplete="country-name"><datalist id="pe_countries">${COUNTRIES.map(c => `<option value="${c}">`).join('')}</datalist></label>
+        <label class="pe-f"><span>Город</span><input class="fin" data-pf="city" value="${v('city')}" placeholder="Москва" autocomplete="address-level2"></label>
+        <label class="pe-f"><span>Ник</span><span class="pe-pre"><i>@</i><input class="fin" data-pf="nick" value="${v('nick')}" maxlength="24" placeholder="greed_g" autocomplete="off"></span></label>
+      </div></div>
+    <div class="card"><div class="pe-sec">Я в социальных сетях<small>Покажите, где вас ещё найти — ссылки появятся в профиле</small></div>
+      ${(st.socials || []).map((x, i) => `<div class="pe-soc"><input class="fin" data-soc="${i}" data-f="url" value="${esc(x.url || '')}" placeholder="https://" inputmode="url" autocomplete="off" aria-label="Ссылка"><input class="fin" data-soc="${i}" data-f="title" value="${esc(x.title || '')}" placeholder="Я в соцсети" autocomplete="off" aria-label="Заголовок"><button class="cdel" data-act="socdel" data-i="${i}" aria-label="Удалить ссылку">${I(IC.trash)}</button></div>`).join('')}
+      <button class="btn" data-act="socadd">${I(IC.plus, 15)} Добавить</button>
+      <p class="set-note">Изменения сохраняются сами.</p></div>`;
+  return `<div class="pe-head"><button class="ic pe-back" data-act="sec" data-s="profile" aria-label="Назад к профилю" title="Назад к профилю">${I(IC.left, 20)}</button><div><h2>Редактирование профиля</h2><small id="pe_upd">Обновлён: ${ago(st.profUpd)}</small></div></div>
+  <div class="pe-wrap"><nav class="pe-nav">${PE_TABS.map(([k, ic, n]) => `<button class="${peTab === k ? 'on' : ''}" data-act="petab" data-tab="${k}">${I(ic, 16)} ${n}</button>`).join('')}</nav><div class="pe-body">${body}</div></div>
+  <input type="file" id="pe_file" accept="image/*" hidden>`;
+}
+ACT.petab = el => { peTab = el.dataset.tab; render(); };
+ACT.socadd = () => { S.settings.socials = [...(S.settings.socials || []), { url:'', title:'' }].slice(0, 12); save(); render(); const l = $$('.pe-soc input[data-f="url"]').pop(); if (l) l.focus(); };
+ACT.socdel = el => { const l = [...(S.settings.socials || [])]; l.splice(+el.dataset.i, 1); S.settings.socials = l; profTouch(); render(); };
+ACT.pecover = el => { S.settings.cover = { p: el.dataset.p, img:'' }; profTouch(); render(); };
+ACT.rmcover = () => { S.settings.cover = Object.assign({}, S.settings.cover, { img:'' }); profTouch(); render(); };
+ACT.rmava = () => { S.settings.avatar = Object.assign({}, S.settings.avatar, { img:'' }); profTouch(); render(); };
+const pickImage = kind => { peUpload = kind; let f = $('#pe_file'); if (!f) { f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.id = 'pe_file'; f.hidden = true; document.body.appendChild(f); } f.value = ''; f.click(); };
+ACT.upava = () => pickImage('ava');
+ACT.upcover = () => pickImage('cover');
+document.addEventListener('change', async e => {
+  const t = e.target;
+  if (t.id === 'pe_file') {
+    const file = t.files && t.files[0], kind = peUpload; if (!file || !kind) return;
+    try {
+      const img = await loadImageFile(file, kind === 'ava' ? 256 : 1500, kind === 'ava' ? 256 : 420);
+      const key = kind === 'ava' ? 'avatar' : 'cover', old = S.settings[key];
+      S.settings[key] = Object.assign({}, old, { img });
+      try { localStorage.setItem(LS, JSON.stringify(S)); } catch (x) { S.settings[key] = old; return toast('Не хватило места в памяти браузера — выберите картинку поменьше'); }
+      profTouch(); if (sheetOpen()) closeSheet(); render(); toast(kind === 'ava' ? 'Фото профиля обновлено' : 'Обложка обновлена');
+    } catch (x) { toast('Не получилось: ' + x.message); }
+    return;
+  }
+  if (t.dataset.pf) {
+    const f = t.dataset.pf; let val = t.value.trim();
+    if (f === 'nick') { val = val.toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_.]/g, '').slice(0, 24); t.value = val; }
+    if (f === 'birthday' && val && (!isDayKey(val) || val > todayK())) { t.value = S.settings.birthday || ''; return toast('Проверьте дату рождения'); }
+    if (val) S.settings[f] = val; else delete S.settings[f];
+    profTouch();
+  } else if (t.dataset.soc != null) {
+    const l = S.settings.socials || [], x = l[+t.dataset.soc]; if (!x) return;
+    x[t.dataset.f] = t.value.trim().slice(0, 300);
+    if (t.dataset.f === 'url' && x.url && !safeUrl(x.url)) toast('Похоже, это не ссылка — проверьте адрес');
+    profTouch();
+  }
+});
+document.addEventListener('input', e => { if (e.target.dataset && e.target.dataset.pf === 'about') { const c = $('#pe_cnt'); if (c) c.textContent = e.target.value.length + '/2048'; } });
+SEC.profedit = { name:'Редактирование профиля', icon:IC.user, noNav:true, title: () => 'Профиль', html: profEditHTML, move: () => {} };
 
 // ---- Настройки: карточки по темам ----
 function settingsHTML() {
@@ -267,7 +426,7 @@ function settingsHTML() {
   const about = `<div class="set-sec">О приложении</div>
     <div class="st-about"><span class="wordmark">${APP_NAME}</span><small>Календарь, задачи, привычки и финансы — в одном месте.</small></div>
     <button class="btn" style="width:100%" data-act="help">${I(IC.key, 16)} Горячие клавиши</button>`;
-  return `<button class="card st-prof" data-act="sec" data-s="profile">${avatarHTML(48)}<span><b>${esc(name || 'Ваш профиль')}</b><small>${name ? 'Имя, аватар, статистика и достижения' : 'Укажите имя и выберите аватар'}</small></span>${I(IC.right, 18)}</button>
+  return `<button class="card st-prof" data-act="pe" data-tab="main">${avatarHTML(48)}<span><b>${esc(name || 'Ваш профиль')}</b><small>${name ? 'Личные данные, аватар и обложка' : 'Укажите имя, выберите аватар и обложку'}</small></span>${I(IC.right, 18)}</button>
   <div class="st-grid"><div class="card">${b.look}</div><div class="card">${b.cal}</div><div class="card">${b.cats}</div><div class="card">${secs}</div><div class="card">${b.notif}</div><div class="card">${b.data}</div><div class="card">${about}</div></div>`;
 }
 ACT.ststart = el => { S.settings.startSec = el.dataset.v === 'last' ? 'last' : 'home'; save(); render(); };

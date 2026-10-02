@@ -6,6 +6,9 @@ const VAPID_PUBLIC = 'BNLThhEBoIT1sgFRviDsI33JdA_Rz18EY5SN7ANL8_gXdctCj4vYguPYop
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const APP_NAME = 'Parsimony';
+// Шрифт надписи Parsimony: 'josefin' (№14 Josefin Sans), 'vibes' (№9 Great Vibes), 'serif' (Instrument Serif) — стили в css/sections.css
+const WORDMARK = 'josefin';
+document.documentElement.dataset.wm = WORDMARK;
 const LS = 'remapp_v1';
 const DEF = { cats:[{id:'work',name:'Работа',color:'#ef4444'},{id:'rest',name:'Отдых',color:'#38bdf8'},{id:'walk',name:'Прогулка',color:'#22c55e'},{id:'study',name:'Учёба',color:'#a855f7'}], events:[],
   settings:{weekStart:1, theme:'auto', tplOpen:true, dayStart:6, density:'normal', weekends:true, weekNums:true, dimPast:true, lastTest:0},
@@ -76,7 +79,10 @@ const IC = {
   home:'<path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v10a1.5 1.5 0 0 0 1.5 1.5h3.5v-6h3v6H17a1.5 1.5 0 0 0 1.5-1.5V9"/>',
   user:'<circle cx="12" cy="8" r="4"/><path d="M4 20.5c1.4-3.6 4.4-5.5 8-5.5s6.6 1.9 8 5.5"/>',
   trophy:'<path d="M8 4h8v5a4 4 0 0 1-8 0V4z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20.5h7M10 17h4"/>',
-  note:'<path d="M5 4.5h10l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 19V6a1.5 1.5 0 0 1 1-1.5z"/><path d="M14.5 4.5V9h4.5M8 13h8M8 16.5h5"/>'
+  note:'<path d="M5 4.5h10l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 19V6a1.5 1.5 0 0 1 1-1.5z"/><path d="M14.5 4.5V9h4.5M8 13h8M8 16.5h5"/>',
+  gift:'<rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5 12v7.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V12M12 8v13M12 8S10.5 3.5 8 4.2C6 4.8 6.6 8 12 8zm0 0s1.5-4.5 4-3.8c2 .6 1.4 3.8-4 3.8z"/>',
+  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
+  more:'<circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/>'
 };
 
 // ---- Даты ----
