@@ -7,7 +7,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const APP_NAME = 'Parsimony';
 // Шрифт надписи Parsimony: 'josefin' (№14 Josefin Sans), 'vibes' (№9 Great Vibes), 'serif' (Instrument Serif) — стили в css/sections.css
-const WORDMARK = 'josefin';
+const WORDMARK = 'vibes';
 document.documentElement.dataset.wm = WORDMARK;
 const LS = 'remapp_v1';
 const DEF = { cats:[{id:'work',name:'Работа',color:'#ef4444'},{id:'rest',name:'Отдых',color:'#38bdf8'},{id:'walk',name:'Прогулка',color:'#22c55e'},{id:'study',name:'Учёба',color:'#a855f7'}], events:[],
