@@ -39,7 +39,9 @@ const hByKind = kind => S.habits.filter(h => h.kind === kind);
 const hDow = (h, k) => !h.days.length || h.days.includes(dowIdx(k));
 // Начало привычки: дата создания или самая ранняя отметка (если отмечали задним числом)
 const isDayKey = k => /^\d{4}-\d{2}-\d{2}$/.test(k);
-const hStart = h => Object.keys(h.log).reduce((m, k) => isDayKey(k) && k < m ? k : m, h.from);
+// Начало учёта привычки — 1-е число месяца, в котором её создали (или самой ранней отметки задним числом):
+// процент = отмеченные клетки / все запланированные клетки месяца до сегодня включительно — как видно в таблице
+const hStart = h => Object.keys(h.log).reduce((m, k) => isDayKey(k) && k < m ? k : m, h.from).slice(0, 8) + '01';
 function hStat(h, days) {
   const t = todayK(), st = hStart(h); let done = 0, plan = 0;
   days.forEach(k => { if (k > t || k < st || !hDow(h, k)) return; plan++; if (h.log[k]) done++; });
