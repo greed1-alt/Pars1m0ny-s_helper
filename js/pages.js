@@ -82,7 +82,7 @@ function homeHTML() {
       <div class="hm-date">${DOWF[dowIdx(t)]}, ${d.getDate()} ${MONG[d.getMonth()]}</div>
       <h2 class="hm-greet">${greet()}${name ? ', ' + esc(name) : ''}</h2>
       <p class="hm-line">${esc(DAY_LINES[dnum(t) % DAY_LINES.length])}</p>
-      <div class="hm-quick">${QUICK.map(([k, ic, n]) => `<button class="btn" data-act="hmnew" data-k="${k}">${I(ic, 16)} ${n}</button>`).join('')}</div>
+      <div class="hm-quick">${QUICK.map(([k, ic, n]) => `<button class="btn" data-act="hmnew" data-k="${k}">${I(ic, 16)} ${n}</button>`).join('')}<button class="btn hm-tm" data-act="sec" data-s="timer">${I(IC.timer, 16)} Таймер<span class="tm-mini"></span></button></div>
       ${name ? '' : `<button class="hm-ask" data-act="sec" data-s="profile">${I(IC.user, 14)} Как вас зовут? Заполните профиль</button>`}
     </div>
     <div class="hm-ring">${ringSVG(pct, 120, 'var(--good)', total ? Math.round(pct * 100) + '%' : '—', 'день')}<small>${total ? `${done} из ${total} — задачи и привычки` : 'Дел на сегодня нет'}</small></div>

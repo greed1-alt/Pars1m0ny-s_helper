@@ -140,7 +140,7 @@ function sideHTML() {
   if (sec === 'profile' || sec === 'profedit' || sec === 'settings') return `${top}${foot}`;
   const mini = `<div class="mini-head"><b>${MON[miniAnchor.getMonth()]} ${miniAnchor.getFullYear()}</b><div><button data-act="mprev" aria-label="Предыдущий месяц">${I(IC.left,16)}</button><button data-act="mnext" aria-label="Следующий месяц">${I(IC.right,16)}</button></div></div>
   <div id="mini">${miniHTML()}</div>`;
-  if (sec !== 'cal') return `${top}<button class="newbtn" data-act="add">${I(IC.plus,16)} ${SEC[sec].newLabel} <kbd>N</kbd></button>
+  if (sec !== 'cal') return `${top}${SEC[sec].newLabel ? `<button class="newbtn" data-act="add">${I(IC.plus,16)} ${SEC[sec].newLabel} <kbd>N</kbd></button>` : ''}
   ${sec === 'tasks' || sec === 'home' ? '' : `<div class="sb-miss">${missedBar()}</div>`}${mini}${SEC[sec].side ? SEC[sec].side() : ''}${foot}`;
   return `${top}
   <button class="newbtn" data-act="add">${I(IC.plus,16)} Создать событие <kbd>N</kbd></button>
@@ -198,6 +198,7 @@ function render(dir) {
   $('#side').innerHTML = sideHTML();
   tabbarRender();
   drawCharts();
+  if (S2.after) S2.after();
   hsRestore();
   if (dir) { main.classList.add(dir < 0 ? 'anim-l' : dir > 0 ? 'anim-r' : 'anim-f'); }
   const m = $('meta[name=theme-color]'); if (m) m.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#ffffff';

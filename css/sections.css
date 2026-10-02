@@ -253,6 +253,41 @@ body:not([data-sec=cal]) .secinfo{display:flex;flex:1;align-items:center;min-wid
 .sb-nv:hover{background:var(--hov);color:var(--tx)}
 .sb-nv.on{background:var(--hov2);color:var(--tx);font-weight:600}
 .sb-miss:not(:empty){margin-top:12px}
+.beta{font-style:normal;font-size:10.5px;font-weight:700;color:var(--mut);border:1px solid var(--line);border-radius:5px;padding:0 4px;line-height:15px;margin-left:2px}
+.tm-mini{margin-left:auto;font-size:12px;font-weight:600;color:var(--c-red);font-variant-numeric:tabular-nums}
+.tm-mini:empty{display:none}
+.hm-tm .tm-mini{margin-left:4px}
+
+/* ---- Таймер ---- */
+.tm-wrap{display:flex;flex-direction:column;gap:12px;max-width:860px}
+.tm-card{display:flex;flex-direction:column;align-items:center;padding:18px 16px 20px}
+.tm-modes{align-self:stretch;justify-content:center}
+.tm-modes button{flex:1;height:34px;font-size:13.5px}
+.tm-face{position:relative;width:min(280px,78vw);aspect-ratio:1;margin:20px 0 14px}
+.tm-face svg{width:100%;height:100%}
+.tm-track{fill:none;stroke:var(--hov2);stroke-width:8}
+.tm-arc{fill:none;stroke:var(--tc);stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset .25s linear}
+.tm-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.tm-center small{font-size:13px;font-weight:600;color:var(--tc)}
+.tm-center b{font-size:58px;font-weight:600;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums}
+.tm-center span{font-size:12.5px;color:var(--mut);margin-top:2px}
+.tm-ctrl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr);gap:8px;width:100%;max-width:420px}
+.tm-ctrl .btn{height:46px;min-width:0;padding:0 8px;white-space:nowrap}
+.tm-go{font-size:16px}
+.tm-dots{display:flex;gap:8px;margin-top:16px}
+.tm-dots i{width:10px;height:10px;border-radius:50%;background:var(--hov2)}
+.tm-dots i.on{background:var(--c-red)}
+.tm-set{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+.tm-set label,.tm-own{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tx2)}
+.tm-set .fin,.tm-own .fin{width:64px;height:34px;text-align:center;padding:0 4px}
+.tm-set em,.tm-own em{font-style:normal;color:var(--mut)}
+.tm-pre{justify-content:center;margin-top:16px}
+.tm-own{margin-top:12px}
+.tm-gap{display:block}
+.tm-num{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tm-num div{border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px}
+.tm-num b{display:block;font-size:24px;font-weight:700;font-variant-numeric:normal}
+.tm-num small{font-size:12px;color:var(--mut)}
 
 /* Страница раздела и карточки */
 main.sec{padding:10px 12px 28px;display:flex;flex-direction:column;gap:12px}

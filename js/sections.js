@@ -3,7 +3,9 @@
 const SEC = {};
 // SEC_ORDER — основные разделы (боковая панель и вкладки телефона); «Профиль» и «Настройки» — внизу панели
 const SEC_ORDER = ['home', 'cal', 'tasks', 'habits', 'fin'];
-const SEC_ALL = [...SEC_ORDER, 'profile', 'profedit', 'settings'];
+// Экспериментальные разделы: только в боковой панели ПК (на телефоне — кнопка на Главной), с пометкой β
+const NAV_EXTRA = ['timer'];
+const SEC_ALL = [...SEC_ORDER, ...NAV_EXTRA, 'profile', 'profedit', 'settings'];
 // При запуске — «Главная» (или последний раздел, если так выбрано в настройках)
 let sec = S.settings.startSec === 'last' && SEC_ALL.includes(S.settings.sec) ? S.settings.sec : 'home';
 SEC.cal = { name:'Календарь', icon:IC.cal, newLabel:'Создать' };
@@ -29,7 +31,7 @@ const ymGen = ym => { const [y, m] = ym.split('-').map(Number); return MONG[m - 
 let secYM = ymOf(todayK());   // месяц, открытый в «Привычках» и «Финансах»
 
 // Навигация: боковая панель на ПК и вкладки внизу на телефоне
-const navHTML = () => `<nav class="sb-nav">${SEC_ORDER.map(s => `<button class="sb-nv${s === sec ? ' on' : ''}" data-act="sec" data-s="${s}">${I(SEC[s].icon, 17)}${SEC[s].name}</button>`).join('')}</nav>`;
+const navHTML = () => `<nav class="sb-nav">${[...SEC_ORDER, ...NAV_EXTRA].map(s => `<button class="sb-nv${s === sec ? ' on' : ''}" data-act="sec" data-s="${s}">${I(SEC[s].icon, 17)}${SEC[s].name}${SEC[s].beta ? '<em class="beta" title="Экспериментальный раздел">β</em>' : ''}${s === 'timer' ? '<span class="tm-mini"></span>' : ''}</button>`).join('')}</nav>`;
 function tabbarRender() {
   const tb = $('#tabbar'); if (!tb) return;
   tb.innerHTML = SEC_ORDER.map(s => `<button class="tb-b${s === sec ? ' on' : ''}" data-act="sec" data-s="${s}" aria-label="${SEC[s].name}"${s === sec ? ' aria-current="page"' : ''}>${I(SEC[s].icon, 22)}<span>${SEC[s].name}</span></button>`).join('');
