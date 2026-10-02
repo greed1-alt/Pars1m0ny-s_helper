@@ -1,6 +1,6 @@
-const CACHE = 'rem-v19';
+const CACHE = 'rem-v20';
 const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png',
-  './css/app.css', './css/sections.css', ...['core', 'calendar', 'charts', 'sections', 'tasks', 'habits', 'finance', 'input', 'share', 'notify', 'main'].map(n => './js/' + n + '.js')];
+  './css/app.css', './css/sections.css', ...['core', 'calendar', 'charts', 'sections', 'tasks', 'habits', 'finance', 'pages', 'input', 'share', 'notify', 'main'].map(n => './js/' + n + '.js')];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));

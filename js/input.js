@@ -25,6 +25,7 @@ document.addEventListener('click', async ev => {
   else if (a === 'cmdrun') cmdRun(Number(el.dataset.i));
   else if (a === 'help') { closeCmd(); openHelp(); }
   else if (a === 'undo') { $('#toast').classList.remove('show'); undo(); }
+  else if (a === 'pick' && SEC[sec].noNav) { sel = el.dataset.d; view = 'day'; syncMini(); setSec('cal'); }   // с «Главной» день открывается в календаре
   else if (a === 'pick') { const d = el.dataset.d; const fromMini = !!el.closest('#mini'); sel = d;
     if (view === 'month') { const m = pd(d); if (m.getMonth() !== monthAnchor.getMonth()) { monthAnchor = m; monthAnchor.setDate(1); } }
     if (sec === 'habits' || sec === 'fin') { if (ymOf(d) !== secYM) { secYM = ymOf(d); window.scrollTo(0, 0); } }   // в «Привычках» и «Финансах» день открывает его месяц
@@ -143,7 +144,8 @@ function saveEvent() {
 document.addEventListener('input', e => {
   const t = e.target;
   if (t.dataset.cat) {
-    S.cats.find(c => c.id === t.dataset.cat)[t.dataset.f] = t.value; save(); render();
+    // На странице настроек не перерисовываем её целиком, иначе поле теряет фокус, а палитра закрывается
+    S.cats.find(c => c.id === t.dataset.cat)[t.dataset.f] = t.value; save(); if (sec === 'settings') $('#side').innerHTML = sideHTML(); else render();
     if (t.dataset.f === 'color') { const sw = $(`.cswatch[data-id="${t.dataset.cat}"]`); if (sw) sw.style.setProperty('--c', t.value); $$(`.cdot[data-id="${t.dataset.cat}"]`).forEach(d => d.classList.remove('on')); }
   }
   else if (t.id === 'cmd_q') cmdUpdate();

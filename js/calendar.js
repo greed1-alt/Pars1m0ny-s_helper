@@ -130,16 +130,18 @@ const tplSub = t => t.time ? (t.time2 ? t.time + '–' + t.time2 : t.time) : 'В
 function sideHTML() {
   const open = S.settings.tplOpen !== false, n = nextUp();
   const cnt = id => S.events.filter(e => e.cat === id).length;
-  const top = `<div class="sb-top"><span class="sb-title"><span class="sb-logo" title="Сегодня ${esc(fmtLong(todayK()))}"><span>${pd(todayK()).getDate()}</span></span>${APP_NAME}</span><button class="sb-ic" data-act="search" aria-label="Поиск" title="Поиск и команды (Ctrl+K)">${I(IC.search)}</button></div>
+  const top = `<div class="sb-top"><button class="sb-title" data-act="sec" data-s="home" title="Главная"><span class="sb-logo" title="Сегодня ${esc(fmtLong(todayK()))}"><span>${pd(todayK()).getDate()}</span></span><span class="wordmark">${APP_NAME}</span></button><button class="sb-ic" data-act="search" aria-label="Поиск" title="Поиск и команды (Ctrl+K)">${I(IC.search)}</button></div>
   ${navHTML()}`;
   const foot = `<div class="sb-foot">
-    <button class="sb-link" data-act="settings" title="Уведомления: ${esc(notif.short)}">${I(IC.gear,15)} Настройки</button>
+    <button class="sb-link sb-prof${sec === 'profile' ? ' on' : ''}" data-act="sec" data-s="profile">${avatarHTML(22)}<span>${esc((S.settings.name || '').trim() || 'Профиль')}</span></button>
+    <button class="sb-link${sec === 'settings' ? ' on' : ''}" data-act="sec" data-s="settings" title="Уведомления: ${esc(notif.short)}">${I(IC.gear,15)} Настройки</button>
     <button class="sb-link" data-act="help">${I(IC.key,15)} Горячие клавиши <kbd>?</kbd></button>
   </div>`;
+  if (sec === 'profile' || sec === 'settings') return `${top}${foot}`;
   const mini = `<div class="mini-head"><b>${MON[miniAnchor.getMonth()]} ${miniAnchor.getFullYear()}</b><div><button data-act="mprev" aria-label="Предыдущий месяц">${I(IC.left,16)}</button><button data-act="mnext" aria-label="Следующий месяц">${I(IC.right,16)}</button></div></div>
   <div id="mini">${miniHTML()}</div>`;
   if (sec !== 'cal') return `${top}<button class="newbtn" data-act="add">${I(IC.plus,16)} ${SEC[sec].newLabel} <kbd>N</kbd></button>
-  ${sec === 'tasks' ? '' : `<div class="sb-miss">${missedBar()}</div>`}${mini}${SEC[sec].side ? SEC[sec].side() : ''}${foot}`;
+  ${sec === 'tasks' || sec === 'home' ? '' : `<div class="sb-miss">${missedBar()}</div>`}${mini}${SEC[sec].side ? SEC[sec].side() : ''}${foot}`;
   return `${top}
   <button class="newbtn" data-act="add">${I(IC.plus,16)} Создать событие <kbd>N</kbd></button>
   <div class="sb-miss">${missedBar()}</div>
@@ -175,9 +177,11 @@ function render(dir) {
   const root = document.documentElement, cal = sec === 'cal', S2 = SEC[sec];
   root.dataset.theme = S.settings.theme;
   document.body.dataset.sec = sec;
+  document.body.dataset.nonav = S2.noNav ? '1' : '';    // «Главная», «Профиль», «Настройки»: без стрелок периода
+  document.body.dataset.nonew = S2.newLabel ? '' : '1';
   $('#ttl').innerHTML = cal ? titleHTML() : S2.title();
   $$('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === view));
-  const bn = $('.btn-new'); if (bn) bn.innerHTML = I(IC.plus, 17) + S2.newLabel;
+  const bn = $('.btn-new'); if (bn) bn.innerHTML = I(IC.plus, 17) + (S2.newLabel || '');
   const si = $('#secinfo'); if (si) si.innerHTML = !cal && S2.info ? S2.info() : '';
   root.style.setProperty('--hh', $('header').offsetHeight + 'px');
   const main = $('#main'), oldW = $('.wgwrap'), oldTop = oldW ? oldW.scrollTop : null;
@@ -208,7 +212,7 @@ function move(n) {
 function setView(v) { if (sec !== 'cal') { sec = 'cal'; S.settings.sec = 'cal'; save(); view = v; if (v === 'month') { monthAnchor = pd(sel); monthAnchor.setDate(1); } return render(2); } if (v === view) return; view = v; if (v === 'month') { monthAnchor = pd(sel); monthAnchor.setDate(1); } render(2); }
 function goToday() { sel = todayK(); secYM = ymOf(sel); monthAnchor = pd(sel); monthAnchor.setDate(1); syncMini(); lastGridView = null; render(2); }
 // Кнопка «Создать» и клавиша N: в каждом разделе — своё
-const createNew = () => sec === 'cal' ? openEvent() : SEC[sec].create();
+const createNew = () => sec === 'cal' || !SEC[sec].create ? openEvent() : SEC[sec].create();
 function setTheme(t) { S.settings.theme = t; save(); render(); toast('Тема: ' + ({auto:'как в системе', light:'светлая', dark:'тёмная', black:'чёрная'})[t]); }
 
 // ---- Тост и «Отменить» ----
@@ -296,18 +300,21 @@ function openEvent(id, preset, instDate) {
 const PALETTE = ['#ef4444','#f97316','#f59e0b','#eab308','#22c55e','#14b8a6','#38bdf8','#3b82f6','#6366f1','#a855f7','#ec4899','#64748b'];
 const THEMES = [['auto','Авто','linear-gradient(90deg,#fff 50%,#191919 50%)','#d0d0d0','#e08a3c'],['light','Светлая','#ffffff','#e9e9e7','#2b2b2b'],['dark','Тёмная','#191919','#2f2f2f','#e08a3c'],['black','Чёрная','#000000','#232323','#e6e6e6']];
 let palOpen = null, delAsk = null;
-function openSettings(keep) {
+// Настройки — отдельная страница (SEC.settings в js/pages.js); здесь только переход и блоки для неё
+function openSettings() { if (sec !== 'settings') setSec('settings'); else render(); }
+function settingsBlocks() {
   const st = S.settings;
-  sheet(`<div class="sh-head"><h3>Настройки</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x,18)}</button></div>
-  <div class="set-sec">Оформление</div>
+  return {
+  look: `<div class="set-sec">Оформление</div>
   <div class="thm">${THEMES.map(([v,n,bg,a,b]) => `<button class="${st.theme===v?'on':''}" data-act="theme" data-v="${v}"><span class="pv" style="background:${bg};--pa:${a};--pb:${b}"></span>${n}</button>`).join('')}</div>
-  <div class="set-row" style="margin-top:8px"><span>Размер сетки</span><div class="seg2">${[['compact','Компактно'],['normal','Обычно'],['large','Крупно']].map(([v,n]) => `<button class="${st.density===v?'on':''}" data-act="density" data-v="${v}">${n}</button>`).join('')}</div></div>
+  <div class="set-row" style="margin-top:8px"><span>Размер сетки</span><div class="seg2">${[['compact','Компактно'],['normal','Обычно'],['large','Крупно']].map(([v,n]) => `<button class="${st.density===v?'on':''}" data-act="density" data-v="${v}">${n}</button>`).join('')}</div></div>`,
+  cal: `<div class="set-sec">Календарь</div>
   <div class="set-row"><span>День в сетке начинается с</span><select id="s_ds" class="fin" style="min-width:90px">${[...Array(13)].map((_,h) => `<option value="${h}"${startH()===h?' selected':''}>${String(h).padStart(2,'0')}:00</option>`).join('')}</select></div>
   <div class="set-row"><span>Неделя начинается с</span><select id="s_ws" class="fin"><option value="1"${st.weekStart===1?' selected':''}>Понедельника</option><option value="0"${st.weekStart===0?' selected':''}>Воскресенья</option></select></div>
   <div class="set-row"><span>Показывать выходные в неделе</span><input id="s_wk" class="sw" type="checkbox"${st.weekends?' checked':''}></div>
   <div class="set-row"><span>Номер недели</span><input id="s_wn" class="sw" type="checkbox"${st.weekNums?' checked':''}></div>
-  <div class="set-row"><span>Приглушать прошедшие события</span><input id="s_dim" class="sw" type="checkbox"${st.dimPast?' checked':''}></div>
-  <div class="set-sec">Календари (категории)</div>
+  <div class="set-row"><span>Приглушать прошедшие события</span><input id="s_dim" class="sw" type="checkbox"${st.dimPast?' checked':''}></div>`,
+  cats: `<div class="set-sec">Календари (категории)</div>
   <div class="catlist">${S.cats.map(c => delAsk === c.id ? `<div class="catedit ask2">
     <span class="cswatch" style="--c:${c.color}"></span><span class="askt">Удалить «${esc(c.name)}»?</span>
     <button class="askyes" data-act="delyes" data-id="${c.id}">Удалить</button><button class="askno" data-act="delno">Отмена</button></div>` : `<div class="catedit">
@@ -317,20 +324,16 @@ function openSettings(keep) {
     <button class="cdel" data-act="delcat" data-id="${c.id}" aria-label="Удалить категорию"${S.cats.length <= 1 ? ' disabled title="Нужна хотя бы одна категория"' : ''}>${I(IC.trash)}</button></div>
     ${palOpen === c.id ? `<div class="cpal">${PALETTE.map(col => `<button class="cdot${col.toLowerCase() === c.color.toLowerCase() ? ' on' : ''}" data-act="setcolor" data-id="${c.id}" data-c="${col}" style="--c:${col}" aria-label="${col}"></button>`).join('')}<label class="cdot custom" title="Свой цвет"><input type="color" data-cat="${c.id}" data-f="color" value="${c.color}"></label></div>` : ''}`).join('')}</div>
   <button class="addcat" data-act="addcat">+ Добавить категорию</button>
-  <button class="btn" style="width:100%;margin-top:8px" data-act="shareall">${I(IC.share,16)} Поделиться всем календарём</button>
-  <div class="set-sec">Привычки</div>
-  <div class="set-row"><span>Отмечать привычки задним числом</span><input id="s_hpast" class="sw" type="checkbox"${S.settings.habitPast?' checked':''}></div>
-  <div class="set-sec">Уведомления</div>
+  <button class="btn" style="width:100%;margin-top:8px" data-act="shareall">${I(IC.share,16)} Поделиться всем календарём</button>`,
+  notif: `<div class="set-sec">Уведомления</div>
   <div class="nstat"><i class="ndot ${notif.state}"></i><span id="nstat_t">${esc(notif.text)}</span></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri grow" data-act="push">${I(IC.bell,16)} Включить уведомления</button><button class="btn grow" data-act="ntest">Проверить</button></div>
   <p class="set-note">${st.lastTest ? 'Последняя проверка: ' + new Date(st.lastTest).toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'}) : 'Проверок ещё не было.'} «Проверить» показывает тестовое уведомление на этом устройстве.</p>
-  <div id="plog"></div>
-  <div class="set-sec">Данные</div>
+  <div id="plog"></div>`,
+  data: `<div class="set-sec">Данные</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn grow" data-act="export">${I(IC.down,16)} Скачать копию</button><button class="btn grow" data-act="import">${I(IC.up,16)} Загрузить из файла</button></div>
-  <p class="set-note">Всё — события, задачи, привычки и финансы — хранится только на этом устройстве. Делайте копию, чтобы ничего не потерять.</p>
-  <div class="set-sec">Прочее</div>
-  <button class="btn" style="width:100%" data-act="help">${I(IC.key,16)} Горячие клавиши</button>
-  <button class="btn pri" style="width:100%;margin-top:18px" data-act="close">Готово</button>`, keep);
+  <p class="set-note">Всё — события, задачи, привычки, финансы и заметки — хранится только на этом устройстве. Делайте копию, чтобы ничего не потерять.</p>`,
+  };
 }
 
 function openHelp() {
@@ -351,7 +354,7 @@ const COMMANDS = () => [
   { ic:IC.tasks, t:'Новая задача', run:() => newTask() },
   { ic:IC.habit, t:'Новая привычка', run:() => openHabit() },
   { ic:IC.wallet, t:'Записать расход или доход', run:() => openOp() },
-  ...SEC_ORDER.map(s => ({ ic:SEC[s].icon, t:'Раздел: ' + SEC[s].name, run:() => setSec(s) })),
+  ...SEC_ORDER.map(s => ({ ic:SEC[s].icon, t:(s === 'home' ? '' : 'Раздел: ') + SEC[s].name, run:() => setSec(s) })),
   ...(missedList().length ? [{ ic:IC.alert, t:'Вы пропустили: разобрать', run:() => { missMove = null; openMissed(); } }] : []),
   { ic:IC.cal, t:'Перейти к сегодня', k:'T', run:goToday },
   { ic:IC.cal, t:'Вид: месяц', k:'M', run:() => setView('month') },
@@ -364,6 +367,7 @@ const COMMANDS = () => [
   { ic:IC.spark, t:'Тема: как в системе', run:() => setTheme('auto') },
   { ic:IC.bell, t:'Проверить уведомление', run:testNotif },
   { ic:IC.gear, t:'Настройки', run:() => openSettings() },
+  { ic:IC.user, t:'Профиль', run:() => setSec('profile') },
   { ic:IC.key, t:'Горячие клавиши', k:'?', run:openHelp },
   { ic:IC.down, t:'Скачать резервную копию', run:exportData },
   { ic:IC.share, t:'Поделиться всем календарём', run:() => openShare({ kind:'a' }) },

@@ -1,8 +1,11 @@
 // ---- Разделы: Календарь, Задачи, Привычки, Финансы ----
 // Каждый раздел регистрирует себя в SEC: name, icon, title(), html(), move(n), today(), create(), newLabel, info()
 const SEC = {};
-const SEC_ORDER = ['cal', 'tasks', 'habits', 'fin'];
-let sec = SEC_ORDER.includes(S.settings.sec) ? S.settings.sec : 'cal';
+// SEC_ORDER — основные разделы (боковая панель и вкладки телефона); «Профиль» и «Настройки» — внизу панели
+const SEC_ORDER = ['home', 'cal', 'tasks', 'habits', 'fin'];
+const SEC_ALL = [...SEC_ORDER, 'profile', 'settings'];
+// При запуске — «Главная» (или последний раздел, если так выбрано в настройках)
+let sec = S.settings.startSec === 'last' && SEC_ALL.includes(S.settings.sec) ? S.settings.sec : 'home';
 SEC.cal = { name:'Календарь', icon:IC.cal, newLabel:'Создать' };
 
 function setSec(s) {

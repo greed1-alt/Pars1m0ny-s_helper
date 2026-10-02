@@ -41,7 +41,7 @@ async function testNotif() {
     await reg.showNotification(APP_NAME, { body:'Тестовое уведомление — всё работает ✓', icon:'icon-192.png', tag:'test' });
     S.settings.lastTest = Date.now(); save();
     toast('Тестовое уведомление отправлено');
-    if (sheetOpen() && $('#nstat_t')) openSettings(true);
+    if (sec === 'settings') render();
   } catch (e) { plog('Ошибка: ' + e.message); }
   checkNotif();
 }
