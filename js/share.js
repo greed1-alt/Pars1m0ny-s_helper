@@ -79,7 +79,7 @@ function openShare(c) {
     <div class="row"><button class="btn${navigator.share ? '' : ' pri'}" data-act="shcopy" disabled>${I(IC.link,16)} Скопировать ссылку</button><button class="btn" data-act="shics">${I(IC.down,16)} Файл .ics</button></div>
   </div>
   <div id="sh_msg"></div>
-  <p class="set-note">Получатель откроет ссылку в Напоминалке и добавит ${c.kind === 'e' ? 'событие' : 'события'} к себе. Это копия: если что-то поменяете — отправьте ссылку ещё раз, у получателя всё обновится без дублей.</p>
+  <p class="set-note">Получатель откроет ссылку в ${APP_NAME} и добавит ${c.kind === 'e' ? 'событие' : 'события'} к себе. Это копия: если что-то поменяете — отправьте ссылку ещё раз, у получателя всё обновится без дублей.</p>
   <p class="set-note">Файл .ics открывается в Google, Apple и Яндекс Календаре.</p>`);
   refreshShareLink();
 }
@@ -99,8 +99,8 @@ async function refreshShareLink() {
 function shareSend() {
   const c = shareCtx; if (!c || !c.link) return;
   const list = shareItems(c);
-  const text = c.kind === 'e' ? `${list[0].title} — ${evWhen(list[0])}` : `${c.kind === 'c' ? 'Календарь «' + cat(c.id).name + '»' : 'Мой календарь'} в Напоминалке · ${plural(list.length, NEV)}`;
-  navigator.share({ title:'Напоминалка', text, url:c.link }).catch(x => { if (x.name !== 'AbortError') copyText(c.link, 'Ссылка скопирована'); });
+  const text = c.kind === 'e' ? `${list[0].title} — ${evWhen(list[0])}` : `${c.kind === 'c' ? 'Календарь «' + cat(c.id).name + '»' : 'Мой календарь'} в ${APP_NAME} · ${plural(list.length, NEV)}`;
+  navigator.share({ title:APP_NAME, text, url:c.link }).catch(x => { if (x.name !== 'AbortError') copyText(c.link, 'Ссылка скопирована'); });
 }
 function copyText(s, ok) {
   const showField = () => { const m = $('#sh_msg'); if (!m) return; m.innerHTML = `<input class="fin shlink" readonly value="${esc(s)}">`; const i = m.querySelector('input'); i.focus(); i.select(); toast('Скопируйте ссылку из поля'); };
@@ -151,7 +151,7 @@ function icsText(list, calName, notes) {
 function shareIcs() {
   const c = shareCtx; if (!c) return;
   const list = shareItems(c); if (!list.length) return toast('Нет событий для файла');
-  const name = c.kind === 'c' ? cat(c.id).name : c.kind === 'a' ? 'Напоминалка' : '';
+  const name = c.kind === 'c' ? cat(c.id).name : c.kind === 'a' ? APP_NAME : '';
   const fname = (c.kind === 'e' ? list[0].title : name).replace(/[\\/:*?"<>|#%]+/g, ' ').trim().slice(0, 40) || 'napominalka';
   const file = new File([icsText(list, name, c.notes)], fname + '.ics', { type:'text/calendar' });
   // На телефоне — меню «Поделиться» (там есть «Сохранить в Файлы» и мессенджеры), на ПК — обычное скачивание
@@ -190,7 +190,7 @@ function drawInbox() {
   ${p.by ? `<p class="set-note" style="margin:0 0 8px"><b style="color:var(--tx)">${esc(p.by)}</b> делится ${p.k === 'e' ? 'событием' : 'календарём'}</p>` : ''}
   ${body}${where}
   ${own ? '<p class="shnote">Это ваша собственная ссылка — эти события уже есть в календаре. Если добавить, появятся копии.</p>' : ''}
-  ${safari ? '<p class="shnote">Ссылка открылась в Safari, а не в приложении на экране «Домой» — у них раздельная память. Чтобы добавить в приложение: <b>скопируйте ссылку</b>, откройте Напоминалку с экрана «Домой», нажмите поиск и вставьте ссылку.</p>' : ''}
+  ${safari ? '<p class="shnote">Ссылка открылась в Safari, а не в приложении на экране «Домой» — у них раздельная память. Чтобы добавить в приложение: <b>скопируйте ссылку</b>, откройте ' + APP_NAME + ' с экрана «Домой», нажмите поиск и вставьте ссылку.</p>' : ''}
   <div class="shbtns">${safari
     ? `<button class="btn pri" data-act="incopy">${I(IC.link,16)} Скопировать ссылку</button><div class="row"><button class="btn" data-act="inadd">Добавить здесь</button><button class="btn" data-act="close">Не нужно</button></div>`
     : `<div class="row"><button class="btn pri" data-act="inadd">${I(IC.plus,16)} ${addLbl}</button><button class="btn" data-act="close" style="flex:0 0 auto">Не нужно</button></div>`}</div>
@@ -245,7 +245,7 @@ function saveFile(blob, name) {
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 function exportData() {
-  saveFile(new Blob([JSON.stringify(S, null, 2)], { type:'application/json' }), `napominalka-${todayK()}.json`);
+  saveFile(new Blob([JSON.stringify(S, null, 2)], { type:'application/json' }), `parsimony-${todayK()}.json`);
   toast('Копия сохранена в файл');
 }
 function importData(input) {
@@ -254,10 +254,10 @@ function importData(input) {
   r.onload = () => {
     try {
       const d = JSON.parse(r.result);
-      if (!d || !Array.isArray(d.events) || !Array.isArray(d.cats)) throw new Error('это не копия Напоминалки');
+      if (!d || !Array.isArray(d.events) || !Array.isArray(d.cats)) throw new Error('это не копия ' + APP_NAME);
       snap();
       S.events = d.events; S.cats = d.cats.length ? d.cats : S.cats; S.templates = Array.isArray(d.templates) ? d.templates : S.templates;
-      ['habits', 'bio', 'fin', 'focus', 'hnotes'].forEach(k => { if (d[k] !== undefined) S[k] = d[k]; });
+      ['habits', 'bio', 'fin', 'focus', 'ygoal', 'notes', 'hnotes'].forEach(k => { if (d[k] !== undefined) S[k] = d[k]; });
       if (d.settings) S.settings = Object.assign({}, DEF.settings, d.settings);
       migrate(); save(); closeSheet(); render(); toast(`Загружено событий: ${S.events.length}`, true);
     } catch (x) { toast('Не получилось загрузить: ' + x.message); }

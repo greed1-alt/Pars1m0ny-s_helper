@@ -8,6 +8,7 @@ const NDAY = ['день', 'дня', 'дней'];
 
 onMigrate(() => {
   if (!S.focus || typeof S.focus !== 'object' || Array.isArray(S.focus)) S.focus = {};
+  if (!S.ygoal || typeof S.ygoal !== 'object' || Array.isArray(S.ygoal)) S.ygoal = {};
   // Один раз: дела без времени и без повтора становятся задачами
   if (!S.settings.tasksMig) { S.events.forEach(e => { if (e.task == null && !e.time && !isRec(e)) { e.task = true; e.prio = 'mid'; } }); S.settings.tasksMig = 1; }
 });
@@ -94,17 +95,35 @@ function taskSummary() {
   </div>`;
 }
 
-const focusGet = ym => S.focus[ym] || { title:'', items:[] };
-const focusSet = ym => S.focus[ym] || (S.focus[ym] = { title:'', items:[] });
-function focusCard() {
-  const ym = ymOf(sel), f = focusGet(ym), done = f.items.filter(i => i.done).length;
-  return `<div class="card fz-card">
-    <div class="card-h"><b>Фокус месяца</b><small>${ymTitle(ym)}</small></div>
-    <input id="fz_title" class="fz-title" type="text" value="${esc(f.title)}" placeholder="Главное на месяц, например «закончить проект»" autocomplete="off">
-    <div class="fz-list">${f.items.map((it, i) => `<div class="fz-it${it.done ? ' done' : ''}"><button class="chk" data-act="fzcheck" data-i="${i}" aria-label="Выполнено">${it.done ? I(IC.check, 13) : ''}</button><span>${esc(it.t)}</span><button class="fz-x" data-act="fzdel" data-i="${i}" aria-label="Удалить шаг">${I(IC.x, 14)}</button></div>`).join('')}</div>
-    <input id="fz_add" class="fz-add" type="text" placeholder="+ шаг к цели (Enter)" autocomplete="off">
-    ${f.items.length ? `<div class="fz-prog"><div class="ds-bar"><i style="width:${Math.round(done / f.items.length * 100)}%"></i></div><span>${done} из ${f.items.length}</span></div>` : ''}
+// Цели с шагами: «Фокус месяца» (g='m', S.focus['2026-10']) и «Цель на год» (g='y', S.ygoal['2026'])
+const goalKey = g => g === 'y' ? sel.slice(0, 4) : ymOf(sel);
+const goalStore = g => g === 'y' ? S.ygoal : S.focus;
+const goalGet = g => goalStore(g)[goalKey(g)] || { title:'', items:[] };
+const goalSet = g => { const st = goalStore(g), k = goalKey(g); return st[k] || (st[k] = { title:'', items:[] }); };
+function goalCard(g) {
+  const f = goalGet(g), done = f.items.filter(i => i.done).length, y = goalKey('y'), left = dayDiff(todayK(), y + '-12-31');
+  const head = g === 'y'
+    ? `<b>Цель на ${y}</b><small>${y === todayK().slice(0, 4) ? (left ? 'до конца года ' + plural(left, NDAY) : 'последний день года') : ''}</small>`
+    : `<b>Фокус месяца</b><small>${ymTitle(goalKey('m'))}</small>`;
+  return `<div class="card fz-card${g === 'y' ? ' yg-card' : ''}">
+    <div class="card-h">${head}</div>
+    <input class="fz-title" data-g="${g}" type="text" value="${esc(f.title)}" placeholder="${g === 'y' ? 'Самое большое на год, например «переехать в свою квартиру»' : 'Главное на месяц, например «закончить проект»'}" autocomplete="off" aria-label="${g === 'y' ? 'Цель на год' : 'Фокус месяца'}">
+    <div class="fz-list">${f.items.map((it, i) => `<div class="fz-it${it.done ? ' done' : ''}"><button class="chk" data-act="fzcheck" data-g="${g}" data-i="${i}" aria-label="Выполнено">${it.done ? I(IC.check, 13) : ''}</button><span>${esc(it.t)}</span><button class="fz-x" data-act="fzdel" data-g="${g}" data-i="${i}" aria-label="Удалить шаг">${I(IC.x, 14)}</button></div>`).join('')}</div>
+    <input class="fz-add" data-g="${g}" type="text" placeholder="+ шаг к цели (Enter)" autocomplete="off" aria-label="Новый шаг">
+    <div class="fz-foot">${f.items.length ? `<div class="fz-prog"><div class="ds-bar"><i style="width:${Math.round(done / f.items.length * 100)}%"></i></div><span>${done} из ${f.items.length}</span></div>` : ''}
+    ${g === 'y' ? '<p class="yg-note">Это ваша самая грандиозная цель, вы же не будете жалеть потом?)</p>' : ''}</div>
   </div>`;
+}
+// «Важные задачи»: срочные (не выполненные) и шаги «Фокуса месяца» — в боковой панели ПК и карточкой на телефоне
+const dueShort = k => { const n = dayDiff(todayK(), k); return n < 0 ? 'просрочено' : n === 0 ? 'сегодня' : n === 1 ? 'завтра' : shortDate(k); };
+function importantHTML() {
+  const t = todayK();
+  const urg = tasksAll().map(e => ({ e, k: isRec(e) ? nextOcc(e) : e.date })).filter(x => prioOf(x.e) === 'urgent' && !isDone(x.e, x.k)).sort((a, b) => a.k.localeCompare(b.k)).slice(0, 6);
+  const f = goalGet('m'), steps = f.items.map((it, i) => ({ it, i })).filter(x => !x.it.done).slice(0, 6);
+  return `<div class="sbl-sub">Срочные</div>
+    ${urg.length ? urg.map(({ e, k }) => `<button class="sbl" data-act="edit" data-id="${e.id}" data-d="${k}"><i class="sbl-dot" style="--c:${PRIO.urgent.c}"></i><span class="sbl-t">${esc(e.title)}</span><small class="${k < t ? 'late' : ''}">${dueShort(k)}</small></button>`).join('') : '<p class="sbl-empty">Срочных задач нет 👍</p>'}
+    <div class="sbl-sub">На месяц${f.title ? ` · <span>${esc(f.title)}</span>` : ''}</div>
+    ${steps.length ? steps.map(({ it, i }) => `<div class="sbl"><button class="chk" data-act="fzcheck" data-g="m" data-i="${i}" aria-label="Выполнено"></button><span class="sbl-t">${esc(it.t)}</span></div>`).join('') : `<p class="sbl-empty">${f.items.length ? 'Все шаги месяца выполнены 🎉' : 'Добавьте шаги в «Фокус месяца»'}</p>`}`;
 }
 
 function taskDynamics() {
@@ -124,9 +143,11 @@ function tasksHTML() {
   const hasAny = S.events.some(e => e.task), demo = S.events.some(e => e.demo);
   return `${missedBar(true)}${demoBar('tasks', demo)}
   ${!hasAny ? emptyCard('tasks', 'Задачи', 'Здесь задачи по дням недели, сроки и приоритеты. Задача с датой видна и в календаре. Пишите прямо в колонку дня: «позвонить маме», «отчёт в 15:00 #работа».') : ''}
+  <div class="card m-only"><div class="card-h"><b>Важные задачи</b></div>${importantHTML()}</div>
   <div class="card tw-card"><div class="card-h"><b>Неделя ${isoWeek(wk[0])}</b><small>${a.getDate()} ${MONS[a.getMonth()]} – ${b.getDate()} ${MONS[b.getMonth()]}</small></div>${weekBoard()}</div>
   <div class="tk-mid">${taskTable()}${taskSummary()}</div>
-  <div class="tk-bot">${focusCard()}${taskDynamics()}</div>`;
+  <div class="tk-goals">${goalCard('m')}${goalCard('y')}</div>
+  ${taskDynamics()}`;
 }
 
 SEC.tasks = {
@@ -135,15 +156,17 @@ SEC.tasks = {
   html: tasksHTML,
   move: n => { sel = addDays(sel, 7 * n); syncMini(); },
   create: () => newTask(),
+  side: () => `<div class="sb-sec"><div class="sb-h">Важные задачи</div>${importantHTML()}</div>`,
   info: () => { const l = dayTasks(todayK()), d = l.filter(e => e.done).length; return l.length ? `Сегодня: <b>${d} из ${l.length}</b>` : 'На сегодня задач нет'; },
   demo: on => {
-    if (!on) { S.events = S.events.filter(e => !e.demo); Object.keys(S.focus).forEach(k => { if (S.focus[k].demo) delete S.focus[k]; }); return; }
+    if (!on) { S.events = S.events.filter(e => !e.demo); [S.focus, S.ygoal].forEach(st => Object.keys(st).forEach(k => { if (st[k].demo) delete st[k]; })); return; }
     const wk = taskWeek(), t = todayK(), c = i => S.cats[i % S.cats.length].id;
     const L = [[0, 'Составить план на неделю', 'high', 0, 1], [0, 'Ответить на письма', 'mid', 0, 1], [1, '10 000 шагов', 'mid', 2, 1], [1, 'Отчёт для руководителя', 'urgent', 0, 1],
       [2, 'Позвонить маме', 'high', 1, 0], [2, 'Прочитать 20 страниц', 'low', 3, 1], [3, 'Подготовить презентацию', 'urgent', 0, 0], [3, 'Медитация 10 минут', 'low', 1, 1],
       [4, 'Оплатить интернет', 'mid', 1, 0], [4, 'Встреча с командой', 'high', 0, 0], [5, 'Уборка в квартире', 'mid', 1, 0], [5, 'Спортзал', 'mid', 2, 0], [6, 'Отдых без телефона', 'low', 1, 0], [6, 'Задачи на следующую неделю', 'high', 0, 0]];
     L.forEach(([d, title, prio, ci, done]) => { const k = wk[d]; S.events.push({ id:uid(), demo:true, task:true, prio, title, date:k, time:'', time2:'', cat:c(ci), note:'', loc:'', repeat:{ type:'none' }, reminder:{ enabled:false, offset:15, repeat:'none', days:[] }, done: !!done && k <= t, doneDates:[], skip:[] }); });
-    const ym = ymOf(sel);
+    const ym = ymOf(sel), yr = ym.slice(0, 4);
+    if (!S.ygoal[yr] || (!S.ygoal[yr].title && !S.ygoal[yr].items.length)) S.ygoal[yr] = { demo:true, title:'Накопить на свою квартиру', items:[{ t:'Открыть накопительный счёт', done:true }, { t:'Откладывать 20% от зарплаты', done:true }, { t:'Выбрать район', done:false }, { t:'Найти подработку', done:false }, { t:'Собрать первый взнос', done:false }] };
     if (!S.focus[ym] || (!S.focus[ym].title && !S.focus[ym].items.length)) S.focus[ym] = { demo:true, title:'Закончить проект по работе', items:[{ t:'Согласовать задачи с руководителем', done:true }, { t:'Составить карту проекта', done:true }, { t:'Закрыть вопросы с отделом', done:false }, { t:'Запуск', done:false }] };
   },
 };
@@ -158,19 +181,19 @@ document.addEventListener('keydown', e => {
   } else if (t.id === 'tk_new') {
     e.preventDefault(); addTaskQuick(t.value, todayK());
     const i = $('#tk_new'); if (i) i.focus();
-  } else if (t.id === 'fz_add') {
-    e.preventDefault(); const v = t.value.trim(); if (!v) return;
-    snap(); focusSet(ymOf(sel)).items.push({ t:v, done:false }); save(); render();
-    const i = $('#fz_add'); if (i) i.focus();
+  } else if (t.classList && t.classList.contains('fz-add')) {
+    e.preventDefault(); const v = t.value.trim(), g = t.dataset.g; if (!v) return;
+    snap(); goalSet(g).items.push({ t:v, done:false }); save(); render();
+    const i = $(`.fz-add[data-g="${g}"]`); if (i) i.focus();
   }
 });
 document.addEventListener('input', e => { if (e.target.id === 'tk_new') nlHint(e.target.value.trim() ? parseNL(e.target.value, todayK()) : null, '#tk_hint'); });
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.prio) { const ev = S.events.find(x => x.id === t.dataset.prio); if (!ev) return; snap(); ev.prio = t.value; save(); render(); toast('Приоритет: ' + PRIO[t.value].n, true); }
-  else if (t.id === 'fz_title') { focusSet(ymOf(sel)).title = t.value.trim(); save(); }
+  else if (t.classList.contains('fz-title')) { goalSet(t.dataset.g).title = t.value.trim(); save(); if (!$('#side').contains(t)) $('#side').innerHTML = sideHTML(); }
 });
 ACT.tfilter = el => { tFilter = el.dataset.f; render(); };
 ACT.tprio = el => { tPrio = tPrio === el.dataset.p ? '' : el.dataset.p; if (tPrio && tFilter === 'done') tFilter = 'active'; render(); };
-ACT.fzcheck = el => { const f = focusSet(ymOf(sel)), it = f.items[+el.dataset.i]; if (!it) return; it.done = !it.done; save(); render(); if (f.items.every(x => x.done)) toast('Все шаги месяца выполнены 🎉'); };
-ACT.fzdel = el => { const f = focusSet(ymOf(sel)); snap(); f.items.splice(+el.dataset.i, 1); save(); render(); toast('Шаг удалён', true); };
+ACT.fzcheck = el => { const g = el.dataset.g || 'm', f = goalSet(g), it = f.items[+el.dataset.i]; if (!it) return; it.done = !it.done; save(); render(); if (it.done && f.items.every(x => x.done)) toast(g === 'y' ? 'Цель года достигнута! 🏆' : 'Все шаги месяца выполнены 🎉'); };
+ACT.fzdel = el => { const f = goalSet(el.dataset.g || 'm'); snap(); f.items.splice(+el.dataset.i, 1); save(); render(); toast('Шаг удалён', true); };

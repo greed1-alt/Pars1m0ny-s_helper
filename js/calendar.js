@@ -40,7 +40,7 @@ function miniHTML() {
   const today = todayK(), wkStart = weekStartOf(sel), wkEnd = addDays(wkStart, 6);
   let h = '<div class="mgrid">' + dowsOrdered().map(x => `<i>${x.toLowerCase()}</i>`).join('');
   h += gridCells(miniAnchor).map(([c, inMonth], i) => {
-    const k = ds(c), es = evOn(k), col = i % 7, inWk = (view === 'week' || view === 'day') && k >= wkStart && k <= wkEnd;
+    const k = ds(c), es = evOn(k), col = i % 7, inWk = (sec === 'tasks' || (sec === 'cal' && (view === 'week' || view === 'day'))) && k >= wkStart && k <= wkEnd;
     const dots = [...new Set(es.map(e => cat(e.cat).color))].slice(0,4).map(cl => `<u style="background:${cl}"></u>`).join('');
     return `<button class="mcell${inMonth?'':' oth'}${k===today?' today':''}${k===sel?' sel':''}${inWk?' wk':''}${col===0?' l':''}${col===6?' r':''}" data-act="pick" data-d="${k}"><span>${c.getDate()}</span><em class="md">${dots}</em></button>`;
   }).join('');
@@ -130,20 +130,21 @@ const tplSub = t => t.time ? (t.time2 ? t.time + '–' + t.time2 : t.time) : 'В
 function sideHTML() {
   const open = S.settings.tplOpen !== false, n = nextUp();
   const cnt = id => S.events.filter(e => e.cat === id).length;
-  const top = `<div class="sb-top"><span class="sb-title"><span class="sb-logo" title="Сегодня ${esc(fmtLong(todayK()))}"><span>${pd(todayK()).getDate()}</span></span>Напоминалка</span><button class="sb-ic" data-act="search" aria-label="Поиск" title="Поиск и команды (Ctrl+K)">${I(IC.search)}</button></div>
+  const top = `<div class="sb-top"><span class="sb-title"><span class="sb-logo" title="Сегодня ${esc(fmtLong(todayK()))}"><span>${pd(todayK()).getDate()}</span></span>${APP_NAME}</span><button class="sb-ic" data-act="search" aria-label="Поиск" title="Поиск и команды (Ctrl+K)">${I(IC.search)}</button></div>
   ${navHTML()}`;
   const foot = `<div class="sb-foot">
-    <button class="sb-link" data-act="settings"><i class="ndot ${notif.state}"></i>Уведомления: ${esc(notif.short)}</button>
+    <button class="sb-link" data-act="settings" title="Уведомления: ${esc(notif.short)}">${I(IC.gear,15)} Настройки</button>
     <button class="sb-link" data-act="help">${I(IC.key,15)} Горячие клавиши <kbd>?</kbd></button>
   </div>`;
+  const mini = `<div class="mini-head"><b>${MON[miniAnchor.getMonth()]} ${miniAnchor.getFullYear()}</b><div><button data-act="mprev" aria-label="Предыдущий месяц">${I(IC.left,16)}</button><button data-act="mnext" aria-label="Следующий месяц">${I(IC.right,16)}</button></div></div>
+  <div id="mini">${miniHTML()}</div>`;
   if (sec !== 'cal') return `${top}<button class="newbtn" data-act="add">${I(IC.plus,16)} ${SEC[sec].newLabel} <kbd>N</kbd></button>
-  ${sec === 'tasks' ? '' : `<div class="sb-miss">${missedBar()}</div>`}${SEC[sec].side ? SEC[sec].side() : ''}${foot}`;
+  ${sec === 'tasks' ? '' : `<div class="sb-miss">${missedBar()}</div>`}${mini}${SEC[sec].side ? SEC[sec].side() : ''}${foot}`;
   return `${top}
   <button class="newbtn" data-act="add">${I(IC.plus,16)} Создать событие <kbd>N</kbd></button>
   <div class="sb-miss">${missedBar()}</div>
   ${n ? `<div class="sb-next">${nextCard(n)}</div>` : ''}
-  <div class="mini-head"><b>${MON[miniAnchor.getMonth()]} ${miniAnchor.getFullYear()}</b><div><button data-act="mprev" aria-label="Предыдущий месяц">${I(IC.left,16)}</button><button data-act="mnext" aria-label="Следующий месяц">${I(IC.right,16)}</button></div></div>
-  <div id="mini">${miniHTML()}</div>
+  ${mini}
   <div class="sb-sec"><div class="sb-h">Мои календари</div>
   ${S.cats.map(c => `<div class="sb-catw"><button type="button" class="sb-cat${hiddenCats.has(c.id)?'':' on'}" data-act="catfilter" data-id="${c.id}" style="--c:${c.color}"><span class="sb-box">${hiddenCats.has(c.id)?'':I(IC.check,11)}</span>${esc(c.name)}<span class="cnt">${cnt(c.id) || ''}</span></button><button type="button" class="cshare" data-act="sharecat" data-id="${c.id}" aria-label="Поделиться календарём «${esc(c.name)}»" title="Поделиться">${I(IC.share,14)}</button></div>`).join('')}
   <button class="sb-add" data-act="addcat">${I(IC.plus,15)} Добавить календарь</button></div>
@@ -198,7 +199,7 @@ function render(dir) {
 }
 
 function move(n) {
-  if (sec !== 'cal') { SEC[sec].move(n); return render(n); }
+  if (sec !== 'cal') { SEC[sec].move(n); if (sec !== 'tasks') miniAnchor = pd(secYM + '-01'); return render(n); }
   if (view === 'month') { monthAnchor.setDate(1); monthAnchor.setMonth(monthAnchor.getMonth() + n); }
   else if (view === 'list') { sel = addDays(sel, 14 * n); syncMini(); }
   else { sel = addDays(sel, view === 'week' ? 7 * n : n); syncMini(); }
@@ -212,7 +213,7 @@ function setTheme(t) { S.settings.theme = t; save(); render(); toast('Тема: 
 
 // ---- Тост и «Отменить» ----
 const undoStack = [];
-const UNDO_KEYS = ['events', 'cats', 'templates', 'habits', 'bio', 'fin', 'focus'];
+const UNDO_KEYS = ['events', 'cats', 'templates', 'habits', 'bio', 'fin', 'focus', 'ygoal', 'notes'];
 const snap = () => { const o = {}; UNDO_KEYS.forEach(k => { if (S[k] !== undefined) o[k] = S[k]; }); undoStack.push(JSON.stringify(o)); if (undoStack.length > 30) undoStack.shift(); };
 function undo() {
   const s = undoStack.pop(); if (!s) return toast('Нечего отменять');

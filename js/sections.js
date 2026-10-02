@@ -8,6 +8,7 @@ SEC.cal = { name:'Календарь', icon:IC.cal, newLabel:'Создать' };
 function setSec(s) {
   if (!SEC[s] || s === sec) return;
   sec = s; S.settings.sec = s; save();
+  if (s === 'habits' || s === 'fin') miniAnchor = pd(secYM + '-01'); else syncMini();
   closeQuick(); if (sheetOpen()) closeSheet();
   window.scrollTo(0, 0);
   render(2);

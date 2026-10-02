@@ -27,6 +27,7 @@ document.addEventListener('click', async ev => {
   else if (a === 'undo') { $('#toast').classList.remove('show'); undo(); }
   else if (a === 'pick') { const d = el.dataset.d; const fromMini = !!el.closest('#mini'); sel = d;
     if (view === 'month') { const m = pd(d); if (m.getMonth() !== monthAnchor.getMonth()) { monthAnchor = m; monthAnchor.setDate(1); } }
+    if (sec === 'habits' || sec === 'fin') { if (ymOf(d) !== secYM) { secYM = ymOf(d); window.scrollTo(0, 0); } }   // в «Привычках» и «Финансах» день открывает его месяц
     if (fromMini) syncMini(); render(); }
   else if (a === 'goday') { sel = el.dataset.d; view = 'day'; syncMini(); render(2); }
   else if (a === 'addday') openEvent(null, { date: sel });
@@ -99,7 +100,7 @@ document.addEventListener('click', async ev => {
   else if (a === 'shics') shareIcs();
   else if (a === 'incat') { inbox.target = id; $$('#in_cats .ccat').forEach(b => b.classList.toggle('on', b.dataset.id === id)); }
   else if (a === 'inadd') applyIncoming();
-  else if (a === 'incopy') copyText(shareURL(inbox.code), 'Ссылка скопирована — вставьте её в поиск Напоминалки');
+  else if (a === 'incopy') copyText(shareURL(inbox.code), 'Ссылка скопирована — вставьте её в поиск ' + APP_NAME);
 });
 document.addEventListener('dblclick', ev => {
   const mc = ev.target.closest('.mc'); if (!mc || ev.target.closest('.mchip,.mmore,.mc-n')) return;

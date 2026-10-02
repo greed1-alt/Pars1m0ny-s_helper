@@ -115,6 +115,10 @@ function finHistory(st) {
       return `<div class="fh-row"><button class="fh-main" data-act="opedit" data-id="${o.id}"><span class="em">${esc(c.emoji || '•')}</span><span class="fh-t"><b>${esc(o.note || c.name)}</b><small>${esc(o.note ? c.name : FG[c.g].n)}</small></span><b class="fh-a${plus ? ' plus' : ''}">${plus ? '+' : '−'}${rub(o.amt)}</b></button><button class="fz-x" data-act="opdel" data-id="${o.id}" aria-label="Удалить запись">${I(IC.x, 14)}</button></div>`; }).join('')}</div>`).join('')
     : '<p class="empty">Записей за этот месяц нет. Напишите трату в поле сверху — например, «продукты 1200».</p>'}</div>`;
 }
+// «Топ покупок»: самые дорогие траты месяца (раздел «Траты»)
+const topBuys = (ym, n) => opsIn(ym).filter(o => fcat(o.cat).g === 'exp').sort((a, b) => b.amt - a.amt || b.date.localeCompare(a.date)).slice(0, n);
+const topBuysHTML = ym => { const l = topBuys(ym, 5); return l.length ? l.map((o, i) => { const c = fcat(o.cat); return `<button class="sbl sbl-buy" data-act="opedit" data-id="${o.id}"><span class="sbl-n">${i + 1}</span><span class="sbl-em">${esc(c.emoji || '•')}</span><span class="sbl-t">${esc(o.note || c.name)}<small>${esc(shortDate(o.date))} · ${esc(c.name)}</small></span><b>${rub0(o.amt)}</b></button>`; }).join('') : '<p class="sbl-empty">Здесь появятся самые дорогие покупки месяца</p>'; };
+
 function financeHTML() {
   const ym = secYM, st = finStat(ym), lim = dailyLimit(st, ym), demo = S.fin.ops.some(o => o.demo);
   const noPlans = !S.fin.cats.some(c => c.plan);
@@ -123,6 +127,7 @@ function financeHTML() {
   <div class="card fq-card"><div class="fq"><input id="fq_in" class="fin" type="text" placeholder="Например: «кафе 450» или «+ зарплата 60 000»" autocomplete="off" aria-label="Быстрая запись"><button class="btn pri" data-act="fqadd">Записать</button><button class="btn fq-more" data-act="opnew">Подробнее</button></div><div id="fq_hint" class="nlhint"></div></div>
   ${finTiles(st, lim)}
   <div class="fc3">${finBullets(st)}${finDonut(st)}${finDaily(st, ym)}</div>
+  <div class="card m-only"><div class="card-h"><b>Топ покупок</b><small>${ymTitle(ym)}</small></div>${topBuysHTML(ym)}</div>
   <div class="fg-grid">${FG_ORDER.map(k => finGroup(k, st)).join('')}</div>
   ${finHistory(st)}`;
 }
@@ -231,6 +236,7 @@ SEC.fin = {
   html: financeHTML,
   move: n => { secYM = ymAdd(secYM, n); },
   create: () => openOp(),
+  side: () => `<div class="sb-sec"><div class="sb-h">Топ покупок · ${MON[Number(secYM.slice(5)) - 1].toLowerCase()}</div>${topBuysHTML(secYM)}</div>`,
   info: () => { const st = finStat(ymOf(todayK())), lim = dailyLimit(st, ymOf(todayK())); return lim ? `Сегодня можно: <b>${rub0(Math.max(0, lim.left))}</b>` : `Расходы за месяц: <b>${rub0(st.spent)}</b>`; },
   demo: on => {
     if (!on) {

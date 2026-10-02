@@ -44,6 +44,8 @@ main.sec{padding:10px 12px 28px;display:flex;flex-direction:column;gap:12px}
 .missbar em{font-style:normal;font-size:12.5px;font-weight:600;color:var(--tx2);flex:none}
 .missbar:hover{filter:var(--hovf)}
 .v-month>.missbar{margin-bottom:10px}
+#side .missbar{padding:9px 10px}
+#side .missbar em{display:none}
 .mslist{display:flex;flex-direction:column;gap:8px}
 .msrow{border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px}
 .ms-top{display:flex;gap:10px;align-items:flex-start}
@@ -101,7 +103,11 @@ main.sec{padding:10px 12px 28px;display:flex;flex-direction:column;gap:12px}
 .tw-ring .rg-s{font-size:12px}
 @media(hover:hover){.tw-row:hover{background:var(--hov)}}
 
-.tk-mid,.tk-bot{display:flex;flex-direction:column;gap:12px}
+.tk-mid,.tk-goals{display:flex;flex-direction:column;gap:12px}
+.fz-card{display:flex;flex-direction:column}
+.fz-list{flex:1}
+.fz-foot{margin-top:auto}
+.yg-note{margin:10px 0 0;font-size:11.5px;color:var(--mut);font-style:italic}
 .tk-flt{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx2);margin:0 0 8px}
 .tk-add{margin-bottom:6px}
 .tk-tbl{display:flex;flex-direction:column}
@@ -172,8 +178,7 @@ table.hg,table.hw{border-collapse:separate;border-spacing:0;font-size:12px}
 .hg-name .nm small{display:block;font-size:10.5px;color:var(--mut);font-weight:500}
 @media(hover:hover){.hg-name button:hover,.hw th button:hover{background:var(--hov)}}
 thead th.hg-name{font-size:11px;color:var(--mut);font-weight:600;padding-left:6px!important;vertical-align:bottom}
-.hg-w th{font-size:11px;font-weight:600;height:24px;background:color-mix(in srgb,var(--w) var(--mix),var(--bg));color:color-mix(in srgb,var(--w) var(--mixtx),var(--tx));border-left:2px solid var(--bg)}
-.hg-w th:nth-child(2){border-radius:7px 0 0 7px}
+.hg-w th{font-size:11px;font-weight:600;height:26px;background:color-mix(in srgb,var(--w) var(--mix),var(--bg));color:color-mix(in srgb,var(--w) var(--mixtx),var(--tx));border:0 solid transparent;border-width:0 2px 2px;background-clip:padding-box;border-radius:9px}
 .hg-d th{min-width:28px;width:28px;height:36px;padding-top:3px;line-height:1.15;font-weight:500;color:var(--tx)}
 .hg-d th small{display:block;font-size:9.5px;color:var(--mut)}
 .hg-d th.wknd small{color:color-mix(in srgb,var(--red) 55%,var(--mut))}
@@ -218,8 +223,10 @@ thead th.hg-name{font-size:11px;color:var(--mut);font-weight:600;padding-left:6p
 .hs-row:first-of-type{border-top:0}
 .hs-n{font-size:11.5px;color:var(--mut);font-weight:600}
 .hs-row .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hw th{min-width:36px;font-size:11px;font-weight:600;height:26px;color:color-mix(in srgb,var(--w,var(--tx2)) var(--mixtx),var(--tx))}
-.hw thead th[style]{background:color-mix(in srgb,var(--w) var(--mix),var(--bg));border-left:2px solid var(--bg)}
+.hw th{min-width:64px;font-size:11.5px;font-weight:600;color:color-mix(in srgb,var(--w,var(--tx2)) var(--mixtx),var(--tx))}
+.hw thead th{padding:0 3px 6px}
+.wpill{display:block;padding:5px 12px;border-radius:9px;white-space:nowrap;background:var(--hov)}
+.hw thead th[style] .wpill{background:color-mix(in srgb,var(--w) var(--mix),var(--bg))}
 .hw tbody th{min-width:96px;max-width:200px;text-align:left}
 .hw td{height:34px}
 table.bio .hg-d th{height:34px}
@@ -234,6 +241,39 @@ table.bio .hg-d th{height:34px}
 .bio-bar .bb-h small{font-size:12px;color:var(--mut);text-align:right}
 .st-good{color:var(--good)}.st-mid{color:color-mix(in srgb,var(--warn) 70%,var(--tx))}.st-low{color:var(--bad)}
 .hn-text{min-height:96px;height:auto;padding:10px 12px;resize:vertical;line-height:1.5}
+.nt-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 4px;flex-wrap:wrap}
+.nt-bar small{font-size:12px;color:var(--mut)}
+.nt-bar .btn{height:36px;font-size:13.5px}
+.nt-list{display:flex;flex-direction:column;margin-top:6px}
+.nt-row{display:flex;align-items:flex-start;gap:4px;border-top:1px solid var(--line)}
+.nt-main{flex:1;min-width:0;text-align:left;padding:9px 4px;border-radius:8px}
+.nt-d{display:block;font-size:11.5px;font-weight:600;color:var(--mut);margin-bottom:2px}
+.nt-x{display:block;font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45}
+.nt-row .fz-x{margin-top:8px}
+.nt-m{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:16px 0 2px}
+.nt-m:first-of-type{margin-top:4px}
+@media(hover:hover){.nt-main:hover{background:var(--hov)}}
+
+/* Списки в боковой панели (и такие же карточки на телефоне): важные задачи, топ привычек, топ покупок */
+.sbl{display:flex;align-items:center;gap:8px;width:100%;min-height:32px;padding:5px 6px;border-radius:7px;text-align:left;font-size:13px;color:var(--tx);position:relative}
+button.sbl:hover{background:var(--hov)}
+.sbl .chk{width:16px;height:16px;margin:0;border-radius:5px}
+.sbl-t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbl-t small{display:block;font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbl>small{font-size:11.5px;color:var(--mut);flex:none}
+.sbl>small.late{color:var(--dng);font-weight:600}
+.sbl>b{font-size:12.5px;font-weight:650;flex:none}
+.sbl-dot{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none;margin:0 4px}
+.sbl-n{width:14px;font-size:11px;font-weight:600;color:var(--mut);flex:none;text-align:center}
+.sbl-em{width:18px;text-align:center;flex:none}
+.sbl-top{flex-wrap:wrap;row-gap:3px}
+.sbl-bar{display:block;flex:0 0 100%;height:4px;border-radius:2px;background:var(--hov2);overflow:hidden;margin-left:48px;max-width:calc(100% - 48px)}
+.sbl-bar>i{display:block;height:100%;border-radius:2px;background:var(--c-blue)}
+.sbl-buy{min-height:40px}
+.sbl-sub{font-size:11px;font-weight:600;color:var(--mut);margin:8px 6px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbl-sub:first-child{margin-top:0}
+.sbl-sub span{color:var(--tx2);font-weight:500}
+.sbl-empty{font-size:12.5px;color:var(--mut);margin:2px 6px 6px}
 .emj{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
 .emb{width:36px;height:36px;border-radius:9px;font-size:19px;display:grid;place-items:center;border:1px solid transparent}
 .emb.on{border-color:var(--acc);background:var(--hov)}
@@ -352,21 +392,28 @@ table.bio .hg-d th{height:34px}
   main.sec{padding:18px 24px 48px;gap:16px}
   .tw{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
   .tw-day{min-height:250px}
-  .tk-mid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
-  .tk-bot{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:16px;align-items:start}
-  .tk-row{grid-template-columns:24px minmax(0,1fr) 92px 140px 104px 130px;grid-template-areas:none;padding:6px 2px}
+  /* «Задачи»: карточки одного ряда — одной высоты */
+  .tk-mid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:stretch}
+  .tk-goals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:stretch}
+  .tk-tbl{max-height:460px;overflow-y:auto;overscroll-behavior:contain;margin-right:-6px;padding-right:6px}
+  .tk-head{position:sticky;top:0;z-index:1;background:var(--bg)}
+  .tk-row{grid-template-columns:24px minmax(0,1fr) 76px 132px 104px 118px;grid-template-areas:none;padding:6px 2px}
   .tk-row>*{grid-area:auto!important;grid-column:auto!important;justify-self:start!important}
   .tk-head{display:grid;font-size:11px;font-weight:600;color:var(--mut);border-top:0;padding:4px 2px}
   .tk-date,.tk-left,.tk-cat{font-size:12.5px}
   .tk-date{color:var(--tx2)}
   .hb-two{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
-  .hb-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
+  .hb-three{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:stretch}
   .hg-name{min-width:180px;max-width:180px}
   .bio-bars{grid-template-columns:repeat(3,minmax(0,1fr))}
   .ft{grid-template-columns:1.4fr repeat(4,minmax(0,1fr))}
   .ft-t.hero{grid-column:auto}
   .fc3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
   .fg-grid{grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:16px;align-items:start}
+}
+@media(min-width:900px) and (max-width:1399px){
+  .tk-row{grid-template-columns:24px minmax(0,1fr) 70px 124px 100px}
+  .tk-row .tk-cat,.tk-head span:last-child{display:none!important}
 }
 @media(min-width:1800px){
   .fg-grid{grid-template-columns:repeat(3,minmax(0,1fr))}

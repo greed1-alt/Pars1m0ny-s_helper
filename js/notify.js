@@ -38,7 +38,7 @@ async function testNotif() {
     if (isIOS && navigator.standalone !== true) return plog('Откройте приложение с экрана «Домой», а не из Safari.');
     if (Notification.permission !== 'granted' && await Notification.requestPermission() !== 'granted') { checkNotif(); return plog('Разрешение на уведомления не выдано.'); }
     const reg = await swReady();
-    await reg.showNotification('Напоминалка', { body:'Тестовое уведомление — всё работает ✓', icon:'icon-192.png', tag:'test' });
+    await reg.showNotification(APP_NAME, { body:'Тестовое уведомление — всё работает ✓', icon:'icon-192.png', tag:'test' });
     S.settings.lastTest = Date.now(); save();
     toast('Тестовое уведомление отправлено');
     if (sheetOpen() && $('#nstat_t')) openSettings(true);

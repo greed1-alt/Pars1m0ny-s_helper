@@ -1,4 +1,4 @@
-const CACHE = 'rem-v18';
+const CACHE = 'rem-v19';
 const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png',
   './css/app.css', './css/sections.css', ...['core', 'calendar', 'charts', 'sections', 'tasks', 'habits', 'finance', 'input', 'share', 'notify', 'main'].map(n => './js/' + n + '.js')];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
@@ -11,7 +11,7 @@ self.addEventListener('fetch', e => {
     .catch(() => caches.match(e.request).then(r => r || caches.match('./index.html'))));
 });
 self.addEventListener('push', e => {
-  let d = { title: 'Напоминалка', body: 'Уведомление' };
+  let d = { title: 'Parsimony', body: 'Уведомление' };
   try { if (e.data) d = e.data.json(); } catch (x) {}
   e.waitUntil(self.registration.showNotification(d.title, { body: d.body, icon: 'icon-192.png', data: { url: d.url || './index.html' } }));
 });
