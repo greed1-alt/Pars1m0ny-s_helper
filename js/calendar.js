@@ -9,7 +9,7 @@ const weekDays = () => { const s = weekStartOf(sel); const d = [...Array(7)].map
 const catTag = id => { const c = cat(id); return `<span class="ctag" style="--c:${c.color}"><i></i>${esc(c.name)}</span>`; };
 function evHTML(e) {
   if (ui2()) return `<div class="ev${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${e.date}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button>
-  <button class="evb" data-act="edit" data-id="${e.id}" data-d="${e.date}"><b>${esc(e.title)}</b><small>${e.time?`<span class="ev-tm">${timeRange(e)}</span>`:''}${catTag(e.cat)}${e.rec?'<span>↻</span>':''}${remLabel(e) ? `<span>${remLabel(e).replace(/^ · /, '')}</span>` : ''}${e.loc?`<span>${esc(e.loc)}</span>`:''}</small>${e.note?`<p>${esc(e.note)}</p>`:''}</button></div>`;
+  <button class="evb" data-act="edit" data-id="${e.id}" data-d="${e.date}"><b>${esc(e.title)}</b><small>${e.time?`<span class="ev-tm">${timeRange(e)}</span>`:''}${catTag(e.cat)}${goalTag(e)}${e.rec?'<span>↻</span>':''}${remLabel(e) ? `<span>${remLabel(e).replace(/^ · /, '')}</span>` : ''}${e.loc?`<span>${esc(e.loc)}</span>`:''}</small>${e.note?`<p>${esc(e.note)}</p>`:''}</button></div>`;
   return `<div class="ev${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${e.date}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button>
   <button class="evb" data-act="edit" data-id="${e.id}" data-d="${e.date}"><b>${esc(e.title)}</b><small>${e.time?timeRange(e)+' · ':''}${esc(cat(e.cat).name)}${e.rec?' · ↻':''}${remLabel(e)}${e.loc?' · '+esc(e.loc):''}</small>${e.note?`<p>${esc(e.note)}</p>`:''}</button></div>`;
 }
@@ -261,7 +261,7 @@ function setTheme(t) { S.settings.theme = t; save(); render(); toast('Тема: 
 
 // ---- Тост и «Отменить» ----
 const undoStack = [];
-const UNDO_KEYS = ['events', 'cats', 'templates', 'habits', 'bio', 'fin', 'focus', 'ygoal', 'notes'];
+const UNDO_KEYS = ['events', 'cats', 'templates', 'habits', 'bio', 'fin', 'focus', 'ygoal', 'notes', 'goals'];
 const snap = () => { const o = {}; UNDO_KEYS.forEach(k => { if (S[k] !== undefined) o[k] = S[k]; }); undoStack.push(JSON.stringify(o)); if (undoStack.length > 30) undoStack.shift(); };
 function undo() {
   const s = undoStack.pop(); if (!s) return toast('Нечего отменять');

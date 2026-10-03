@@ -2,7 +2,7 @@
 // Каждый раздел регистрирует себя в SEC: name, icon, title(), html(), move(n), today(), create(), newLabel, info()
 const SEC = {};
 // SEC_ORDER — основные разделы (боковая панель и вкладки телефона); «Профиль» и «Настройки» — внизу панели
-const SEC_ORDER = ['home', 'cal', 'tasks', 'habits', 'fin'];
+const SEC_ORDER = ['home', 'cal', 'tasks', 'goals', 'habits', 'fin'];
 // Экспериментальные разделы: только в боковой панели ПК (на телефоне — кнопка на Главной), с пометкой β
 const NAV_EXTRA = ['timer'];
 const SEC_ALL = [...SEC_ORDER, ...NAV_EXTRA, 'profile', 'profedit', 'settings'];
@@ -50,13 +50,17 @@ function missedBar(full) {
   return `<button class="missbar" data-act="missopen">${I(IC.alert, 18)}<span><b>Вы пропустили: ${plural(l.length, ['дело', 'дела', 'дел'])}</b><small>${names}</small></span><em>Разобрать</em></button>`;
 }
 let missMove = null;   // у какого дела открыт выбор новой даты
+// Среди пропущенного есть шаг цели — подначка сверху (js/goals.js)
+const missedTaunt = l => { const e = l.find(x => x.goal && goalById(x.goal)), tx = e ? goalTaunt(goalById(e.goal), e.title) : '';
+  return tx ? `<div class="gl-taunt" style="margin-bottom:10px">${I(IC.alert, 15)}<span>${esc(tx)}</span></div>` : ''; };
 function openMissed(keep) {
   const l = missedList();
   if (!l.length) { closeSheet(); render(); return toast('Пропущенных дел нет 👍'); }
   sheet(`<div class="sh-head"><h3>Вы пропустили</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   <p class="set-note" style="margin:0 0 10px">Разовые дела за последние 30 дней, которые не отмечены выполненными. Перенесите их или отметьте.</p>
+  ${missedTaunt(l)}
   <div class="mslist">${l.map(e => `<div class="msrow" style="--c:${cat(e.cat).color}">
-    <div class="ms-top"><i></i><div class="ms-t"><b>${esc(e.title)}</b><small>${esc(relDay(e.date))}${e.time ? ', ' + esc(e.time) : ''} · ${esc(cat(e.cat).name)}</small></div></div>
+    <div class="ms-top"><i></i><div class="ms-t"><b>${esc(e.title)}</b><small>${esc(relDay(e.date))}${e.time ? ', ' + esc(e.time) : ''} · ${esc(cat(e.cat).name)}${e.goal && goalById(e.goal) ? ' · ' + esc(goalById(e.goal).emoji + ' ' + goalById(e.goal).title) : ''}</small></div></div>
     <div class="ms-btns">${missMove === e.id
       ? `<button class="btn" data-act="missto" data-id="${e.id}" data-d="${todayK()}">Сегодня</button><button class="btn" data-act="missto" data-id="${e.id}" data-d="${addDays(todayK(), 1)}">Завтра</button><input class="fin ms-date" type="date" data-id="${e.id}" min="${todayK()}" aria-label="Другая дата">`
       : `<button class="btn" data-act="missmove" data-id="${e.id}">${I(IC.cal, 15)} Перенести</button><button class="btn" data-act="missdone" data-id="${e.id}">${I(IC.check, 15)} Выполнено</button>`}</div></div>`).join('')}</div>

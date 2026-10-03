@@ -257,7 +257,8 @@ function importData(input) {
       if (!d || !Array.isArray(d.events) || !Array.isArray(d.cats)) throw new Error('это не копия ' + APP_NAME);
       snap();
       S.events = d.events; S.cats = d.cats.length ? d.cats : S.cats; S.templates = Array.isArray(d.templates) ? d.templates : S.templates;
-      ['habits', 'bio', 'fin', 'focus', 'ygoal', 'notes', 'hnotes'].forEach(k => { if (d[k] !== undefined) S[k] = d[k]; });
+      ['habits', 'bio', 'fin', 'focus', 'ygoal', 'notes', 'hnotes', 'goals'].forEach(k => { if (d[k] !== undefined) S[k] = d[k]; });
+      if (d.goals === undefined) delete S.goals;   // старая копия: цели соберутся из «Фокуса месяца» и «Цели на год»
       if (d.settings) S.settings = Object.assign({}, DEF.settings, d.settings);
       migrate(); save(); closeSheet(); render(); toast(`Загружено событий: ${S.events.length}`, true);
     } catch (x) { toast('Не получилось загрузить: ' + x.message); }

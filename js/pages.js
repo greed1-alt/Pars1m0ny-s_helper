@@ -124,12 +124,10 @@ function homeHTML() {
       return `<div class="hm-bm"><span class="nm">${esc(m.emoji || '')} ${esc(m.name)}${v != null && !opts.includes(v) ? ` <small>${fmtNum(v)}</small>` : ''}</span><div class="hm-sc">${opts.map(o => `<button class="${v === o ? 'on' : ''}" data-act="hmbio" data-m="${m.id}" data-v="${o}" aria-label="${esc(m.name)}: ${o}" aria-pressed="${v === o}">${o}</button>`).join('')}</div></div>`; }).join('')}</div>
     <div class="hm-foot"><span>${M.some(m => m.type === 'hours') ? 'Сон — в часах, остальное — от 1 до 5' : 'от 1 до 5'}</span><button data-act="sec" data-s="habits">Подробнее →</button></div></div>`;
 
-  const fm = S.focus[ym] || { title:'', items:[] }, yr = t.slice(0, 4), yg = S.ygoal[yr] || { title:'', items:[] };
-  const gl = (label, g, ph) => { const n = g.items.length, dn = g.items.filter(i => i.done).length;
-    return `<button class="hm-goal" data-act="hmgoal"><small>${label}</small><b>${g.title ? esc(g.title) : `<span class="ph">${ph}</span>`}</b>${n ? `<div class="ds-bar"><i style="width:${Math.round(dn / n * 100)}%"></i></div><span>${dn} из ${n} шагов</span>` : ''}</button>`; };
-  const goalsCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.trophy, 17)} Цели</b></div>
-    <div class="hm-list">${gl('Фокус месяца · ' + MON[d.getMonth()].toLowerCase(), fm, '+ Поставить цель на месяц')}${gl('Цель на ' + yr, yg, '+ Поставить главную цель года')}</div>
-    <div class="hm-foot"><span>${yr === todayK().slice(0, 4) ? 'До конца года ' + plural(dayDiff(t, yr + '-12-31'), NDAY) : ''}</span><button data-act="hmgoal">Цели →</button></div></div>`;
+  const nAct = S.goals.filter(g => !g.done).length;
+  const goalsCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.goal, 17)} Цели</b><small>${nAct ? plural(nAct, ['активная', 'активные', 'активных']) : ''}</small></div>
+    <div class="hm-list">${goalsMiniHTML(3)}</div>
+    <div class="hm-foot"><button data-act="gnewh">+ Цель</button><button data-act="hmgoal">Все цели →</button></div></div>`;
 
   const last = notesOf('')[0];
   const noteCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.note, 17)} Мысли дня</b><button class="pill sm" data-act="ntall">Все заметки${S.notes.length ? ' · ' + S.notes.length : ''}</button></div>
@@ -163,7 +161,8 @@ ACT.hmnew = el => {
 ACT.qnsave = () => { const v = $('#qn_text').value.trim(); if (!v) return $('#qn_text').focus(); addNoteToday(v); closeSheet(); render(); toast('Заметка сохранена', true); };
 ACT.hmnote = () => { const ta = $('#hm_note'), v = (ta ? ta.value : hmNoteDraft).trim(); if (!v) { if (ta) ta.focus(); return toast('Напишите заметку'); } addNoteToday(v); hmNoteDraft = ''; render(); toast('Заметка сохранена', true); };
 ACT.hmbio = el => { const t = todayK(), v = Number(el.dataset.v); setBio(el.dataset.m, t, bioVal(t, el.dataset.m) === v ? '' : v); };
-ACT.hmgoal = () => { sel = todayK(); syncMini(); setSec('tasks'); setTimeout(() => { const g = $('.tk-goals'); if (g) g.scrollIntoView({ block:'center', behavior:'smooth' }); }, 60); };
+ACT.hmgoal = () => setSec('goals');
+ACT.gnewh = () => openGoal();
 function homeMoney() {
   const i = $('#hm_fq'); if (!i) return;
   const p = parseMoney(i.value); if (!p.ok) { i.focus(); return toast('Напишите сумму, например «кафе 450»'); }
@@ -204,7 +203,7 @@ function habitStreaks() {
   return { cur: run, best };
 }
 function profileStats() {
-  const t = todayK(), yg = S.ygoal[t.slice(0, 4)];
+  const t = todayK();
   return {
     days: Math.max(1, dayDiff(S.settings.since || t, t) + 1),
     tasksDone: S.events.filter(e => e.task).reduce((a, e) => a + (isRec(e) ? (e.doneDates || []).length : e.done ? 1 : 0), 0),
@@ -213,7 +212,7 @@ function profileStats() {
     ops: S.fin.ops.length,
     saved: S.fin.ops.filter(o => fcat(o.cat).g === 'sav').reduce((a, o) => a + o.amt, 0),
     notes: S.notes.length,
-    ygSet: !!(yg && (yg.title || yg.items.length)),
+    goalsSet: S.goals.length,
     ...habitStreaks(),
   };
 }
@@ -229,7 +228,7 @@ const ACH = [
   ['💰', 'Деньги любят счёт', '50 записей в финансах', s => s.ops, 50],
   ['🐷', 'Копилка', 'Отложить 10 000 ₽', s => s.saved, 10000],
   ['📝', 'Летописец', 'Написать 10 заметок', s => s.notes, 10],
-  ['🎯', 'Большая мечта', 'Поставить цель на год', s => s.ygSet ? 1 : 0, 1],
+  ['🎯', 'Большая мечта', 'Поставить первую цель', s => s.goalsSet ? 1 : 0, 1],
   ['🗓️', 'Месяц вместе', `30 дней с ${APP_NAME}`, s => s.days, 30],
 ];
 // Достижения: получено ли и насколько близко к цели

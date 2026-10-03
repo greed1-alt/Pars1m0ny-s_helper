@@ -114,6 +114,7 @@ function toggleDone(id, k) {
   else e.done = !e.done;
   save(); render();
   const es = evOn(k); if (es.length > 1 && es.every(x => x.done)) toast(k === todayK() ? 'Все дела на сегодня сделаны 🎉' : 'Все дела этого дня сделаны 🎉');
+  if (e.goal && (isRec(e) ? (e.doneDates || []).includes(k) : e.done)) goalStepDone(e.goal);   // шаг цели — похвала
 }
 // Дни недельного повтора следуют за датой, пока пользователь не выбрал их сам
 function syncRepDays() {
