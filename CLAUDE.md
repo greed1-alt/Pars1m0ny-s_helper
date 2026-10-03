@@ -27,10 +27,10 @@ PWA-календарь-планер **Parsimony** (название — конс
 - Проект `zgasnvubcdprgsypkglh`, таблица `push_subscriptions` (endpoint, p256dh, auth).
 - Edge Function `clever-task` отправляет пуш на все подписки. Ключи VAPID лежат в Supabase → Edge Functions → Secrets.
 - **Защита (3 октября 2026).** Таблица `push_subscriptions`: RLS включён, одно правило «anyone can subscribe» (INSERT для anon); читать, менять и удалять чужие записи нельзя.
-  - `clever-task` запускается только с ключом `service_role`. В начале функции стоит `jwtRole(req) !== "service_role"` → 403 «Forbidden».
+  - `clever-task` запускается только владельцем: `isOwner` пропускает новый секретный ключ `sb_secret_…` в заголовке `apikey` (сверяется с `SUPABASE_SECRET_KEYS`) или старый ключ `service_role` в `Authorization`; остальным — 403 «Forbidden». Код функции — `supabase/functions/clever-task/index.ts` (копия того, что опубликовано в панели; публикуется кнопкой «Deploy updates»).
   - Проверено: publishable-ключ из приложения получает 403. Раньше он проходил и мог запустить рассылку всем.
   - Переключатель функции «Verify JWT with legacy secret» должен оставаться **включённым**: он проверяет подпись ключа.
-  - Тестовая рассылка: Supabase → Edge Functions → clever-task → Test, роль service role.
+  - Тестовая рассылка: Supabase → Edge Functions → clever-task → Test → Add header ▾ → Add secret key → Send Request. Поддельный JWT отвергает сам Supabase (401 «Invalid JWT»), проверено.
 - **С 3 октября 2026 подписка из приложения выключена** (`PUSH_SUBSCRIBE = false` в `js/core.js`). Причина — тест с друзьями: рассылка уходит всем подпискам сразу. Кнопки «Включить уведомления» нет, «Проверить» показывает уведомление только на своём устройстве. Включать вместе с личными уведомлениями: аккаунт, `user_id` у подписки, RLS «только свои строки», функция шлёт одному пользователю.
 - **Никогда не добавляй в репозиторий секретные ключи** (приватный VAPID, `service_role` / `sb_secret_...`). Репозиторий публичный. В index.html допустим только publishable-ключ.
 
