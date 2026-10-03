@@ -35,7 +35,7 @@ document.addEventListener('click', async ev => {
   else if (a === 'quickadd') { if (ev.target.closest('.wg-chip')) return; openQuick(el.dataset.d, '', ev.clientX, ev.clientY); }
   else if (a === 'colclick') {
     const rect = el.getBoundingClientRect();
-    let mins = startH()*60 + Math.floor((ev.clientY - rect.top) / rowH() * 4) * 15;
+    let mins = Math.floor(minOf(ev.clientY - rect.top) / 15) * 15;
     mins = Math.max(startH()*60, Math.min(23*60 + 45, mins));
     openQuick(el.dataset.d, fmtMin(mins), ev.clientX, ev.clientY);
   }
@@ -174,6 +174,7 @@ document.addEventListener('change', e => {
   else if (t.id === 's_wk') { st.weekends = t.checked; save(); render(); }
   else if (t.id === 's_wn') { st.weekNums = t.checked; save(); render(); }
   else if (t.id === 's_dim') { st.dimPast = t.checked; save(); render(); }
+  else if (t.id === 's_fold') { st.fold = t.checked; save(); render(); }
   else if (t.id === 'f_all') { $('#f_tm').disabled = $('#f_tm2').disabled = t.checked; if (!t.checked && !$('#f_tm').value) { $('#f_tm').value = '09:00'; $('#f_tm2').value = '10:00'; } }
   else if (t.id === 'f_tm') { const a = timeMin(t.value), b = timeMin($('#f_tm2').value); if (a != null && (b == null || b <= a)) $('#f_tm2').value = fmtMin(Math.min(1439, a + 60)); }
   else if (t.id === 'f_d') syncRepDays();
@@ -185,12 +186,12 @@ document.addEventListener('change', e => {
 
 // ---- Перетаскивание и растягивание событий ----
 const snap15 = m => Math.round(m / 15) * 15;
-const pointerMin = (col, y) => startH()*60 + (y - col.getBoundingClientRect().top) / rowH() * 60;
+const pointerMin = (col, y) => minOf(y - col.getBoundingClientRect().top);
 let drag = null, mk = null, lastDragEnd = 0;
 document.addEventListener('pointerdown', e => {
   const blk = e.target.closest('.wg-block');
   if (!blk) {
-    const col = e.target.closest('.wg-col');
+    const col = !e.target.closest('.wg-fold') && e.target.closest('.wg-col');
     if (col && e.pointerType === 'mouse' && e.button === 0) { const m = Math.max(startH()*60, Math.floor(pointerMin(col, e.clientY) / 15) * 15); mk = { col, a:m, s:m, e:m + 15, y0:e.clientY, pid:e.pointerId, active:false }; }
     return;
   }
@@ -216,7 +217,7 @@ document.addEventListener('pointermove', e => {
     if (!mk.active) { if (Math.abs(e.clientY - mk.y0) < 6) return; mk.active = true; mk.ghost = document.createElement('div'); mk.ghost.className = 'wg-ghost'; mk.col.appendChild(mk.ghost); document.body.classList.add('dragmode'); }
     const cur = pointerMin(mk.col, e.clientY);
     mk.s = Math.max(startH()*60, Math.min(mk.a, Math.floor(cur / 15) * 15)); mk.e = Math.min(1440, Math.max(mk.a + 15, Math.ceil(cur / 15) * 15));
-    mk.ghost.style.top = ((mk.s - startH()*60) / 60 * rowH()) + 'px'; mk.ghost.style.height = ((mk.e - mk.s) / 60 * rowH() - 2) + 'px';
+    mk.ghost.style.top = yOf(mk.s) + 'px'; mk.ghost.style.height = (yOf(mk.e) - yOf(mk.s) - 2) + 'px';
     mk.ghost.textContent = fmtMin(mk.s) + '–' + fmtMin(mk.e) + ' · ' + durText(mk.e - mk.s);
     return;
   }
@@ -240,8 +241,8 @@ function updateDrag() {
   } else {
     drag.newEnd = Math.max(drag.start + 15, Math.min(1440, snap15(pointerMin(drag.col, drag.lastY) - drag.off)));
   }
-  drag.blk.style.top = ((drag.newStart - startH()*60) / 60 * rowH()) + 'px';
-  drag.blk.style.height = Math.max(20, (drag.newEnd - drag.newStart) / 60 * rowH() - 2) + 'px';
+  drag.blk.style.top = yOf(drag.newStart) + 'px';
+  drag.blk.style.height = Math.max(20, yOf(drag.newEnd) - yOf(drag.newStart) - 2) + 'px';
   const m = drag.blk.querySelector('.wb-m');
   if (m) m.textContent = (drag.mode === 'resize' || drag.hadEnd) ? fmtMin(drag.newStart) + '–' + fmtMin(drag.newEnd) : fmtMin(drag.newStart);
 }
@@ -335,7 +336,7 @@ document.addEventListener('keydown', e => {
 // ---- Свайп между периодами ----
 let tsx = 0, tsy = 0, tsIn = false;
 // В разделах таблицы листаются пальцем вбок — там свайп не переключает месяц
-document.addEventListener('touchstart', e => { tsx = e.touches[0].clientX; tsy = e.touches[0].clientY; tsIn = !!(e.target.closest && e.target.closest('[data-hs], .chart, input, textarea')); }, {passive:true});
+document.addEventListener('touchstart', e => { tsx = e.touches[0].clientX; tsy = e.touches[0].clientY; tsIn = !!(e.target.closest && e.target.closest('[data-hs], .chart, input, textarea, .onb, .om-types')); }, {passive:true});
 document.addEventListener('touchend', e => {
   if (!e.changedTouches || tsIn || sheetOpen() || cmdOpen() || quickOpen() || drag || Date.now() - lastDragEnd < 600) return;
   const dx = e.changedTouches[0].clientX - tsx, dy = e.changedTouches[0].clientY - tsy;

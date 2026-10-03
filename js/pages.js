@@ -443,7 +443,8 @@ function settingsHTML() {
     <div class="set-row"><span>Показатели самочувствия</span><button class="btn" data-act="bioedit">${I(IC.gear, 15)} Настроить</button></div>`;
   const about = `<div class="set-sec">О приложении</div>
     <div class="st-about"><span class="wordmark">${APP_NAME}</span><small>Календарь, задачи, привычки и финансы — в одном месте.</small></div>
-    <button class="btn" style="width:100%" data-act="help">${I(IC.key, 16)} Горячие клавиши</button>`;
+    <button class="btn" style="width:100%" data-act="help">${I(IC.key, 16)} Горячие клавиши</button>
+    ${ui2() ? `<button class="btn" style="width:100%;margin-top:8px" data-act="onbshow">${I(IC.spark, 16)} Знакомство с приложением</button>` : ""}`;
   return `<button class="card st-prof" data-act="pe" data-tab="main">${avatarHTML(48)}<span><b>${esc(name || 'Ваш профиль')}</b><small>${name ? 'Личные данные, аватар и обложка' : 'Укажите имя, выберите аватар и обложку'}</small></span>${I(IC.right, 18)}</button>
   <div class="st-grid"><div class="card">${b.look}</div><div class="card">${b.cal}</div><div class="card">${b.cats}</div><div class="card">${secs}</div><div class="card">${b.notif}</div><div class="card">${b.data}</div><div class="card">${about}</div></div>`;
 }

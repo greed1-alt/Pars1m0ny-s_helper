@@ -5,7 +5,11 @@ let miniAnchor = new Date(monthAnchor);
 const syncMini = () => { miniAnchor = pd(sel); miniAnchor.setDate(1); };
 const weekDays = () => { const s = weekStartOf(sel); const d = [...Array(7)].map((_,i) => addDays(s, i)); return S.settings.weekends ? d : d.filter(k => !isWknd(k)); };
 
+// Категория — отдельной меткой (цветная точка + название в «таблетке»), чтобы не путать её с названием события
+const catTag = id => { const c = cat(id); return `<span class="ctag" style="--c:${c.color}"><i></i>${esc(c.name)}</span>`; };
 function evHTML(e) {
+  if (ui2()) return `<div class="ev${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${e.date}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button>
+  <button class="evb" data-act="edit" data-id="${e.id}" data-d="${e.date}"><b>${esc(e.title)}</b><small>${e.time?`<span class="ev-tm">${timeRange(e)}</span>`:''}${catTag(e.cat)}${e.rec?'<span>↻</span>':''}${remLabel(e) ? `<span>${remLabel(e).replace(/^ · /, '')}</span>` : ''}${e.loc?`<span>${esc(e.loc)}</span>`:''}</small>${e.note?`<p>${esc(e.note)}</p>`:''}</button></div>`;
   return `<div class="ev${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${e.date}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button>
   <button class="evb" data-act="edit" data-id="${e.id}" data-d="${e.date}"><b>${esc(e.title)}</b><small>${e.time?timeRange(e)+' · ':''}${esc(cat(e.cat).name)}${e.rec?' · ↻':''}${remLabel(e)}${e.loc?' · '+esc(e.loc):''}</small>${e.note?`<p>${esc(e.note)}</p>`:''}</button></div>`;
 }
@@ -58,27 +62,63 @@ function layoutDay(list) {
   return items;
 }
 
+// ---- Ось времени сетки: минуты ↔ пиксели. В новом интерфейсе пустые часы сворачиваются в тонкую полоску ----
+// Полоска появляется, если во всех днях недели подряд нет событий: ночью от 2 часов, днём от 3. Нажатие разворачивает её.
+const FOLD_H = 30;
+const foldOn = () => ui2() && S.settings.fold !== false;
+const wgOpen = new Set();   // полоски, развёрнутые вручную (час начала); сбрасываются при смене недели
+let TA = { segs:[], H:0 }, taKey = '';
+function buildAxis(days) {
+  const SH = startH(), RH = rowH(), segs = []; let y = 0;
+  const push = (a, b, fold) => { const h = fold ? FOLD_H : (b - a) / 60 * RH; segs.push({ a, b, y, h, fold }); y += h; };
+  const key = days[0] + ':' + days.length; if (key !== taKey) { wgOpen.clear(); taKey = key; }
+  if (!foldOn()) push(SH * 60, 1440, false);
+  else {
+    const busy = Array(24).fill(false);
+    days.forEach(k => evOn(k).forEach(e => { const s = timeMin(e.time); if (s == null) return; const t2 = timeMin(e.time2), en = t2 != null && t2 > s ? t2 : s + 60;
+      for (let h = Math.floor(s / 60); h < Math.min(24, Math.ceil(en / 60)); h++) busy[h] = true; }));
+    if (days.includes(todayK())) busy[Math.floor(nowMin() / 60)] = true;
+    for (let h = SH; h < 24;) {
+      let e = h; while (e < 24 && busy[e] === busy[h]) e++;
+      const n = e - h, fold = !busy[h] && !wgOpen.has(h) && (n >= 3 || (n >= 2 && (h === SH || e === 24)));
+      push(h * 60, e * 60, fold); h = e;
+    }
+  }
+  return { segs, H: y };
+}
+const yOf = m => { for (const s of TA.segs) if (m <= s.b) return s.y + (Math.max(m, s.a) - s.a) / (s.b - s.a) * s.h; return TA.H; };
+const minOf = y => { for (const s of TA.segs) if (y < s.y + s.h) return s.a + Math.max(0, y - s.y) / s.h * (s.b - s.a); return 1440; };
+const hh2 = m => String(m / 60).padStart(2, '0') + ':00';
+ACT.wgfold = el => { wgOpen.add(Number(el.dataset.h)); render(); };
+
 function gridHTML(days) {
   const today = todayK(), SH = startH(), RH = rowH(), nm = nowMin();
-  const showNow = days.includes(today) && nm >= SH*60, nowTop = (nm - SH*60) / 60 * RH;
+  TA = buildAxis(days);
+  const fz = TA.segs.some(s => s.fold);
+  const showNow = days.includes(today) && nm >= SH*60, nowTop = yOf(nm);
   const head = days.map(k => `<div class="wg-day${isWknd(k)?' wknd':''}"><span class="wg-dow">${days.length === 1 ? DOWF[dowIdx(k)] : dowName(k)}</span><button class="wg-num${k===today?' today':''}${k===sel&&k!==today&&days.length>1?' sel':''}" data-act="goday" data-d="${k}" title="Открыть день">${pd(k).getDate()}</button></div>`).join('');
   const allrow = days.map(k => { const es = evOn(k).filter(e => !e.time);
     return `<div class="wg-allcol${isWknd(k)?' wknd':''}" data-act="quickadd" data-d="${k}" title="Добавить задачу на весь день">${es.map(e => `<button class="wg-chip${e.done?' done':''}" data-act="edit" data-id="${e.id}" data-d="${k}" style="--c:${cat(e.cat).color}">${e.done?'✓ ':''}${esc(e.title)}</button>`).join('')}</div>`; }).join('');
-  const hours = [...Array(24 - SH)].map((_, i) => { const h = SH + i, hide = i === 0 || (showNow && Math.abs(nm - h*60) < 14);
-    return `<div class="wg-hourrow"><span${hide?' class="hide"':''}>${String(h).padStart(2,'0')}:00</span></div>`; }).join('');
+  const hours = TA.segs.map((s, si) => s.fold
+    ? `<button class="wg-foldlbl" data-act="wgfold" data-h="${s.a / 60}" style="height:${s.h}px" title="Показать пустые часы">${hh2(s.a).slice(0, 2)}–${hh2(s.b).slice(0, 2)}</button>`
+    : [...Array((s.b - s.a) / 60)].map((_, i) => { const h = s.a / 60 + i, hide = h === SH || (i === 0 && si > 0 && TA.segs[si - 1].fold) || (showNow && Math.abs(nm - h*60) < 14);
+      return `<div class="wg-hourrow"><span${hide?' class="hide"':''}>${String(h).padStart(2,'0')}:00</span></div>`; }).join('')).join('');
   const cols = days.map(k => {
     const blocks = layoutDay(evOn(k).filter(e => timeMin(e.time) != null)).map(it => {
-      const e = it.e, top = Math.max(0, it.s - SH*60) / 60 * RH;
-      const h = Math.max(20, (Math.max(it.end, SH*60 + 20) - Math.max(it.s, SH*60)) / 60 * RH - 2);
+      const e = it.e, top = yOf(it.s);
+      const h = Math.max(20, yOf(Math.max(it.end, SH*60 + 20)) - top - 2);
       const short = it.end - it.s <= 30 || h < 40, past = S.settings.dimPast && (k < today || (k === today && it.end <= nm)), w = 100 / it.cols;
       return `<button class="wg-block${e.done?' done':''}${past?' past':''}${short?' short':''}" data-act="edit" data-id="${e.id}" data-d="${k}" style="top:${top}px;height:${h}px;left:calc(${it.col*w}% + 1px);width:calc(${w}% - 3px);--c:${cat(e.cat).color}"><span class="wb-t">${e.done?'✓ ':''}${esc(e.title)}</span><span class="wb-m">${timeRange(e)}${e.loc?' · '+esc(e.loc):''}</span>${e.rec && !short ? '<i class="wb-rep">↻</i>' : ''}<span class="wg-rs" aria-hidden="true"></span></button>`;
     }).join('');
-    return `<div class="wg-col${isWknd(k)?' wknd':''}" data-act="colclick" data-d="${k}" style="height:${(24-SH)*RH}px">${blocks}${showNow && k === today ? `<div class="wg-now" style="top:${nowTop}px"></div>` : ''}</div>`;
+    return `<div class="wg-col${isWknd(k)?' wknd':''}" data-act="colclick" data-d="${k}" style="height:${TA.H}px">${blocks}${showNow && k === today ? `<div class="wg-now" style="top:${nowTop}px"></div>` : ''}</div>`;
   }).join('');
+  // Линии часов при свёрнутых полосках рисуются кусками (у каждого куска свой отсчёт), полоски — поверх всех дней
+  const lines = fz ? `<div class="wg-lines" aria-hidden="true">${TA.segs.filter(s => !s.fold).map(s => `<i style="top:${s.y}px;height:${s.h}px"></i>`).join('')}</div>` : '';
+  const folds = fz ? TA.segs.filter(s => s.fold).map(s => `<button class="wg-fold" data-act="wgfold" data-h="${s.a / 60}" style="top:${s.y}px;height:${s.h}px" aria-label="Показать часы ${hh2(s.a)}–${hh2(s.b)}"><span>${s.b - s.a >= 600 ? 'свободно' : ''} ${hh2(s.a)}–${hh2(s.b)}</span></button>`).join('') : '';
   const wn = S.settings.weekNums && days.length > 1 ? `<span title="Номер недели">н${isoWeek(days[0])}</span>` : '';
-  return `<div class="wgwrap${days.length===1?' one':''}" style="--n:${days.length};--rh:${RH}px"><div class="wg-stickytop"><div class="wg-head"><div class="wg-corner">${wn}</div>${head}</div>
+  return `<div class="wgwrap${days.length===1?' one':''}${fz?' fz':''}" style="--n:${days.length};--rh:${RH}px"><div class="wg-stickytop"><div class="wg-head"><div class="wg-corner">${wn}</div>${head}</div>
   <div class="wg-alldays"><div class="wg-corner">весь день</div>${allrow}</div></div>
-  <div class="wg-body"><div class="wg-hours">${hours}${showNow ? `<div class="wg-nowlabel" style="top:${nowTop}px">${fmtMin(nm)}</div>` : ''}</div><div class="wg-cols">${cols}</div></div></div>`;
+  <div class="wg-body"><div class="wg-hours">${hours}${showNow ? `<div class="wg-nowlabel" style="top:${nowTop}px">${fmtMin(nm)}</div>` : ''}</div><div class="wg-cols">${lines}${cols}${folds}</div></div></div>`;
 }
 
 // Ближайшее событие: «сейчас» или «дальше»
@@ -121,7 +161,7 @@ function agendaHTML() {
   for (let i = 0; i < 60; i++) {
     const k = addDays(sel, i), es = evOn(k); if (!es.length) continue;
     const d = pd(k);
-    out += `<div class="ag-day"><div class="ag-date${k===today?' today':''}" data-act="goday" data-d="${k}" title="Открыть день"><b>${d.getDate()}</b><small>${MONS[d.getMonth()]}, ${dowName(k).toLowerCase()}</small></div><div class="ag-list">${es.map(e => `<div class="ag-row${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button><button class="ag-main" data-act="edit" data-id="${e.id}" data-d="${k}"><span class="ag-time">${e.time ? timeRange(e) : 'весь день'}</span><span class="ag-bar"></span><span class="ag-txt"><b>${esc(e.title)}</b><small>${esc(cat(e.cat).name)}${e.rec?' · ↻ '+esc(repText(e)):''}${e.loc?' · '+esc(e.loc):''}</small></span></button></div>`).join('')}</div></div>`;
+    out += `<div class="ag-day"><div class="ag-date${k===today?' today':''}" data-act="goday" data-d="${k}" title="Открыть день"><b>${d.getDate()}</b><small>${MONS[d.getMonth()]}, ${dowName(k).toLowerCase()}</small></div><div class="ag-list">${es.map(e => `<div class="ag-row${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button><button class="ag-main" data-act="edit" data-id="${e.id}" data-d="${k}"><span class="ag-time">${e.time ? timeRange(e) : 'весь день'}</span><span class="ag-bar"></span><span class="ag-txt"><b>${esc(e.title)}</b><small>${ui2() ? catTag(e.cat) : esc(cat(e.cat).name)}${e.rec?' · ↻ '+esc(repText(e)):''}${e.loc?' · '+esc(e.loc):''}</small></span></button></div>`).join('')}</div></div>`;
   }
   return `<div class="agenda">${out || `<div class="ag-empty"><b>Ближайшие 60 дней свободны</b>Нажмите «Создать» или клавишу N, чтобы запланировать что-нибудь.</div>`}</div>`;
 }
@@ -177,6 +217,7 @@ function render(dir) {
   const root = document.documentElement, cal = sec === 'cal', S2 = SEC[sec];
   root.dataset.theme = S.settings.theme;
   document.body.dataset.sec = sec;
+  document.body.classList.toggle('ui2', ui2());
   document.body.dataset.nonav = S2.noNav ? '1' : '';    // «Главная», «Профиль», «Настройки»: без стрелок периода
   document.body.dataset.nonew = S2.newLabel ? '' : '1';
   $('#ttl').innerHTML = cal ? titleHTML() : S2.title();
@@ -192,7 +233,7 @@ function render(dir) {
   const w = $('.wgwrap');
   if (w) {
     if (oldTop != null && lastGridView === view) w.scrollTop = oldTop;
-    else w.scrollTop = Math.max(0, new Date().getHours() - 1 - startH()) * rowH();
+    else w.scrollTop = Math.max(0, yOf((new Date().getHours() - 1) * 60));
     lastGridView = view;
   } else lastGridView = null;
   $('#side').innerHTML = sideHTML();
@@ -214,7 +255,8 @@ function move(n) {
 function setView(v) { if (sec !== 'cal') { sec = 'cal'; S.settings.sec = 'cal'; save(); view = v; if (v === 'month') { monthAnchor = pd(sel); monthAnchor.setDate(1); } return render(2); } if (v === view) return; view = v; if (v === 'month') { monthAnchor = pd(sel); monthAnchor.setDate(1); } render(2); }
 function goToday() { sel = todayK(); secYM = ymOf(sel); monthAnchor = pd(sel); monthAnchor.setDate(1); syncMini(); lastGridView = null; render(2); }
 // Кнопка «Создать» и клавиша N: в каждом разделе — своё
-const createNew = () => sec === 'cal' || !SEC[sec].create ? openEvent() : SEC[sec].create();
+// В новом интерфейсе «Создать» на Главной, в Календаре и Задачах открывает единую строку ввода
+const createNew = () => ui2() && ['home', 'cal', 'tasks'].includes(sec) ? openOmni(sec) : sec === 'cal' || !SEC[sec].create ? openEvent() : SEC[sec].create();
 function setTheme(t) { S.settings.theme = t; save(); render(); toast('Тема: ' + ({auto:'как в системе', light:'светлая', dark:'тёмная', black:'чёрная'})[t]); }
 
 // ---- Тост и «Отменить» ----
@@ -309,13 +351,16 @@ function settingsBlocks() {
   return {
   look: `<div class="set-sec">Оформление</div>
   <div class="thm">${THEMES.map(([v,n,bg,a,b]) => `<button class="${st.theme===v?'on':''}" data-act="theme" data-v="${v}"><span class="pv" style="background:${bg};--pa:${a};--pb:${b}"></span>${n}</button>`).join('')}</div>
-  <div class="set-row" style="margin-top:8px"><span>Размер сетки</span><div class="seg2">${[['compact','Компактно'],['normal','Обычно'],['large','Крупно']].map(([v,n]) => `<button class="${st.density===v?'on':''}" data-act="density" data-v="${v}">${n}</button>`).join('')}</div></div>`,
+  <div class="set-row" style="margin-top:8px"><span>Размер сетки</span><div class="seg2">${[['compact','Компактно'],['normal','Обычно'],['large','Крупно']].map(([v,n]) => `<button class="${st.density===v?'on':''}" data-act="density" data-v="${v}">${n}</button>`).join('')}</div></div>
+  <div class="set-row"><span>Новый интерфейс <em class="beta" title="Проба">β</em></span><input id="s_ui2" class="sw" type="checkbox"${ui2()?' checked':''}></div>
+  <p class="set-note">${ui2() ? 'Единая строка ввода, сворачиваемые блоки, больше воздуха. Выключите, чтобы вернуть прежний вид — данные не меняются.' : 'Сейчас прежний вид. Включите, чтобы попробовать новый: единая строка ввода, сворачиваемые блоки, больше воздуха.'}</p>`,
   cal: `<div class="set-sec">Календарь</div>
   <div class="set-row"><span>День в сетке начинается с</span><select id="s_ds" class="fin" style="min-width:90px">${[...Array(13)].map((_,h) => `<option value="${h}"${startH()===h?' selected':''}>${String(h).padStart(2,'0')}:00</option>`).join('')}</select></div>
   <div class="set-row"><span>Неделя начинается с</span><select id="s_ws" class="fin"><option value="1"${st.weekStart===1?' selected':''}>Понедельника</option><option value="0"${st.weekStart===0?' selected':''}>Воскресенья</option></select></div>
   <div class="set-row"><span>Показывать выходные в неделе</span><input id="s_wk" class="sw" type="checkbox"${st.weekends?' checked':''}></div>
   <div class="set-row"><span>Номер недели</span><input id="s_wn" class="sw" type="checkbox"${st.weekNums?' checked':''}></div>
-  <div class="set-row"><span>Приглушать прошедшие события</span><input id="s_dim" class="sw" type="checkbox"${st.dimPast?' checked':''}></div>`,
+  <div class="set-row"><span>Приглушать прошедшие события</span><input id="s_dim" class="sw" type="checkbox"${st.dimPast?' checked':''}></div>
+  ${ui2() ? `<div class="set-row"><span>Сворачивать пустые часы в неделе</span><input id="s_fold" class="sw" type="checkbox"${st.fold !== false?' checked':''}></div>` : ''}`,
   cats: `<div class="set-sec">Календари (категории)</div>
   <div class="catlist">${S.cats.map(c => delAsk === c.id ? `<div class="catedit ask2">
     <span class="cswatch" style="--c:${c.color}"></span><span class="askt">Удалить «${esc(c.name)}»?</span>
