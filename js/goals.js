@@ -109,6 +109,13 @@ function goalStepDone(gid) {
   else { const p = goalPraise(g); if (p) toast(p); }
 }
 
+// «Все цели»: в новом интерфейсе — вкладка «Цели» внутри «Задач», в прежнем — отдельная страница
+function goGoals() {
+  if (ui2() && typeof tView !== 'undefined') { tView = 'goals'; if (sec === 'tasks') { window.scrollTo(0, 0); render(); } else setSec('tasks'); }
+  else setSec('goals');
+}
+ACT.gall = goGoals;
+
 // ---- Страница «Цели» ----
 const goalTag = e => { const g = e.goal && goalById(e.goal); return g ? `<span class="gtag" title="Шаг цели">${esc(g.emoji)} ${esc(g.title)}</span>` : ''; };
 function goalCardHTML(g) {
@@ -118,8 +125,8 @@ function goalCardHTML(g) {
     <div class="gl-due${s.overdue ? ' late' : ''}">${esc(dueTxt(g))}</div>
     <div class="gl-bar pace-${s.pace || 'none'}"><i style="width:${Math.round(s.pct * 100)}%"></i></div>
     <div class="gl-meta"><span>${s.n ? `${s.d} из ${plural(s.n, ['шага', 'шагов', 'шагов'])}` : 'шагов пока нет'}</span>${s.pace ? `<span class="pace ${s.pace}">${PACE[s.pace]}</span>` : ''}</div>
-    ${s.next ? `<div class="gl-next">Дальше: <b>${esc(s.next.t)}</b>${s.next.date ? ` · ${esc(s.next.date < todayK() ? 'просрочено' : relDay(s.next.date))}` : ''}</div>` : s.n ? '' : '<div class="gl-next">Добавьте шаги — так цель станет планом</div>'}
-    ${late || s.overdue ? `<div class="gl-taunt">${I(IC.alert, 15)}<span>${esc(goalTaunt(g, late ? late.t : '')) || (late ? `Просрочен шаг «${esc(late.t)}»` : 'Срок цели прошёл')}</span></div>
+    ${s.next && !late ? `<div class="gl-next">Дальше: <b>${esc(s.next.t)}</b>${s.next.date ? ` · ${esc(relDay(s.next.date))}` : ''}</div>` : s.n ? '' : '<div class="gl-next">Добавьте шаги — так цель станет планом</div>'}
+    ${late || s.overdue ? `<div class="gl-warn">${I(IC.alert, 15)}<span>${late ? `Просрочен шаг «<b>${esc(late.t)}</b>»${s.late.length > 1 ? ` и ещё ${s.late.length - 1}` : ''}` : 'Срок цели прошёл'}</span></div>
       <div class="gl-acts">${late ? `<button class="btn" data-act="glate" data-id="${g.id}">Перенести на завтра${s.late.length > 1 ? ` (${s.late.length})` : ''}</button>` : ''}${s.overdue ? `<button class="btn" data-act="gext" data-id="${g.id}" data-n="7">+ неделя</button><button class="btn" data-act="gext" data-id="${g.id}" data-n="30">+ месяц</button>` : ''}</div>` : ''}
   </div>`;
 }
@@ -160,7 +167,7 @@ function goalsHTML() {
   return `${demoBar('goals', demo)}
   ${!S.goals.length ? emptyCard('goals', 'Цели', 'Большие цели со сроком и шагами: «накопить на отпуск к июлю», «выучить английский до B1». Шаги со сроком появятся в задачах и календаре, а за пропуски Parsimony будет язвить — по-доброму, но не очень.') : ''}
   <div class="card h2-omni g-add"><div class="om-box">${I(IC.goal, 19)}<input id="g_new" type="text" value="${esc(gDraft)}" placeholder="Новая цель: «выучить английский до 1 июня»" autocomplete="off" enterkeyhint="done" aria-label="Новая цель"><button class="om-go" data-act="gnew" aria-label="Создать цель" style="opacity:1">${I(IC.plus, 20)}</button></div>
-    <p class="om-hint" style="margin:10px 0 0">Срок можно написать прямо в тексте: «до 31 декабря», «через неделю». Шаги добавите в карточке цели.</p></div>
+    <p class="om-hint" style="margin:10px 0 0">Срок — прямо в тексте: «до 31 декабря», «через 3 месяца».</p></div>
   ${nudge}
   ${act.length ? `<div class="gl-grid">${act.map(goalCardHTML).join('')}</div>` : ''}
   ${done.length ? foldHTML('g-done', 'Достигнутые', plural(done.length, ['цель', 'цели', 'целей']), () => `<div class="gl-grid">${done.map(g => `<div class="gl-card done" data-act="gopen" data-id="${g.id}" role="button" tabindex="0"><div class="gl-top"><span class="gl-em">${esc(g.emoji)}</span><b>${esc(g.title)}</b></div><div class="gl-due">достигнута ${g.doneAt ? esc(fmtLong(g.doneAt)) : ''} 🏆</div></div>`).join('')}</div>`, false, { ic: IC.trophy }) : ''}

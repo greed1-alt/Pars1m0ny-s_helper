@@ -2,10 +2,11 @@
 // Каждый раздел регистрирует себя в SEC: name, icon, title(), html(), move(n), today(), create(), newLabel, info()
 const SEC = {};
 // SEC_ORDER — основные разделы (боковая панель и вкладки телефона); «Профиль» и «Настройки» — внизу панели
-const SEC_ORDER = ['home', 'cal', 'tasks', 'goals', 'habits', 'fin'];
+const SEC_ORDER = ['home', 'cal', 'tasks', 'habits', 'fin'];
 // Экспериментальные разделы: только в боковой панели ПК (на телефоне — кнопка на Главной), с пометкой β
 const NAV_EXTRA = ['timer'];
-const SEC_ALL = [...SEC_ORDER, ...NAV_EXTRA, 'profile', 'profedit', 'settings'];
+// «Цели» — вкладка внутри «Задач» (решение пользователя 4 октября 2026); отдельная страница goals — только для прежнего вида
+const SEC_ALL = [...SEC_ORDER, ...NAV_EXTRA, 'goals', 'profile', 'profedit', 'settings'];
 // При запуске — «Главная» (или последний раздел, если так выбрано в настройках)
 let sec = S.settings.startSec === 'last' && SEC_ALL.includes(S.settings.sec) ? S.settings.sec : 'home';
 SEC.cal = { name:'Календарь', icon:IC.cal, newLabel:'Создать' };

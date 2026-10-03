@@ -312,3 +312,49 @@ body.ui2 main.sec .card .hg-pc{right:-22px}
   body.ui2 main.sec .card .hg .sticky-col{left:-16px}
   body.ui2 main.sec .card .hg-pc{right:-16px}
 }
+
+/* «Задачи»: вкладки Сегодня / Неделя / Все / Цели — над строкой ввода, вне карточки */
+.t2-list>.t2-row:first-child,.t2-list>.t2-day:first-child,.t2-list>.t2-flt:first-child{border-top:0;margin-top:0}
+.t2-list>.t2-prog:first-child{margin-top:0}
+.t2-seg em.late{background:var(--dng);color:#fff}
+
+/* ---- Проверка телефона (4 октября 2026): удобство ---- */
+/* Заголовок блока и сводка — двумя строками, ничего не обрезается */
+.fold-tt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
+.fold-tt b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fold-tt small{text-align:left!important;flex:none!important}
+.fold-h{min-height:60px;padding-top:8px;padding-bottom:8px}
+.fold:not(.fc).open>.fold-h .fold-tt small{display:none}
+/* План дня: у дел без времени нет пустой колонки; «Сейчас / Дальше» — спокойным цветом акцента */
+.pl-row.nt{grid-template-columns:22px minmax(0,1fr)}
+.pl-row.nt .pl-tm{display:none}
+.pl-row.next{background:color-mix(in srgb,var(--acc) 11%,transparent)}
+.pl-next{color:var(--acc)!important}
+/* Ссылки внизу карточек — удобная область нажатия */
+body.ui2 .hm-foot button,body.ui2 .t2-foot button{min-height:38px;padding:8px 10px}
+body.ui2 .hm-more{min-height:38px}
+/* Кнопки вида записи листаются вбок — край плавно гаснет, видно, что есть ещё */
+.om-types{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}
+/* Цели: предупреждение в карточке (подначка — одна, сверху) */
+.gl-warn{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;color:var(--dng);line-height:1.4}
+.gl-warn svg{flex:none;margin-top:1px}
+.gl-warn b{font-weight:650}
+@media(max-width:899px){
+  /* Шапка: «Создать» — круглой кнопкой «+», чтобы заголовок периода помещался целиком */
+  body.ui2 .btn-new{width:40px;height:40px;padding:0;gap:0;justify-content:center;border-radius:50%;font-size:0}
+  body.ui2 .btn-new svg{width:21px;height:21px}
+  /* Неделя и день со свёрнутыми часами: сетка по высоте содержимого, без пустого куска */
+  body.ui2 .wgwrap.fz{height:auto;max-height:calc(100vh - var(--hh) - 20px - var(--tb));max-height:calc(100dvh - var(--hh) - 20px - var(--tb))}
+  body.ui2 .dayview .wgwrap.fz{max-height:58vh}
+  /* Список: время — в строке под названием, название не обрезается */
+  body.ui2 .ag-time{display:none}
+  body.ui2 .ag-txt b{white-space:normal;overflow-wrap:anywhere}
+  body.ui2 .ag-date{width:44px}
+}
+/* Маленькие кнопки (галочка, цвет, крестик) — невидимая область нажатия побольше, вид прежний */
+body.ui2 .chk,body.ui2 .cswatch,body.ui2 .fz-x{position:relative}
+body.ui2 .chk::after,body.ui2 .cswatch::after,body.ui2 .fz-x::after{content:'';position:absolute;inset:-9px}
+body.ui2 .fz-x{width:32px;height:32px}
+.gs-d{height:32px}
+.f2-more{padding:8px 0;margin-top:2px}
+@media(max-width:899px){.pe-nav{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 32px),transparent)}}

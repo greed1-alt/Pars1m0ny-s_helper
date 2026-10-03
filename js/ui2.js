@@ -16,7 +16,7 @@ const foldIsOpen = (k, def) => { const v = S.settings.folds[k]; return v == null
 function foldHTML(k, title, sum, body, def, opt) {
   const o = opt || {}, open = foldIsOpen(k, def);
   return `<section class="fold${o.card ? ' fc' : ''}${open ? ' open' : ''}" data-fold="${k}">
-    <button class="fold-h" data-act="fold" data-k="${k}" aria-expanded="${open}">${o.ic ? I(o.ic, 18) : ''}<b>${title}</b><small>${sum || ''}</small><i class="fold-chev">${I(IC.right, 17)}</i></button>
+    <button class="fold-h" data-act="fold" data-k="${k}" aria-expanded="${open}">${o.ic ? I(o.ic, 18) : ''}<span class="fold-tt"><b>${title}</b>${sum ? `<small>${sum}</small>` : ''}</span><i class="fold-chev">${I(IC.right, 17)}</i></button>
     ${open ? `<div class="fold-b">${typeof body === 'function' ? body() : body}</div>` : ''}</section>`;
 }
 ACT.fold = el => { const k = el.dataset.k; S.settings.folds[k] = el.getAttribute('aria-expanded') !== 'true'; save(); render(); };
@@ -215,7 +215,7 @@ function homePlan(t) {
   const untimed = all.filter(e => !e.time).sort((a, b) => a.done - b.done || prioRank(a) - prioRank(b));
   const MAX = 8, tShow = timed.slice(0, MAX), uShow = untimed.slice(0, Math.max(3, MAX - tShow.length)), rest = all.length - tShow.length - uShow.length;
   const row = e => { const past = e.time && evEnd(e) <= nm, pr = e.task ? prioOf(e) : '', next = nx && nx.k === t && nx.e.id === e.id;
-    return `<div class="pl-row${e.done ? ' done' : ''}${past && !e.done ? ' past' : ''}${next ? ' next' : ''}" style="--c:${cat(e.cat).color}">
+    return `<div class="pl-row${e.time ? '' : ' nt'}${e.done ? ' done' : ''}${past && !e.done ? ' past' : ''}${next ? ' next' : ''}" style="--c:${cat(e.cat).color}">
       <span class="pl-tm">${e.time ? `<b>${esc(e.time)}</b>${e.time2 ? `<small>${esc(e.time2)}</small>` : ''}` : ''}</span>
       <button class="chk" data-act="toggle" data-id="${e.id}" data-d="${t}" aria-label="Выполнено">${e.done ? I(IC.check, 14) : ''}</button>
       <button class="pl-main" data-act="edit" data-id="${e.id}" data-d="${t}"><span class="pl-t">${esc(e.title)}</span><span class="pl-m">${next ? `<em class="pl-next">${esc(nx.label)}</em>` : ''}${catTag(e.cat)}${goalTag(e)}${pr === 'urgent' || pr === 'high' ? pbadge(pr) : ''}${e.rec ? '<span class="pl-rep" title="Повторяется">↻</span>' : ''}</span></button></div>`; };
@@ -269,7 +269,7 @@ function homeHTML2() {
   // Цели: открыт по умолчанию, когда цели есть («каждое утро — список целей»)
   const ga = activeGoals(), gLate = ga.reduce((n, g) => n + goalStat(g).late.length, 0);
   const goals = foldHTML('h-goals', 'Цели', ga.length ? `${plural(ga.length, ['активная', 'активные', 'активных'])}${gLate ? ` · просрочено шагов: ${gLate}` : ''}` : 'пока нет',
-    () => `${goalsMiniHTML(3)}<div class="hm-foot"><button data-act="gnewh">+ Цель</button><button data-act="sec" data-s="goals">Все цели →</button></div>`, () => ga.length > 0, { card:true, ic:IC.goal });
+    () => `${goalsMiniHTML(3)}<div class="hm-foot"><button data-act="gnewh">+ Цель</button><button data-act="gall">Все цели →</button></div>`, () => ga.length > 0, { card:true, ic:IC.goal });
   const last = notesOf('')[0];
   const notes = foldHTML('h-notes', 'Мысли дня', S.notes.length ? plural(S.notes.length, ['заметка', 'заметки', 'заметок']) : 'журнал пуст', () => `<textarea id="hm_note" class="fin hn-text" placeholder="Что сегодня получилось? Что мешало? О чём подумать завтра?" aria-label="Заметка">${esc(hmNoteDraft)}</textarea>
     <div class="nt-bar"><small>${last ? 'Последняя: ' + esc(fmtLong(last.date)) : 'Сохранится в журнал с сегодняшней датой'}</small><span><button class="pill sm" data-act="ntall">Все заметки</button> <button class="btn pri" data-act="hmnote">Сохранить</button></span></div>`, false, { card:true, ic:IC.note });
@@ -287,7 +287,11 @@ const daySort = l => [...l].sort((a, b) => a.done - b.done || prioRank(a) - prio
 function tasksHTML2() {
   const t = todayK(), hasAny = S.events.some(e => e.task), demo = S.events.some(e => e.demo);
   const tl = dayTasks(t), tdn = tl.filter(e => e.done).length, left = tl.length - tdn;
-  const views = [['today', 'Сегодня' + (left ? ` <em>${left}</em>` : '')], ['week', 'Неделя'], ['all', 'Все']];
+  const gLate = activeGoals().reduce((n, g) => n + goalStat(g).late.length, 0);
+  const views = [['today', 'Сегодня' + (left ? ` <em>${left}</em>` : '')], ['week', 'Неделя'], ['all', 'Все'], ['goals', 'Цели' + (gLate ? ` <em class="late">${gLate}</em>` : '')]];
+  const tabs = `<div class="seg2 t2-seg" role="tablist" aria-label="Что показать">${views.map(([v, n]) => `<button class="${tView === v ? 'on' : ''}" data-act="tview" data-v="${v}" role="tab" aria-selected="${tView === v}">${n}</button>`).join('')}</div>`;
+  // Вкладка «Цели» — та же страница целей (js/goals.js), что и раньше была отдельным разделом
+  if (tView === 'goals') return `${missedBar(true)}${tabs}${goalsHTML()}`;
   let body = '';
   if (tView === 'today') {
     const tm = dayTasks(addDays(t, 1)).length;
@@ -307,18 +311,26 @@ function tasksHTML2() {
       ${rows.slice(0, 80).map(({ e, k, done }) => t2Row(e, k, done, true)).join('') || `<p class="h2-empty">${tFilter === 'done' ? 'Выполненных задач пока нет.' : 'Задач нет — напишите первую в строке выше.'}</p>`}
       ${rows.length > 80 ? `<p class="h2-empty">Показаны первые 80 из ${rows.length}</p>` : ''}`;
   }
-  const ga = activeGoals();
   const act = tasksAll().map(e => ({ e, k: isRec(e) ? nextOcc(e) : e.date })).filter(x => !isDone(x.e, x.k)), urg = act.filter(x => prioOf(x.e) === 'urgent').length;
   const wk = taskWeek();
   return `${missedBar(true)}${demoBar('tasks', demo)}
   ${!hasAny ? emptyCard('tasks', 'Задачи', 'Пишите задачи обычной фразой в строке ниже: «позвонить маме», «отчёт в пятницу #работа !!». Задача с датой видна и в календаре.') : ''}
+  ${tabs}
   <div class="card h2-omni">${omniHTML('omt', 'tasks')}</div>
-  <div class="card t2-list"><div class="seg2 t2-seg" role="tablist">${views.map(([v, n]) => `<button class="${tView === v ? 'on' : ''}" data-act="tview" data-v="${v}" role="tab" aria-selected="${tView === v}">${n}</button>`).join('')}</div>${body}</div>
-  ${foldHTML('t-goals', 'Цели', ga.length ? plural(ga.length, ['активная', 'активные', 'активных']) : 'пока нет', () => `<div class="card">${goalsMiniHTML(4)}<div class="hm-foot"><button data-act="gnewh">+ Цель</button><button data-act="sec" data-s="goals">Все цели →</button></div></div>`, isWide, { ic:IC.goal })}
+  <div class="card t2-list">${body}</div>
   ${foldHTML('t-board', 'Доска недели', `неделя ${isoWeek(wk[0])}`, () => `<div class="card tw-card">${weekBoard()}</div>`, isWide, { ic:IC.cal })}
   ${foldHTML('t-stats', 'Статистика', `${plural(act.length, ['активная', 'активные', 'активных'])}${urg ? ` · ${urg} срочн.` : ''}`, () => `<div class="tk-mid2">${taskSummary()}${taskDynamics()}</div>`, false, { ic:IC.spark })}`;
 }
 ACT.tview = el => { tView = el.dataset.v; render(); };
+// На вкладке «Цели» шапка, «Создать» и подсказка в шапке — про цели, стрелок недели нет
+const tasksGoals = () => ui2() && sec === 'tasks' && tView === 'goals';
+const useOmni = () => sec === 'home' || sec === 'cal' || (sec === 'tasks' && tView !== 'goals');
+Object.defineProperty(SEC.tasks, 'newLabel', { get: () => tasksGoals() ? 'Цель' : 'Задача', configurable: true });
+Object.defineProperty(SEC.tasks, 'noNav', { get: () => tasksGoals(), configurable: true });
+{ const T = SEC.tasks, title = T.title, info = T.info, create = T.create;
+  T.title = () => tasksGoals() ? SEC.goals.title() : title();
+  T.info = () => tasksGoals() ? SEC.goals.info() : info();
+  T.create = () => tasksGoals() ? openGoal() : create(); }
 ACT.t2add = el => newTask(el.dataset.d);
 
 // ---- Финансы: крупно — сколько можно потратить, строка записи, последние записи; графики и таблицы — свёрнуты ----

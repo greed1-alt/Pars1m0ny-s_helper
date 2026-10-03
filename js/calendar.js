@@ -114,7 +114,7 @@ function gridHTML(days) {
   }).join('');
   // Линии часов при свёрнутых полосках рисуются кусками (у каждого куска свой отсчёт), полоски — поверх всех дней
   const lines = fz ? `<div class="wg-lines" aria-hidden="true">${TA.segs.filter(s => !s.fold).map(s => `<i style="top:${s.y}px;height:${s.h}px"></i>`).join('')}</div>` : '';
-  const folds = fz ? TA.segs.filter(s => s.fold).map(s => `<button class="wg-fold" data-act="wgfold" data-h="${s.a / 60}" style="top:${s.y}px;height:${s.h}px" aria-label="Показать часы ${hh2(s.a)}–${hh2(s.b)}"><span>${s.b - s.a >= 600 ? 'свободно' : ''} ${hh2(s.a)}–${hh2(s.b)}</span></button>`).join('') : '';
+  const folds = fz ? TA.segs.filter(s => s.fold).map(s => `<button class="wg-fold" data-act="wgfold" data-h="${s.a / 60}" style="top:${s.y}px;height:${s.h}px" aria-label="Показать часы ${hh2(s.a)}–${hh2(s.b)}"><span>свободно</span></button>`).join('') : '';
   const wn = S.settings.weekNums && days.length > 1 ? `<span title="Номер недели">н${isoWeek(days[0])}</span>` : '';
   return `<div class="wgwrap${days.length===1?' one':''}${fz?' fz':''}" style="--n:${days.length};--rh:${RH}px"><div class="wg-stickytop"><div class="wg-head"><div class="wg-corner">${wn}</div>${head}</div>
   <div class="wg-alldays"><div class="wg-corner">весь день</div>${allrow}</div></div>
@@ -161,7 +161,7 @@ function agendaHTML() {
   for (let i = 0; i < 60; i++) {
     const k = addDays(sel, i), es = evOn(k); if (!es.length) continue;
     const d = pd(k);
-    out += `<div class="ag-day"><div class="ag-date${k===today?' today':''}" data-act="goday" data-d="${k}" title="Открыть день"><b>${d.getDate()}</b><small>${MONS[d.getMonth()]}, ${dowName(k).toLowerCase()}</small></div><div class="ag-list">${es.map(e => `<div class="ag-row${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button><button class="ag-main" data-act="edit" data-id="${e.id}" data-d="${k}"><span class="ag-time">${e.time ? timeRange(e) : 'весь день'}</span><span class="ag-bar"></span><span class="ag-txt"><b>${esc(e.title)}</b><small>${ui2() ? catTag(e.cat) : esc(cat(e.cat).name)}${e.rec?' · ↻ '+esc(repText(e)):''}${e.loc?' · '+esc(e.loc):''}</small></span></button></div>`).join('')}</div></div>`;
+    out += `<div class="ag-day"><div class="ag-date${k===today?' today':''}" data-act="goday" data-d="${k}" title="Открыть день"><b>${d.getDate()}</b><small>${MONS[d.getMonth()]}, ${dowName(k).toLowerCase()}</small></div><div class="ag-list">${es.map(e => `<div class="ag-row${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button><button class="ag-main" data-act="edit" data-id="${e.id}" data-d="${k}"><span class="ag-time">${e.time ? timeRange(e) : 'весь день'}</span><span class="ag-bar"></span><span class="ag-txt"><b>${esc(e.title)}</b><small>${ui2() ? (e.time ? `<span class="ev-tm">${timeRange(e)}</span>` : '') + catTag(e.cat) + goalTag(e) : esc(cat(e.cat).name)}${e.rec?' · ↻ '+esc(repText(e)):''}${e.loc?' · '+esc(e.loc):''}</small></span></button></div>`).join('')}</div></div>`;
   }
   return `<div class="agenda">${out || `<div class="ag-empty"><b>Ближайшие 60 дней свободны</b>Нажмите «Создать» или клавишу N, чтобы запланировать что-нибудь.</div>`}</div>`;
 }
@@ -222,7 +222,7 @@ function render(dir) {
   document.body.dataset.nonew = S2.newLabel ? '' : '1';
   $('#ttl').innerHTML = cal ? titleHTML() : S2.title();
   $$('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === view));
-  const bn = $('.btn-new'); if (bn) bn.innerHTML = I(IC.plus, 17) + (S2.newLabel || '');
+  const bn = $('.btn-new'); if (bn) { bn.innerHTML = I(IC.plus, 17) + (S2.newLabel || ''); bn.setAttribute('aria-label', S2.newLabel || 'Создать'); bn.title = S2.newLabel || 'Создать'; }
   const ha = $('.hdr-ava'); if (ha) { ha.innerHTML = avatarHTML(28); ha.classList.toggle('on', sec === 'profile' || sec === 'profedit'); }
   const si = $('#secinfo'); if (si) si.innerHTML = !cal && S2.info ? S2.info() : '';
   root.style.setProperty('--hh', $('header').offsetHeight + 'px');
@@ -256,7 +256,7 @@ function setView(v) { if (sec !== 'cal') { sec = 'cal'; S.settings.sec = 'cal'; 
 function goToday() { sel = todayK(); secYM = ymOf(sel); monthAnchor = pd(sel); monthAnchor.setDate(1); syncMini(); lastGridView = null; render(2); }
 // Кнопка «Создать» и клавиша N: в каждом разделе — своё
 // В новом интерфейсе «Создать» на Главной, в Календаре и Задачах открывает единую строку ввода
-const createNew = () => ui2() && ['home', 'cal', 'tasks'].includes(sec) ? openOmni(sec) : sec === 'cal' || !SEC[sec].create ? openEvent() : SEC[sec].create();
+const createNew = () => ui2() && useOmni() ? openOmni(sec) : sec === 'cal' || !SEC[sec].create ? openEvent() : SEC[sec].create();
 function setTheme(t) { S.settings.theme = t; save(); render(); toast('Тема: ' + ({auto:'как в системе', light:'светлая', dark:'тёмная', black:'чёрная'})[t]); }
 
 // ---- Тост и «Отменить» ----

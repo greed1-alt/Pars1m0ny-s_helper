@@ -1,4 +1,4 @@
-const CACHE = 'rem-v30';
+const CACHE = 'rem-v31';
 const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png',
   './css/app.css', './css/sections.css', './css/ui2.css', ...['core', 'calendar', 'charts', 'sections', 'tasks', 'habits', 'finance', 'goals', 'pages', 'timer', 'ui2', 'input', 'share', 'notify', 'main'].map(n => './js/' + n + '.js')];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));

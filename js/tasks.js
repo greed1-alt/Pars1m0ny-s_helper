@@ -96,7 +96,7 @@ function taskSummary() {
 }
 
 // Цели («Фокус месяца», «Цель на год» и свои) переехали в раздел «Цели» — js/goals.js. Здесь — короткий список со ссылкой.
-const goalsTasksCard = () => `<div class="card tk-goalsmini"><div class="card-h"><b>Цели</b><button class="pill sm" data-act="sec" data-s="goals">Все цели →</button></div>${goalsMiniHTML(4)}</div>`;
+const goalsTasksCard = () => `<div class="card tk-goalsmini"><div class="card-h"><b>Цели</b><button class="pill sm" data-act="gall">Все цели →</button></div>${goalsMiniHTML(4)}</div>`;
 // «Важные задачи»: срочные (не выполненные) и ближайшие шаги целей — в боковой панели ПК и карточкой на телефоне
 const dueShort = k => { const n = dayDiff(todayK(), k); return n < 0 ? 'просрочено' : n === 0 ? 'сегодня' : n === 1 ? 'завтра' : shortDate(k); };
 function importantHTML() {

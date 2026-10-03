@@ -161,7 +161,7 @@ ACT.hmnew = el => {
 ACT.qnsave = () => { const v = $('#qn_text').value.trim(); if (!v) return $('#qn_text').focus(); addNoteToday(v); closeSheet(); render(); toast('Заметка сохранена', true); };
 ACT.hmnote = () => { const ta = $('#hm_note'), v = (ta ? ta.value : hmNoteDraft).trim(); if (!v) { if (ta) ta.focus(); return toast('Напишите заметку'); } addNoteToday(v); hmNoteDraft = ''; render(); toast('Заметка сохранена', true); };
 ACT.hmbio = el => { const t = todayK(), v = Number(el.dataset.v); setBio(el.dataset.m, t, bioVal(t, el.dataset.m) === v ? '' : v); };
-ACT.hmgoal = () => setSec('goals');
+ACT.hmgoal = goGoals;
 ACT.gnewh = () => openGoal();
 function homeMoney() {
   const i = $('#hm_fq'); if (!i) return;
