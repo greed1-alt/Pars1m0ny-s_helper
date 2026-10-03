@@ -2,6 +2,9 @@
 const SUPABASE_URL = 'https://zgasnvubcdprgsypkglh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_D9zVovgo-2C3MBGolggC6w_SNb8fOzR';
 const VAPID_PUBLIC = 'BNLThhEBoIT1sgFRviDsI33JdA_Rz18EY5SN7ANL8_gXdctCj4vYguPYopLrBMhAsfgIropWotPwypRexGUeZYU';
+// Подписка устройства на уведомления с сервера. Выключена на время теста с друзьями (3 октября 2026):
+// функция рассылки пока шлёт всем подпискам сразу. Включить вместе с личными уведомлениями (аккаунт + user_id + RLS).
+const PUSH_SUBSCRIBE = false;
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];

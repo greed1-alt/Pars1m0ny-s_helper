@@ -7,10 +7,11 @@ async function checkNotif() {
   if (!('Notification' in window) || !('serviceWorker' in navigator)) set('off', 'Этот браузер не поддерживает уведомления', 'нет поддержки');
   else if (isIOS && navigator.standalone !== true) set('off', 'Откройте приложение с экрана «Домой», а не из Safari', 'откройте с «Домой»');
   else if (Notification.permission === 'denied') set('off', 'Запрещены в настройках телефона или браузера', 'запрещены');
-  else if (Notification.permission !== 'granted') set('off', 'Выключены — нажмите «Включить уведомления»', 'выключены');
+  else if (Notification.permission !== 'granted') PUSH_SUBSCRIBE ? set('off', 'Выключены — нажмите «Включить уведомления»', 'выключены') : set('off', 'Напоминания по времени появятся в следующих версиях', 'скоро');
   else {
     let sub = null; try { const reg = await swReady(); sub = reg.pushManager ? await reg.pushManager.getSubscription() : null; } catch (x) {}
-    sub ? set('on', 'Включены, устройство подписано', 'включены') : set('warn', 'Разрешены, но устройство ещё не подписано — нажмите «Включить»', 'не подписано');
+    sub ? set('on', 'Включены, устройство подписано', 'включены')
+      : PUSH_SUBSCRIBE ? set('warn', 'Разрешены, но устройство ещё не подписано — нажмите «Включить»', 'не подписано') : set('on', 'Разрешены. Напоминания по времени появятся в следующих версиях', 'разрешены');
   }
   const sl = $('.sb-link .ndot'); if (sl) $('#side').innerHTML = sideHTML();
   const ns = $('#nstat_t'); if (ns) { ns.textContent = notif.text; ns.previousElementSibling.className = 'ndot ' + notif.state; }
@@ -18,6 +19,7 @@ async function checkNotif() {
 const plog = t => { const l = $('#plog'); if (l) l.textContent += (l.textContent ? '\n' : '') + t; else toast(t); };
 const b64 = v => { const raw = atob((v + '='.repeat((4 - v.length % 4) % 4)).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from([...raw].map(c => c.charCodeAt(0))); };
 async function enablePush() {
+  if (!PUSH_SUBSCRIBE) return plog('Напоминания по времени появятся в следующих версиях.');
   try {
     if (isIOS && navigator.standalone !== true) return plog('Откройте приложение с экрана «Домой», а не из Safari.');
     if (!('PushManager' in window)) return plog('Уведомления не поддерживаются.');

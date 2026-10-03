@@ -374,8 +374,8 @@ function settingsBlocks() {
   <button class="btn" style="width:100%;margin-top:8px" data-act="shareall">${I(IC.share,16)} Поделиться всем календарём</button>`,
   notif: `<div class="set-sec">Уведомления</div>
   <div class="nstat"><i class="ndot ${notif.state}"></i><span id="nstat_t">${esc(notif.text)}</span></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri grow" data-act="push">${I(IC.bell,16)} Включить уведомления</button><button class="btn grow" data-act="ntest">Проверить</button></div>
-  <p class="set-note">${st.lastTest ? 'Последняя проверка: ' + new Date(st.lastTest).toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'}) : 'Проверок ещё не было.'} «Проверить» показывает тестовое уведомление на этом устройстве.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">${PUSH_SUBSCRIBE ? `<button class="btn pri grow" data-act="push">${I(IC.bell,16)} Включить уведомления</button>` : ''}<button class="btn grow" data-act="ntest">${PUSH_SUBSCRIBE ? '' : I(IC.bell,16) + ' '}Проверить</button></div>
+  <p class="set-note">${st.lastTest ? 'Последняя проверка: ' + new Date(st.lastTest).toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'}) : 'Проверок ещё не было.'} «Проверить» показывает тестовое уведомление на этом устройстве.${PUSH_SUBSCRIBE ? '' : ' Напоминания по времени появятся позже — для них нужен сервер.'}</p>
   <div id="plog"></div>`,
   data: `<div class="set-sec">Данные</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn grow" data-act="export">${I(IC.down,16)} Скачать копию</button><button class="btn grow" data-act="import">${I(IC.up,16)} Загрузить из файла</button></div>
