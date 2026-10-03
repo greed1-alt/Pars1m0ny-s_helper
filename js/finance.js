@@ -46,7 +46,12 @@ const FIN_KW = [[/такси|метро|автобус|бензин|топлив
   [/продукт|магазин|пят[её]рочк|магнит|перекр[её]ст|ашан|вкусвилл|супермаркет|еда/, 'Продукты'], [/аптек|врач|лекарств|клиник|стоматолог|анализ/, 'Здоровье'],
   [/кино|концерт|театр|игр|клуб|бар\b/, 'Развлечения'], [/одежд|обув|куртк|джинс|футболк/, 'Одежда'], [/подар/, 'Подарки'], [/зарплат|^зп|аванс|оклад|преми/, 'Зарплата'],
   [/аренд|ипотек|квартплат/, 'Аренда или ипотека'], [/коммунал|жкх|электричеств/, 'Коммунальные услуги'], [/интернет|связь|мобильн/, 'Интернет и связь']];
-function parseMoney(raw) {
+// Какие разделы относятся к виду записи: расход, доход, накопление
+const KIND_G = { out:['exp', 'sub', 'reg', 'debt'], inc:['inc'], sav:['sav'] };
+const kindDefaultCat = k => (k === 'out' ? S.fin.cats.find(x => x.g === 'exp' && x.name === 'Прочее') || S.fin.cats.find(x => x.g === 'exp')
+  : k === 'inc' ? S.fin.cats.find(x => x.g === 'inc' && x.name === 'Прочие доходы') || S.fin.cats.find(x => x.g === 'inc') : S.fin.cats.find(x => x.g === 'sav')) || S.fin.cats[0];
+// kind — выбранный вид записи (на странице «Финансы»); без него категория угадывается среди всех
+function parseMoney(raw, kind) {
   const s = String(raw || '').trim();
   const m = s.match(/(^|\s)([+-]?)\s*(\d{1,3}(?:[  ]\d{3})+|\d+)(?:[.,](\d{1,2}))?\s*(к|k|тыс\.?)?(?=\s|₽|$|р\b|руб)/i);
   if (!m) return { ok:false };
@@ -55,13 +60,14 @@ function parseMoney(raw) {
   let rest = (s.slice(0, m.index) + ' ' + s.slice(m.index + m[0].length)).replace(/₽|\bруб\S*|\bр\b/gi, ' ').replace(/\s+/g, ' ').trim();
   const plus = m[2] === '+' || /^\+/.test(s);
   rest = rest.replace(/^\+\s*/, '');
+  const k = plus ? 'inc' : kind, pool = k ? S.fin.cats.filter(x => KIND_G[k].includes(x.g)) : S.fin.cats;
   let c = null;
   const tag = rest.match(/#(\S+)/);
-  if (tag) { const q = tag[1].toLowerCase(); c = S.fin.cats.find(x => x.name.toLowerCase().startsWith(q)); rest = rest.replace(tag[0], '').trim(); }
+  if (tag) { const q = tag[1].toLowerCase(); c = pool.find(x => x.name.toLowerCase().startsWith(q)); rest = rest.replace(tag[0], '').trim(); }
   const low = rest.toLowerCase();
-  if (!c) { const kw = FIN_KW.find(([re]) => re.test(low)); if (kw) c = S.fin.cats.find(x => x.name === kw[1]); }
-  if (!c && low.length >= 3) c = S.fin.cats.find(x => { const n = x.name.toLowerCase(); return low.split(' ').some(w => w.length >= 3 && (n.startsWith(w.slice(0, 5)) || w.startsWith(n.split(' ')[0].slice(0, 5)))); });
-  if (!c) c = plus ? S.fin.cats.find(x => x.g === 'inc') : (S.fin.cats.find(x => x.g === 'exp' && x.name === 'Прочее') || S.fin.cats.find(x => x.g === 'exp'));
+  if (!c) { const kw = FIN_KW.find(([re]) => re.test(low)); if (kw) c = pool.find(x => x.name === kw[1]); }
+  if (!c && low.length >= 3) c = pool.find(x => { const n = x.name.toLowerCase(); return low.split(' ').some(w => w.length >= 3 && (n.startsWith(w.slice(0, 5)) || w.startsWith(n.split(' ')[0].slice(0, 5)))); });
+  if (!c) c = kindDefaultCat(k || 'out');
   return { ok: amt > 0 && !!c, amt, cat: c && c.id, note: rest.charAt(0).toUpperCase() + rest.slice(1) };
 }
 function addOp(o) {
@@ -73,9 +79,9 @@ const ft = (label, val, sub, cls) => `<div class="ft-t${cls ? ' ' + cls : ''}"><
 function finTiles(st, lim) {
   return `<div class="ft">
     ${lim ? ft('Можно потратить сегодня', rub0(Math.max(0, lim.left)), lim.left >= 0 ? `лимит ${rub0(lim.limit)} в день · потрачено ${rub0(lim.today)}` : `лимит превышен на ${rub0(-lim.left)}`, 'hero' + (lim.left < 0 ? ' neg' : '')) : ''}
-    ${ft('Доходы', rub0(st.g.inc.fact), st.g.inc.plan ? 'план ' + rub0(st.g.inc.plan) : 'план не задан')}
-    ${ft('Расходы', rub0(st.spent), st.spentPlan ? 'бюджет ' + rub0(st.spentPlan) : 'бюджет не задан', st.spentPlan && st.spent > st.spentPlan ? 'neg' : '')}
-    ${ft('Накопления', rub0(st.g.sav.fact), st.g.sav.plan ? 'план ' + rub0(st.g.sav.plan) : 'план не задан')}
+    ${ft('Доходы', rub0(st.g.inc.fact), st.g.inc.plan ? 'план ' + rub0(st.g.inc.plan) : '<button class="lnk" data-act="finbudget">задать план</button>')}
+    ${ft('Расходы', rub0(st.spent), st.spentPlan ? 'бюджет ' + rub0(st.spentPlan) : '<button class="lnk" data-act="finbudget">задать бюджет</button>', st.spentPlan && st.spent > st.spentPlan ? 'neg' : '')}
+    ${ft('Накопления', rub0(st.g.sav.fact), st.g.sav.plan ? 'план ' + rub0(st.g.sav.plan) : '<button class="lnk" data-act="finbudget">задать план</button>')}
     ${ft('Осталось', rub0(st.left), 'доходы − расходы − накопления', st.left < 0 ? 'neg' : '')}
   </div>`;
 }
@@ -102,7 +108,7 @@ function finGroup(k, st) {
     <div class="fg-tbl${G.bill ? ' bill' : ''}"><div class="fg-row fg-head"><span>Категория</span>${G.bill ? '<span>Срок</span>' : ''}<span>Бюджет</span><span>Факт</span><span>${G.bill ? 'Оплачено' : G.rest}</span></div>
     ${cats.map(c => { const fct = st.fact[c.id] || 0, rest = (c.plan || 0) - fct, paid = c.plan > 0 ? fct >= c.plan : fct > 0;
       return `<div class="fg-row"><button class="fg-n" data-act="fcedit" data-id="${c.id}" title="Изменить категорию"><span class="em">${esc(c.emoji || '•')}</span><span class="nm">${esc(c.name)}</span></button>
-      ${G.bill ? `<span class="fg-due">${c.due ? 'до ' + c.due : '—'}</span>` : ''}<span class="fg-num">${c.plan ? rub0(c.plan) : '—'}</span>
+      ${G.bill ? `<span class="fg-due">${c.due ? 'до ' + c.due : '—'}</span>` : ''}<button class="fg-num fg-plan" data-act="finbudget" data-id="${c.id}" title="Задать бюджет">${c.plan ? rub0(c.plan) : 'задать'}</button>
       <button class="fg-num fg-fact" data-act="opnew" data-cat="${c.id}" title="Записать">${fct ? rub0(fct) : '+'}</button>
       ${G.bill ? `<span class="fg-chk"><button class="chk fg-paid${paid ? ' on' : ''}" data-act="fpaid" data-id="${c.id}" aria-pressed="${paid}" aria-label="${esc(c.name)}: оплачено">${paid ? I(IC.check, 13) : ''}</button></span>` : `<span class="fg-num${rest < 0 ? ' neg' : ''}">${c.plan ? rub0(rest) : '—'}</span>`}</div>`; }).join('')}
     </div><button class="fg-add" data-act="fcnew" data-g="${k}">${I(IC.plus, 14)} Категория</button></div>`;
@@ -124,7 +130,10 @@ function financeHTML() {
   const noPlans = !S.fin.cats.some(c => c.plan);
   return `${demoBar('fin', demo)}
   ${!S.fin.ops.length && noPlans ? emptyCard('fin', 'Финансы', 'Записывайте каждую трату: «кафе 450», «такси 380». Задайте бюджет по категориям — приложение посчитает остаток и дневной лимит, чтобы уложиться до конца месяца.') : ''}
-  <div class="card fq-card"><div class="fq"><input id="fq_in" class="fin" type="text" placeholder="Например: «кафе 450» или «+ зарплата 60 000»" autocomplete="off" aria-label="Быстрая запись"><button class="btn pri" data-act="fqadd">Записать</button><button class="btn fq-more" data-act="opnew">Подробнее</button></div><div id="fq_hint" class="nlhint"></div></div>
+  <div class="card fq-card">
+    <div class="fq-top"><div class="seg2 fq-kind" role="group" aria-label="Что записать">${OP_KINDS.map(([k, n]) => `<button class="${finKind === k ? 'on' : ''}" data-act="fqkind" data-k="${k}" aria-pressed="${finKind === k}">${n}</button>`).join('')}</div>
+      <button class="pill sm" data-act="finbudget">${I(IC.wallet, 14)} Бюджет на месяц</button></div>
+    <div class="fq"><input id="fq_in" class="fin" type="text" placeholder="${FIN_PH[finKind]}" autocomplete="off" aria-label="Быстрая запись"><button class="btn pri" data-act="fqadd">Записать</button><button class="btn fq-more" data-act="opnew">Подробнее</button></div><div id="fq_hint" class="nlhint"></div></div>
   ${finTiles(st, lim)}
   <div class="fc3">${finBullets(st)}${finDonut(st)}${finDaily(st, ym)}</div>
   <div class="card m-only"><div class="card-h"><b>Топ покупок</b><small>${ymTitle(ym)}</small></div>${topBuysHTML(ym)}</div>
@@ -133,7 +142,8 @@ function financeHTML() {
 }
 
 // ---- Окно записи ----
-let opForm = null;
+let opForm = null, finKind = 'out';   // finKind — что записывает строка быстрого ввода: расход, доход или накопление
+const FIN_PH = { out:'Например: «кафе 450», «такси 380»', inc:'Например: «зарплата 60 000», «подработка 5000»', sav:'Например: «отпуск 5000», «подушка 10 000»' };
 const OP_KINDS = [['out', 'Расход', ['exp', 'sub', 'reg', 'debt']], ['inc', 'Доход', ['inc']], ['sav', 'Накопление', ['sav']]];
 const kindOfCat = id => { const g = fcat(id).g; return g === 'inc' ? 'inc' : g === 'sav' ? 'sav' : 'out'; };
 function openOp(id, preset) {
@@ -149,13 +159,24 @@ function drawOp(keep) {
   sheet(`<div class="sh-head"><h3>${f.id ? 'Запись' : 'Новая запись'}</h3>${f.id ? `<button class="ic" data-act="opdel" data-id="${f.id}" title="Удалить" aria-label="Удалить" style="color:var(--dng)">${I(IC.trash, 17)}</button>` : ''}<button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   <div class="op-amt"><input id="op_amt" class="f-title" type="text" inputmode="decimal" placeholder="0" value="${esc(f.amt)}" autocomplete="off" aria-label="Сумма"><span>₽</span></div>
   <div class="chips" style="margin:0 0 8px">${OP_KINDS.map(([v, n]) => `<button type="button" class="chip${f.kind === v ? ' on' : ''}" data-act="opkind" data-v="${v}">${n}</button>`).join('')}</div>
-  <div class="frow"><span class="fl">Категория</span><div>${groups.map(g => `${groups.length > 1 ? `<div class="op-g">${FG[g].n}</div>` : ''}<div class="ccats">${S.fin.cats.filter(c => c.g === g).map(c => `<button type="button" class="ccat${c.id === f.cat ? ' on' : ''}" data-act="opcat" data-id="${c.id}" style="--c:${FG[g].c}">${esc(c.emoji || '')} ${esc(c.name)}</button>`).join('')}</div>`).join('')}</div></div>
+  <div class="frow"><span class="fl">Категория</span><div>${groups.map(g => `${groups.length > 1 ? `<div class="op-g">${FG[g].n}</div>` : ''}<div class="ccats">${S.fin.cats.filter(c => c.g === g).map(c => `<button type="button" class="ccat${c.id === f.cat ? ' on' : ''}" data-act="opcat" data-id="${c.id}" style="--c:${FG[g].c}">${esc(c.emoji || '')} ${esc(c.name)}</button>`).join('')}</div>`).join('')}
+    ${f.adding ? `<div class="op-newcat"><input id="op_ce" class="fin" type="text" value="${FG_EMOJI[groups[0]]}" maxlength="4" aria-label="Значок"><input id="op_cn" class="fin" type="text" placeholder="Название, например «Кофе»" maxlength="40" autocomplete="off" aria-label="Название категории">${groups.length > 1 ? `<select id="op_cg" class="fin" aria-label="Раздел">${groups.map(g => `<option value="${g}">${FG[g].n}</option>`).join('')}</select>` : ''}<button type="button" class="btn pri" data-act="opcatadd">Добавить</button></div>`
+      : `<button type="button" class="ccat op-plus" data-act="opcatnew">${I(IC.plus, 14)} Своя категория</button>`}</div></div>
   <div class="frow"><span class="fl">Дата</span><input id="op_d" class="fin" type="date" value="${f.date}"></div>
   <div class="frow"><span class="fl">Заметка</span><input id="op_n" class="fin" type="text" value="${esc(f.note)}" placeholder="Необязательно" autocomplete="off"></div>
   <div class="sh-foot"><button class="btn pri grow" data-act="opsave">Сохранить</button></div>`, keep);
 }
 const opKeep = () => { if (!opForm) return; const a = $('#op_amt'), d = $('#op_d'), n = $('#op_n'); if (a) opForm.amt = a.value; if (d) opForm.date = d.value; if (n) opForm.note = n.value; };
-ACT.opnew = el => openOp(null, { cat: el.dataset.cat });
+ACT.opnew = el => openOp(null, { cat: el.dataset.cat || kindDefaultCat(finKind).id });
+// Своя категория прямо из окна записи: появляется сразу выбранной
+const FG_EMOJI = { inc:'💰', sub:'🔁', reg:'🧾', exp:'🛍️', sav:'🐷', debt:'💳' };
+ACT.opcatnew = () => { opKeep(); opForm.adding = true; drawOp(true); setTimeout(() => { const i = $('#op_cn'); if (i) i.focus(); }, 40); };
+ACT.opcatadd = () => {
+  const n = $('#op_cn'), name = n ? n.value.trim() : ''; if (!name) { if (n) n.focus(); return toast('Напишите название категории'); }
+  const g = $('#op_cg') ? $('#op_cg').value : OP_KINDS.find(k => k[0] === opForm.kind)[2][0], id = 'f' + uid();
+  opKeep(); snap(); S.fin.cats.push({ id, g, name: name.slice(0, 40), emoji: ($('#op_ce').value.trim() || FG_EMOJI[g]).slice(0, 4), plan:0 });
+  opForm.cat = id; opForm.adding = false; save(); render(); drawOp(true); toast('Категория «' + name + '» добавлена');
+};
 ACT.opedit = el => openOp(el.dataset.id);
 ACT.opkind = el => { opKeep(); opForm.kind = el.dataset.v; const g = OP_KINDS.find(k => k[0] === opForm.kind)[2]; if (!g.includes(fcat(opForm.cat).g)) opForm.cat = (S.fin.cats.find(c => c.g === g[0]) || {}).id; drawOp(true); };
 ACT.opcat = el => { opKeep(); opForm.cat = el.dataset.id; drawOp(true); };
@@ -181,7 +202,7 @@ ACT.fpaid = el => {
 ACT.fqadd = () => quickMoney();
 function quickMoney() {
   const i = $('#fq_in'); if (!i) return;
-  const p = parseMoney(i.value); if (!p.ok) { i.focus(); return toast('Напишите сумму, например «кафе 450»'); }
+  const p = parseMoney(i.value, finKind); if (!p.ok) { i.focus(); return toast('Напишите сумму, например «' + (finKind === 'inc' ? 'зарплата 60 000' : finKind === 'sav' ? 'отпуск 5000' : 'кафе 450') + '»'); }
   const t = todayK();
   addOp({ amt:p.amt, cat:p.cat, note:p.note, date: ymOf(t) === secYM ? t : secYM + '-01' });
   const n = $('#fq_in'); if (n) n.focus();
@@ -190,12 +211,47 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || e.isComposing) return;
   if (e.target.id === 'fq_in') { e.preventDefault(); quickMoney(); }
   else if (e.target.id === 'op_amt' || e.target.id === 'op_n') { e.preventDefault(); saveOp(); }
+  else if (e.target.id === 'op_cn') { e.preventDefault(); ACT.opcatadd(); }
+  else if (e.target.dataset && e.target.dataset.fnewcat) { e.preventDefault(); budgetNewCat(e.target); }
+  else if (e.target.dataset && e.target.dataset.fplan) { e.preventDefault(); e.target.blur(); }
   else if (e.target.id === 'fc_n' || e.target.id === 'fc_plan') { e.preventDefault(); saveFinCat(); }
 });
 document.addEventListener('input', e => {
   if (e.target.id !== 'fq_in') return;
-  const el = $('#fq_hint'), p = e.target.value.trim() ? parseMoney(e.target.value) : { ok:false };
-  if (el) el.innerHTML = p.ok ? `${I(IC.spark, 13)} Запишу: <b>${esc(fcat(p.cat).name)}</b><b>${rub(p.amt)}</b>${p.note ? `<b>${esc(p.note)}</b>` : ''}` : '';
+  const el = $('#fq_hint'), p = e.target.value.trim() ? parseMoney(e.target.value, finKind) : { ok:false }, g = p.ok ? fcat(p.cat).g : '';
+  if (el) el.innerHTML = p.ok ? `${I(IC.spark, 13)} Запишу ${g === 'inc' ? 'доход' : g === 'sav' ? 'в накопления' : 'расход'}: <b>${esc(fcat(p.cat).name)}</b><b>${rub(p.amt)}</b>${p.note ? `<b>${esc(p.note)}</b>` : ''}` : '';
+});
+ACT.fqkind = el => { const i = $('#fq_in'), v = i ? i.value : ''; finKind = el.dataset.k; render(); const n = $('#fq_in'); if (n) { n.value = v; n.focus(); n.dispatchEvent(new Event('input', { bubbles:true })); } };
+
+// ---- Бюджет на месяц: план доходов и бюджет расходов по всем категориям в одном окне ----
+const planOf = g => S.fin.cats.filter(c => c.g === g).reduce((a, c) => a + (c.plan || 0), 0);
+function budgetSumHTML() {
+  const inc = planOf('inc'), out = FG_OUT.reduce((a, g) => a + planOf(g), 0), sav = planOf('sav'), free = inc - out - sav;
+  return `<div><small>Доходы</small><b>${rub0(inc)}</b></div><div><small>Расходы</small><b>${rub0(out)}</b></div><div><small>Накопления</small><b>${rub0(sav)}</b></div><div class="${free < 0 ? 'neg' : ''}"><small>Свободно</small><b>${rub0(free)}</b></div>`;
+}
+function openBudget(focusId, keep) {
+  sheet(`<div class="sh-head"><h3>Бюджет на месяц</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  <p class="set-note" style="margin:0 0 10px">Сколько планируете получать, тратить и откладывать за месяц. Бюджет одинаковый для каждого месяца — по нему считаются остаток и дневной лимит.</p>
+  <div class="bd-sum" id="bd_sum">${budgetSumHTML()}</div>
+  ${FG_ORDER.map(g => `<div class="bd-g" style="--g:${FG[g].c}"><div class="bd-h"><i></i>${FG[g].n}<b id="bd_t_${g}">${rub0(planOf(g))}</b></div>
+    ${S.fin.cats.filter(c => c.g === g).map(c => `<label class="bd-row"><span class="em">${esc(c.emoji || '•')}</span><span class="nm">${esc(c.name)}</span><span class="bd-in"><input class="fin" type="text" inputmode="decimal" data-fplan="${c.id}" value="${c.plan || ''}" placeholder="0" aria-label="${esc(c.name)}: сумма в месяц"><em>₽</em></span></label>`).join('')}
+    <input class="fin bd-add" type="text" data-fnewcat="${g}" placeholder="+ ${g === 'inc' ? 'свой источник дохода' : 'своя категория'} — напишите и нажмите Enter" autocomplete="off" aria-label="Новая категория: ${FG[g].n}">
+  </div>`).join('')}
+  <button class="btn pri" style="width:100%;margin-top:14px" data-act="close">Готово</button>`, keep);
+  if (focusId) setTimeout(() => { const i = $(`[data-fplan="${focusId}"]`); if (i) { i.scrollIntoView({ block:'center' }); i.focus(); i.select(); } }, 60);
+}
+function budgetNewCat(inp) {
+  const name = inp.value.trim(), g = inp.dataset.fnewcat; if (!name || !FG[g]) return;
+  const id = 'f' + uid(); snap(); S.fin.cats.push({ id, g, name: name.slice(0, 40), emoji: FG_EMOJI[g], plan:0 }); save(); render(); openBudget(id, true);
+}
+ACT.finbudget = el => openBudget(el.dataset.id);
+document.addEventListener('change', e => {
+  const id = e.target.dataset && e.target.dataset.fplan; if (!id) return;
+  const c = S.fin.cats.find(x => x.id === id); if (!c) return;
+  const v = Math.max(0, Number(String(e.target.value).replace(/[\s ₽]/g, '').replace(',', '.')) || 0);
+  c.plan = Math.round(v * 100) / 100; e.target.value = c.plan || ''; save(); render();
+  const s = $('#bd_sum'); if (s) s.innerHTML = budgetSumHTML();
+  const t = $('#bd_t_' + c.g); if (t) t.textContent = rub0(planOf(c.g));
 });
 
 // ---- Категории ----

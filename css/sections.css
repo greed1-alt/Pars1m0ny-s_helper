@@ -562,6 +562,32 @@ button.sbl:hover{background:var(--hov)}
 .fq .fin{flex:1;min-width:0;height:42px}
 .fq .btn{height:42px;flex:none}
 .fq-card{padding:12px}
+.fq-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.fq-kind button{height:32px;padding:0 14px}
+.lnk{font-size:inherit;color:var(--tx2);text-decoration:underline;text-underline-offset:2px}
+.lnk:hover{color:var(--tx)}
+.fg-plan{border-radius:6px;padding:4px;color:var(--tx2)}
+.fg-plan:hover{background:var(--hov);color:var(--tx)}
+.op-plus{border-style:dashed;color:var(--tx2)}
+.op-newcat{display:grid;grid-template-columns:52px minmax(0,1fr);gap:6px;margin-top:8px}
+.op-newcat #op_ce{text-align:center;font-size:18px;padding:0}
+.op-newcat select,.op-newcat .btn{grid-column:1/-1}
+.bd-sum{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.bd-sum div{border:1px solid var(--line);border-radius:var(--r2);padding:8px 10px}
+.bd-sum small{display:block;font-size:11.5px;color:var(--mut)}
+.bd-sum b{font-size:16px;font-variant-numeric:normal}
+.bd-sum .neg b{color:var(--dng)}
+.bd-g{margin-top:14px}
+.bd-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--tx2);margin-bottom:4px}
+.bd-h i{width:9px;height:9px;border-radius:3px;background:var(--g)}
+.bd-h b{margin-left:auto;font-size:12.5px;color:var(--tx);text-transform:none;letter-spacing:0}
+.bd-row{display:grid;grid-template-columns:22px minmax(0,1fr) 128px;gap:8px;align-items:center;padding:4px 0;border-top:1px solid var(--line);font-size:13.5px}
+.bd-row .em{text-align:center}
+.bd-row .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd-in{display:flex;align-items:center;gap:6px}
+.bd-in .fin{height:34px;text-align:right}
+.bd-in em{font-style:normal;color:var(--mut)}
+.bd-add{margin-top:6px;height:34px;border-style:dashed;font-size:13px}
 .ft{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .ft-t{border:1px solid var(--line);border-radius:var(--r3);padding:12px 14px;min-width:0;background:var(--bg)}
 .ft-t span{display:block;font-size:12.5px;color:var(--tx2)}
