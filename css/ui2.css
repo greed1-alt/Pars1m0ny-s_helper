@@ -358,3 +358,30 @@ body.ui2 .fz-x{width:32px;height:32px}
 .gs-d{height:32px}
 .f2-more{padding:8px 0;margin-top:2px}
 @media(max-width:899px){.pe-nav{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 32px),transparent)}}
+
+/* ---- Плотнее (5 октября 2026): меньше пустого места между блоками, телефон почти не меняется ---- */
+body.ui2 main.sec{gap:12px}
+body.ui2 main.sec .card{padding:16px}
+body.ui2 main.sec .card-h{margin-bottom:10px}
+.h2-cols,.h2-col{gap:12px}
+.h2-h{margin-bottom:8px}
+.h2-card .hm-foot{padding-top:8px}
+.fold{gap:10px}
+.fold-b{gap:12px}
+.fold-h{min-height:52px}
+.fold.fc>.fold-b{padding:0 16px 14px}
+.t2-seg{margin-bottom:0}
+.h2-hab.more{justify-content:center;align-items:center;grid-template-columns:1fr;grid-template-areas:"n";border-style:dashed;color:var(--tx2);min-height:0}
+.h2-hab.more .nm{text-align:center;font-weight:600}
+.f2-grid,.f2-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+@media(min-width:900px){
+  body.ui2 main.sec{gap:14px;padding:18px 24px 40px}
+  body.ui2 main.sec .card{padding:16px 18px}
+  .h2-cols{gap:14px}
+  .h2-col{gap:14px}
+  .h2-hero{padding:2px 4px 0}
+  .t2-list,.h2-omni,.f2-hero,.f2-in{max-width:none!important}
+  .f2-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
+  .f2-col{gap:14px}
+}
+@media(min-width:900px){.f2-tiles .ft{grid-template-columns:repeat(4,minmax(0,1fr))}}

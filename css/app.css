@@ -231,6 +231,7 @@ textarea.fin{height:auto;min-height:72px;padding:8px 10px;resize:vertical;line-h
 select.fin{padding-right:6px}
 .ftime{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ftime .fin{width:auto;flex:1;min-width:92px}
+.ftime.off .fin{opacity:.5}
 .dash{color:var(--mut)}
 .swl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--tx2);cursor:pointer;margin-top:8px;-webkit-user-select:none;user-select:none}
 .sw{appearance:none;-webkit-appearance:none;width:34px;height:20px;border-radius:999px;background:var(--hov2);position:relative;flex:none;cursor:pointer;margin:0;transition:background .15s}

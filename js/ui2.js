@@ -229,7 +229,7 @@ function homePlan(t) {
 function homeHabits(t) {
   const habs = hByKind('daily').filter(h => t >= hStart(h) && hDow(h, t)), dn = habs.filter(h => h.log[t]).length, sk = habitStreaks(), show = habs.slice(0, 6);
   return `<div class="card h2-card"><div class="h2-h"><b>${I(IC.habit, 18)}Привычки</b><small>${habs.length ? dn + ' из ' + habs.length : ''}</small></div>
-    ${habs.length ? `<div class="h2-habs">${show.map(h => habTile(h, t, 'hmark')).join('')}</div>${hmMore(habs.length - show.length, ['привычка', 'привычки', 'привычек'], 'habits')}`
+    ${habs.length ? `<div class="h2-habs">${show.map(h => habTile(h, t, 'hmark')).join('')}${habs.length > show.length ? `<button class="h2-hab more" data-act="sec" data-s="habits"><span class="nm">Ещё ${plural(habs.length - show.length, ['привычка', 'привычки', 'привычек'])} →</span></button>` : ''}</div>`
       : `<p class="h2-empty">Привычек пока нет. Начните с одной — напишите выше «привычка: 2 литра воды».</p>`}
     <div class="hm-foot"><span>${sk.cur > 1 ? `🔥 ${plural(sk.cur, NDAY)} подряд` : sk.best > 1 ? `Лучшая серия: ${plural(sk.best, NDAY)}` : ''}</span><button data-act="sec" data-s="habits">Трекер →</button></div></div>`;
 }
@@ -355,8 +355,8 @@ function financeHTML2() {
   const top = topBuys(ym, 1)[0];
   return `${demoBar('fin', demo)}
   ${!S.fin.ops.length && noPlans ? emptyCard('fin', 'Финансы', 'Записывайте каждую трату: «кафе 450», «такси 380». Задайте бюджет — приложение посчитает остаток и дневной лимит до конца месяца.') : ''}
-  ${input}${hero}${recent}
-  ${foldHTML('f-charts', 'Графики', `расходы ${rub0(st.spent)}`, () => `${finTiles(st, null)}<div class="fc3">${finBullets(st)}${finDonut(st)}${finDaily(st, ym)}</div>`, isWide, { ic:IC.spark })}
+  <div class="f2-grid"><div class="f2-col">${input}${hero}</div>${recent}</div>
+  ${foldHTML('f-charts', 'Графики', `расходы ${rub0(st.spent)}`, () => `<div class="f2-tiles">${finTiles(st, null)}</div><div class="fc3">${finBullets(st)}${finDonut(st)}${finDaily(st, ym)}</div>`, isWide, { ic:IC.spark })}
   ${foldHTML('f-cats', 'Категории и бюджет', `${plural(S.fin.cats.length, ['категория', 'категории', 'категорий'])}`, () => `<div class="fg-grid">${FG_ORDER.map(k => finGroup(k, st)).join('')}</div>`, isWide, { ic:IC.wallet })}
   ${foldHTML('f-top', 'Топ покупок', top ? `${esc(top.note || fcat(top.cat).name)} · ${rub0(top.amt)}` : 'пока пусто', () => `<div class="card">${topBuysHTML(ym)}</div>`, false, { ic:IC.trophy })}
   ${foldHTML('f-hist', 'Вся история', plural(ops.length, ['запись', 'записи', 'записей']), () => finHistory(st), false, { ic:IC.list })}`;
@@ -483,5 +483,14 @@ document.addEventListener('change', e => {
   toast(e.target.checked ? 'Новый интерфейс включён' : 'Вернули прежний вид — включить новый можно здесь же');
 });
 [['home', homeHTML2], ['tasks', tasksHTML2], ['fin', financeHTML2], ['habits', habitsHTML2]].forEach(([k, f]) => { const old = SEC[k].html; SEC[k].html = () => ui2() ? f() : old(); });
-SEC.home.after = SEC.tasks.after = () => { if (ui2()) omRefresh(); };
+// Главная на ПК: свёрнутые блоки (Самочувствие, Цели, Мысли дня…) встают в ту колонку, что короче, — без пустот.
+// Место считается по свёрнутой высоте, поэтому блок не прыгает в другую колонку, когда его открывают. На телефоне порядок как в разметке.
+function balanceHome() {
+  const cols = $$('.h2-col'); if (innerWidth < 900 || cols.length !== 2) return;
+  const folds = $$('.h2-col > .fold'); folds.forEach(f => f.remove());
+  const h = cols.map(c => c.getBoundingClientRect().height);
+  folds.forEach(f => { const i = h[0] <= h[1] ? 0 : 1; cols[i].appendChild(f); h[i] += 66; });
+}
+SEC.home.after = () => { if (ui2()) { omRefresh(); balanceHome(); } };
+SEC.tasks.after = () => { if (ui2()) omRefresh(); };
 if (ui2() && !S.settings.onboarded) setTimeout(onbOpen, 350);

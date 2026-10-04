@@ -116,6 +116,14 @@ function toggleDone(id, k) {
   const es = evOn(k); if (es.length > 1 && es.every(x => x.done)) toast(k === todayK() ? 'Все дела на сегодня сделаны 🎉' : 'Все дела этого дня сделаны 🎉');
   if (e.goal && (isRec(e) ? (e.doneDates || []).includes(k) : e.done)) goalStepDone(e.goal);   // шаг цели — похвала
 }
+// Время в карточке события: нажатие на поле времени само выключает «Весь день» — тумблер трогать не нужно
+function timeOn() {
+  const all = $('#f_all'); if (!all || !all.checked) return;
+  all.checked = false; $('.ftime').classList.remove('off');
+  if (!$('#f_tm').value) { $('#f_tm').value = '09:00'; $('#f_tm2').value = '10:00'; }
+}
+document.addEventListener('focusin', e => { if (e.target.id === 'f_tm' || e.target.id === 'f_tm2') timeOn(); });
+document.addEventListener('pointerdown', e => { if (e.target.id === 'f_tm' || e.target.id === 'f_tm2') timeOn(); });
 // Дни недельного повтора следуют за датой, пока пользователь не выбрал их сам
 function syncRepDays() {
   const fe = window._fe, d = $('#f_d') && $('#f_d').value; if (!fe || fe.daysTouched || !d) return;
@@ -161,7 +169,7 @@ document.addEventListener('input', e => {
   else if (t.id === 'f_t' && !window._fe.nlOff) {
     const p = parseNL(t.value, sel); window._fe.nl = p;
     if (p.date) { $('#f_d').value = p.date; syncRepDays(); }
-    if (p.time) { $('#f_all').checked = false; $('#f_tm').disabled = $('#f_tm2').disabled = false; $('#f_tm').value = p.time; $('#f_tm2').value = p.time2 || fmtMin(Math.min(1439, timeMin(p.time) + 60)); }
+    if (p.time) { $('#f_all').checked = false; $('.ftime').classList.remove('off'); $('#f_tm').value = p.time; $('#f_tm2').value = p.time2 || fmtMin(Math.min(1439, timeMin(p.time) + 60)); }
     if (p.cat) { window._fe.cat = p.cat; $$('#f_cats .ccat').forEach(b => b.classList.toggle('on', b.dataset.id === p.cat)); }
     nlHint(p, '#f_hint');
   }
@@ -176,8 +184,9 @@ document.addEventListener('change', e => {
   else if (t.id === 's_wn') { st.weekNums = t.checked; save(); render(); }
   else if (t.id === 's_dim') { st.dimPast = t.checked; save(); render(); }
   else if (t.id === 's_fold') { st.fold = t.checked; save(); render(); }
-  else if (t.id === 'f_all') { $('#f_tm').disabled = $('#f_tm2').disabled = t.checked; if (!t.checked && !$('#f_tm').value) { $('#f_tm').value = '09:00'; $('#f_tm2').value = '10:00'; } }
-  else if (t.id === 'f_tm') { const a = timeMin(t.value), b = timeMin($('#f_tm2').value); if (a != null && (b == null || b <= a)) $('#f_tm2').value = fmtMin(Math.min(1439, a + 60)); }
+  else if (t.id === 'f_all') { $('.ftime').classList.toggle('off', t.checked); if (!t.checked && !$('#f_tm').value) { $('#f_tm').value = '09:00'; $('#f_tm2').value = '10:00'; } }
+  else if (t.id === 'f_tm') { timeOn(); const a = timeMin(t.value), b = timeMin($('#f_tm2').value); if (a != null && (b == null || b <= a)) $('#f_tm2').value = fmtMin(Math.min(1439, a + 60)); }
+  else if (t.id === 'f_tm2') timeOn();
   else if (t.id === 'f_d') syncRepDays();
   else if (t.id === 'f_task') $('#f_prio').style.display = t.checked ? 'flex' : 'none';
   else if (t.id === 'f_rep') { syncRepDays(); $('#f_repx').style.display = t.value === 'none' ? 'none' : 'block'; $('#f_days').style.display = t.value === 'weekly' ? 'flex' : 'none'; }

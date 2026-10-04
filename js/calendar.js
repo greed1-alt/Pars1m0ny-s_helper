@@ -324,7 +324,7 @@ function openEvent(id, preset, instDate) {
   <div id="f_hint" class="nlhint" style="margin:-2px 0 8px"></div>
   ${rec ? `<div class="f-rec">${I(IC.rep,14)} ${esc(repText(e))} · изменения применятся ко всем повторениям</div>` : ''}
   <div class="frow"><span class="fl">Дата</span><input id="f_d" class="fin" type="date" value="${e.date}"></div>
-  <div class="frow"><span class="fl">Время</span><div><div class="ftime"><input id="f_tm" class="fin" type="time" value="${e.time||''}" aria-label="Начало"${e.time?'':' disabled'}><span class="dash">–</span><input id="f_tm2" class="fin" type="time" value="${e.time2||''}" aria-label="Конец"${e.time?'':' disabled'}></div>
+  <div class="frow"><span class="fl">Время</span><div><div class="ftime${e.time?'':' off'}"><input id="f_tm" class="fin" type="time" value="${e.time||''}" aria-label="Начало"><span class="dash">–</span><input id="f_tm2" class="fin" type="time" value="${e.time2||''}" aria-label="Конец"></div>
     <label class="swl"><input id="f_all" class="sw" type="checkbox"${e.time?'':' checked'}> Весь день / без времени</label></div></div>
   <div class="frow"><span class="fl">Повтор</span><div><select id="f_rep" class="fin">${Object.entries(REP).map(([k,v]) => `<option value="${k}"${rep.type===k?' selected':''}>${v}</option>`).join('')}</select>
     <div id="f_repx" style="display:${rep.type && rep.type!=='none'?'block':'none'}">
