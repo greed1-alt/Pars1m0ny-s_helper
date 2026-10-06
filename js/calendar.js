@@ -8,10 +8,8 @@ const weekDays = () => { const s = weekStartOf(sel); const d = [...Array(7)].map
 // Категория — отдельной меткой (цветная точка + название в «таблетке»), чтобы не путать её с названием события
 const catTag = id => { const c = cat(id); return `<span class="ctag" style="--c:${c.color}"><i></i>${esc(c.name)}</span>`; };
 function evHTML(e) {
-  if (ui2()) return `<div class="ev${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${e.date}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button>
-  <button class="evb" data-act="edit" data-id="${e.id}" data-d="${e.date}"><b>${esc(e.title)}</b><small>${e.time?`<span class="ev-tm">${timeRange(e)}</span>`:''}${catTag(e.cat)}${goalTag(e)}${e.rec?'<span>↻</span>':''}${remLabel(e) ? `<span>${remLabel(e).replace(/^ · /, '')}</span>` : ''}${e.loc?`<span>${esc(e.loc)}</span>`:''}</small>${e.note?`<p>${esc(e.note)}</p>`:''}</button></div>`;
   return `<div class="ev${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${e.date}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button>
-  <button class="evb" data-act="edit" data-id="${e.id}" data-d="${e.date}"><b>${esc(e.title)}</b><small>${e.time?timeRange(e)+' · ':''}${esc(cat(e.cat).name)}${e.rec?' · ↻':''}${remLabel(e)}${e.loc?' · '+esc(e.loc):''}</small>${e.note?`<p>${esc(e.note)}</p>`:''}</button></div>`;
+  <button class="evb" data-act="edit" data-id="${e.id}" data-d="${e.date}"><b>${esc(e.title)}</b><small>${e.time?`<span class="ev-tm">${timeRange(e)}</span>`:''}${catTag(e.cat)}${goalTag(e)}${e.rec?'<span>↻</span>':''}${remLabel(e) ? `<span>${remLabel(e).replace(/^ · /, '')}</span>` : ''}${e.loc?`<span>${esc(e.loc)}</span>`:''}</small>${e.note?`<p>${esc(e.note)}</p>`:''}</button></div>`;
 }
 const dayList = k => { const es = evOn(k); return es.length ? es.map(evHTML).join('') : '<p class="empty">Событий нет</p>'; };
 
@@ -65,7 +63,7 @@ function layoutDay(list) {
 // ---- Ось времени сетки: минуты ↔ пиксели. В новом интерфейсе пустые часы сворачиваются в тонкую полоску ----
 // Полоска появляется, если во всех днях недели подряд нет событий: ночью от 2 часов, днём от 3. Нажатие разворачивает её.
 const FOLD_H = 30;
-const foldOn = () => ui2() && S.settings.fold !== false;
+const foldOn = () => S.settings.fold !== false;
 const wgOpen = new Set();   // полоски, развёрнутые вручную (час начала); сбрасываются при смене недели
 let TA = { segs:[], H:0 }, taKey = '';
 function buildAxis(days) {
@@ -161,7 +159,7 @@ function agendaHTML() {
   for (let i = 0; i < 60; i++) {
     const k = addDays(sel, i), es = evOn(k); if (!es.length) continue;
     const d = pd(k);
-    out += `<div class="ag-day"><div class="ag-date${k===today?' today':''}" data-act="goday" data-d="${k}" title="Открыть день"><b>${d.getDate()}</b><small>${MONS[d.getMonth()]}, ${dowName(k).toLowerCase()}</small></div><div class="ag-list">${es.map(e => `<div class="ag-row${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button><button class="ag-main" data-act="edit" data-id="${e.id}" data-d="${k}"><span class="ag-time">${e.time ? timeRange(e) : 'весь день'}</span><span class="ag-bar"></span><span class="ag-txt"><b>${esc(e.title)}</b><small>${ui2() ? (e.time ? `<span class="ev-tm">${timeRange(e)}</span>` : '') + catTag(e.cat) + goalTag(e) : esc(cat(e.cat).name)}${e.rec?' · ↻ '+esc(repText(e)):''}${e.loc?' · '+esc(e.loc):''}</small></span></button></div>`).join('')}</div></div>`;
+    out += `<div class="ag-day"><div class="ag-date${k===today?' today':''}" data-act="goday" data-d="${k}" title="Открыть день"><b>${d.getDate()}</b><small>${MONS[d.getMonth()]}, ${dowName(k).toLowerCase()}</small></div><div class="ag-list">${es.map(e => `<div class="ag-row${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button><button class="ag-main" data-act="edit" data-id="${e.id}" data-d="${k}"><span class="ag-time">${e.time ? timeRange(e) : 'весь день'}</span><span class="ag-bar"></span><span class="ag-txt"><b>${esc(e.title)}</b><small>${(e.time ? `<span class="ev-tm">${timeRange(e)}</span>` : '') + catTag(e.cat) + goalTag(e)}${e.rec?' · ↻ '+esc(repText(e)):''}${e.loc?' · '+esc(e.loc):''}</small></span></button></div>`).join('')}</div></div>`;
   }
   return `<div class="agenda">${out || `<div class="ag-empty"><b>Ближайшие 60 дней свободны</b>Нажмите «Создать» или клавишу N, чтобы запланировать что-нибудь.</div>`}</div>`;
 }
@@ -215,9 +213,8 @@ function render(dir) {
   evCache.clear();
   closeQuick();
   const root = document.documentElement, cal = sec === 'cal', S2 = SEC[sec];
-  root.dataset.theme = S.settings.theme;
+  applyLook(); hideTip();   // js/look.js, js/help.js
   document.body.dataset.sec = sec;
-  document.body.classList.toggle('ui2', ui2());
   document.body.dataset.nonav = S2.noNav ? '1' : '';    // «Главная», «Профиль», «Настройки»: без стрелок периода
   document.body.dataset.nonew = S2.newLabel ? '' : '1';
   $('#ttl').innerHTML = cal ? titleHTML() : S2.title();
@@ -255,8 +252,8 @@ function move(n) {
 function setView(v) { if (sec !== 'cal') { sec = 'cal'; S.settings.sec = 'cal'; save(); view = v; if (v === 'month') { monthAnchor = pd(sel); monthAnchor.setDate(1); } return render(2); } if (v === view) return; view = v; if (v === 'month') { monthAnchor = pd(sel); monthAnchor.setDate(1); } render(2); }
 function goToday() { sel = todayK(); secYM = ymOf(sel); monthAnchor = pd(sel); monthAnchor.setDate(1); syncMini(); lastGridView = null; render(2); }
 // Кнопка «Создать» и клавиша N: в каждом разделе — своё
-// В новом интерфейсе «Создать» на Главной, в Календаре и Задачах открывает единую строку ввода
-const createNew = () => ui2() && useOmni() ? openOmni(sec) : sec === 'cal' || !SEC[sec].create ? openEvent() : SEC[sec].create();
+// На Главной, в Календаре и Задачах «Создать» открывает единую строку ввода
+const createNew = () => useOmni() ? openOmni(sec) : sec === 'cal' || !SEC[sec].create ? openEvent() : SEC[sec].create();
 function setTheme(t) { S.settings.theme = t; save(); render(); toast('Тема: ' + ({auto:'как в системе', light:'светлая', dark:'тёмная', black:'чёрная'})[t]); }
 
 // ---- Тост и «Отменить» ----
@@ -331,9 +328,9 @@ function openEvent(id, preset, instDate) {
       <div id="f_days" class="chips" style="display:${rep.type==='weekly'?'flex':'none'}">${DOW.map((d,i) => `<button type="button" class="chip${window._fe.days.has(i)?' on':''}" data-act="repday" data-d="${i}">${d}</button>`).join('')}</div>
       <div class="until">до <input id="f_until" class="fin" type="date" value="${rep.until||''}" aria-label="Повторять до"></div></div></div></div>
   <div class="frow"><span class="fl">Календарь</span><div class="ccats" id="f_cats">${catChips(window._fe.cat, 'fcat')}</div></div>
-  <div class="frow"><span class="fl">Задача</span><div><label class="swl" style="margin-top:9px"><input id="f_task" class="sw" type="checkbox"${e.task?' checked':''}> Показывать в разделе «Задачи»</label>
+  <div class="frow"><span class="fl">Задача</span><div><label class="swl" style="margin-top:9px"><input id="f_task" class="sw" type="checkbox"${e.task?' checked':''}> Показывать в «Задачах»</label>${hintK('task')}
     <div id="f_prio" class="chips" style="display:${e.task?'flex':'none'}">${PRIO_ORDER.map(k => `<button type="button" class="chip prio${window._fe.prio===k?' on':''}" data-act="fprio" data-p="${k}" style="--c:${PRIO[k].c}">${PRIO[k].n}</button>`).join('')}</div></div></div>
-  <div class="frow"><span class="fl">Напомнить</span><select id="f_rem" class="fin">${[['off','Не напоминать'],['0','В момент события'],['5','За 5 минут'],['10','За 10 минут'],['15','За 15 минут'],['30','За 30 минут'],['60','За 1 час'],['1440','За 1 день']].map(([v,t]) => `<option value="${v}"${remV===v?' selected':''}>${t}</option>`).join('')}</select></div>
+  <div class="frow"><span class="fl">Напомнить</span><div class="f-hrow"><select id="f_rem" class="fin">${[['off','Не напоминать'],['0','В момент события'],['5','За 5 минут'],['10','За 10 минут'],['15','За 15 минут'],['30','За 30 минут'],['60','За 1 час'],['1440','За 1 день']].map(([v,t]) => `<option value="${v}"${remV===v?' selected':''}>${t}</option>`).join('')}</select>${hintK('remind')}</div></div>
   <div class="frow"><span class="fl">Место</span><input id="f_loc" class="fin" type="text" value="${esc(e.loc||'')}" placeholder="Адрес или ссылка" autocomplete="off"></div>
   <div class="frow"><span class="fl">Заметка</span><textarea id="f_n" class="fin" placeholder="Подробности">${esc(e.note||'')}</textarea></div>
   <div class="sh-foot"><button class="btn pri grow" data-act="save">Сохранить</button><button class="btn" data-act="savetpl" title="Сохранить как шаблон">${I(IC.tpl,16)} В шаблоны</button></div>
@@ -342,25 +339,22 @@ function openEvent(id, preset, instDate) {
 }
 
 const PALETTE = ['#ef4444','#f97316','#f59e0b','#eab308','#22c55e','#14b8a6','#38bdf8','#3b82f6','#6366f1','#a855f7','#ec4899','#64748b'];
-const THEMES = [['auto','Авто','linear-gradient(90deg,#fff 50%,#191919 50%)','#d0d0d0','#e08a3c'],['light','Светлая','#ffffff','#e9e9e7','#2b2b2b'],['dark','Тёмная','#191919','#2f2f2f','#e08a3c'],['black','Чёрная','#000000','#232323','#e6e6e6']];
+
 let palOpen = null, delAsk = null;
 // Настройки — отдельная страница (SEC.settings в js/pages.js); здесь только переход и блоки для неё
 function openSettings() { if (sec !== 'settings') setSec('settings'); else render(); }
 function settingsBlocks() {
   const st = S.settings;
   return {
-  look: `<div class="set-sec">Оформление</div>
-  <div class="thm">${THEMES.map(([v,n,bg,a,b]) => `<button class="${st.theme===v?'on':''}" data-act="theme" data-v="${v}"><span class="pv" style="background:${bg};--pa:${a};--pb:${b}"></span>${n}</button>`).join('')}</div>
-  <div class="set-row" style="margin-top:8px"><span>Размер сетки</span><div class="seg2">${[['compact','Компактно'],['normal','Обычно'],['large','Крупно']].map(([v,n]) => `<button class="${st.density===v?'on':''}" data-act="density" data-v="${v}">${n}</button>`).join('')}</div></div>
-  <div class="set-row"><span>Новый интерфейс <em class="beta" title="Проба">β</em></span><input id="s_ui2" class="sw" type="checkbox"${ui2()?' checked':''}></div>
-  <p class="set-note">${ui2() ? 'Единая строка ввода, сворачиваемые блоки, больше воздуха. Выключите, чтобы вернуть прежний вид — данные не меняются.' : 'Сейчас прежний вид. Включите, чтобы попробовать новый: единая строка ввода, сворачиваемые блоки, больше воздуха.'}</p>`,
+  look: lookHTML(),   // js/look.js
   cal: `<div class="set-sec">Календарь</div>
+  <div class="lk-row"><div class="lk-h">Размер сетки${hintK('density')}</div><div class="seg2 lk-seg">${[['compact','Компактно'],['normal','Обычно'],['large','Крупно']].map(([v,n]) => `<button class="${st.density===v?'on':''}" data-act="density" data-v="${v}">${n}</button>`).join('')}</div></div>
   <div class="set-row"><span>День в сетке начинается с</span><select id="s_ds" class="fin" style="min-width:90px">${[...Array(13)].map((_,h) => `<option value="${h}"${startH()===h?' selected':''}>${String(h).padStart(2,'0')}:00</option>`).join('')}</select></div>
   <div class="set-row"><span>Неделя начинается с</span><select id="s_ws" class="fin"><option value="1"${st.weekStart===1?' selected':''}>Понедельника</option><option value="0"${st.weekStart===0?' selected':''}>Воскресенья</option></select></div>
   <div class="set-row"><span>Показывать выходные в неделе</span><input id="s_wk" class="sw" type="checkbox"${st.weekends?' checked':''}></div>
-  <div class="set-row"><span>Номер недели</span><input id="s_wn" class="sw" type="checkbox"${st.weekNums?' checked':''}></div>
-  <div class="set-row"><span>Приглушать прошедшие события</span><input id="s_dim" class="sw" type="checkbox"${st.dimPast?' checked':''}></div>
-  ${ui2() ? `<div class="set-row"><span>Сворачивать пустые часы в неделе</span><input id="s_fold" class="sw" type="checkbox"${st.fold !== false?' checked':''}></div>` : ''}`,
+  <div class="set-row"><span>Номер недели${hintK('weekNums')}</span><input id="s_wn" class="sw" type="checkbox"${st.weekNums?' checked':''}></div>
+  <div class="set-row"><span>Приглушать прошедшие события${hintK('dimPast')}</span><input id="s_dim" class="sw" type="checkbox"${st.dimPast?' checked':''}></div>
+  <div class="set-row"><span>Сворачивать пустые часы в неделе${hintK('fold')}</span><input id="s_fold" class="sw" type="checkbox"${st.fold !== false?' checked':''}></div>`,
   cats: `<div class="set-sec">Календари (категории)</div>
   <div class="catlist">${S.cats.map(c => delAsk === c.id ? `<div class="catedit ask2">
     <span class="cswatch" style="--c:${c.color}"></span><span class="askt">Удалить «${esc(c.name)}»?</span>

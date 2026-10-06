@@ -147,17 +147,6 @@ function bioCard(ym) {
     ${grid}<div class="bio-bars">${bars}</div></div>`;
 }
 
-function habitsHTML() {
-  const ym = secYM, demo = S.habits.some(h => h.demo), none = !S.habits.length, hst = habitStats(ym);
-  return `${demoBar('habits', demo)}
-  ${none ? emptyCard('habits', 'Привычки', 'Добавьте привычки — «2 литра воды», «Зарядка», «Чтение 30 страниц» — и отмечайте их каждый день. Здесь будет процент по каждой и сравнение с прошлым месяцем.') : ''}
-  <div class="card"><div class="card-h"><b>Трекер привычек</b><small>${ymTitle(ym)}${S.settings.habitPast ? '' : ' · отмечать можно только сегодня'}</small></div>${habitGrid(ym)}</div>
-  <div class="hb-two">${habitWave(ym)}${hst.progress}</div>
-  <div class="hb-three">${periodicCard('weekly', ym)}${periodicCard('monthly', ym)}${hst.stable}</div>
-  ${bioCard(ym)}
-  ${notesCard(ym)}`;
-}
-
 // ---- Действия ----
 function markHabit(id, key) {
   const h = S.habits.find(x => x.id === id); if (!h) return;
@@ -323,7 +312,7 @@ function seeded(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; 
 SEC.habits = {
   name:'Привычки', icon:IC.habit, newLabel:'Привычка',
   title: () => innerWidth >= 900 ? `${ymTitle(secYM)}<span class="sub">привычки</span>` : ymHead(secYM),
-  html: habitsHTML,
+  html: () => habitsHTML(),
   move: n => { secYM = ymAdd(secYM, n); },
   create: () => openHabit(),
   side: () => {

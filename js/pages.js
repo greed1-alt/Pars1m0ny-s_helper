@@ -68,80 +68,6 @@ const DAY_LINES = [
 ];
 const QUICK = [['event', IC.cal, 'Событие'], ['task', IC.tasks, 'Задача'], ['habit', IC.habit, 'Привычка'], ['op', IC.wallet, 'Расход'], ['note', IC.note, 'Заметка']];
 let hmNoteDraft = '';
-// На Главной в карточке не больше нескольких пунктов, остальное — ссылкой в раздел
-const HM_MAX = { tasks:5, habits:6, events:5, bio:6 };
-const hmMore = (n, forms, s) => n > 0 ? `<button class="hm-more" data-act="sec" data-s="${s}">Ещё ${plural(n, forms)} →</button>` : '';
-
-function homeHTML() {
-  const t = todayK(), d = pd(t), name = (S.settings.name || '').trim(), nm = nowMin();
-  const tasks = dayTasks(t), tDone = tasks.filter(e => e.done).length;
-  const habs = hByKind('daily').filter(h => t >= hStart(h) && hDow(h, t)), hDone = habs.filter(h => h.log[t]).length;
-  const total = tasks.length + habs.length, done = tDone + hDone, pct = total ? done / total : 0;
-  const hero = `<div class="card hm-hero">
-    <div class="hm-hi">
-      <div class="hm-date">${DOWF[dowIdx(t)]}, ${d.getDate()} ${MONG[d.getMonth()]}</div>
-      <h2 class="hm-greet">${greet()}${name ? ', ' + esc(name) : ''}</h2>
-      <p class="hm-line">${esc(DAY_LINES[dnum(t) % DAY_LINES.length])}</p>
-      <div class="hm-quick">${QUICK.map(([k, ic, n]) => `<button class="btn" data-act="hmnew" data-k="${k}">${I(ic, 16)} ${n}</button>`).join('')}<button class="btn hm-tm" data-act="sec" data-s="timer">${I(IC.timer, 16)} Таймер<span class="tm-mini"></span></button></div>
-      ${name ? '' : `<button class="hm-ask" data-act="sec" data-s="profile">${I(IC.user, 14)} Как вас зовут? Заполните профиль</button>`}
-    </div>
-    <div class="hm-ring">${ringSVG(pct, 120, 'var(--good)', total ? Math.round(pct * 100) + '%' : '—', 'день')}<small>${total ? `${done} из ${total} — задачи и привычки` : 'Дел на сегодня нет'}</small></div>
-  </div>`;
-
-  const tomorrowN = dayTasks(addDays(t, 1)).length;
-  const tShow = [...tasks.filter(e => !e.done), ...tasks.filter(e => e.done)].slice(0, HM_MAX.tasks);   // сначала невыполненные
-  const taskCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.tasks, 17)} Задачи на сегодня</b><small>${tasks.length ? tDone + ' из ' + tasks.length : ''}</small></div>
-    <div class="hm-list">${tShow.map(e => `<div class="tw-row${e.done ? ' done' : ''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${t}" aria-label="Выполнено">${e.done ? I(IC.check, 13) : ''}</button><button class="tw-t" data-act="edit" data-id="${e.id}" data-d="${t}">${esc(e.title)}${e.time ? ` <small>${esc(e.time)}</small>` : ''}</button>${prioOf(e) === 'urgent' || prioOf(e) === 'high' ? `<i class="tw-p" style="--c:${PRIO[prioOf(e)].c}" title="${PRIO[prioOf(e)].n}"></i>` : ''}</div>`).join('') || '<p class="hm-empty">На сегодня задач нет — напишите первую ниже.</p>'}${hmMore(tasks.length - tShow.length, ['задача', 'задачи', 'задач'], 'tasks')}</div>
-    <input class="tw-add" data-d="${t}" type="text" placeholder="+ задача, например «позвонить в 18»" autocomplete="off" aria-label="Новая задача на сегодня">
-    <div class="hm-foot"><span>${tomorrowN ? 'Завтра: ' + plural(tomorrowN, ['задача', 'задачи', 'задач']) : 'На завтра пока пусто'}</span><button data-act="sec" data-s="tasks">Все задачи →</button></div></div>`;
-
-  const sk = habitStreaks(), hShow = [...habs.filter(h => !h.log[t]), ...habs.filter(h => h.log[t])].slice(0, HM_MAX.habits);
-  const habCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.habit, 17)} Привычки сегодня</b><small>${habs.length ? hDone + ' из ' + habs.length : ''}</small></div>
-    ${habs.length ? `<div class="hm-habs">${hShow.map(h => { const on = !!h.log[t]; return `<button class="hm-hab${on ? ' on' : ''}" data-act="hmark" data-id="${h.id}" data-k="${t}" aria-pressed="${on}"><span class="em">${esc(h.emoji || '•')}</span><span class="nm">${esc(h.name)}</span><i>${on ? I(IC.check, 14) : ''}</i></button>`; }).join('')}${hmMore(habs.length - hShow.length, ['привычка', 'привычки', 'привычек'], 'habits')}</div>`
-      : `<div class="hm-list"><p class="hm-empty">Привычек пока нет. Начните с одной — например, «2 литра воды».</p><button class="btn" data-act="hmnew" data-k="habit" style="align-self:flex-start">${I(IC.plus, 15)} Добавить привычку</button></div>`}
-    <div class="hm-foot"><span>${sk.cur > 1 ? `🔥 ${plural(sk.cur, NDAY)} подряд` : sk.best > 1 ? `Лучшая серия: ${plural(sk.best, NDAY)}` : ''}</span><button data-act="sec" data-s="habits">Трекер →</button></div></div>`;
-
-  const evAll = evOn(t).filter(e => !e.task), nx = nextUp(t);
-  const evEnd = e => timeMin(e.time2) != null && timeMin(e.time2) > timeMin(e.time) ? timeMin(e.time2) : timeMin(e.time) + 60;
-  const evs = [...evAll.filter(e => !e.time || evEnd(e) > nm), ...evAll.filter(e => e.time && evEnd(e) <= nm)].slice(0, HM_MAX.events);   // сначала предстоящие
-  const calCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.cal, 17)} Сегодня в календаре</b><small>${evAll.length ? plural(evAll.length, NEV) : ''}</small></div>
-    <div class="hm-evs">${evs.map(e => { const past = e.time && evEnd(e) <= nm, next = nx && nx.e.id === e.id;
-      return `<button class="hm-ev${past ? ' past' : ''}${next ? ' next' : ''}" data-act="edit" data-id="${e.id}" data-d="${t}" style="--c:${cat(e.cat).color}"><span class="t">${e.time ? timeRange(e) : 'весь день'}</span><i></i><span class="n">${esc(e.title)}${next ? `<small>${esc(nx.label)}</small>` : ''}</span></button>`; }).join('') || '<p class="hm-empty">Событий нет — свободный день.</p>'}${hmMore(evAll.length - evs.length, NEV, 'cal')}</div>
-    <div class="hm-foot"><button data-act="hmnew" data-k="event">+ Событие</button><button data-act="sec" data-s="cal">Календарь →</button></div></div>`;
-
-  const ym = ymOf(t), st = finStat(ym), lim = dailyLimit(st, ym);
-  const ops = st.ops.filter(o => o.date === t).sort((a, b) => b.id.localeCompare(a.id));
-  const spent = ops.filter(o => FG_OUT.includes(fcat(o.cat).g)).reduce((a, o) => a + o.amt, 0);
-  const finCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.wallet, 17)} Деньги сегодня</b></div>
-    <div class="hm-money${lim && lim.left < 0 ? ' neg' : ''}"><small>${lim ? 'Можно потратить сегодня' : 'Потрачено сегодня'}</small><b>${lim ? rub0(Math.max(0, lim.left)) : rub0(spent)}</b><span>${lim ? (lim.left >= 0 ? `лимит ${rub0(lim.limit)} · потрачено ${rub0(lim.today)}` : `лимит превышен на ${rub0(-lim.left)}`) : 'Задайте бюджет «Трат» в Финансах — появится дневной лимит'}</span></div>
-    <div class="fq"><input id="hm_fq" class="fin" type="text" placeholder="«кафе 450», «+ зарплата 60 000»" autocomplete="off" aria-label="Записать трату"><button class="btn pri" data-act="hmfq">Записать</button></div><div id="hm_fq_hint" class="nlhint"></div>
-    ${ops.length ? `<div class="hm-ops">${ops.slice(0, 4).map(o => { const c = fcat(o.cat), plus = c.g === 'inc'; return `<button class="hm-op" data-act="opedit" data-id="${o.id}"><span class="em">${esc(c.emoji || '•')}</span><span class="n">${esc(o.note || c.name)}</span><b class="${plus ? 'plus' : ''}">${plus ? '+' : '−'}${rub0(o.amt)}</b></button>`; }).join('')}</div>` : '<div class="hm-list"></div>'}
-    <div class="hm-foot"><span>Расходы за месяц: ${rub0(st.spent)}</span><button data-act="sec" data-s="fin">Финансы →</button></div></div>`;
-
-  const M = S.bio.metrics.slice(0, HM_MAX.bio), filled = M.filter(m => bioVal(t, m.id) != null).length;
-  const bioCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.spark, 17)} Самочувствие</b><small>${filled ? filled + ' из ' + M.length : 'как вы сегодня?'}</small></div>
-    <div class="hm-bio">${M.map(m => { const v = bioVal(t, m.id), opts = m.type === 'hours' ? [5, 6, 7, 8, 9, 10] : [1, 2, 3, 4, 5];
-      return `<div class="hm-bm"><span class="nm">${esc(m.emoji || '')} ${esc(m.name)}${v != null && !opts.includes(v) ? ` <small>${fmtNum(v)}</small>` : ''}</span><div class="hm-sc">${opts.map(o => `<button class="${v === o ? 'on' : ''}" data-act="hmbio" data-m="${m.id}" data-v="${o}" aria-label="${esc(m.name)}: ${o}" aria-pressed="${v === o}">${o}</button>`).join('')}</div></div>`; }).join('')}</div>
-    <div class="hm-foot"><span>${M.some(m => m.type === 'hours') ? 'Сон — в часах, остальное — от 1 до 5' : 'от 1 до 5'}</span><button data-act="sec" data-s="habits">Подробнее →</button></div></div>`;
-
-  const nAct = S.goals.filter(g => !g.done).length;
-  const goalsCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.goal, 17)} Цели</b><small>${nAct ? plural(nAct, ['активная', 'активные', 'активных']) : ''}</small></div>
-    <div class="hm-list">${goalsMiniHTML(3)}</div>
-    <div class="hm-foot"><button data-act="gnewh">+ Цель</button><button data-act="hmgoal">Все цели →</button></div></div>`;
-
-  const last = notesOf('')[0];
-  const noteCard = `<div class="card hm-card"><div class="card-h"><b>${I(IC.note, 17)} Мысли дня</b><button class="pill sm" data-act="ntall">Все заметки${S.notes.length ? ' · ' + S.notes.length : ''}</button></div>
-    <textarea id="hm_note" class="fin hn-text" placeholder="Что сегодня получилось? Что мешало? О чём подумать завтра?" aria-label="Заметка">${esc(hmNoteDraft)}</textarea>
-    <div class="nt-bar"><small>${last ? 'Последняя заметка: ' + esc(fmtLong(last.date)) : 'Заметка сохранится в архив с сегодняшней датой'}</small><button class="btn pri" data-act="hmnote">Сохранить</button></div></div>`;
-
-  return `${hero}${missedBar(true)}<div class="hm-grid">${taskCard}${habCard}${calCard}${finCard}${bioCard}${goalsCard}</div>${noteCard}`;
-}
-
-// Окно «Что добавить?» — кнопка «Создать» и клавиша N на Главной
-function openAddMenu() {
-  sheet(`<div class="sh-head"><h3>Что добавить?</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
-  <div class="addm">${QUICK.map(([k, ic, n]) => `<button data-act="hmnew" data-k="${k}">${I(ic, 22)}<b>${n}</b><small>${{ event:'встреча, дело со временем', task:'дело на день', habit:'то, что делаете регулярно', op:'трата или доход', note:'мысль, вывод, идея' }[k]}</small></button>`).join('')}</div>`);
-}
 function openQuickNote() {
   sheet(`<div class="sh-head"><h3>Заметка</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   <textarea id="qn_text" class="fin hn-text" style="min-height:160px" placeholder="Мысли, выводы, идеи…" aria-label="Текст заметки"></textarea>
@@ -163,30 +89,18 @@ ACT.hmnote = () => { const ta = $('#hm_note'), v = (ta ? ta.value : hmNoteDraft)
 ACT.hmbio = el => { const t = todayK(), v = Number(el.dataset.v); setBio(el.dataset.m, t, bioVal(t, el.dataset.m) === v ? '' : v); };
 ACT.hmgoal = goGoals;
 ACT.gnewh = () => openGoal();
-function homeMoney() {
-  const i = $('#hm_fq'); if (!i) return;
-  const p = parseMoney(i.value); if (!p.ok) { i.focus(); return toast('Напишите сумму, например «кафе 450»'); }
-  addOp({ amt:p.amt, cat:p.cat, note:p.note, date: todayK() });
-  const n = $('#hm_fq'); if (n) n.focus();
-}
-ACT.hmfq = homeMoney;
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || e.isComposing) return;
-  if (e.target.id === 'hm_fq') { e.preventDefault(); homeMoney(); }
-  else if ((e.target.id === 'hm_note' || e.target.id === 'qn_text') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); (e.target.id === 'hm_note' ? ACT.hmnote : ACT.qnsave)(); }
+  if ((e.target.id === 'hm_note' || e.target.id === 'qn_text') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); (e.target.id === 'hm_note' ? ACT.hmnote : ACT.qnsave)(); }
 });
 document.addEventListener('input', e => {
   if (e.target.id === 'hm_note') hmNoteDraft = e.target.value;
-  else if (e.target.id === 'hm_fq') {
-    const el = $('#hm_fq_hint'), p = e.target.value.trim() ? parseMoney(e.target.value) : { ok:false };
-    if (el) el.innerHTML = p.ok ? `${I(IC.spark, 13)} Запишу: <b>${esc(fcat(p.cat).name)}</b><b>${rub(p.amt)}</b>${p.note ? `<b>${esc(p.note)}</b>` : ''}` : '';
-  }
 });
 
 SEC.home = {
   name:'Главная', icon:IC.home, newLabel:'Создать', noNav:true,
   title: () => innerWidth >= 900 ? `Главная<span class="sub">${esc(fmtLong(todayK()))}</span>` : `<span class="wordmark">${APP_NAME}</span>`,
-  html: homeHTML, move: () => {}, create: openAddMenu,
+  html: () => homeHTML(), move: () => {},
 };
 
 // ---- Профиль: имя, аватар, статистика, достижения ----
@@ -438,12 +352,12 @@ function settingsHTML() {
   const b = settingsBlocks(), st = S.settings, name = (st.name || '').trim();
   const secs = `<div class="set-sec">Разделы</div>
     <div class="set-row"><span>При запуске открывать</span><div class="seg2"><button class="${st.startSec !== 'last' ? 'on' : ''}" data-act="ststart" data-v="home">Главную</button><button class="${st.startSec === 'last' ? 'on' : ''}" data-act="ststart" data-v="last">Последний раздел</button></div></div>
-    <div class="set-row"><span>Отмечать привычки задним числом</span><input id="s_hpast" class="sw" type="checkbox"${st.habitPast ? ' checked' : ''}></div>
+    <div class="set-row"><span>Отмечать привычки задним числом${hintK('habitPast')}</span><input id="s_hpast" class="sw" type="checkbox"${st.habitPast ? ' checked' : ''}></div>
     <div class="set-row"><span>Показатели самочувствия</span><button class="btn" data-act="bioedit">${I(IC.gear, 15)} Настроить</button></div>`;
   const about = `<div class="set-sec">О приложении</div>
     <div class="st-about"><span class="wordmark">${APP_NAME}</span><small>Календарь, задачи, привычки и финансы — в одном месте.</small></div>
     <button class="btn" style="width:100%" data-act="help">${I(IC.key, 16)} Горячие клавиши</button>
-    ${ui2() ? `<button class="btn" style="width:100%;margin-top:8px" data-act="onbshow">${I(IC.spark, 16)} Знакомство с приложением</button>` : ""}`;
+    <button class="btn" style="width:100%;margin-top:8px" data-act="onbshow">${I(IC.spark, 16)} Знакомство с приложением</button>`;
   return `<button class="card st-prof" data-act="pe" data-tab="main">${avatarHTML(48)}<span><b>${esc(name || 'Ваш профиль')}</b><small>${name ? 'Личные данные, аватар и обложка' : 'Укажите имя, выберите аватар и обложку'}</small></span>${I(IC.right, 18)}</button>
   <div class="st-grid"><div class="card">${b.look}</div><div class="card">${b.cal}</div><div class="card">${b.cats}</div><div class="card">${secs}</div><div class="card">${b.notif}</div><div class="card">${b.data}</div><div class="card">${about}</div></div>`;
 }

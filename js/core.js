@@ -120,8 +120,6 @@ const validCat = id => S.cats.some(c => c.id === id) ? id : (S.cats[0] && S.cats
 const timeRange = e => e.time ? (e.time2 ? esc(e.time) + '–' + esc(e.time2) : esc(e.time)) : '';
 const startH = () => Math.max(0, Math.min(12, Number(S.settings.dayStart) || 0));
 const rowH = () => ({compact:44, normal:56, large:72})[S.settings.density] || 56;
-// Новый интерфейс (проба, js/ui2.js): выключается в Настройках → Оформление — тогда всё как раньше
-const ui2 = () => S.settings.ui2 !== false;
 
 // ---- Повторяющиеся события ----
 const REP = {none:'Не повторять', daily:'Каждый день', weekdays:'По будням (пн–пт)', weekly:'Каждую неделю', monthly:'Каждый месяц', yearly:'Каждый год'};

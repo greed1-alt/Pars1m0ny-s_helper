@@ -125,22 +125,6 @@ function finHistory(st) {
 const topBuys = (ym, n) => opsIn(ym).filter(o => fcat(o.cat).g === 'exp').sort((a, b) => b.amt - a.amt || b.date.localeCompare(a.date)).slice(0, n);
 const topBuysHTML = ym => { const l = topBuys(ym, 5); return l.length ? l.map((o, i) => { const c = fcat(o.cat); return `<button class="sbl sbl-buy" data-act="opedit" data-id="${o.id}"><span class="sbl-n">${i + 1}</span><span class="sbl-em">${esc(c.emoji || '•')}</span><span class="sbl-t">${esc(o.note || c.name)}<small>${esc(shortDate(o.date))} · ${esc(c.name)}</small></span><b>${rub0(o.amt)}</b></button>`; }).join('') : '<p class="sbl-empty">Здесь появятся самые дорогие покупки месяца</p>'; };
 
-function financeHTML() {
-  const ym = secYM, st = finStat(ym), lim = dailyLimit(st, ym), demo = S.fin.ops.some(o => o.demo);
-  const noPlans = !S.fin.cats.some(c => c.plan);
-  return `${demoBar('fin', demo)}
-  ${!S.fin.ops.length && noPlans ? emptyCard('fin', 'Финансы', 'Записывайте каждую трату: «кафе 450», «такси 380». Задайте бюджет по категориям — приложение посчитает остаток и дневной лимит, чтобы уложиться до конца месяца.') : ''}
-  <div class="card fq-card">
-    <div class="fq-top"><div class="seg2 fq-kind" role="group" aria-label="Что записать">${OP_KINDS.map(([k, n]) => `<button class="${finKind === k ? 'on' : ''}" data-act="fqkind" data-k="${k}" aria-pressed="${finKind === k}">${n}</button>`).join('')}</div>
-      <button class="pill sm" data-act="finbudget">${I(IC.wallet, 14)} Бюджет на месяц</button></div>
-    <div class="fq"><input id="fq_in" class="fin" type="text" placeholder="${FIN_PH[finKind]}" autocomplete="off" aria-label="Быстрая запись"><button class="btn pri" data-act="fqadd">Записать</button><button class="btn fq-more" data-act="opnew">Подробнее</button></div><div id="fq_hint" class="nlhint"></div></div>
-  ${finTiles(st, lim)}
-  <div class="fc3">${finBullets(st)}${finDonut(st)}${finDaily(st, ym)}</div>
-  <div class="card m-only"><div class="card-h"><b>Топ покупок</b><small>${ymTitle(ym)}</small></div>${topBuysHTML(ym)}</div>
-  <div class="fg-grid">${FG_ORDER.map(k => finGroup(k, st)).join('')}</div>
-  ${finHistory(st)}`;
-}
-
 // ---- Окно записи ----
 let opForm = null, finKind = 'out';   // finKind — что записывает строка быстрого ввода: расход, доход или накопление
 const FIN_PH = { out:'Например: «кафе 450», «такси 380»', inc:'Например: «зарплата 60 000», «подработка 5000»', sav:'Например: «отпуск 5000», «подушка 10 000»' };
@@ -289,7 +273,7 @@ ACT.fcdelyes = () => { snap(); S.fin.cats = S.fin.cats.filter(c => c.id !== fcFo
 SEC.fin = {
   name:'Финансы', icon:IC.wallet, newLabel:'Запись',
   title: () => innerWidth >= 900 ? `${ymTitle(secYM)}<span class="sub">финансы</span>` : ymHead(secYM),
-  html: financeHTML,
+  html: () => financeHTML(),
   move: n => { secYM = ymAdd(secYM, n); },
   create: () => openOp(),
   side: () => `<div class="sb-sec"><div class="sb-h">Топ покупок · ${MON[Number(secYM.slice(5)) - 1].toLowerCase()}</div>${topBuysHTML(secYM)}</div>`,

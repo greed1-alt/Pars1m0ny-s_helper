@@ -109,11 +109,8 @@ function goalStepDone(gid) {
   else { const p = goalPraise(g); if (p) toast(p); }
 }
 
-// «Все цели»: в новом интерфейсе — вкладка «Цели» внутри «Задач», в прежнем — отдельная страница
-function goGoals() {
-  if (ui2() && typeof tView !== 'undefined') { tView = 'goals'; if (sec === 'tasks') { window.scrollTo(0, 0); render(); } else setSec('tasks'); }
-  else setSec('goals');
-}
+// «Все цели» — вкладка «Цели» внутри «Задач»
+function goGoals() { tView = 'goals'; if (sec === 'tasks') { window.scrollTo(0, 0); render(); } else setSec('tasks'); }
 ACT.gall = goGoals;
 
 // ---- Страница «Цели» ----
@@ -205,7 +202,7 @@ function drawGoal(keep) {
   <div class="frow"><span class="fl">Срок</span><div><input id="g_due" class="fin" type="date" value="${f.due}" style="max-width:180px">
     <div class="chips" style="margin-top:8px">${DUE_PRESETS().map(([n, d]) => `<button type="button" class="chip${f.due === d ? ' on' : ''}" data-act="gdue" data-d="${d}">${n}</button>`).join('')}</div>
     <p class="set-note">${dayDiff(t, f.due) >= 0 ? 'Осталось ' + plural(dayDiff(t, f.due), NDAY) : 'Срок уже прошёл — продлите или отметьте цель достигнутой'}</p></div></div>
-  ${g ? `<div class="g-prog"><div class="gl-bar pace-${s.pace || 'none'}"><i style="width:${Math.round(s.pct * 100)}%"></i></div><div class="gl-meta"><span>${s.n ? `Сделано ${s.d} из ${s.n}` : 'Шагов пока нет'}</span>${s.pace ? `<span class="pace ${s.pace}">${PACE[s.pace]}</span>` : ''}</div></div>
+  ${g ? `<div class="g-prog"><div class="gl-bar pace-${s.pace || 'none'}"><i style="width:${Math.round(s.pct * 100)}%"></i></div><div class="gl-meta"><span>${s.n ? `Сделано ${s.d} из ${s.n}` : 'Шагов пока нет'}</span>${s.pace ? `<span class="pace ${s.pace}">${PACE[s.pace]}${hintK('pace')}</span>` : ''}</div></div>
     ${(late || s.overdue) && !g.done && S.settings.phr.taunts ? `<div class="gl-taunt">${I(IC.alert, 15)}<span>${esc(goalTaunt(g, late ? late.t : ''))}</span></div>` : ''}
     <div class="pe-sec">Шаги</div>
     <div class="gs-list">${s.st.map(stepRow).join('') || '<p class="set-note" style="margin:2px 0 6px">Разбейте цель на шаги. Шаг со сроком появится в задачах и календаре.</p>'}</div>

@@ -41,8 +41,6 @@ const leftTxt = (k, done) => {
   const n = dayDiff(todayK(), k);
   return n < 0 ? ['просрочено на ' + plural(-n, NDAY), 'late'] : n === 0 ? ['сегодня', 'now'] : n === 1 ? ['завтра', ''] : ['через ' + plural(n, NDAY), ''];
 };
-const prioSel = e => `<label class="prio-pill" style="--c:${PRIO[prioOf(e)].c}"><select data-prio="${e.id}" aria-label="Приоритет">${PRIO_ORDER.map(p => `<option value="${p}"${prioOf(e) === p ? ' selected' : ''}>${PRIO[p].n}</option>`).join('')}</select></label>`;
-const prioTag = e => `<span class="prio-tag" style="--c:${PRIO[prioOf(e)].c}">${PRIO[prioOf(e)].n}</span>`;
 
 function weekBoard() {
   const t = todayK();
@@ -56,27 +54,6 @@ function weekBoard() {
       <div class="tw-ring">${ringSVG(n ? done / n : 0, 58, 'var(--good)', n ? Math.round(done / n * 100) + '%' : '—', n ? done + ' из ' + n : '')}</div>
     </div>`;
   }).join('')}</div>`;
-}
-
-function taskTable() {
-  const rows = taskRows();
-  const fl = [['active', 'Активные'], ['done', 'Выполненные'], ['all', 'Все']];
-  return `<div class="card tk-card">
-    <div class="card-h"><b>Мои задачи</b><div class="seg2">${fl.map(([v, n]) => `<button class="${tFilter === v ? 'on' : ''}" data-act="tfilter" data-f="${v}">${n}</button>`).join('')}</div></div>
-    ${tPrio ? `<div class="tk-flt">Только ${prioTag({ prio:tPrio })}<button class="pill sm" data-act="tprio" data-p="">${I(IC.x, 13)} Показать все</button></div>` : ''}
-    <div class="tk-add"><input id="tk_new" class="fin" type="text" placeholder="Новая задача, например «отчёт в пятницу #работа»" autocomplete="off"><div id="tk_hint" class="nlhint"></div></div>
-    <div class="tk-tbl">
-      <div class="tk-row tk-head"><span></span><span>Задача</span><span>Срок</span><span>Осталось</span><span>Приоритет</span><span>Категория</span></div>
-      ${rows.map(({ e, k, done }) => { const [lt, lc] = leftTxt(k, done); return `<div class="tk-row${done ? ' done' : ''}" style="--c:${cat(e.cat).color}">
-        <button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено">${done ? I(IC.check, 13) : ''}</button>
-        <button class="tk-t" data-act="edit" data-id="${e.id}" data-d="${k}"><b>${esc(e.title)}</b>${isRec(e) ? ' <i class="tk-rep" title="Повторяется">↻</i>' : ''}</button>
-        <span class="tk-date">${shortDate(k)}${e.time ? ', ' + esc(e.time) : ''}</span>
-        <span class="tk-left ${lc}">${lt}</span>
-        ${prioSel(e)}
-        <span class="tk-cat"><i></i>${esc(cat(e.cat).name)}</span>
-      </div>`; }).join('') || `<p class="empty" style="padding:10px 4px">${tFilter === 'done' ? 'Выполненных задач пока нет.' : 'Задач нет — напишите первую в поле выше.'}</p>`}
-    </div>
-  </div>`;
 }
 
 function taskSummary() {
@@ -95,8 +72,6 @@ function taskSummary() {
   </div>`;
 }
 
-// Цели («Фокус месяца», «Цель на год» и свои) переехали в раздел «Цели» — js/goals.js. Здесь — короткий список со ссылкой.
-const goalsTasksCard = () => `<div class="card tk-goalsmini"><div class="card-h"><b>Цели</b><button class="pill sm" data-act="gall">Все цели →</button></div>${goalsMiniHTML(4)}</div>`;
 // «Важные задачи»: срочные (не выполненные) и ближайшие шаги целей — в боковой панели ПК и карточкой на телефоне
 const dueShort = k => { const n = dayDiff(todayK(), k); return n < 0 ? 'просрочено' : n === 0 ? 'сегодня' : n === 1 ? 'завтра' : shortDate(k); };
 function importantHTML() {
@@ -121,22 +96,10 @@ function taskDynamics() {
   </div>`;
 }
 
-function tasksHTML() {
-  const wk = taskWeek(), a = pd(wk[0]), b = pd(wk[6]);
-  const hasAny = S.events.some(e => e.task), demo = S.events.some(e => e.demo);
-  return `${missedBar(true)}${demoBar('tasks', demo)}
-  ${!hasAny ? emptyCard('tasks', 'Задачи', 'Здесь задачи по дням недели, сроки и приоритеты. Задача с датой видна и в календаре. Пишите прямо в колонку дня: «позвонить маме», «отчёт в 15:00 #работа».') : ''}
-  <div class="card m-only"><div class="card-h"><b>Важные задачи</b></div>${importantHTML()}</div>
-  <div class="card tw-card"><div class="card-h"><b>Неделя ${isoWeek(wk[0])}</b><small>${a.getDate()} ${MONS[a.getMonth()]} – ${b.getDate()} ${MONS[b.getMonth()]}</small></div>${weekBoard()}</div>
-  <div class="tk-mid">${taskTable()}${taskSummary()}</div>
-  ${goalsTasksCard()}
-  ${taskDynamics()}`;
-}
-
 SEC.tasks = {
   name:'Задачи', icon:IC.tasks, newLabel:'Задача',
   title: () => { const wk = taskWeek(), a = pd(wk[0]), b = pd(wk[6]); const r = a.getMonth() === b.getMonth() ? `${a.getDate()}–${b.getDate()} ${MONS[b.getMonth()]}` : `${a.getDate()} ${MONS[a.getMonth()]} – ${b.getDate()} ${MONS[b.getMonth()]}`; return innerWidth >= 900 ? `Задачи<span class="sub">неделя ${isoWeek(wk[0])} · ${r}</span>` : r; },
-  html: tasksHTML,
+  html: () => tasksHTML(),
   move: n => { sel = addDays(sel, 7 * n); syncMini(); },
   create: () => newTask(),
   side: () => `<div class="sb-sec"><div class="sb-h">Важные задачи</div>${importantHTML()}</div>`,
@@ -151,22 +114,14 @@ SEC.tasks = {
   },
 };
 
-// Ввод с клавиатуры: Enter в колонке дня и в «Моих задачах»
+// Ввод с клавиатуры: Enter в колонке дня («Доска недели»)
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || e.isComposing) return;
   const t = e.target;
   if (t.classList && t.classList.contains('tw-add')) {
     e.preventDefault(); const d = t.dataset.d; addTaskQuick(t.value, d);
     const i = $(`.tw-add[data-d="${d}"]`); if (i) i.focus();
-  } else if (t.id === 'tk_new') {
-    e.preventDefault(); addTaskQuick(t.value, todayK());
-    const i = $('#tk_new'); if (i) i.focus();
   }
-});
-document.addEventListener('input', e => { if (e.target.id === 'tk_new') nlHint(e.target.value.trim() ? parseNL(e.target.value, todayK()) : null, '#tk_hint'); });
-document.addEventListener('change', e => {
-  const t = e.target;
-  if (t.dataset.prio) { const ev = S.events.find(x => x.id === t.dataset.prio); if (!ev) return; snap(); ev.prio = t.value; save(); render(); toast('Приоритет: ' + PRIO[t.value].n, true); }
 });
 ACT.tfilter = el => { tFilter = el.dataset.f; render(); };
 ACT.tprio = el => { tPrio = tPrio === el.dataset.p ? '' : el.dataset.p; if (tPrio && tFilter === 'done') tFilter = 'active'; render(); };
