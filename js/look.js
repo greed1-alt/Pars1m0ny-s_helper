@@ -60,6 +60,7 @@ const LOOK_DEF = { pal:'indigo', contrast:'normal', card:'soft', round:'m', evc:
 onMigrate(() => {
   const st = S.settings;
   if (!PAL[st.pal]) st.pal = LOOK_DEF.pal;
+  if (!['auto', 'light', 'dark', 'black'].includes(st.theme)) st.theme = 'auto';
   for (const k in LOOK_OPT) if (!LOOK_OPT[k].some(o => o[0] === st[k])) st[k] = LOOK_DEF[k];
 });
 

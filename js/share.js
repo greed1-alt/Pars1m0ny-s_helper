@@ -249,12 +249,35 @@ function exportData() {
   saveFile(new Blob([JSON.stringify(S, null, 2)], { type:'application/json' }), `parsimony-${todayK()}.json`);
   toast('Копия сохранена в файл');
 }
+// ---- Проверка файла копии перед загрузкой (7 октября 2026) ----
+// Поля-«ярлыки» (id, даты, время, ключи), цвета и числа вставляются в страницу без экранирования. Поддельный файл мог бы подсунуть туда
+// кавычки и чужой код — поэтому такие поля приводим к безопасному виду. Обычный текст (названия, заметки) не трогаем: он везде выводится через esc().
+// Пригодится и для данных с сервера, когда появятся аккаунты.
+const CL_TOK = new Set(['id', 'cat', 'date', 'time', 'time2', 'until', 'due', 'created', 'doneAt', 'birthday', 'prio', 'goal', 'from', 'kind', 'g', 'type', 'src',
+  'k', 'm', 'sec', 'theme', 'density', 'startSec', 'pal', 'contrast', 'card', 'round', 'evc', 'dev', 'p', 'doneDates', 'skip', 'days', 'offsets']);
+const CL_COLOR = new Set(['color', 'c']), CL_NUM = new Set(['amt', 'plan', 'offset', 'fact', 'tmin', 'min', 'max', 'step', 'dayStart', 'weekStart']);
+const CL_BAD = new Set(['__proto__', 'constructor', 'prototype']);
+const SAFE_TOK = /^[\p{L}\p{N}_.:#+\- ]{0,120}$/u;
+function cleanTree(v, key, depth) {
+  depth = depth || 0; if (depth > 12) return undefined;
+  if (Array.isArray(v)) return v.slice(0, 50000).map(x => cleanTree(x, key, depth + 1)).filter(x => x !== undefined);
+  if (v && typeof v === 'object') { const o = {}; Object.entries(v).forEach(([k, x]) => { if (CL_BAD.has(k)) return; const y = cleanTree(x, k, depth + 1); if (y !== undefined) o[k] = y; }); return o; }
+  if (typeof v === 'string') {
+    if (CL_COLOR.has(key)) return safeColor(v);
+    if (CL_NUM.has(key)) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
+    if (CL_TOK.has(key) && !SAFE_TOK.test(v)) return key === 'id' ? uid() : undefined;
+    return v.length > 100000 ? v.slice(0, 100000) : v;
+  }
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  return typeof v === 'boolean' || v === null ? v : undefined;
+}
 function importData(input) {
   const f = input.files && input.files[0]; if (!f) return;
+  if (f.size > 30 * 1024 * 1024) { input.value = ''; return toast('Файл слишком большой — это не копия ' + APP_NAME); }
   const r = new FileReader();
   r.onload = () => {
     try {
-      const d = JSON.parse(r.result);
+      const d = cleanTree(JSON.parse(r.result), '');
       if (!d || !Array.isArray(d.events) || !Array.isArray(d.cats)) throw new Error('это не копия ' + APP_NAME);
       snap();
       S.events = d.events; S.cats = d.cats.length ? d.cats : S.cats; S.templates = Array.isArray(d.templates) ? d.templates : S.templates;

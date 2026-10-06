@@ -38,8 +38,15 @@ function migrate() {
     // Несколько напоминаний (6 октября 2026): reminder.offsets — минуты до начала, от большего к меньшему; offset/enabled — для старых копий и ссылок
     if (e.reminder && !Array.isArray(e.reminder.offsets)) e.reminder.offsets = e.reminder.enabled ? [Number(e.reminder.offset) || 0] : [];
     if (!Array.isArray(e.doneDates)) e.doneDates = [];
+    if (typeof e.id !== 'string' || !/^[\w.:-]{1,80}$/.test(e.id)) e.id = uid();
+    // Без даты событие не открыть — испорченная дата (например, из чужого файла) становится сегодняшней
+    if (typeof e.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) { const d = new Date(); e.date = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+    if (typeof e.title !== 'string') e.title = '';
+    ['time', 'time2'].forEach(k => { if (e[k] && !/^\d{1,2}:\d{2}$/.test(e[k])) e[k] = ''; });
     if (!Array.isArray(e.skip)) e.skip = [];
   });
+  // Цвет календаря попадает в стили страницы — только «#rrggbb»
+  S.cats.forEach(c => { if (!/^#[0-9a-f]{3,8}$/i.test(c.color || '')) c.color = '#94a3b8'; if (typeof c.id !== 'string' || !/^[\w.:-]{1,80}$/.test(c.id)) c.id = uid(); });
   MIGRATE.forEach(f => f());
 }
 // Разделы (задачи, привычки, финансы) добавляют сюда свою проверку данных: она выполняется сразу и после загрузки копии

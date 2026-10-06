@@ -93,7 +93,7 @@ function finBullets(st) {
 function finDonut(st) {
   const segs = FG_DONUT.map(k => ({ name:FG[k].n, val:st.g[k].fact, color:FG[k].c, tip:`${FG[k].n}\n${rub0(st.g[k].fact)}` })), total = segs.reduce((a, s) => a + s.val, 0);
   return `<div class="card"><div class="card-h"><b>Куда ушли деньги</b></div>${total ? `<div class="fd">${donutSVG(segs, 132, rub0(total), 'за месяц')}
-    <div class="fd-l">${segs.filter(s => s.val).sort((a, b) => b.val - a.val).map(s => `<div><i style="background:${s.color}"></i><span>${s.name}</span><b>${Math.round(s.val / total * 100)}%</b></div>`).join('')}</div></div>` : '<p class="empty">Здесь появится, на что уходят деньги, когда вы запишете первые траты.</p>'}</div>`;
+    <div class="fd-l">${segs.filter(s => s.val).sort((a, b) => b.val - a.val).map(s => `<div><i style="background:${s.color}"></i><span>${esc(s.name)}</span><b>${Math.round(s.val / total * 100)}%</b></div>`).join('')}</div></div>` : '<p class="empty">Здесь появится, на что уходят деньги, когда вы запишете первые траты.</p>'}</div>`;
 }
 function finDaily(st, ym) {
   const days = ymDays(ym), t = todayK(), vals = days.map(k => st.ops.filter(o => o.date === k && fcat(o.cat).g === 'exp').reduce((a, o) => a + o.amt, 0));
