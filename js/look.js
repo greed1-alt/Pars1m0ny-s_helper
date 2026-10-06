@@ -1,36 +1,54 @@
 // ---- Оформление (6 октября 2026): тема, палитра, контраст, вид карточек, углы, цвет событий ----
 // Выбирает сам пользователь: Настройки → Оформление. Цвета палитр — здесь; applyLook() ставит их переменными CSS на <html>.
-// «Классика» — прежние цвета из css/app.css. В CSS остались запасные значения и то, что от палитры не зависит (цвета графиков, тени окон).
+// «Графит» (ключ classic) — прежние цвета из css/app.css; 6 октября 2026 пользователь попросил другое название вместо «Классика». В CSS остались запасные значения и то, что от палитры не зависит (цвета графиков, тени окон).
 // Ключи цвета: bg — фон «с рамкой», pg — фон страницы под карточками, bg2 — боковая панель, sf — карточки и окна,
 // line — линии, tx/tx2/mut — текст основной/второй/приглушённый, acc/accfg — кнопки и выбранное, wm — надпись Parsimony.
 const PAL = {
   indigo:{ n:'Индиго',
     l:{ bg:'#fbfbfe', pg:'#f2f3f9', bg2:'#eceef7', sf:'#ffffff', line:'#e1e4f0', tx:'#1a1c2b', tx2:'#4d536b', mut:'#80869e', acc:'#4b4fd1', accfg:'#ffffff', wm:'#5b5ee0' },
     d:{ bg:'#12131b', bg2:'#171824', sf:'#1d1f2d', line:'#2a2d40', tx:'#e7e8f3', tx2:'#adb1c9', mut:'#7a7f99', acc:'#9599ff', accfg:'#10123a', wm:'#9fa3ff' } },
-  sage:{ n:'Шалфей',
-    l:{ bg:'#fbfcf9', pg:'#f2f4ee', bg2:'#eaede4', sf:'#ffffff', line:'#dde2d5', tx:'#1c211b', tx2:'#4f584c', mut:'#80897c', acc:'#3b6e4c', accfg:'#ffffff', wm:'#4a8360' },
-    d:{ bg:'#111511', bg2:'#161b16', sf:'#1c221c', line:'#29312a', tx:'#e4ebe3', tx2:'#a8b3a5', mut:'#768073', acc:'#8ccaa0', accfg:'#0b1d10', wm:'#95cfa8' } },
+  sky:{ n:'Небо',
+    l:{ bg:'#fbfcfe', pg:'#f1f5fb', bg2:'#e9eff8', sf:'#ffffff', line:'#dde5f0', tx:'#121b2b', tx2:'#465367', mut:'#78849a', acc:'#1b62c6', accfg:'#ffffff', wm:'#2a72d6' },
+    d:{ bg:'#0f141b', bg2:'#131a23', sf:'#19212c', line:'#26313f', tx:'#e6edf6', tx2:'#a6b3c4', mut:'#74819a', acc:'#6aa8ff', accfg:'#04172e', wm:'#7db3ff' } },
+  midnight:{ n:'Полночь',
+    l:{ bg:'#fbfcfd', pg:'#f0f2f6', bg2:'#e8ebf1', sf:'#ffffff', line:'#dce0e8', tx:'#141a26', tx2:'#475065', mut:'#7a8398', acc:'#233f78', accfg:'#ffffff', wm:'#2c4c8c' },
+    d:{ bg:'#0b1020', bg2:'#0f1528', sf:'#141b31', line:'#222b46', tx:'#e5e9f5', tx2:'#a5aeca', mut:'#717b9a', acc:'#f0b85a', accfg:'#2a1a02', wm:'#f3c46e' } },
   ocean:{ n:'Океан',
     l:{ bg:'#fafcfd', pg:'#eff4f6', bg2:'#e7eff2', sf:'#ffffff', line:'#d8e4e9', tx:'#12232a', tx2:'#475b63', mut:'#7b8f96', acc:'#0a6d80', accfg:'#ffffff', wm:'#0e8196' },
     d:{ bg:'#0e1519', bg2:'#121c21', sf:'#182429', line:'#243439', tx:'#e1edf0', tx2:'#a0b4ba', mut:'#6c838a', acc:'#55c6d6', accfg:'#04222a', wm:'#63cddb' } },
-  lavender:{ n:'Лаванда',
-    l:{ bg:'#fcfbfe', pg:'#f5f2fa', bg2:'#eee9f6', sf:'#ffffff', line:'#e5deef', tx:'#221b2b', tx2:'#594e6d', mut:'#9085a2', acc:'#7546bd', accfg:'#ffffff', wm:'#8a5ad0' },
-    d:{ bg:'#15121a', bg2:'#1b1722', sf:'#221d2b', line:'#31293d', tx:'#ece6f4', tx2:'#b8accb', mut:'#85799a', acc:'#b791f3', accfg:'#1e0f33', wm:'#c09cf6' } },
+  mint:{ n:'Мята',
+    l:{ bg:'#fafdfb', pg:'#eff7f3', bg2:'#e6f1eb', sf:'#ffffff', line:'#d7e7de', tx:'#14231c', tx2:'#44594f', mut:'#768b80', acc:'#0a7656', accfg:'#ffffff', wm:'#11906b' },
+    d:{ bg:'#0e1613', bg2:'#121d19', sf:'#18251f', line:'#24352d', tx:'#e2f0e9', tx2:'#a0b7ab', mut:'#6d867a', acc:'#4fd1a5', accfg:'#032219', wm:'#62d9b0' } },
+  sage:{ n:'Шалфей',
+    l:{ bg:'#fbfcf9', pg:'#f2f4ee', bg2:'#eaede4', sf:'#ffffff', line:'#dde2d5', tx:'#1c211b', tx2:'#4f584c', mut:'#80897c', acc:'#3b6e4c', accfg:'#ffffff', wm:'#4a8360' },
+    d:{ bg:'#111511', bg2:'#161b16', sf:'#1c221c', line:'#29312a', tx:'#e4ebe3', tx2:'#a8b3a5', mut:'#768073', acc:'#8ccaa0', accfg:'#0b1d10', wm:'#95cfa8' } },
+  olive:{ n:'Олива',
+    l:{ bg:'#fcfcf8', pg:'#f4f4ea', bg2:'#ecede0', sf:'#fffffc', line:'#e1e2d0', tx:'#1f2114', tx2:'#535744', mut:'#868a74', acc:'#5a6611', accfg:'#ffffff', wm:'#6f7d17' },
+    d:{ bg:'#13140f', bg2:'#191a13', sf:'#1f2118', line:'#2f3124', tx:'#eceee0', tx2:'#b4b7a0', mut:'#81846e', acc:'#c3d35a', accfg:'#1c2004', wm:'#cbdb66' } },
+  sand:{ n:'Песок',
+    l:{ bg:'#fdfcf8', pg:'#f5f2e9', bg2:'#efeadd', sf:'#fffefb', line:'#e6dfcf', tx:'#24201a', tx2:'#5b5346', mut:'#928877', acc:'#8a5f17', accfg:'#ffffff', wm:'#a8742a' },
+    d:{ bg:'#15130f', bg2:'#1b1813', sf:'#221f18', line:'#332e24', tx:'#f0ebe0', tx2:'#bfb5a3', mut:'#8b8170', acc:'#e5b366', accfg:'#2a1c05', wm:'#e8b970' } },
+  mocha:{ n:'Мокко',
+    l:{ bg:'#fdfbf9', pg:'#f6f1ed', bg2:'#efe7e1', sf:'#fffdfb', line:'#e6dbd2', tx:'#261c17', tx2:'#5e4f47', mut:'#92837a', acc:'#7b4a2e', accfg:'#ffffff', wm:'#8c5636' },
+    d:{ bg:'#161210', bg2:'#1c1714', sf:'#241e1a', line:'#362d27', tx:'#f1e9e4', tx2:'#c2b3aa', mut:'#8e7f76', acc:'#d9a07a', accfg:'#2a1407', wm:'#e2ab86' } },
   coral:{ n:'Коралл',
     l:{ bg:'#fffcfa', pg:'#f9f3ef', bg2:'#f3eae4', sf:'#ffffff', line:'#ece0d8', tx:'#2a1d17', tx2:'#634f45', mut:'#998679', acc:'#b84a26', accfg:'#ffffff', wm:'#c2512b' },
     d:{ bg:'#17120f', bg2:'#1d1713', sf:'#251d18', line:'#362a23', tx:'#f2e8e2', tx2:'#c4b1a5', mut:'#8f7c70', acc:'#f2916b', accfg:'#2b1206', wm:'#f39c78' } },
   rose:{ n:'Роза',
     l:{ bg:'#fffbfc', pg:'#f9f2f4', bg2:'#f3e9ed', sf:'#ffffff', line:'#ecdce2', tx:'#2b1a20', tx2:'#654c56', mut:'#9b848d', acc:'#b03f65', accfg:'#ffffff', wm:'#c24f76' },
     d:{ bg:'#171114', bg2:'#1e161a', sf:'#261c21', line:'#382930', tx:'#f3e6eb', tx2:'#c6aeb8', mut:'#927a84', acc:'#f285a7', accfg:'#300b19', wm:'#f48fae' } },
-  sand:{ n:'Песок',
-    l:{ bg:'#fdfcf8', pg:'#f5f2e9', bg2:'#efeadd', sf:'#fffefb', line:'#e6dfcf', tx:'#24201a', tx2:'#5b5346', mut:'#928877', acc:'#8a5f17', accfg:'#ffffff', wm:'#a8742a' },
-    d:{ bg:'#15130f', bg2:'#1b1813', sf:'#221f18', line:'#332e24', tx:'#f0ebe0', tx2:'#bfb5a3', mut:'#8b8170', acc:'#e5b366', accfg:'#2a1c05', wm:'#e8b970' } },
-  classic:{ n:'Классика',
-    l:{ bg:'#ffffff', pg:'#f5f5f3', bg2:'#f7f7f5', sf:'#ffffff', line:'#e9e9e7', grid:'#efefed', tx:'#1d1d1c', tx2:'#5f5e5b', mut:'#9b9a97', acc:'#2b2b2b', accfg:'#ffffff', wm:'#b4642c' },
+  plum:{ n:'Слива',
+    l:{ bg:'#fdfbfd', pg:'#f8f1f6', bg2:'#f1e7ef', sf:'#ffffff', line:'#ead9e6', tx:'#2a1828', tx2:'#614a5e', mut:'#968093', acc:'#8f317b', accfg:'#ffffff', wm:'#a33d8d' },
+    d:{ bg:'#171116', bg2:'#1e161d', sf:'#261c25', line:'#392a37', tx:'#f3e6f1', tx2:'#c7afc3', mut:'#937b8f', acc:'#e58bd3', accfg:'#2d0a27', wm:'#ec9adb' } },
+  lavender:{ n:'Лаванда',
+    l:{ bg:'#fcfbfe', pg:'#f5f2fa', bg2:'#eee9f6', sf:'#ffffff', line:'#e5deef', tx:'#221b2b', tx2:'#594e6d', mut:'#9085a2', acc:'#7546bd', accfg:'#ffffff', wm:'#8a5ad0' },
+    d:{ bg:'#15121a', bg2:'#1b1722', sf:'#221d2b', line:'#31293d', tx:'#ece6f4', tx2:'#b8accb', mut:'#85799a', acc:'#b791f3', accfg:'#1e0f33', wm:'#c09cf6' } },
+  classic:{ n:'Графит',
+    l:{ bg:'#ffffff', pg:'#f5f5f3', bg2:'#f7f7f5', sf:'#ffffff', line:'#e9e9e7', grid:'#efefed', tx:'#1d1d1c', tx2:'#5f5e5b', mut:'#8a8986', acc:'#2b2b2b', accfg:'#ffffff', wm:'#b4642c' },
     d:{ bg:'#191919', bg2:'#202020', sf:'#252525', line:'#2f2f2f', grid:'#292929', tx:'#ececec', tx2:'#b4b4b4', mut:'#7f7f7f', acc:'#e08a3c', accfg:'#1a0f02', wm:'#e8964a' } },
 };
 const PAL_ORDER = Object.keys(PAL);
-// Чёрная тема: фон чисто чёрный, акцент — из палитры (у «Классики» — светло-серый, как раньше)
+// Чёрная тема: фон чисто чёрный, акцент — из палитры (у «Графита» — светло-серый, как раньше)
 const BLACK = { bg:'#000000', pg:'#000000', bg2:'#0a0a0a', sf:'#141414', line:'#232323', grid:'#1b1b1b', tx:'#f2f2f2', tx2:'#b0b0b0', mut:'#767676' };
 const LOOK_OPT = {
   contrast:[['soft', 'Мягкий'], ['normal', 'Обычный'], ['high', 'Высокий']],
@@ -94,14 +112,17 @@ function themePrev(t) {
 }
 const lookSeg = k => `<div class="seg2 lk-seg" role="group">${LOOK_OPT[k].map(([v, n]) => `<button class="${S.settings[k] === v ? 'on' : ''}" data-act="look" data-k="${k}" data-v="${v}" aria-pressed="${S.settings[k] === v}">${n}</button>`).join('')}</div>`;
 const lookRow = (k, label) => `<div class="lk-row"><div class="lk-h">${label}${hintK(k)}</div>${lookSeg(k)}</div>`;
+// Плитка палитры: маленький макет «страница — карточка — кнопка» в её цветах для текущей темы
+const palPv = k => { const st = S.settings, c = palColors(k, darkNow(), st.theme === 'black'); return `<span class="pal-pv" style="--p:${c.pg};--s:${c.sf};--a:${c.acc};--l:${c.line};--t:${c.tx2}"><i></i><b></b><em></em></span>`; };
+const palSw = k => `<button class="pal${S.settings.pal === k ? ' on' : ''}" data-act="look" data-k="pal" data-v="${k}" aria-pressed="${S.settings.pal === k}">${palPv(k)}${PAL[k].n}</button>`;
 function lookHTML() {
-  const st = S.settings, dark = darkNow(), black = st.theme === 'black';
-  const sw = k => { const c = palColors(k, dark, black);
-    return `<button class="pal${st.pal === k ? ' on' : ''}" data-act="look" data-k="pal" data-v="${k}" aria-pressed="${st.pal === k}"><span class="pal-pv" style="--p:${c.pg};--s:${c.sf};--a:${c.acc};--l:${c.line};--t:${c.tx2}"><i></i><b></b><em></em></span>${PAL[k].n}</button>`; };
+  const st = S.settings;
   return `<div class="set-sec">Оформление</div>
   <div class="lk-row"><div class="lk-h">Тема${hintK('theme')}</div>
     <div class="thm">${THEME_N.map(([v, n]) => `<button class="${st.theme === v ? 'on' : ''}" data-act="theme" data-v="${v}" aria-pressed="${st.theme === v}"><span class="pv" style="${themePrev(v)}"></span>${n}</button>`).join('')}</div></div>
-  <div class="lk-row"><div class="lk-h">Палитра${hintK('pal')}</div><div class="pals">${PAL_ORDER.map(sw).join('')}</div></div>
+  <div class="lk-row"><div class="lk-h">Палитра${hintK('pal')}</div>
+    <button class="lk-pick" data-act="palpick">${palPv(st.pal)}<span><b>${PAL[st.pal].n}</b><small>Нажмите, чтобы выбрать из ${PAL_ORDER.length}</small></span>${I(IC.right, 18)}</button>
+    <div class="pals lk-wide">${PAL_ORDER.map(palSw).join('')}</div></div>
   ${lookRow('contrast', 'Контраст')}${lookRow('card', 'Карточки')}${lookRow('round', 'Углы')}${lookRow('evc', 'Цвет событий')}
   <div class="lk-row"><div class="lk-h">Как это выглядит</div>
     <div class="lk-prev" aria-hidden="true"><div class="lk-card">
@@ -113,5 +134,13 @@ function lookHTML() {
       <div class="lk-btns"><span class="btn pri">Сохранить</span><span class="btn">Отмена</span></div></div></div></div>
   <button class="lnk lk-reset" data-act="lookreset">Вернуть оформление по умолчанию</button>`;
 }
-ACT.look = el => { const k = el.dataset.k, v = el.dataset.v; if (k === 'pal' ? !PAL[v] : !LOOK_OPT[k]) return; S.settings[k] = v; save(); render(); };
+// На телефоне палитра выбирается в маленьком окне (в Настройках — одна строка); фон за окном почти не затемнён, чтобы видеть цвета
+function openPal(keep) {
+  sheet(`<div class="sh-head"><h3>Палитра</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  <div class="pals pals-sh">${PAL_ORDER.map(palSw).join('')}</div>
+  <button class="btn pri" style="width:100%;margin-top:14px" data-act="close">Готово</button>`, keep);
+  $('#ov').classList.add('ov-light');
+}
+ACT.palpick = () => openPal();
+ACT.look = el => { const k = el.dataset.k, v = el.dataset.v; if (k === 'pal' ? !PAL[v] : !LOOK_OPT[k]) return; S.settings[k] = v; save(); render(); if (k === 'pal' && $('.pals-sh')) openPal(true); };
 ACT.lookreset = () => { Object.assign(S.settings, LOOK_DEF); save(); render(); toast('Оформление — как по умолчанию'); };

@@ -273,8 +273,8 @@ function toast(msg, withUndo) {
 }
 
 // ---- Окна ----
-const sheet = (h, keep) => { const sh = $('#sh'), top = sh.scrollTop; sh.innerHTML = '<span class="grab"></span>' + h; $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; };
-const closeSheet = () => { $('#ov').classList.remove('show'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; };
+const sheet = (h, keep) => { const sh = $('#sh'), top = sh.scrollTop; sh.innerHTML = '<span class="grab"></span>' + h; $('#ov').classList.remove('ov-light'); $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; };
+const closeSheet = () => { $('#ov').classList.remove('show', 'ov-light'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; };
 const sheetOpen = () => $('#ov').classList.contains('show');
 const catChips = (selId, act) => S.cats.map(c => `<button type="button" class="ccat${c.id===selId?' on':''}" data-act="${act}" data-id="${c.id}" style="--c:${c.color}"><i></i>${esc(c.name)}</button>`).join('');
 
@@ -328,7 +328,7 @@ function openEvent(id, preset, instDate) {
       <div id="f_days" class="chips" style="display:${rep.type==='weekly'?'flex':'none'}">${DOW.map((d,i) => `<button type="button" class="chip${window._fe.days.has(i)?' on':''}" data-act="repday" data-d="${i}">${d}</button>`).join('')}</div>
       <div class="until">до <input id="f_until" class="fin" type="date" value="${rep.until||''}" aria-label="Повторять до"></div></div></div></div>
   <div class="frow"><span class="fl">Календарь</span><div class="ccats" id="f_cats">${catChips(window._fe.cat, 'fcat')}</div></div>
-  <div class="frow"><span class="fl">Задача</span><div><label class="swl" style="margin-top:9px"><input id="f_task" class="sw" type="checkbox"${e.task?' checked':''}> Показывать в «Задачах»</label>${hintK('task')}
+  <div class="frow"><span class="fl">Задача</span><div><div class="f-hrow" style="margin-top:9px"><label class="swl" style="margin-top:0"><input id="f_task" class="sw" type="checkbox"${e.task?' checked':''}> Показывать в «Задачах»</label>${hintK('task')}</div>
     <div id="f_prio" class="chips" style="display:${e.task?'flex':'none'}">${PRIO_ORDER.map(k => `<button type="button" class="chip prio${window._fe.prio===k?' on':''}" data-act="fprio" data-p="${k}" style="--c:${PRIO[k].c}">${PRIO[k].n}</button>`).join('')}</div></div></div>
   <div class="frow"><span class="fl">Напомнить</span><div class="f-hrow"><select id="f_rem" class="fin">${[['off','Не напоминать'],['0','В момент события'],['5','За 5 минут'],['10','За 10 минут'],['15','За 15 минут'],['30','За 30 минут'],['60','За 1 час'],['1440','За 1 день']].map(([v,t]) => `<option value="${v}"${remV===v?' selected':''}>${t}</option>`).join('')}</select>${hintK('remind')}</div></div>
   <div class="frow"><span class="fl">Место</span><input id="f_loc" class="fin" type="text" value="${esc(e.loc||'')}" placeholder="Адрес или ссылка" autocomplete="off"></div>
@@ -352,9 +352,9 @@ function settingsBlocks() {
   <div class="set-row"><span>День в сетке начинается с</span><select id="s_ds" class="fin" style="min-width:90px">${[...Array(13)].map((_,h) => `<option value="${h}"${startH()===h?' selected':''}>${String(h).padStart(2,'0')}:00</option>`).join('')}</select></div>
   <div class="set-row"><span>Неделя начинается с</span><select id="s_ws" class="fin"><option value="1"${st.weekStart===1?' selected':''}>Понедельника</option><option value="0"${st.weekStart===0?' selected':''}>Воскресенья</option></select></div>
   <div class="set-row"><span>Показывать выходные в неделе</span><input id="s_wk" class="sw" type="checkbox"${st.weekends?' checked':''}></div>
-  <div class="set-row"><span>Номер недели${hintK('weekNums')}</span><input id="s_wn" class="sw" type="checkbox"${st.weekNums?' checked':''}></div>
-  <div class="set-row"><span>Приглушать прошедшие события${hintK('dimPast')}</span><input id="s_dim" class="sw" type="checkbox"${st.dimPast?' checked':''}></div>
-  <div class="set-row"><span>Сворачивать пустые часы в неделе${hintK('fold')}</span><input id="s_fold" class="sw" type="checkbox"${st.fold !== false?' checked':''}></div>`,
+  <div class="set-row"><span>${withHint('Номер недели', 'weekNums')}</span><input id="s_wn" class="sw" type="checkbox"${st.weekNums?' checked':''}></div>
+  <div class="set-row"><span>${withHint('Приглушать прошедшие события', 'dimPast')}</span><input id="s_dim" class="sw" type="checkbox"${st.dimPast?' checked':''}></div>
+  <div class="set-row"><span>${withHint('Сворачивать пустые часы в неделе', 'fold')}</span><input id="s_fold" class="sw" type="checkbox"${st.fold !== false?' checked':''}></div>`,
   cats: `<div class="set-sec">Календари (категории)</div>
   <div class="catlist">${S.cats.map(c => delAsk === c.id ? `<div class="catedit ask2">
     <span class="cswatch" style="--c:${c.color}"></span><span class="askt">Удалить «${esc(c.name)}»?</span>
@@ -395,7 +395,7 @@ const COMMANDS = () => [
   { ic:IC.tasks, t:'Новая задача', run:() => newTask() },
   { ic:IC.habit, t:'Новая привычка', run:() => openHabit() },
   { ic:IC.wallet, t:'Записать расход или доход', run:() => openOp() },
-  ...SEC_ORDER.map(s => ({ ic:SEC[s].icon, t:(s === 'home' ? '' : 'Раздел: ') + SEC[s].name, run:() => setSec(s) })),
+  ...navSecs().map(s => ({ ic:SEC[s].icon, t:(s === 'home' ? '' : 'Раздел: ') + SEC[s].name, run:() => setSec(s) })),
   ...(missedList().length ? [{ ic:IC.alert, t:'Вы пропустили: разобрать', run:() => { missMove = null; openMissed(); } }] : []),
   { ic:IC.cal, t:'Перейти к сегодня', k:'T', run:goToday },
   { ic:IC.cal, t:'Вид: месяц', k:'M', run:() => setView('month') },

@@ -350,9 +350,10 @@ SEC.profedit = { name:'Редактирование профиля', icon:IC.use
 // ---- Настройки: карточки по темам ----
 function settingsHTML() {
   const b = settingsBlocks(), st = S.settings, name = (st.name || '').trim();
-  const secs = `<div class="set-sec">Разделы</div>
+  const secs = `<div class="set-sec">Разделы и Главная</div>
+    ${layoutSetHTML()}
     <div class="set-row"><span>При запуске открывать</span><div class="seg2"><button class="${st.startSec !== 'last' ? 'on' : ''}" data-act="ststart" data-v="home">Главную</button><button class="${st.startSec === 'last' ? 'on' : ''}" data-act="ststart" data-v="last">Последний раздел</button></div></div>
-    <div class="set-row"><span>Отмечать привычки задним числом${hintK('habitPast')}</span><input id="s_hpast" class="sw" type="checkbox"${st.habitPast ? ' checked' : ''}></div>
+    <div class="set-row"><span>${withHint('Отмечать привычки задним числом', 'habitPast')}</span><input id="s_hpast" class="sw" type="checkbox"${st.habitPast ? ' checked' : ''}></div>
     <div class="set-row"><span>Показатели самочувствия</span><button class="btn" data-act="bioedit">${I(IC.gear, 15)} Настроить</button></div>`;
   const about = `<div class="set-sec">О приложении</div>
     <div class="st-about"><span class="wordmark">${APP_NAME}</span><small>Календарь, задачи, привычки и финансы — в одном месте.</small></div>

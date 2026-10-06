@@ -92,8 +92,8 @@ button.om-c::after{content:'⟳';font-size:11px;opacity:.55;margin-left:1px}
 .h2-h b{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700;letter-spacing:-.015em}
 .h2-h b svg{color:var(--mut);flex:none;align-self:center}
 .h2-h small{font-size:13px;font-weight:600;color:var(--mut)}
-.h2-card .hm-foot{padding-top:14px}
-.h2-card .hm-foot>span:last-child{display:flex;gap:2px}
+.h2-card .hm-foot,.h2-blk .hm-foot{padding-top:14px}
+.h2-card .hm-foot>span:last-child,.h2-blk .hm-foot>span:last-child{display:flex;gap:2px}
 .pl-sub{font-size:11.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 2px}
 .pl-sub:first-of-type{margin-top:2px}
 .pl-row{display:grid;grid-template-columns:44px 22px minmax(0,1fr);align-items:start;gap:10px;padding:11px 0;border-top:1px solid var(--line)}
@@ -127,8 +127,8 @@ button.om-c::after{content:'⟳';font-size:11px;opacity:.55;margin-left:1px}
 .h2-big b{display:block;font-size:40px;font-weight:750;letter-spacing:-.03em;line-height:1.1;margin:4px 0 6px;font-variant-numeric:normal}
 .h2-big>span{font-size:13px;color:var(--mut)}
 .h2-big.neg b{color:var(--dng)}
-.h2-card .hm-ops{margin-top:12px}
-.h2-card .hm-op{padding:10px 2px;font-size:14px}
+.h2-card .hm-ops,.h2-blk .hm-ops{margin-top:12px}
+.h2-card .hm-op,.h2-blk .hm-op{padding:10px 2px;font-size:14px}
 .fold .hm-goal{margin-bottom:0}
 .fold .hm-bio{gap:10px}
 .fold .hm-sc button{width:34px;height:34px;border-radius:9px;font-size:13px}
@@ -365,7 +365,7 @@ body.ui2 main.sec .card{padding:16px}
 body.ui2 main.sec .card-h{margin-bottom:10px}
 .h2-cols,.h2-col{gap:12px}
 .h2-h{margin-bottom:8px}
-.h2-card .hm-foot{padding-top:8px}
+.h2-card .hm-foot,.h2-blk .hm-foot{padding-top:8px}
 .fold{gap:10px}
 .fold-b{gap:12px}
 .fold-h{min-height:52px}
@@ -399,7 +399,19 @@ body.ui2 main.sec .card-h{margin-bottom:10px}
 .set-sec+.lk-row{border-top:0;padding-top:2px}
 .lk-h{display:flex;align-items:center;font-size:14px;font-weight:600}
 .lk-seg button{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.pals{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.lk-pick{display:flex;align-items:center;gap:12px;width:100%;padding:8px 10px 8px 8px;border:1.5px solid var(--line);border-radius:12px;text-align:left}
+.lk-pick .pal-pv{width:54px;height:40px;flex:none}
+.lk-pick span{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.lk-pick b{font-size:15px;font-weight:650}
+.lk-pick small{font-size:12.5px;color:var(--mut)}
+.lk-pick>svg{color:var(--mut);flex:none}
+@media(max-width:899px){.lk-wide{display:none}}
+@media(min-width:900px){.lk-pick{display:none}}
+.pals-sh{gap:6px}
+.pals-sh .pal{padding:4px 4px 6px;font-size:11.5px}
+.pals-sh .pal-pv{height:38px}
+#ov.ov-light{background:rgba(0,0,0,.1)}
 .pal{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:5px 5px 7px;border:1.5px solid var(--line);border-radius:12px;font-size:12px;font-weight:500;color:var(--tx2);text-align:center;transition:border-color .12s}
 .pal.on{border-color:var(--acc);color:var(--tx);font-weight:650}
 .pal-pv{position:relative;display:block;height:46px;border-radius:8px;background:var(--p);overflow:hidden;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--l) 90%,transparent)}
@@ -420,14 +432,55 @@ body.ui2 main.sec .card-h{margin-bottom:10px}
 .lk-btns{display:flex;gap:8px}
 .lk-btns .btn{pointer-events:none}
 .lk-reset{display:block;margin-top:12px;font-size:13px}
-.f2-kh{display:flex;align-items:center;gap:6px}
-.f2-kh .seg2{flex:1;min-width:0}
+.f2-kh{display:flex;align-items:center;gap:6px;margin-bottom:12px}
+.f2-kh .seg2{flex:1;min-width:0;margin-bottom:0}
+/* У мелких подписей (кольцо дня) значок чуть меньше — по высоте строки */
+.h2-ring .hint,.h2-ring .hint:hover{width:15px!important;height:15px!important;font-size:9.5px!important}
 .f-hrow{display:flex;align-items:center;gap:2px}
 .f-hrow select{flex:1;min-width:0}
 
 /* ---- Подсказки «?» (js/help.js) ---- */
-.hint{display:inline-grid;place-items:center;width:17px;height:17px;margin:0 0 0 6px;padding:0;border-radius:50%;border:1.5px solid color-mix(in srgb,var(--mut) 75%,transparent);color:var(--mut);font-size:10.5px;font-weight:700;line-height:1;letter-spacing:0;text-transform:none;vertical-align:-3px;position:relative;flex:none;cursor:help;transition:color .12s,border-color .12s}
+.hint{display:inline-grid;place-items:center;margin:0 0 0 6px;border-radius:50%;border:1.5px solid color-mix(in srgb,var(--mut) 75%,transparent);color:var(--mut);font-weight:700;letter-spacing:0;text-transform:none;vertical-align:text-bottom;position:relative;flex:none;cursor:help;transition:color .12s,border-color .12s}
+/* Размер значка не зависит от того, где он стоит (у кнопок в подвалах карточек и т. п. свои размеры) */
+.hint,.hint:hover{width:17px!important;height:17px!important;min-width:0!important;min-height:0!important;padding:0!important;font-size:10.5px!important;line-height:1!important;background:none!important}
+.hint-nw{white-space:nowrap}
 .hint::after{content:'';position:absolute;inset:-10px}
 .hint:hover,.hint[aria-expanded=true]{color:var(--acc);border-color:var(--acc)}
 #tip{position:fixed;z-index:300;left:0;top:0;padding:10px 13px;border-radius:12px;background:var(--sf);color:var(--tx);border:1px solid var(--line);box-shadow:var(--sh2);font-size:13.5px;font-weight:450;line-height:1.45;white-space:pre-line;opacity:0;visibility:hidden;transform:translateY(-3px);transition:opacity .12s,transform .12s,visibility 0s .12s;pointer-events:none}
 #tip.show{opacity:1;visibility:visible;transform:none;transition:opacity .12s,transform .12s;pointer-events:auto}
+
+/* ---- Расположение (js/layout.js): окна «Разделы» и «Главная», строки в Настройках ---- */
+.h2-col:empty{display:none}
+.h2-cust{display:flex;justify-content:center;margin-top:4px}
+.h2-cust .lnk{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;font-size:13.5px;color:var(--mut);text-decoration:none;border-radius:10px}
+.h2-cust .lnk:hover{color:var(--tx);background:var(--hov)}
+.set-link{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:8px 0;border-top:1px solid var(--line);text-align:left;color:var(--tx)}
+.set-sec+.set-link{border-top:0}
+.set-link>svg{flex:none;color:var(--mut)}
+.set-link>span{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.set-link b{font-size:14.5px;font-weight:600}
+.set-link small{font-size:12.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(hover:hover){.set-link:hover>span b{color:var(--acc)}}
+.lo-note{margin:0 0 12px!important}
+.lo-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.lo-row{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 12px;border-top:1px solid var(--line);min-height:58px}
+.lo-row:first-child{border-top:0}
+.lo-row.lo-blk{flex-direction:column;align-items:stretch;gap:8px}
+.lo-top{display:flex;align-items:center;gap:10px}
+.lo-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--acc) 12%,transparent);color:var(--acc)}
+.lo-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.lo-t b{font-size:15px;font-weight:600}
+.lo-t small{font-size:12.5px;color:var(--mut)}
+.lo-mv{display:flex;gap:2px;flex:none}
+.lo-mv .ic{width:36px;height:36px;border-radius:10px;color:var(--tx2)}
+.lo-mv .ic:disabled{opacity:.25;cursor:default}
+.lo-row .sw{flex:none;margin-left:2px}
+.lo-row.off .lo-ic{background:var(--hov);color:var(--mut)}
+.lo-row.off .lo-t b{color:var(--mut)}
+.lo-row.fixed .lo-t small{font-style:normal}
+.lo-row.hid .lo-ic{background:var(--hov);color:var(--mut)}
+.lo-seg button{flex:1}
+.lo-seg button:disabled{opacity:.45;cursor:default}
+.lo-foot{display:flex;gap:8px;margin-top:14px}
+/* Вкладки внизу: если разделов больше пяти, подписи чуть мельче */
+#tabbar[data-n="6"] .tb-b{font-size:9.5px}

@@ -1,12 +1,10 @@
 // ---- Разделы: Календарь, Задачи, Привычки, Финансы ----
 // Каждый раздел регистрирует себя в SEC: name, icon, title(), html(), move(n), today(), create(), newLabel, info()
 const SEC = {};
-// SEC_ORDER — основные разделы (боковая панель и вкладки телефона); «Профиль» и «Настройки» — внизу панели
-const SEC_ORDER = ['home', 'cal', 'tasks', 'habits', 'fin'];
-// Экспериментальные разделы: только в боковой панели ПК (на телефоне — кнопка на Главной), с пометкой β
-const NAV_EXTRA = ['timer'];
-// «Цели» — вкладка внутри «Задач» (решение пользователя 4 октября 2026); SEC.goals — только заголовок, пример и боковой блок для этой вкладки
-const SEC_ALL = [...SEC_ORDER, ...NAV_EXTRA, 'profile', 'profedit', 'settings'];
+// Какие разделы во вкладках телефона и в боковой панели ПК и в каком порядке — выбирает пользователь (js/layout.js: navSecs()).
+// «Профиль» и «Настройки» — внизу панели и в шапке. «Цели» — вкладка внутри «Задач» (решение пользователя 4 октября 2026);
+// SEC.goals — только заголовок, пример и боковой блок для этой вкладки.
+const SEC_ALL = ['home', 'cal', 'tasks', 'habits', 'fin', 'timer', 'profile', 'profedit', 'settings'];
 // При запуске — «Главная» (или последний раздел, если так выбрано в настройках)
 let sec = S.settings.startSec === 'last' && SEC_ALL.includes(S.settings.sec) ? S.settings.sec : 'home';
 SEC.cal = { name:'Календарь', icon:IC.cal, newLabel:'Создать' };
@@ -32,10 +30,11 @@ const ymGen = ym => { const [y, m] = ym.split('-').map(Number); return MONG[m - 
 let secYM = ymOf(todayK());   // месяц, открытый в «Привычках» и «Финансах»
 
 // Навигация: боковая панель на ПК и вкладки внизу на телефоне
-const navHTML = () => `<nav class="sb-nav">${[...SEC_ORDER, ...NAV_EXTRA].map(s => `<button class="sb-nv${s === sec ? ' on' : ''}" data-act="sec" data-s="${s}">${I(SEC[s].icon, 17)}${SEC[s].name}${SEC[s].beta ? '<em class="beta" title="Экспериментальный раздел">β</em>' : ''}${s === 'timer' ? '<span class="tm-mini"></span>' : ''}</button>`).join('')}</nav>`;
+const navHTML = () => `<nav class="sb-nav">${navSecs().map(s => `<button class="sb-nv${s === sec ? ' on' : ''}" data-act="sec" data-s="${s}">${I(SEC[s].icon, 17)}${SEC[s].name}${SEC[s].beta ? '<em class="beta" title="Экспериментальный раздел">β</em>' : ''}${s === 'timer' ? '<span class="tm-mini"></span>' : ''}</button>`).join('')}</nav>`;
 function tabbarRender() {
   const tb = $('#tabbar'); if (!tb) return;
-  tb.innerHTML = SEC_ORDER.map(s => `<button class="tb-b${s === sec ? ' on' : ''}" data-act="sec" data-s="${s}" aria-label="${SEC[s].name}"${s === sec ? ' aria-current="page"' : ''}>${I(SEC[s].icon, 22)}<span>${SEC[s].name}</span></button>`).join('');
+  const L = navSecs(); tb.dataset.n = L.length;
+  tb.innerHTML = L.map(s => `<button class="tb-b${s === sec ? ' on' : ''}" data-act="sec" data-s="${s}" aria-label="${SEC[s].name}"${s === sec ? ' aria-current="page"' : ''}>${I(SEC[s].icon, 22)}<span>${SEC[s].name}</span></button>`).join('');
 }
 
 // ---- «Вы пропустили»: разовые дела прошлых дней без галочки ----

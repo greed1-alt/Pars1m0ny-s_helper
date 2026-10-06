@@ -4,7 +4,7 @@ onMigrate(() => {
   const st = S.settings;
   delete st.ui2;
   if (!st.folds || typeof st.folds !== 'object' || Array.isArray(st.folds)) st.folds = {};
-  if (!Array.isArray(st.areas) || !st.areas.length) st.areas = ['tasks', 'cal', 'habits', 'fin'];
+
 });
 const isWide = () => innerWidth >= 900;
 
@@ -14,7 +14,7 @@ const isWide = () => innerWidth >= 900;
 const foldIsOpen = (k, def) => { const v = S.settings.folds[k]; return v == null ? !!(typeof def === 'function' ? def() : def) : v; };
 function foldHTML(k, title, sum, body, def, opt) {
   const o = opt || {}, open = foldIsOpen(k, def);
-  return `<section class="fold${o.card ? ' fc' : ''}${open ? ' open' : ''}" data-fold="${k}">
+  return `<section class="fold${o.card ? ' fc' : ''}${o.cls ? ' ' + o.cls : ''}${open ? ' open' : ''}" data-fold="${k}">
     <button class="fold-h" data-act="fold" data-k="${k}" aria-expanded="${open}">${o.ic ? I(o.ic, 18) : ''}<span class="fold-tt"><b>${title}</b>${sum ? `<small>${sum}</small>` : ''}</span><i class="fold-chev">${I(IC.right, 17)}</i></button>
     ${open ? `<div class="fold-b">${typeof body === 'function' ? body() : body}</div>` : ''}</section>`;
 }
@@ -60,7 +60,11 @@ const HAB_RE = /(^|\s)(каждый день|ежедневно|каждое у�
 const OM_PRE = { заметка:'note', мысль:'note', идея:'note', привычка:'habit', цель:'goal', задача:'task', событие:'event', трата:'money', расход:'money', доход:'money' };
 
 // Разбор фразы: что это (задача / событие / деньги / привычка / заметка) и все поля для записи
-function omniParse(raw, ctx, force, st) {
+// Вид записи доступен, только если включён его раздел (js/layout.js): деньги — «Финансы», привычка — «Привычки», цель — «Задачи»
+const OM_SEC = { money:'fin', habit:'habits', goal:'tasks' };
+const omOn = t => !OM_SEC[t] || secOn(OM_SEC[t]);
+// raw — без замены выключенного вида на задачу (чтобы отобрать примеры)
+function omniParse(raw, ctx, force, st, rawType) {
   let s = String(raw || '').trim(); if (!s) return null;
   let type = force || null, prio = null, plus = false;
   // «заметка: …», «привычка …», «доход 5000» — явное начало
@@ -84,6 +88,7 @@ function omniParse(raw, ctx, force, st) {
     } else if (mo.ok && ctx === 'tasks' && (/^\+/.test(sm) || /\d\s*(₽|руб)/i.test(sm))) type = 'money';
     if (!type) type = HAB_RE.test(s) && !nl.time ? 'habit' : nl.time && ctx !== 'tasks' ? 'event' : 'task';
   }
+  if (!rawType && !omOn(type)) type = nl.time && ctx !== 'tasks' ? 'event' : 'task';
   const S_ = st || {};
   if (type === 'money') {
     const date = yest ? addDays(t, -1) : nl.date && nl.date <= t ? nl.date : t;
@@ -121,13 +126,13 @@ function omPrevHTML(p, id, demo) {
   else parts = [chip(I(IC.note, 13) + 'в журнал заметок · сегодня')];
   return `<span class="om-kind">${I(OM_T[p.type].ic, 14)}${kind}</span>${title ? `<b class="om-ttl">${esc(title)}</b>` : ''}${parts.join('')}${demo ? '' : `<button class="om-more om-keep" data-act="omfull" data-om="${id}">Подробнее…</button>`}`;
 }
-const omHint = st => `<span class="om-hint">${st.force ? 'Напишите и нажмите Enter' : st.ctx === 'tasks' ? 'Дата, время, <b>#категория</b> и <b>!</b> приоритет — прямо в тексте' : 'Пишите как говорите — Parsimony сам поймёт, что это: дело, встреча, трата или привычка'}${hintK('omni')}</span>`;
+const omHint = st => `<span class="om-hint">${withHint(st.force ? 'Напишите и нажмите Enter' : st.ctx === 'tasks' ? 'Дата, время, <b>#категория</b> и <b>!</b> приоритет — прямо в тексте' : 'Пишите как говорите — Parsimony сам поймёт, что это: дело, встреча, трата или привычка', 'omni')}</span>`;
 
 function omniHTML(id, ctx) {
   const st = omSt(id); st.ctx = ctx;
   return `<div class="om" data-om="${id}">
     <div class="om-box">${I(IC.spark, 19)}<input id="${id}" class="om-in" type="text" value="${esc(st.v)}" placeholder="${esc(st.force ? OM_T[st.force].ph : OM_PH[ctx] || OM_PH.home)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" aria-label="Быстрое добавление"><button class="om-go om-keep" data-act="omgo" data-om="${id}" aria-label="Добавить">${I(IC.plus, 20)}</button></div>
-    <div class="om-types" role="group" aria-label="Что добавить">${OM_ORDER.filter(t => ctx !== 'tasks' || t === 'task' || t === 'event').map(t => `<button class="om-t om-keep" data-act="omtype" data-om="${id}" data-t="${t}" aria-pressed="false">${I(OM_T[t].ic, 15)}${OM_T[t].n}</button>`).join('')}</div>
+    <div class="om-types" role="group" aria-label="Что добавить">${OM_ORDER.filter(t => (ctx !== 'tasks' || t === 'task' || t === 'event') && omOn(t)).map(t => `<button class="om-t om-keep" data-act="omtype" data-om="${id}" data-t="${t}" aria-pressed="false">${I(OM_T[t].ic, 15)}${OM_T[t].n}</button>`).join('')}</div>
     <div class="om-prev" id="${id}_prev" aria-live="polite"></div>
   </div>`;
 }
@@ -196,17 +201,21 @@ function openOmni(ctx) {
   const id = 'oms', st = omSt(id); omReset(st); st.ctx = ctx === 'cal' || ctx === 'tasks' ? ctx : 'home';
   sheet(`<div class="sh-head"><h3>Добавить</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   ${omniHTML(id, st.ctx)}
-  <div class="om-ex"><small>Например — нажмите, чтобы попробовать</small><div>${(OM_EX[st.ctx] || OM_EX.home).map(x => `<button class="om-exb" data-act="omex" data-om="${id}" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>
+  <div class="om-ex"><small>Например — нажмите, чтобы попробовать</small><div>${(OM_EX[st.ctx] || OM_EX.home).filter(x => { const p = omniParse(x, st.ctx, null, null, true); return p && omOn(p.type); }).map(x => `<button class="om-exb" data-act="omex" data-om="${id}" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>
   <div class="om-ex"><small>Или заполните форму</small><div class="om-forms">${QUICK.map(([k, ic, n]) => `<button data-act="hmnew" data-k="${k}">${I(ic, 16)}${n}</button>`).join('')}</div></div>`);
   omUpdate(id);
   const i = $('#' + id); if (i) i.focus();
 }
 
-// ---- Главная: приветствие, строка ввода, план дня, привычки, деньги; остальное — в свёрнутых блоках ----
+// ---- Главная: приветствие, строка ввода, затем блоки в порядке пользователя (js/layout.js: S.settings.home) ----
+// Каждый блок — «открыт» (карточка), «свёрнут» (одна строка, открывается нажатием) или «скрыт».
 const AREAS = [['tasks', IC.tasks, 'Дела и задачи'], ['cal', IC.cal, 'Календарь'], ['habits', IC.habit, 'Привычки'], ['fin', IC.wallet, 'Деньги']];
 const pbadge = p => `<span class="pbadge" style="--c:${PRIO[p].c}">${PRIO[p].n}</span>`;
 const habTile = (h, key, act) => { const on = !!h.log[key]; return `<button class="h2-hab${on ? ' on' : ''}" data-act="${act}" data-id="${h.id}" ${act === 'hmark' ? 'data-k' : 'data-key'}="${key}" aria-pressed="${on}"><span class="em">${esc(h.emoji || '•')}</span><span class="nm">${esc(h.name)}</span><i>${on ? I(IC.check, 14) : ''}</i></button>`; };
+const secLink = (s, n) => secOn(s) ? `<button data-act="sec" data-s="${s}">${n} →</button>` : '';
+const todayHabs = t => secOn('habits') ? hByKind('daily').filter(h => t >= hStart(h) && hDow(h, t)) : [];
 
+// Содержимое блоков (без заголовка — его рисует homeBlock)
 function homePlan(t) {
   const all = evOn(t), nm = nowMin(), nx = nextUp(t);
   const evEnd = e => timeMin(e.time2) != null && timeMin(e.time2) > timeMin(e.time) ? timeMin(e.time2) : timeMin(e.time) + 60;
@@ -218,61 +227,63 @@ function homePlan(t) {
       <span class="pl-tm">${e.time ? `<b>${esc(e.time)}</b>${e.time2 ? `<small>${esc(e.time2)}</small>` : ''}` : ''}</span>
       <button class="chk" data-act="toggle" data-id="${e.id}" data-d="${t}" aria-label="Выполнено">${e.done ? I(IC.check, 14) : ''}</button>
       <button class="pl-main" data-act="edit" data-id="${e.id}" data-d="${t}"><span class="pl-t">${esc(e.title)}</span><span class="pl-m">${next ? `<em class="pl-next">${esc(nx.label)}</em>` : ''}${catTag(e.cat)}${goalTag(e)}${pr === 'urgent' || pr === 'high' ? pbadge(pr) : ''}${e.rec ? '<span class="pl-rep" title="Повторяется">↻</span>' : ''}</span></button></div>`; };
-  const done = all.filter(e => e.done).length, tm = evOn(addDays(t, 1)).length;
-  return `<div class="card h2-card h2-plan"><div class="h2-h"><b>${I(IC.list, 18)}План на сегодня</b><small>${all.length ? done + ' из ' + all.length : ''}</small></div>
-    ${all.length ? `${tShow.length && uShow.length ? '<div class="pl-sub">По времени</div>' : ''}${tShow.map(row).join('')}
+  const tm = evOn(addDays(t, 1)).length;
+  return `${all.length ? `${tShow.length && uShow.length ? '<div class="pl-sub">По времени</div>' : ''}${tShow.map(row).join('')}
       ${uShow.length && tShow.length ? '<div class="pl-sub">Без времени</div>' : ''}${uShow.map(row).join('')}${rest > 0 ? `<button class="hm-more" data-act="pick" data-d="${t}">Ещё ${plural(rest, NEV)} →</button>` : ''}`
       : '<p class="h2-empty">На сегодня пусто. Напишите в строке выше — например, «позвонить маме в 18» или «купить продукты».</p>'}
-    <div class="hm-foot"><span>${tm ? 'Завтра: ' + plural(tm, NEV) : 'На завтра пока пусто'}</span><span><button data-act="sec" data-s="tasks">Задачи →</button><button data-act="sec" data-s="cal">Календарь →</button></span></div></div>`;
+    <div class="hm-foot"><span>${tm ? 'Завтра: ' + plural(tm, NEV) : 'На завтра пока пусто'}</span><span>${secLink('tasks', 'Задачи')}${secLink('cal', 'Календарь')}</span></div>`;
 }
 function homeHabits(t) {
-  const habs = hByKind('daily').filter(h => t >= hStart(h) && hDow(h, t)), dn = habs.filter(h => h.log[t]).length, sk = habitStreaks(), show = habs.slice(0, 6);
-  return `<div class="card h2-card"><div class="h2-h"><b>${I(IC.habit, 18)}Привычки</b><small>${habs.length ? dn + ' из ' + habs.length : ''}</small></div>
-    ${habs.length ? `<div class="h2-habs">${show.map(h => habTile(h, t, 'hmark')).join('')}${habs.length > show.length ? `<button class="h2-hab more" data-act="sec" data-s="habits"><span class="nm">Ещё ${plural(habs.length - show.length, ['привычка', 'привычки', 'привычек'])} →</span></button>` : ''}</div>`
+  const habs = todayHabs(t), sk = habitStreaks(), show = habs.slice(0, 6);
+  return `${habs.length ? `<div class="h2-habs">${show.map(h => habTile(h, t, 'hmark')).join('')}${habs.length > show.length ? `<button class="h2-hab more" data-act="sec" data-s="habits"><span class="nm">Ещё ${plural(habs.length - show.length, ['привычка', 'привычки', 'привычек'])} →</span></button>` : ''}</div>`
       : `<p class="h2-empty">Привычек пока нет. Начните с одной — напишите выше «привычка: 2 литра воды».</p>`}
-    <div class="hm-foot"><span>${sk.cur > 1 ? `🔥 ${plural(sk.cur, NDAY)} подряд` : sk.best > 1 ? `Лучшая серия: ${plural(sk.best, NDAY)}` : ''}</span><button data-act="sec" data-s="habits">Трекер →</button></div></div>`;
+    <div class="hm-foot"><span>${sk.cur > 1 ? `🔥 ${plural(sk.cur, NDAY)} подряд` : sk.best > 1 ? `Лучшая серия: ${plural(sk.best, NDAY)}` : ''}</span>${secLink('habits', 'Трекер')}</div>`;
 }
 function homeMoney(t) {
   const ym = ymOf(t), st = finStat(ym), lim = dailyLimit(st, ym);
   const ops = st.ops.filter(o => o.date === t).sort((a, b) => b.id.localeCompare(a.id));
   const spent = ops.filter(o => FG_OUT.includes(fcat(o.cat).g)).reduce((a, o) => a + o.amt, 0);
   const bar = st.spentPlan ? `<div class="f2-bar"><div class="ds-bar${st.spent > st.spentPlan ? ' over' : ''}"><i style="width:${Math.min(100, Math.round(st.spent / st.spentPlan * 100))}%"></i></div><span>Расходы за месяц: ${rub0(st.spent)} из ${rub0(st.spentPlan)}</span></div>` : '';
-  return `<div class="card h2-card"><div class="h2-h"><b>${I(IC.wallet, 18)}Деньги</b><small>${MON[Number(ym.slice(5)) - 1].toLowerCase()}</small></div>
-    <div class="h2-big${lim && lim.left < 0 ? ' neg' : ''}"><small>${lim ? 'Можно потратить сегодня' + hintK('limit') : 'Потрачено сегодня'}</small><b>${lim ? rub0(Math.max(0, lim.left)) : rub0(spent)}</b>
+  return `<div class="h2-big${lim && lim.left < 0 ? ' neg' : ''}"><small>${lim ? withHint('Можно потратить сегодня', 'limit') : 'Потрачено сегодня'}</small><b>${lim ? rub0(Math.max(0, lim.left)) : rub0(spent)}</b>
       <span>${lim ? (lim.left >= 0 ? `лимит ${rub0(lim.limit)} в день · сегодня ${rub0(lim.today)}` : `лимит превышен на ${rub0(-lim.left)}`) : '<button class="lnk" data-act="finbudget">Задайте бюджет — появится дневной лимит</button>'}</span></div>
     ${bar}
     ${ops.length ? `<div class="hm-ops">${ops.slice(0, 3).map(o => { const c = fcat(o.cat), plus = c.g === 'inc'; return `<button class="hm-op" data-act="opedit" data-id="${o.id}"><span class="em">${esc(c.emoji || '•')}</span><span class="n">${esc(o.note || c.name)}</span><b class="${plus ? 'plus' : ''}">${plus ? '+' : '−'}${rub0(o.amt)}</b></button>`; }).join('')}</div>` : ''}
-    <div class="hm-foot"><span>${ops.length ? '' : 'Трату можно записать в строке выше: «кафе 450»'}</span><button data-act="sec" data-s="fin">Финансы →</button></div></div>`;
+    <div class="hm-foot"><span>${ops.length ? '' : 'Трату можно записать в строке выше: «кафе 450»'}</span>${secLink('fin', 'Финансы')}</div>`;
+}
+const homeBio = t => { const M = S.bio.metrics; return `<div class="hm-bio">${M.map(m => { const v = bioVal(t, m.id), opts = m.type === 'hours' ? [5, 6, 7, 8, 9, 10] : [1, 2, 3, 4, 5];
+    return `<div class="hm-bm"><span class="nm">${esc(m.emoji || '')} ${esc(m.name)}${v != null && !opts.includes(v) ? ` <small>${fmtNum(v)}</small>` : ''}</span><div class="hm-sc">${opts.map(o => `<button class="${v === o ? 'on' : ''}" data-act="hmbio" data-m="${m.id}" data-v="${o}" aria-label="${esc(m.name)}: ${o}" aria-pressed="${v === o}">${o}</button>`).join('')}</div></div>`; }).join('')}</div>
+    <div class="hm-foot"><span>Сон — в часах, остальное — от 1 до 5</span>${secLink('habits', 'Подробнее')}</div>`; };
+const homeGoals = () => `${goalsMiniHTML(3)}<div class="hm-foot"><button data-act="gnewh">+ Цель</button><button data-act="gall">Все цели →</button></div>`;
+const homeNotes = () => { const last = notesOf('')[0]; return `<textarea id="hm_note" class="fin hn-text" placeholder="Что сегодня получилось? Что мешало? О чём подумать завтра?" aria-label="Заметка">${esc(hmNoteDraft)}</textarea>
+    <div class="nt-bar"><small>${last ? 'Последняя: ' + esc(fmtLong(last.date)) : 'Сохранится в журнал с сегодняшней датой'}</small><span><button class="pill sm" data-act="ntall">Все заметки</button> <button class="btn pri" data-act="hmnote">Сохранить</button></span></div>`; };
+
+// Блок Главной: сводка для заголовка и содержимое. def — открыт ли свёрнутый блок по умолчанию (цели — когда они есть)
+function homeBlockDef(k, t) {
+  if (k === 'plan') { const all = evOn(t), dn = all.filter(e => e.done).length; return { sum: all.length ? dn + ' из ' + all.length : 'пусто', body: () => homePlan(t) }; }
+  if (k === 'habits') { const h = todayHabs(t); return { sum: h.length ? h.filter(x => x.log[t]).length + ' из ' + h.length : 'нет привычек', body: () => homeHabits(t) }; }
+  if (k === 'money') { const ym = ymOf(t), st = finStat(ym), lim = dailyLimit(st, ym); return { sum: lim ? 'можно ' + rub0(Math.max(0, lim.left)) : 'за месяц ' + rub0(st.spent), body: () => homeMoney(t) }; }
+  if (k === 'bio') { const M = S.bio.metrics, f = M.filter(m => bioVal(t, m.id) != null).length; return { sum: f ? `сегодня ${f} из ${M.length}` : 'как вы сегодня?', body: () => homeBio(t) }; }
+  if (k === 'goals') { const ga = activeGoals(), late = ga.reduce((n, g) => n + goalStat(g).late.length, 0);
+    return { sum: ga.length ? `${plural(ga.length, ['активная', 'активные', 'активных'])}${late ? ` · просрочено шагов: ${late}` : ''}` : 'пока нет', body: homeGoals, def: () => ga.length > 0 }; }
+  return { sum: S.notes.length ? plural(S.notes.length, ['заметка', 'заметки', 'заметок']) : 'журнал пуст', body: homeNotes };
+}
+function homeBlock(x, t) {
+  const b = HOME_BL[x.k], d = homeBlockDef(x.k, t);
+  if (x.m === 'fold') return foldHTML('h-' + x.k, b.n, d.sum, d.body, d.def || false, { card:true, ic:b.ic, cls:'h2-blk' });
+  return `<div class="card h2-card h2-blk" data-blk="${x.k}"><div class="h2-h"><b>${I(b.ic, 18)}${b.n}</b><small>${d.sum}</small></div>${d.body()}</div>`;
 }
 function homeHTML() {
   const t = todayK(), d = pd(t), name = (S.settings.name || '').trim();
-  const tasks = dayTasks(t), habs = hByKind('daily').filter(h => t >= hStart(h) && hDow(h, t));
+  const tasks = secOn('tasks') || secOn('cal') ? dayTasks(t) : [], habs = todayHabs(t);
   const total = tasks.length + habs.length, done = tasks.filter(e => e.done).length + habs.filter(h => h.log[t]).length, pct = total ? done / total : 0;
   const hero = `<div class="h2-hero">
     <div class="h2-hi"><div class="h2-date">${DOWF[dowIdx(t)]}, ${d.getDate()} ${MONG[d.getMonth()]}</div>
       <h2 class="h2-greet">${greet()}${name ? ', ' + esc(name) : ''}</h2><p class="h2-line">${esc(DAY_LINES[dnum(t) % DAY_LINES.length])}</p></div>
-    <div class="h2-ring" title="Задачи и привычки на сегодня">${ringSVG(pct, 72, 'var(--good)', total ? Math.round(pct * 100) + '%' : '—', '')}<small>${total ? done + ' из ' + total : 'пока пусто'}${hintK('ring')}</small></div></div>`;
+    <div class="h2-ring" title="Задачи и привычки на сегодня">${ringSVG(pct, 72, 'var(--good)', total ? Math.round(pct * 100) + '%' : '—', '')}<small>${withHint(total ? done + ' из ' + total : 'пока пусто', 'ring')}</small></div></div>`;
   const omni = `<div class="card h2-omni">${omniHTML('om', 'home')}</div>`;
-  // Порядок карточек — по ответу «что для вас главное» из знакомства; невыбранное — свёрнутыми блоками внизу
-  const A = S.settings.areas, has = k => A.includes(k);
-  const AIC = { plan:IC.list, habits:IC.habit, money:IC.wallet };
-  const cards = [['plan', has('tasks') || has('cal'), 'План на сегодня', () => homePlan(t), () => { const n = evOn(t).length; return n ? plural(n, NEV) : 'пусто'; }],
-    ['habits', has('habits'), 'Привычки', () => homeHabits(t), () => { const n = habs.length; return n ? habs.filter(h => h.log[t]).length + ' из ' + n : 'нет'; }],
-    ['money', has('fin'), 'Деньги', () => homeMoney(t), () => { const st = finStat(ymOf(t)), lim = dailyLimit(st, ymOf(t)); return lim ? 'можно ' + rub0(Math.max(0, lim.left)) : 'за месяц ' + rub0(st.spent); }]];
-  const rank = c => c[1] ? 0 : 1, order = [...cards].sort((a, b) => rank(a) - rank(b));
-  const main = order.filter(c => c[1]).map(c => c[3]()), extra = order.filter(c => !c[1]).map(c => foldHTML('h-' + c[0], c[2], c[4](), c[3], false, { ic:AIC[c[0]] }));
-  const M = S.bio.metrics, filled = M.filter(m => bioVal(t, m.id) != null).length;
-  const bio = foldHTML('h-bio', 'Самочувствие', filled ? `сегодня ${filled} из ${M.length}` : 'как вы сегодня?', () => `<div class="hm-bio">${M.map(m => { const v = bioVal(t, m.id), opts = m.type === 'hours' ? [5, 6, 7, 8, 9, 10] : [1, 2, 3, 4, 5];
-    return `<div class="hm-bm"><span class="nm">${esc(m.emoji || '')} ${esc(m.name)}${v != null && !opts.includes(v) ? ` <small>${fmtNum(v)}</small>` : ''}</span><div class="hm-sc">${opts.map(o => `<button class="${v === o ? 'on' : ''}" data-act="hmbio" data-m="${m.id}" data-v="${o}" aria-label="${esc(m.name)}: ${o}" aria-pressed="${v === o}">${o}</button>`).join('')}</div></div>`; }).join('')}</div>
-    <div class="hm-foot"><span>Сон — в часах, остальное — от 1 до 5</span><button data-act="sec" data-s="habits">Подробнее →</button></div>`, false, { card:true, ic:IC.spark });
-  // Цели: открыт по умолчанию, когда цели есть («каждое утро — список целей»)
-  const ga = activeGoals(), gLate = ga.reduce((n, g) => n + goalStat(g).late.length, 0);
-  const goals = foldHTML('h-goals', 'Цели', ga.length ? `${plural(ga.length, ['активная', 'активные', 'активных'])}${gLate ? ` · просрочено шагов: ${gLate}` : ''}` : 'пока нет',
-    () => `${goalsMiniHTML(3)}<div class="hm-foot"><button data-act="gnewh">+ Цель</button><button data-act="gall">Все цели →</button></div>`, () => ga.length > 0, { card:true, ic:IC.goal });
-  const last = notesOf('')[0];
-  const notes = foldHTML('h-notes', 'Мысли дня', S.notes.length ? plural(S.notes.length, ['заметка', 'заметки', 'заметок']) : 'журнал пуст', () => `<textarea id="hm_note" class="fin hn-text" placeholder="Что сегодня получилось? Что мешало? О чём подумать завтра?" aria-label="Заметка">${esc(hmNoteDraft)}</textarea>
-    <div class="nt-bar"><small>${last ? 'Последняя: ' + esc(fmtLong(last.date)) : 'Сохранится в журнал с сегодняшней датой'}</small><span><button class="pill sm" data-act="ntall">Все заметки</button> <button class="btn pri" data-act="hmnote">Сохранить</button></span></div>`, false, { card:true, ic:IC.note });
-  return `${hero}<div class="h2-cols"><div class="h2-col">${omni}${missedBar(true)}${main[0] || ''}</div><div class="h2-col">${main.slice(1).join('')}${extra.join('')}${bio}${goals}${notes}</div></div>`;
+  const blocks = homeOrder().map(x => homeBlock(x, t)).join('');
+  return `${hero}<div class="h2-cols"><div class="h2-col">${omni}${secOn('tasks') || secOn('cal') ? missedBar(true) : ''}${blocks}</div><div class="h2-col"></div></div>
+  <div class="h2-cust"><button class="lnk" data-act="homecust">${I(IC.grid, 15)} Настроить Главную</button></div>`;
 }
 
 
@@ -341,7 +352,7 @@ function financeHTML() {
   const big = lim ? { l:'Можно потратить сегодня', v: rub0(Math.max(0, lim.left)), s: lim.left >= 0 ? `лимит ${rub0(lim.limit)} в день · сегодня потрачено ${rub0(lim.today)}` : `лимит превышен на ${rub0(-lim.left)}`, neg: lim.left < 0 }
     : { l: cur ? 'Потрачено в этом месяце' : 'Потрачено за ' + ymTitle(ym).toLowerCase(), v: rub0(st.spent), s: noPlans ? '<button class="lnk" data-act="finbudget">Задайте бюджет — появится дневной лимит</button>' : '' };
   const bar = st.spentPlan ? `<div class="f2-bar"><div class="ds-bar${st.spent > st.spentPlan ? ' over' : ''}"><i style="width:${Math.min(100, Math.round(st.spent / st.spentPlan * 100))}%"></i></div><span><span>Расходы ${rub0(st.spent)} из ${rub0(st.spentPlan)}</span><span>${cur ? 'до конца месяца ' + plural(ymDays(ym).filter(k => k >= t).length, NDAY) : ''}</span></span></div>` : '';
-  const hero = `<div class="card f2-hero${big.neg ? ' neg' : ''}"><div class="f2-top"><small class="f2-l">${big.l}${lim ? hintK('limit') : ''}</small><button class="pill sm" data-act="finbudget">${I(IC.wallet, 14)} Бюджет</button></div><b class="f2-big">${big.v}</b><span class="f2-s">${big.s}</span>${bar}
+  const hero = `<div class="card f2-hero${big.neg ? ' neg' : ''}"><div class="f2-top"><small class="f2-l">${lim ? withHint(big.l, 'limit') : big.l}</small><button class="pill sm" data-act="finbudget">${I(IC.wallet, 14)} Бюджет</button></div><b class="f2-big">${big.v}</b><span class="f2-s">${big.s}</span>${bar}
     <div class="f2-mini"><div><small>Доходы</small><b class="plus">${rub0(st.g.inc.fact)}</b></div><div><small>Накопления</small><b>${rub0(st.g.sav.fact)}</b></div><div class="${st.left < 0 ? 'neg' : ''}"><small>Осталось</small><b>${rub0(st.left)}</b></div></div></div>`;
   const input = `<div class="card fq-card f2-in">
     <div class="f2-kh"><div class="seg2 fq-kind" role="group" aria-label="Что записать">${OP_KINDS.map(([k, n]) => `<button class="${finKind === k ? 'on' : ''}" data-act="fqkind" data-k="${k}" aria-pressed="${finKind === k}">${n}</button>`).join('')}</div>${hintK('finKind')}</div>
@@ -373,7 +384,7 @@ function habitsHTML() {
     today = `<div class="card h2-card"><div class="h2-h"><b>Сегодня</b><small>${habs.length ? dn + ' из ' + habs.length : ''}</small></div>
       ${habs.length ? `<div class="h2-habs">${habs.map(h => habTile(h, t, 'hmark')).join('')}</div>` : '<p class="h2-empty">На сегодня привычек нет.</p>'}
       ${per.length ? `<div class="pl-sub">На этой неделе и в этом месяце</div><div class="h2-habs">${per.map(([h, k]) => habTile(h, k, 'hmarkp')).join('')}</div>` : ''}
-      <div class="hm-foot"><span>${ms.pct != null ? 'За месяц: ' + pctTxt(ms.pct) + hintK('habitPct') : ''}</span><button data-act="hnew" data-k="daily">+ Привычка</button></div></div>`;
+      <div class="hm-foot"><span>${ms.pct != null ? withHint('За месяц: ' + pctTxt(ms.pct), 'habitPct') : ''}</span><button data-act="hnew" data-k="daily">+ Привычка</button></div></div>`;
   }
   const dl = ms.pct != null && pm.pct != null ? Math.round((ms.pct - pm.pct) * 100) : null;
   const M = S.bio.metrics, filled = M.filter(m => bioVal(t, m.id) != null).length, nWM = hByKind('weekly').length + hByKind('monthly').length, nNotes = notesOf(ym).length;
@@ -394,7 +405,8 @@ let onbStep = 0, onbT = null, onbAreas = null, onbName = '';
 const ONB_PH = ['встреча завтра в 15:00', 'кафе 450', 'сдать отчёт в пятницу !!', '+ зарплата 60 000', '2 литра воды каждый день'];
 const onbIsOpen = () => { const o = $('#onb'); return !!(o && o.classList.contains('show')); };
 function onbOpen() {
-  onbStep = 0; onbAreas = new Set(S.settings.areas); onbName = S.settings.name || '';
+  onbStep = 0; onbAreas = new Set(AREAS.map(a => a[0]).filter(secOn)); onbName = S.settings.name || '';
+  if (!onbAreas.size) AREAS.forEach(a => onbAreas.add(a[0]));
   let el = $('#onb');
   if (!el) { el = document.createElement('div'); el.id = 'onb'; el.className = 'onb'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Знакомство с ' + APP_NAME); document.body.appendChild(el); }
   onbDraw(); requestAnimationFrame(() => el.classList.add('show'));
@@ -418,8 +430,8 @@ function onbDraw() {
       h:'Пишите как говорите', p:'Одна строка для всего: дела, встречи, траты, привычки и заметки. Parsimony сам поймёт, что это, и разложит по местам — без длинных форм.' },
     { art: onbMock(), h:'Весь день — на одном экране', p:'Главная собирает план, привычки и деньги на сегодня. Отмечайте одним касанием — процент дня считается сам, а остальное ждёт в свёрнутых блоках.' },
     { art:`<div class="onb-form"><label for="onb_name">Как вас зовут?</label><input id="onb_name" class="fin" value="${esc(onbName)}" placeholder="Имя" maxlength="40" autocomplete="given-name">
-      <label>Что для вас главное?</label><div class="onb-areas">${AREAS.map(([k, ic, n]) => `<button class="onb-a${onbAreas.has(k) ? ' on' : ''}" data-act="onbarea" data-k="${k}" aria-pressed="${onbAreas.has(k)}">${I(ic, 20)}<span>${n}</span><i>${onbAreas.has(k) ? I(IC.check, 13) : ''}</i></button>`).join('')}</div>
-      <p class="set-note">Выбранное — первым на Главной, остальное — в свёрнутых блоках. Всё меняется в любой момент.</p></div>`,
+      <label>Что будете использовать?</label><div class="onb-areas">${AREAS.map(([k, ic, n]) => `<button class="onb-a${onbAreas.has(k) ? ' on' : ''}" data-act="onbarea" data-k="${k}" aria-pressed="${onbAreas.has(k)}">${I(ic, 20)}<span>${n}</span><i>${onbAreas.has(k) ? I(IC.check, 13) : ''}</i></button>`).join('')}</div>
+      <p class="set-note">Остальное спрячем, чтобы не мешало. Включить можно в любой момент: Настройки → «Разделы и Главная».</p></div>`,
       h:'Сделаем Parsimony вашим', p:'' },
   ];
   const s = steps[onbStep], last = onbStep === steps.length - 1;
@@ -450,7 +462,7 @@ function onbType(i) {
 function onbFinish(demo) {
   const n = $('#onb_name'); if (n) onbName = n.value;
   if (onbName.trim()) S.settings.name = onbName.trim().slice(0, 40);
-  if (onbAreas && onbAreas.size) S.settings.areas = AREAS.map(a => a[0]).filter(k => onbAreas.has(k));
+  if (onbAreas && onbAreas.size) S.settings.secs.forEach(x => { if (AREAS.some(a => a[0] === x.k)) x.on = onbAreas.has(x.k); });
   S.settings.onboarded = 1;
   if (demo) { if (!S.events.some(e => e.demo && !e.goal)) SEC.tasks.demo(true); if (!S.goals.some(g => g.demo)) SEC.goals.demo(true); if (!S.habits.some(h => h.demo)) SEC.habits.demo(true); if (!S.fin.ops.some(o => o.demo)) SEC.fin.demo(true); }
   save(); onbClose();
@@ -475,13 +487,14 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowLeft' && e.target.tagName !== 'INPUT' && onbStep > 0) ACT.onbback();
 }, true);
 
-// Главная на ПК: свёрнутые блоки (Самочувствие, Цели, Мысли дня…) встают в ту колонку, что короче, — без пустот.
-// Место считается по свёрнутой высоте, поэтому блок не прыгает в другую колонку, когда его открывают. На телефоне порядок как в разметке.
+// Главная на ПК: блоки встают в две колонки в порядке пользователя — первый слева под строкой ввода, каждый следующий в ту колонку, что короче.
+// Колонка блока зависит только от блоков выше него, поэтому открытый или свёрнутый блок сам не прыгает — сдвинуться могут только те, что ниже. На телефоне — одна колонка по порядку.
 function balanceHome() {
   const cols = $$('.h2-col'); if (innerWidth < 900 || cols.length !== 2) return;
-  const folds = $$('.h2-col > .fold'); folds.forEach(f => f.remove());
+  const bl = $$('.h2-col > .h2-blk'); bl.forEach(x => x.remove());
   const h = cols.map(c => c.getBoundingClientRect().height);
-  folds.forEach(f => { const i = h[0] <= h[1] ? 0 : 1; cols[i].appendChild(f); h[i] += 66; });
+  bl.forEach((x, i) => { const c = i === 0 || h[0] <= h[1] ? 0 : 1; cols[c].appendChild(x);
+    h[c] += x.getBoundingClientRect().height + 14; });
 }
 SEC.home.after = () => { omRefresh(); balanceHome(); };
 SEC.tasks.after = omRefresh;
