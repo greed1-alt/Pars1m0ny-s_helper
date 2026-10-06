@@ -139,9 +139,9 @@ function saveEvent() {
   if (t1 && t2 && timeMin(t2) <= timeMin(t1)) t2 = fmtMin(Math.min(1439, timeMin(t1) + 60));
   const date = $('#f_d').value || sel, rt = $('#f_rep').value;
   const repeat = rt === 'none' ? {type:'none'} : { type:rt, until: $('#f_until').value || '', days: rt === 'weekly' ? [...fe.days].sort() : [] };
-  const remV = $('#f_rem').value;
+  const offs = [...fe.rems].sort((a, b) => b - a);
   const data = { title: titleFromForm(raw), date, time:t1, time2:t2, cat:fe.cat, note:$('#f_n').value.trim(), loc:$('#f_loc').value.trim(), repeat,
-    reminder:{ enabled: remV !== 'off', offset: remV === 'off' ? 15 : Number(remV), repeat:'none', days:[] }, task: $('#f_task').checked, prio: fe.prio };
+    reminder:{ enabled: offs.length > 0, offsets: offs, offset: offs.length ? offs[offs.length - 1] : 15, repeat:'none', days:[] }, task: $('#f_task').checked, prio: fe.prio };
   snap();
   if (src) Object.assign(src, data);
   else S.events.push(Object.assign({ id:uid(), done:false, doneDates:[], skip:[] }, data));

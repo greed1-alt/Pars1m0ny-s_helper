@@ -33,6 +33,8 @@ function migrate() {
       e.repeat = r.repeat === 'daily' ? {type:'daily'} : r.repeat === 'custom' && (r.days||[]).length ? {type:'weekly', days:[...r.days]} : {type:'none'};
       if (e.reminder) { e.reminder.repeat = 'none'; e.reminder.days = []; }
     }
+    // Несколько напоминаний (6 октября 2026): reminder.offsets — минуты до начала, от большего к меньшему; offset/enabled — для старых копий и ссылок
+    if (e.reminder && !Array.isArray(e.reminder.offsets)) e.reminder.offsets = e.reminder.enabled ? [Number(e.reminder.offset) || 0] : [];
     if (!Array.isArray(e.doneDates)) e.doneDates = [];
     if (!Array.isArray(e.skip)) e.skip = [];
   });
@@ -152,11 +154,11 @@ function evOn(k) {
   return list;
 }
 const nextOcc = e => { const t = todayK(); if (!isRec(e)) return e.date; for (let i = 0; i < 400; i++) { const k = addDays(t, i); if (occurs(e, k)) return k; } return e.date; };
-const remLabel = e => {
-  if (!e.reminder || !e.reminder.enabled) return '';
-  const off = Number(e.reminder.offset || 0);
-  return ' · 🔔 ' + (off === 0 ? 'в момент' : off < 60 ? `за ${off} мин` : off < 1440 ? `за ${off/60} ч` : `за ${off/1440} дн`);
-};
+// Напоминания события: минуты до начала, от большего к меньшему (за день, за час, за 15 минут…)
+const remOffs = e => { const r = e.reminder; if (!r || !r.enabled) return []; const l = Array.isArray(r.offsets) && r.offsets.length ? r.offsets : [Number(r.offset) || 0];
+  return [...new Set(l.map(Number).filter(v => Number.isFinite(v) && v >= 0))].sort((a, b) => b - a); };
+const remShort = off => off === 0 ? 'в момент' : off < 60 ? `за ${off} мин` : off < 1440 ? `за ${off / 60} ч` : off === 10080 ? 'за неделю' : `за ${off / 1440} дн`;
+const remLabel = e => { const l = remOffs(e); return l.length ? ' · 🔔 ' + l.map(remShort).join(', ') : ''; };
 
 // ---- Ввод фразой: «встреча завтра в 15:30 на час #работа» ----
 const MON_RE = 'январ[яь]|феврал[яь]|марта?|апрел[яь]|ма[яй]|июн[яь]|июл[яь]|августа?|сентябр[яь]|октябр[яь]|ноябр[яь]|декабр[яь]';

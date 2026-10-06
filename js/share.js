@@ -35,7 +35,8 @@ const fromShared = o => ({
   time: isTime(o.s) ? o.s : '', time2: isTime(o.s) && isTime(o.e) ? o.e : '',
   repeat: o.r && o.r.type !== 'none' && REP[o.r.type] ? { type:o.r.type, until: isDate(o.r.until) ? o.r.until : '', days: Array.isArray(o.r.days) ? o.r.days.filter(d => Number.isInteger(d) && d >= 0 && d <= 6) : [] } : { type:'none' },
   skip: Array.isArray(o.k) ? o.k.filter(isDate) : [], loc: String(o.l || '').slice(0, 500), note: String(o.n || '').slice(0, 5000),
-  reminder: { enabled: o.m != null, offset: o.m != null ? Number(o.m) || 0 : 15, repeat:'none', days:[] } });
+  reminder: (() => { const l = (Array.isArray(o.ms) ? o.ms : o.m != null ? [o.m] : []).map(Number).filter(v => Number.isFinite(v) && v >= 0 && v <= 525600).slice(0, 10).sort((a, b) => b - a);
+    return { enabled: l.length > 0, offsets: l, offset: l.length ? l[l.length - 1] : 15, repeat:'none', days:[] }; })() });
 
 let shareCtx = null, inbox = null;
 // kind: 'e' — одно событие, 'c' — календарь (категория), 'a' — все календари
@@ -52,7 +53,7 @@ function sharePayload(c) {
     const o = { i:e.id, c:e.cat, t:e.title, d:e.date };
     if (e.time) o.s = e.time; if (e.time2) o.e = e.time2;
     if (isRec(e)) { o.r = e.repeat; if (e.skip && e.skip.length) o.k = e.skip; }
-    if (e.reminder && e.reminder.enabled) o.m = Number(e.reminder.offset) || 0;
+    const rm = remOffs(e); if (rm.length) { o.m = rm[rm.length - 1]; if (rm.length > 1) o.ms = rm; }   // m — для старых версий приложения
     if (c.notes) { if (e.loc) o.l = e.loc; if (e.note) o.n = e.note; }
     return o;
   });
@@ -142,7 +143,7 @@ function icsText(list, calName, notes) {
     }
     if (notes && e.loc) L.push('LOCATION:' + txt(e.loc));
     if (notes && e.note) L.push('DESCRIPTION:' + txt(e.note));
-    if (e.reminder && e.reminder.enabled) L.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + txt(e.title), 'TRIGGER:-PT' + (Number(e.reminder.offset) || 0) + 'M', 'END:VALARM');
+    remOffs(e).forEach(m => L.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + txt(e.title), 'TRIGGER:-PT' + m + 'M', 'END:VALARM'));
     L.push('END:VEVENT');
   });
   L.push('END:VCALENDAR');

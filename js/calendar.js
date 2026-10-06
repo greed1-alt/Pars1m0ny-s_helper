@@ -312,8 +312,8 @@ function openEvent(id, preset, instDate) {
   const src = id ? S.events.find(x => x.id === id) : null;
   if (id && !src) return;
   const e = src || { title:p.title||'', date:p.date||sel, time:p.time||'', time2:p.time2||'', cat:validCat(p.cat), note:'', loc:'', repeat:{type:'none'}, reminder:{enabled:false, offset:15, repeat:'none', days:[]}, task: !!p.task, prio: p.prio || 'mid' };
-  const r = e.reminder || {}, remV = r.enabled ? String(r.offset || 0) : 'off', rep = e.repeat || {type:'none'};
-  window._fe = { id, cat: validCat(e.cat), days: new Set(rep.days && rep.days.length ? rep.days : [dowIdx(e.date)]), inst: instDate || e.date, nl:null, nlOff: !!id, daysTouched: !!(rep.days && rep.days.length), prio: PRIO[e.prio] ? e.prio : 'mid' };
+  const rep = e.repeat || {type:'none'};
+  window._fe = { rems: new Set(remOffs(e)), id, cat: validCat(e.cat), days: new Set(rep.days && rep.days.length ? rep.days : [dowIdx(e.date)]), inst: instDate || e.date, nl:null, nlOff: !!id, daysTouched: !!(rep.days && rep.days.length), prio: PRIO[e.prio] ? e.prio : 'mid' };
   const rec = isRec(e);
   sheet(`<div class="sh-head"><h3>${id ? 'Событие' : 'Новое событие'}</h3>
     ${id ? `<button class="ic" data-act="shareev" title="Поделиться" aria-label="Поделиться">${I(IC.share,17)}</button><button class="ic" data-act="dup" title="Дублировать" aria-label="Дублировать">${I(IC.copy,17)}</button><button class="ic" data-act="del" title="Удалить" aria-label="Удалить" style="color:var(--dng)">${I(IC.trash,17)}</button>` : ''}
@@ -331,13 +331,24 @@ function openEvent(id, preset, instDate) {
   <div class="frow"><span class="fl">Календарь</span><div class="ccats" id="f_cats">${catChips(window._fe.cat, 'fcat')}</div></div>
   <div class="frow"><span class="fl">Задача</span><div><div class="f-hrow" style="margin-top:9px"><label class="swl" style="margin-top:0"><input id="f_task" class="sw" type="checkbox"${e.task?' checked':''}> Показывать в «Задачах»</label>${hintK('task')}</div>
     <div id="f_prio" class="chips" style="display:${e.task?'flex':'none'}">${PRIO_ORDER.map(k => `<button type="button" class="chip prio${window._fe.prio===k?' on':''}" data-act="fprio" data-p="${k}" style="--c:${PRIO[k].c}">${PRIO[k].n}</button>`).join('')}</div></div></div>
-  <div class="frow"><span class="fl">Напомнить</span><div class="f-hrow"><select id="f_rem" class="fin">${[['off','Не напоминать'],['0','В момент события'],['5','За 5 минут'],['10','За 10 минут'],['15','За 15 минут'],['30','За 30 минут'],['60','За 1 час'],['1440','За 1 день']].map(([v,t]) => `<option value="${v}"${remV===v?' selected':''}>${t}</option>`).join('')}</select>${hintK('remind')}</div></div>
+  <div class="frow"><span class="fl">Напомнить</span><div><div class="f-hrow f-remh"><span id="f_remsum" class="f-remsum">${remSum(window._fe.rems)}</span>${hintK('remind')}</div>
+    <div id="f_rems" class="chips">${remChips(window._fe.rems)}</div></div></div>
   <div class="frow"><span class="fl">Место</span><input id="f_loc" class="fin" type="text" value="${esc(e.loc||'')}" placeholder="Адрес или ссылка" autocomplete="off"></div>
   <div class="frow"><span class="fl">Заметка</span><textarea id="f_n" class="fin" placeholder="Подробности">${esc(e.note||'')}</textarea></div>
   <div class="sh-foot"><button class="btn pri grow" data-act="save">Сохранить</button><button class="btn" data-act="savetpl" title="Сохранить как шаблон">${I(IC.tpl,16)} В шаблоны</button></div>
   <div id="f_ask"></div>`);
   if (!id) setTimeout(() => $('#f_t') && $('#f_t').focus(), 60);
 }
+
+// ---- Напоминания в карточке события: можно выбрать несколько («за 1 день», «за 1 час», «за 15 минут») ----
+const REM_OPT = [0, 5, 10, 15, 30, 60, 120, 1440, 10080];
+const remChipName = v => v === 0 ? 'В момент' : v < 60 ? v + ' мин' : v < 1440 ? plural(v / 60, ['час', 'часа', 'часов']) : v === 10080 ? 'Неделя' : plural(v / 1440, ['день', 'дня', 'дней']);
+const remWord = v => v === 0 ? 'в момент начала' : 'за ' + (v < 60 ? plural(v, ['минуту', 'минуты', 'минут']) : v < 1440 ? plural(v / 60, ['час', 'часа', 'часов']) : v === 10080 ? 'неделю' : plural(v / 1440, ['день', 'дня', 'дней'])).replace(/^1 /, '');
+const remSum = set => { const l = [...set].sort((a, b) => b - a).map(remWord); return l.length ? 'Напомню ' + (l.length > 1 ? l.slice(0, -1).join(', ') + ' и ' + l[l.length - 1] : l[0]) : 'Не напоминать — выберите, когда'; };
+// Свои (старые) значения, которых нет в списке, тоже показываем кнопками
+const remChips = set => [...new Set([...REM_OPT, ...set])].sort((a, b) => a - b).map(v => `<button type="button" class="chip${set.has(v) ? ' on' : ''}" data-act="remchip" data-v="${v}" aria-pressed="${set.has(v)}">${remChipName(v)}</button>`).join('');
+ACT.remchip = el => { const fe = window._fe; if (!fe) return; const v = Number(el.dataset.v); fe.rems.has(v) ? fe.rems.delete(v) : fe.rems.add(v);
+  el.classList.toggle('on', fe.rems.has(v)); el.setAttribute('aria-pressed', fe.rems.has(v)); const s = $('#f_remsum'); if (s) s.textContent = remSum(fe.rems); };
 
 const PALETTE = ['#ef4444','#f97316','#f59e0b','#eab308','#22c55e','#14b8a6','#38bdf8','#3b82f6','#6366f1','#a855f7','#ec4899','#64748b'];
 

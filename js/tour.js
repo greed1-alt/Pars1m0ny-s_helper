@@ -15,9 +15,9 @@ const TOURS = {
     { el:'[data-blk="habits"], [data-fold="h-habits"]', t:'Привычки', p:'Привычки на сегодня плитками. Нажмите на плитку — привычка отмечена, ещё раз — отметка снимется. Внизу — сколько дней подряд всё выполнено.' },
     { el:'[data-blk="money"], [data-fold="h-money"]', t:'Деньги', p:'Сколько можно потратить сегодня, чтобы уложиться в бюджет месяца, и сегодняшние траты. Трату удобно записать в строке ввода: «кафе 450».' },
     { el:'.h2-col .fold.h2-blk', t:'Свёрнутые блоки', p:'Блок в одну строку — свёрнутый. Нажмите, чтобы открыть, и ещё раз — чтобы свернуть. Справа — короткая сводка.' },
-    { el:'.h2-cust', t:'Настроить Главную', p:'Какие блоки показывать, в каком порядке, открытыми или свёрнутыми — выбирается здесь.' },
+    { el:'.h2-cust', t:'Настроить Главную', p:'Какие блоки показывать, в каком порядке, открытыми или свёрнутыми — выбирается здесь. То же для каждой страницы — в Настройках → «Расположение».' },
     { el:'.btn-new, .newbtn', t:'Кнопка «Создать»', p:'Открывает окно добавления: та же строка ввода, примеры фраз и обычные формы — событие, задача, привычка, расход, заметка. На компьютере — ещё клавиша N.' },
-    { el:'#tabbar, .sb-nav', t:'Разделы', p:'Переход между разделами. Какие разделы показывать и в каком порядке — Настройки → «Разделы и Главная».' },
+    { el:'#tabbar, .sb-nav', t:'Разделы', p:'Переход между разделами. Какие разделы показывать и в каком порядке — Настройки → «Расположение».' },
     { el:'.hdr-ava', t:'Профиль', p:'Имя, аватар и обложка, статистика и достижения.' },
     { el:'.top [data-act="settings"], .sb-foot [data-s="settings"]', t:'Настройки', p:'Оформление и цвета, разделы, календарь, копия данных и это знакомство.' },
   ] },
@@ -41,6 +41,7 @@ const TOURS = {
     { go:() => { tView = 'goals'; render(); }, el:'.g-add', t:'Цели', p:'Большая цель со сроком: «выучить английский до 1 июня». После этого добавьте к ней шаги.' },
     { el:'.gl-card', t:'Карточка цели', p:'Полоска — сколько шагов сделано, «темп» — успеваете ли вы к сроку. Нажмите на цель, чтобы добавить шаги; шаг с датой появится в задачах и в календаре. За пропуски — подначки, за успехи — похвала.' },
     { go:() => { tView = 'today'; render(); }, el:'[data-fold="t-board"]', t:'Доска недели и статистика', p:'Внизу свёрнуты доска недели (дни с процентом выполнения) и статистика. Нажмите, чтобы открыть.' },
+    { el:'.pg-cust', t:'Настроить страницу', p:'Порядок блоков на этой странице: что выше, что ниже, что свёрнуто или скрыто.' },
   ] },
   habits:{ n:'Привычки', steps:[
     { el:'main .h2-card', t:'Привычки на сегодня', p:'Нажмите на плитку — отмечено, ещё раз — отметка снимется. Здесь же привычки «раз в неделю» и «раз в месяц».' },
@@ -49,6 +50,7 @@ const TOURS = {
     { el:'[data-fold="h-prog"]', t:'Прогресс', p:'Как идёт месяц и сравнение с прошлым: «+10% к сентябрю». И самые стабильные привычки.' },
     { el:'[data-fold="h-bio"]', t:'Самочувствие', p:'Сон, энергия, настроение, стресс — оценки одним нажатием. Какие показатели вести — Настройки → «Показатели самочувствия».' },
     { el:'[data-fold="h-notes"]', t:'Заметки', p:'Журнал мыслей с датой: что получилось, что мешало. Все заметки — в архиве по месяцам, их можно скачать файлом.' },
+    { el:'.pg-cust', t:'Настроить страницу', p:'Порядок блоков: например, «Самочувствие» и «Таблицу месяца» — наверх, остальное — вниз или скрыть.' },
     { el:'.navg, #ttl', t:'Другие месяцы', p:'Стрелки в шапке листают месяцы — так видно прошлые результаты.' },
   ] },
   fin:{ n:'Финансы', steps:[
@@ -57,12 +59,13 @@ const TOURS = {
     { el:'.f2-hero', t:'Можно потратить сегодня', p:'Дневной лимит: остаток бюджета на траты, поделённый на оставшиеся дни месяца. Ниже — полоска расходов, доходы, накопления и остаток.' },
     { el:'.f2-hero [data-act="finbudget"]', t:'Бюджет', p:'Сколько тратить в месяц по категориям. Без бюджета дневного лимита не будет. Здесь же — свои категории.' },
     { el:'.f2-grid > .card:last-child', t:'Последние записи', p:'Нажмите на запись, чтобы изменить или удалить её.' },
-    { el:'[data-fold="f-charts"]', t:'Графики и подробности', p:'Ниже свёрнуты графики, категории с бюджетом, самые дорогие покупки и вся история. Нажмите, чтобы открыть.' },
+    { el:'[data-fold="f-charts"]', t:'Графики и подробности', p:'Ниже — графики, категории с бюджетом, самые дорогие покупки и вся история. Нажмите на заголовок блока, чтобы открыть или свернуть.' },
+    { el:'.pg-cust', t:'Настроить страницу', p:'Порядок блоков на этой странице: что выше, что ниже, что свёрнуто или скрыто.' },
     { el:'.navg, #ttl', t:'Другие месяцы', p:'Стрелки в шапке листают месяцы.' },
   ] },
   settings:{ n:'Настройки', steps:[
     { el:'.card:has(.lk-row)', t:'Оформление', p:'Тема, палитра, контраст, вид карточек и углов. Всё меняется сразу — смотрите превью «Как это выглядит».' },
-    { el:'.card:has([data-act="secscust"])', t:'Разделы и Главная', p:'Выключите ненужные разделы и расставьте вкладки по порядку. Здесь же — блоки Главной и с чего открывать приложение.' },
+    { el:'.card:has([data-act="secscust"])', t:'Расположение', p:'Выключите ненужные разделы и расставьте вкладки по порядку. Здесь же — порядок блоков на Главной и на каждой странице и с чего открывать приложение.' },
     { el:'.card:has(#s_ds)', t:'Календарь', p:'С какого часа начинается сетка, с какого дня неделя, выходные, номер недели, свёртка пустых часов.' },
     { el:'.card:has([data-act="export"])', t:'Копия данных', p:'Всё хранится только на этом устройстве. Время от времени нажимайте «Скачать копию» — так ничего не потеряется. Копию можно загрузить и на другом устройстве.' },
     { el:'.card:has([data-act="tourmenu"])', t:'Знакомство', p:'Этот тур можно пройти снова — целиком или по одной странице.' },
@@ -72,22 +75,34 @@ onMigrate(() => { const st = S.settings; if (!st.toured || typeof st.toured !== 
 const tourSteps = k => TOURS[k].steps.filter(s => !(s.pc && innerWidth < 900) && !(s.m && innerWidth >= 900));
 const tourKeys = () => [...navSecs().filter(k => TOURS[k]), 'settings'];
 
-let tour = null;   // { list, i, keys }
+let tour = null, tourChecking = false;   // tour: { list, i, keys }
+// Какие шаги реально покажутся: быстро «пробегаем» страницы (без отрисовки на экране — всё в одном кадре) и возвращаем как было
+function tourPlan(keys) {
+  const s0 = sec, ss = S.settings.sec, v0 = view, t0 = tView, y0 = scrollY, out = [];
+  tourChecking = true;
+  try {
+    keys.forEach(k => { if (sec !== k) { sec = k; render(); } tourSteps(k).forEach(s => { if (s.go) s.go(); if (!s.el || s.keep || tourFind(s.el)) out.push(Object.assign({ s:k }, s)); }); });
+  } finally {
+    tourChecking = false; sec = s0; S.settings.sec = ss; view = v0; tView = t0; render(); scrollTo(0, y0);
+  }
+  return out;
+}
 const tourFind = sel => sel ? [...document.querySelectorAll(sel)].find(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && !e.closest('#tour'); }) || null : null;
 function tourStart(k) {
   const keys = k === 'all' ? tourKeys() : TOURS[k] ? [k] : [];
   if (!keys.length) return;
   if (sheetOpen()) closeSheet(); hideTip(); tinvHide();
-  tour = { keys, list: keys.flatMap(x => tourSteps(x).map(s => Object.assign({ s:x }, s))), i:-1 };
+  const list = tourPlan(keys); if (!list.length) return;
+  tour = { keys, list, i:-1 };
   let box = $('#tour');
   if (!box) {
     box = document.createElement('div'); box.id = 'tour';
     box.innerHTML = '<div class="tour-hole"></div><div class="tour-pop" role="dialog" aria-modal="true" aria-live="polite"></div>';
-    // Пока идёт тур, страница не прокручивается колесом и пальцем — подсветка не съезжает
-    ['wheel', 'touchmove'].forEach(ev => box.addEventListener(ev, e => { if (!e.target.closest('.tour-pop')) e.preventDefault(); }, { passive:false }));
+    // Пока идёт тур, страница не прокручивается — ни колесом, ни пальцем (в том числе над подсказкой), ни полосой прокрутки (класс touring)
+    ['wheel', 'touchmove'].forEach(ev => box.addEventListener(ev, e => e.preventDefault(), { passive:false }));
     document.body.appendChild(box);
   }
-  box.classList.add('show');
+  box.classList.add('show'); document.documentElement.classList.add('touring');
   tourGo(0, 1);
 }
 function tourGo(i, dir) {
@@ -123,7 +138,11 @@ function tourScroll(el) {
   if (innerWidth >= 600) {
     const tall = el.getBoundingClientRect().height > H * .7;
     el.scrollIntoView({ block: tall ? 'start' : 'center', inline:'nearest', behavior:'instant' });
-    if (tall && scrollY > 0 && !el.closest('.wgwrap, #side, header, #tabbar')) window.scrollBy(0, -($('header').offsetHeight + 12));
+    const inner = el.closest('.wgwrap, #side, header, #tabbar'), hh = $('header').offsetHeight;
+    if (tall && scrollY > 0 && !inner) window.scrollBy(0, -(hh + 12));
+    // Подсказка не помещается ни под блоком, ни над ним — ставим блок под шапку, подсказку под него
+    const ph = $('#tour .tour-pop').offsetHeight, r = el.getBoundingClientRect();
+    if (!inner && !tall && H - r.bottom < ph + 30 && r.top < ph + 30 && r.height + ph + 40 <= H - hh) window.scrollBy(0, r.top - (hh + 16));
     return;
   }
   const pop = $('#tour .tour-pop');
@@ -159,12 +178,12 @@ function tourPlace(el) {
   pop.style.cssText = `left:${x}px;top:${Math.max(8, y)}px`;
 }
 // После перерисовки страницы (render) подсветка находит элемент заново
-function tourSync() { if (!tour || tour.i < 0) return; const st = tour.list[tour.i]; if (st && st.s === sec) tourPlace(tourFind(st.el)); }
+function tourSync() { if (!tour || tourChecking || tour.i < 0) return; const st = tour.list[tour.i]; if (st && st.s === sec) tourPlace(tourFind(st.el)); }
 function tourEnd(done) {
   if (!tour) return;
   tour.keys.forEach(k => { S.settings.toured[k] = 1; }); save();
   tour = null;
-  const box = $('#tour'); if (box) box.classList.remove('show');
+  const box = $('#tour'); if (box) box.classList.remove('show'); document.documentElement.classList.remove('touring');
   if (done) toast('Готово! Повторить знакомство — Настройки → «Знакомство с приложением»');
 }
 ACT.tournext = () => tour && tourGo(tour.i + 1, 1);
@@ -177,17 +196,21 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { e.preventDefault(); tourEnd(false); }
   else if (e.key === 'ArrowRight' || (e.key === 'Enter' && !e.isComposing)) { e.preventDefault(); ACT.tournext(); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); ACT.tourprev(); }
+  else if (e.key === 'Tab') { e.preventDefault(); const b = [...$$('#tour .tour-pop button')], i = b.indexOf(document.activeElement); if (b.length) b[(i + (e.shiftKey ? -1 : 1) + b.length) % b.length].focus({ preventScroll:true }); }
+  else if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key)) e.preventDefault();
 }, true);
+// Если что-то всё же прокрутилось (инерция на телефоне, внутренние списки) — подсветка догоняет элемент
+addEventListener('scroll', () => { if (tour) tourSync(); }, true);
 addEventListener('resize', () => { if (tour) tourSync(); });
 
 // ---- Окно «Знакомство с приложением» (Настройки → О приложении) ----
 function openTourMenu() {
-  const keys = tourKeys(), all = keys.reduce((n, k) => n + tourSteps(k).length, 0);
+  const keys = tourKeys(), plan = tourPlan(keys), cnt = k => plan.filter(s => s.s === k).length, all = plan.length;
   sheet(`<div class="sh-head"><h3>Знакомство</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   <p class="set-note" style="margin:0 0 12px">Тур подсвечивает части экрана и объясняет, что они делают. Пройдите его целиком или выберите одну страницу.</p>
-  <button class="tm-all" data-act="tourgo" data-k="all">${I(IC.spark, 20)}<span><b>Подробный тур по приложению</b><small>Все разделы по порядку · до ${all} шагов, около 3 минут</small></span>${I(IC.right, 18)}</button>
+  <button class="tm-all" data-act="tourgo" data-k="all">${I(IC.spark, 20)}<span><b>Подробный тур по приложению</b><small>Все разделы по порядку · ${plural(all, ['шаг', 'шага', 'шагов'])}, около 3 минут</small></span>${I(IC.right, 18)}</button>
   <div class="set-sec">По одной странице</div>
-  <div class="tm-grid">${keys.map(k => `<button data-act="tourgo" data-k="${k}">${I(k === 'settings' ? IC.gear : SEC[k].icon, 18)}<b>${TOURS[k].n}</b><small>${plural(tourSteps(k).length, ['шаг', 'шага', 'шагов'])}</small></button>`).join('')}</div>
+  <div class="tm-grid">${keys.map(k => `<button data-act="tourgo" data-k="${k}">${I(k === 'settings' ? IC.gear : SEC[k].icon, 18)}<b>${TOURS[k].n}</b><small>${plural(cnt(k), ['шаг', 'шага', 'шагов'])}</small></button>`).join('')}</div>
   <button class="btn" style="width:100%;margin-top:14px" data-act="onbshow">${I(IC.spark, 16)} Первые шаги — 3 коротких экрана</button>
   ${innerWidth >= 900 ? `<button class="btn" style="width:100%;margin-top:8px" data-act="help">${I(IC.key, 16)} Горячие клавиши</button>` : ''}`);
 }
@@ -198,11 +221,12 @@ let tinvFor = '';
 function tinvHide() { const t = $('#tinv'); if (t) t.classList.remove('show'); tinvFor = ''; }
 function tourInvite() {
   const k = sec;
+  if (tourChecking) return;
   if (tour || !S.settings.onboarded || !TOURS[k] || S.settings.toured[k] || onbIsOpen() || sheetOpen()) { if (tinvFor && tinvFor !== k) tinvHide(); return; }
   if (tinvFor === k) return;
   let t = $('#tinv');
   if (!t) { t = document.createElement('div'); t.id = 'tinv'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
-  t.innerHTML = `<span class="tinv-ic">${I(IC.spark, 18)}</span><span class="tinv-t"><b>Впервые здесь?</b><small>Покажу, что есть на странице «${TOURS[k].n}» — ${plural(tourSteps(k).length, ['шаг', 'шага', 'шагов'])}.</small></span>
+  t.innerHTML = `<span class="tinv-ic">${I(IC.spark, 18)}</span><span class="tinv-t"><b>Впервые здесь?</b><small>Покажу, что есть на странице «${TOURS[k].n}» и как этим пользоваться.</small></span>
     <button class="btn pri" data-act="tinvgo">Показать</button><button class="ic" data-act="tinvno" aria-label="Не показывать">${I(IC.x, 16)}</button>`;
   tinvFor = k; void t.offsetWidth; t.classList.add('show');   // offsetWidth — чтобы сработала анимация появления
 }
