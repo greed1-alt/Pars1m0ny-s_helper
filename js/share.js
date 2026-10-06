@@ -73,7 +73,7 @@ function openShare(c) {
     : `<div class="shv" style="--c:${cc ? cc.color : 'var(--acc)'}"><b>${cc ? esc(cc.name) : 'Все календари'}</b><small>${list.length ? plural(list.length, NEV) + ' — текущие и будущие' : 'Пока нет текущих и будущих событий'}</small></div>${shareListHTML(list, 5)}`;
   sheet(`<div class="sh-head">${c.back ? `<button class="ic" data-act="shback" aria-label="Назад" title="Назад">${I(IC.left,18)}</button>` : ''}<h3>Поделиться ${what}</h3><button class="ic" data-act="close" title="Закрыть (Esc)" aria-label="Закрыть">${I(IC.x,18)}</button></div>
   ${preview}
-  <div class="frow"><span class="fl">Подпись</span><input id="sh_by" class="fin" type="text" value="${esc(S.settings.name || '')}" placeholder="Ваше имя" maxlength="40" autocomplete="off"></div>
+  <div class="frow"><span class="fl">Подпись</span><input id="sh_by" class="fin" type="text" value="${esc(S.settings.name || '')}" placeholder="Ваше имя" maxlength="${NAME_MAX}" autocomplete="off"></div>
   ${hasNotes ? `<div class="frow"><span class="fl">Заметки</span><label class="swl" style="margin-top:9px"><input id="sh_notes" class="sw" type="checkbox"${shareCtx.notes ? ' checked' : ''}> Отправить с заметками и местом</label></div>` : ''}
   <div class="shbtns">
     ${navigator.share ? `<button class="btn pri" data-act="shsend" disabled>${I(IC.share,16)} Отправить…</button>` : ''}
@@ -88,7 +88,7 @@ function openShare(c) {
 async function refreshShareLink() {
   const c = shareCtx; if (!c) return;
   const by = $('#sh_by'), nt = $('#sh_notes'), tok = ++c.tok;
-  if (by && by.value.trim() !== (S.settings.name || '')) { S.settings.name = by.value.trim(); save(); }
+  if (by && by.value.trim() !== (S.settings.name || '')) { S.settings.name = by.value.trim().slice(0, NAME_MAX).trim(); save(); }
   if (nt) c.notes = nt.checked;
   const code = await packShare(sharePayload(c));
   if (shareCtx !== c || tok !== c.tok) return;

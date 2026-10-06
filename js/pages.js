@@ -256,7 +256,7 @@ function openAvatar() {
   <button class="btn" style="width:100%;margin-top:18px" data-act="upava">${I(IC.up, 16)} Загрузить своё фото</button>
   <button class="btn pri" style="width:100%;margin-top:8px" data-act="close">Готово</button>`, true);
 }
-// Кнопка профиля в шапке: имя и аватар. Аватар — всегда у правого края на одном месте, имя растёт влево до 180 px, дальше многоточие.
+// Кнопка профиля в шапке: имя и аватар. Аватар — всегда у правого края на одном месте, имя растёт влево целиком (не длиннее NAME_MAX знаков).
 // Имя — только на ПК: на телефоне в шапке мало места
 const hdrAvaHTML = () => `<span class="hdr-name">${esc((S.settings.name || '').trim() || 'Профиль')}</span>${avatarHTML(28)}`;
 const profTouch = () => { S.settings.profUpd = Date.now(); save(); $('#side').innerHTML = sideHTML(); const h = $('.hdr-ava'); if (h) h.innerHTML = hdrAvaHTML(); const u = $('#pe_upd'); if (u) u.textContent = 'Обновлён: только что'; };
@@ -295,7 +295,7 @@ function profEditHTML() {
       <div class="acc-row"><span class="acc-t"><b>Друзья</b><small>Добавлять друзей, смотреть их календарь и соревноваться в привычках.</small></span><span class="soon">Скоро</span></div></div>`;
   else body = `<div class="card"><div class="pe-sec">Личные данные</div>
       <div class="pe-grid">
-        <label class="pe-f"><span>Имя или никнейм</span><input class="fin" data-pf="name" value="${v('name')}" maxlength="40" placeholder="Как вас называть" autocomplete="nickname"></label>
+        <label class="pe-f"><span>Имя или никнейм · до ${NAME_MAX} знаков</span><input class="fin" data-pf="name" value="${v('name')}" maxlength="${NAME_MAX}" placeholder="Как вас называть" autocomplete="nickname"></label>
         <label class="pe-f"><span>Пол</span><select class="fin" data-pf="gender"><option value="">Не указан</option><option value="m"${st.gender === 'm' ? ' selected' : ''}>Мужской</option><option value="f"${st.gender === 'f' ? ' selected' : ''}>Женский</option></select></label>
         <label class="pe-f full"><span>Девиз</span><input class="fin" data-pf="motto" value="${v('motto')}" maxlength="90" placeholder="Каждый день — шаг к мечте" autocomplete="off"></label>
         <label class="pe-f full"><span>Обо мне</span><textarea class="fin hn-text" data-pf="about" maxlength="2048" placeholder="Напишите что-нибудь о себе…">${v('about')}</textarea><em class="pe-cnt" id="pe_cnt">${(st.about || '').length}/2048</em></label>
@@ -336,6 +336,7 @@ document.addEventListener('change', async e => {
   }
   if (t.dataset.pf) {
     const f = t.dataset.pf; let val = t.value.trim();
+    if (f === 'name') { val = val.slice(0, NAME_MAX).trim(); t.value = val; }
     if (f === 'nick') { val = val.toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_.]/g, '').slice(0, 24); t.value = val; }
     if (f === 'birthday' && val && (!isDayKey(val) || val > todayK())) { t.value = S.settings.birthday || ''; return toast('Проверьте дату рождения'); }
     if (val) S.settings[f] = val; else delete S.settings[f];

@@ -541,6 +541,6 @@ html.touring{overflow:hidden;scrollbar-gutter:stable}
 .hdr-name{display:none}
 @media(min-width:900px){
   .hdr-ava{width:auto;display:inline-flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 4px 0 12px;border-radius:999px}
-  .hdr-name{display:block;max-width:180px;font-size:14px;font-weight:600;color:var(--tx);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hdr-name{display:block;font-size:14px;font-weight:600;color:var(--tx);text-align:right;white-space:nowrap}
   .hdr-ava.on .hdr-name{color:var(--acc)}
 }

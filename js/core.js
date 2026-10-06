@@ -9,6 +9,8 @@ const PUSH_SUBSCRIBE = false;
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const APP_NAME = 'Parsimony';
+// Имя пользователя — не длиннее 20 знаков: целиком помещается в шапке рядом с аватаром (решение пользователя 6 октября 2026)
+const NAME_MAX = 20;
 // Шрифт надписи Parsimony: 'josefin' (№14 Josefin Sans), 'vibes' (№9 Great Vibes), 'serif' (Instrument Serif) — стили в css/sections.css
 const WORDMARK = 'josefin';
 document.documentElement.dataset.wm = WORDMARK;
@@ -43,6 +45,8 @@ function migrate() {
 // Разделы (задачи, привычки, финансы) добавляют сюда свою проверку данных: она выполняется сразу и после загрузки копии
 const MIGRATE = [];
 const onMigrate = f => { MIGRATE.push(f); f(); };
+// Старое имя длиннее NAME_MAX — укорачиваем
+onMigrate(() => { const st = S.settings; if (typeof st.name === 'string' && st.name.trim().length > NAME_MAX) st.name = st.name.trim().slice(0, NAME_MAX).trim(); });
 migrate();
 const evCache = new Map();
 const save = () => { evCache.clear(); try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} };

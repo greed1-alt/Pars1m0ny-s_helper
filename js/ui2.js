@@ -433,7 +433,7 @@ function onbDraw() {
     { art:`<div class="onb-demo"><div class="om-box">${I(IC.spark, 19)}<span class="onb-typed"></span><i class="onb-caret"></i></div><div class="om-prev onb-prev"></div></div>`,
       h:'Пишите как говорите', p:'Одна строка для всего: дела, встречи, траты, привычки и заметки. Parsimony сам поймёт, что это, и разложит по местам — без длинных форм.' },
     { art: onbMock(), h:'Весь день — на одном экране', p:'Главная собирает план, привычки и деньги на сегодня. Отмечайте одним касанием — процент дня считается сам, а остальное ждёт в свёрнутых блоках.' },
-    { art:`<div class="onb-form"><label for="onb_name">Как вас зовут?</label><input id="onb_name" class="fin" value="${esc(onbName)}" placeholder="Имя" maxlength="40" autocomplete="given-name">
+    { art:`<div class="onb-form"><label for="onb_name">Как вас зовут?</label><input id="onb_name" class="fin" value="${esc(onbName)}" placeholder="Имя, до ${NAME_MAX} знаков" maxlength="${NAME_MAX}" autocomplete="given-name">
       <label>Что будете использовать?</label><div class="onb-areas">${AREAS.map(([k, ic, n]) => `<button class="onb-a${onbAreas.has(k) ? ' on' : ''}" data-act="onbarea" data-k="${k}" aria-pressed="${onbAreas.has(k)}">${I(ic, 20)}<span>${n}</span><i>${onbAreas.has(k) ? I(IC.check, 13) : ''}</i></button>`).join('')}</div>
       <p class="set-note">Остальное спрячем, чтобы не мешало. Включить можно в любой момент: Настройки → «Расположение».</p></div>`,
       h:'Сделаем Parsimony вашим', p:'' },
@@ -465,7 +465,7 @@ function onbType(i) {
 }
 function onbFinish(demo, thenTour) {
   const n = $('#onb_name'); if (n) onbName = n.value;
-  if (onbName.trim()) S.settings.name = onbName.trim().slice(0, 40);
+  if (onbName.trim()) S.settings.name = onbName.trim().slice(0, NAME_MAX).trim();
   if (onbAreas && onbAreas.size) S.settings.secs.forEach(x => { if (AREAS.some(a => a[0] === x.k)) x.on = onbAreas.has(x.k); });
   S.settings.onboarded = 1;
   if (demo) { if (!S.events.some(e => e.demo && !e.goal)) SEC.tasks.demo(true); if (!S.goals.some(g => g.demo)) SEC.goals.demo(true); if (!S.habits.some(h => h.demo)) SEC.habits.demo(true); if (!S.fin.ops.some(o => o.demo)) SEC.fin.demo(true); }
