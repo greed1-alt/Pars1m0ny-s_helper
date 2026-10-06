@@ -256,7 +256,9 @@ function openAvatar() {
   <button class="btn" style="width:100%;margin-top:18px" data-act="upava">${I(IC.up, 16)} Загрузить своё фото</button>
   <button class="btn pri" style="width:100%;margin-top:8px" data-act="close">Готово</button>`, true);
 }
-const profTouch = () => { S.settings.profUpd = Date.now(); save(); $('#side').innerHTML = sideHTML(); const h = $('.hdr-ava'); if (h) h.innerHTML = avatarHTML(28); const u = $('#pe_upd'); if (u) u.textContent = 'Обновлён: только что'; };
+// Кнопка профиля в шапке: аватар и имя (имя — на ПК, на телефоне в шапке мало места)
+const hdrAvaHTML = () => `${avatarHTML(28)}<span class="hdr-name">${esc((S.settings.name || '').trim() || 'Профиль')}</span>`;
+const profTouch = () => { S.settings.profUpd = Date.now(); save(); $('#side').innerHTML = sideHTML(); const h = $('.hdr-ava'); if (h) h.innerHTML = hdrAvaHTML(); const u = $('#pe_upd'); if (u) u.textContent = 'Обновлён: только что'; };
 ACT.pfava = openAvatar;
 ACT.pfemoji = el => { S.settings.avatar = Object.assign({}, S.settings.avatar, { e: el.dataset.e, img: '' }); profTouch(); render(); openAvatar(); };
 ACT.pfcolor = el => { S.settings.avatar = Object.assign({}, S.settings.avatar, { c: el.dataset.c }); profTouch(); render(); if (sheetOpen()) openAvatar(); };

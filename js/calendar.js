@@ -220,7 +220,7 @@ function render(dir) {
   $('#ttl').innerHTML = cal ? titleHTML() : S2.title();
   $$('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === view));
   const bn = $('.btn-new'); if (bn) { bn.innerHTML = I(IC.plus, 17) + (S2.newLabel || ''); bn.setAttribute('aria-label', S2.newLabel || 'Создать'); bn.title = S2.newLabel || 'Создать'; }
-  const ha = $('.hdr-ava'); if (ha) { ha.innerHTML = avatarHTML(28); ha.classList.toggle('on', sec === 'profile' || sec === 'profedit'); }
+  const ha = $('.hdr-ava'); if (ha) { ha.innerHTML = hdrAvaHTML(); ha.classList.toggle('on', sec === 'profile' || sec === 'profedit'); }
   const si = $('#secinfo'); if (si) si.innerHTML = '';   // сводки в шапке убраны 6 октября 2026: они повторяли то, что видно на странице
   root.style.setProperty('--hh', $('header').offsetHeight + 'px');
   const main = $('#main'), oldW = $('.wgwrap'), oldTop = oldW ? oldW.scrollTop : null;
