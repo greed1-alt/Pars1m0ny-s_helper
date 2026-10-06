@@ -306,7 +306,6 @@ SEC.goals = {
   html: goalsHTML, move: () => {},
   create: () => openGoal(),
   side: () => { const l = goalNextSteps(6); return `<div class="sb-sec"><div class="sb-h">Ближайшие шаги</div>${l.length ? l.map(stepRowSide).join('') : '<p class="sbl-empty">Добавьте шаги к целям</p>'}</div>`; },
-  info: () => { const a = activeGoals(), late = a.reduce((n, g) => n + goalStat(g).late.length, 0); return a.length ? `Целей: <b>${a.length}</b>${late ? ` · просрочено шагов: <b>${late}</b>` : ''}` : 'Целей пока нет'; },
   demo: on => {
     if (!on) { S.goals = S.goals.filter(g => !g.demo); S.events = S.events.filter(e => !(e.demo && e.goal)); S.events.forEach(e => { if (e.goal && !goalById(e.goal)) delete e.goal; }); return; }
     const t = todayK(), c = addDays(t, -30), task = (gid, title, d, done) => S.events.push({ id: uid(), demo: true, task: true, prio: 'mid', title, date: addDays(t, d), time: '', time2: '', cat: validCat(null), note: '', loc: '', repeat: { type: 'none' }, reminder: { enabled: false, offset: 15, repeat: 'none', days: [] }, done: !!done, doneDates: [], skip: [], goal: gid });

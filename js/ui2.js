@@ -267,10 +267,12 @@ function homeBlockDef(k, t) {
     return { sum: ga.length ? `${plural(ga.length, ['активная', 'активные', 'активных'])}${late ? ` · просрочено шагов: ${late}` : ''}` : 'пока нет', body: homeGoals, def: () => ga.length > 0 }; }
   return { sum: S.notes.length ? plural(S.notes.length, ['заметка', 'заметки', 'заметок']) : 'журнал пуст', body: homeNotes };
 }
+// В открытой карточке сводка не повторяет то, что видно внутри: у «Денег» — месяц (сумма и так крупно), у пустого плана — ничего
+const homeCardSum = (k, d, t) => k === 'money' ? MON[Number(t.slice(5, 7)) - 1].toLowerCase() : k === 'plan' && !evOn(t).length ? '' : d.sum;
 function homeBlock(x, t) {
   const b = HOME_BL[x.k], d = homeBlockDef(x.k, t);
   if (x.m === 'fold') return foldHTML('h-' + x.k, b.n, d.sum, d.body, d.def || false, { card:true, ic:b.ic, cls:'h2-blk' });
-  return `<div class="card h2-card h2-blk" data-blk="${x.k}"><div class="h2-h"><b>${I(b.ic, 18)}${b.n}</b><small>${d.sum}</small></div>${d.body()}</div>`;
+  return `<div class="card h2-card h2-blk" data-blk="${x.k}"><div class="h2-h"><b>${I(b.ic, 18)}${b.n}</b><small>${homeCardSum(x.k, d, t)}</small></div>${d.body()}</div>`;
 }
 function homeHTML() {
   const t = todayK(), d = pd(t), name = (S.settings.name || '').trim();
@@ -279,7 +281,7 @@ function homeHTML() {
   const hero = `<div class="h2-hero">
     <div class="h2-hi"><div class="h2-date">${DOWF[dowIdx(t)]}, ${d.getDate()} ${MONG[d.getMonth()]}</div>
       <h2 class="h2-greet">${greet()}${name ? ', ' + esc(name) : ''}</h2><p class="h2-line">${esc(DAY_LINES[dnum(t) % DAY_LINES.length])}</p></div>
-    <div class="h2-ring" title="Задачи и привычки на сегодня">${ringSVG(pct, 72, 'var(--good)', total ? Math.round(pct * 100) + '%' : '—', '')}<small>${withHint(total ? done + ' из ' + total : 'пока пусто', 'ring')}</small></div></div>`;
+    <div class="h2-ring" title="Задачи и привычки на сегодня">${ringSVG(pct, 72, 'var(--good)', total ? Math.round(pct * 100) + '%' : '—', '')}<small>${withHint(total ? 'дела и привычки' : 'пока пусто', 'ring')}</small></div></div>`;
   const omni = `<div class="card h2-omni">${omniHTML('om', 'home')}</div>`;
   const blocks = homeOrder().map(x => homeBlock(x, t)).join('');
   return `${hero}<div class="h2-cols"><div class="h2-col">${omni}${secOn('tasks') || secOn('cal') ? missedBar(true) : ''}${blocks}</div><div class="h2-col"></div></div>
@@ -337,9 +339,9 @@ const tasksGoals = () => sec === 'tasks' && tView === 'goals';
 const useOmni = () => sec === 'home' || sec === 'cal' || (sec === 'tasks' && tView !== 'goals');
 Object.defineProperty(SEC.tasks, 'newLabel', { get: () => tasksGoals() ? 'Цель' : 'Задача', configurable: true });
 Object.defineProperty(SEC.tasks, 'noNav', { get: () => tasksGoals(), configurable: true });
-{ const T = SEC.tasks, title = T.title, info = T.info, create = T.create;
+{ const T = SEC.tasks, title = T.title, create = T.create;
   T.title = () => tasksGoals() ? SEC.goals.title() : title();
-  T.info = () => tasksGoals() ? SEC.goals.info() : info();
+
   T.create = () => tasksGoals() ? openGoal() : create(); }
 ACT.t2add = el => newTask(el.dataset.d);
 
@@ -350,7 +352,7 @@ function financeHTML() {
   const ym = secYM, st = finStat(ym), lim = dailyLimit(st, ym), demo = S.fin.ops.some(o => o.demo), noPlans = !S.fin.cats.some(c => c.plan);
   const t = todayK(), cur = ymOf(t) === ym, mon = MONG[Number(ym.slice(5)) - 1];
   const big = lim ? { l:'Можно потратить сегодня', v: rub0(Math.max(0, lim.left)), s: lim.left >= 0 ? `лимит ${rub0(lim.limit)} в день · сегодня потрачено ${rub0(lim.today)}` : `лимит превышен на ${rub0(-lim.left)}`, neg: lim.left < 0 }
-    : { l: cur ? 'Потрачено в этом месяце' : 'Потрачено за ' + ymTitle(ym).toLowerCase(), v: rub0(st.spent), s: noPlans ? '<button class="lnk" data-act="finbudget">Задайте бюджет — появится дневной лимит</button>' : '' };
+    : { l: cur ? 'Потрачено в этом месяце' : 'Потрачено за месяц', v: rub0(st.spent), s: noPlans ? '<button class="lnk" data-act="finbudget">Задайте бюджет — появится дневной лимит</button>' : '' };
   const bar = st.spentPlan ? `<div class="f2-bar"><div class="ds-bar${st.spent > st.spentPlan ? ' over' : ''}"><i style="width:${Math.min(100, Math.round(st.spent / st.spentPlan * 100))}%"></i></div><span><span>Расходы ${rub0(st.spent)} из ${rub0(st.spentPlan)}</span><span>${cur ? 'до конца месяца ' + plural(ymDays(ym).filter(k => k >= t).length, NDAY) : ''}</span></span></div>` : '';
   const hero = `<div class="card f2-hero${big.neg ? ' neg' : ''}"><div class="f2-top"><small class="f2-l">${lim ? withHint(big.l, 'limit') : big.l}</small><button class="pill sm" data-act="finbudget">${I(IC.wallet, 14)} Бюджет</button></div><b class="f2-big">${big.v}</b><span class="f2-s">${big.s}</span>${bar}
     <div class="f2-mini"><div><small>Доходы</small><b class="plus">${rub0(st.g.inc.fact)}</b></div><div><small>Накопления</small><b>${rub0(st.g.sav.fact)}</b></div><div class="${st.left < 0 ? 'neg' : ''}"><small>Осталось</small><b>${rub0(st.left)}</b></div></div></div>`;
@@ -393,10 +395,10 @@ function habitsHTML() {
   return `${demoBar('habits', demo)}
   ${none ? emptyCard('habits', 'Привычки', 'Добавьте привычки — «2 литра воды», «Зарядка», «Чтение 30 страниц» — и отмечайте их каждый день. Здесь будет процент по каждой и сравнение с прошлым месяцем.') : ''}
   ${today}
-  ${foldHTML('h-grid', 'Таблица месяца', `${pctTxt(ms.pct)} · ${ymTitle(ym).toLowerCase()}`, () => `<div class="card"><div class="card-h"><b>Трекер привычек</b><small>${ymTitle(ym)}${S.settings.habitPast ? '' : ' · отмечать можно только сегодня'}</small></div>${habitGrid(ym)}</div>`, true, { ic:IC.habit })}
+  ${foldHTML('h-grid', 'Таблица месяца', plural(S.habits.length, ['привычка', 'привычки', 'привычек']), () => `<div class="card">${S.settings.habitPast ? '' : '<p class="set-note" style="margin:0 0 8px">Отмечать можно только сегодняшний день</p>'}${habitGrid(ym)}</div>`, true, { ic:IC.habit })}
   ${foldHTML('h-prog', 'Прогресс и сравнение', dl == null ? 'появится с отметками' : `${dl >= 0 ? '+' : '−'}${Math.abs(dl)}% к ${prevName.replace(/ь$/, 'ю').replace(/й$/, 'ю').replace(/т$/, 'ту')}`, () => `<div class="hb-two">${habitWave(ym)}${hst.progress}</div>${hst.stable}`, isWide, { ic:IC.trophy })}
   ${foldHTML('h-per', 'Раз в неделю и раз в месяц', nWM ? plural(nWM, ['привычка', 'привычки', 'привычек']) : 'пока нет', () => `<div class="hb-two">${periodicCard('weekly', ym)}${periodicCard('monthly', ym)}</div>`, () => nWM > 0 && isWide(), { ic:IC.cal })}
-  ${foldHTML('h-bio', 'Самочувствие', cur ? (filled ? `сегодня ${filled} из ${M.length}` : 'сегодня не отмечено') : ymTitle(ym).toLowerCase(), () => `${bioToday}${bioCard(ym)}`, false, { ic:IC.spark })}
+  ${foldHTML('h-bio', 'Самочувствие', cur ? (filled ? `сегодня ${filled} из ${M.length}` : 'сегодня не отмечено') : 'за месяц', () => `${bioToday}${bioCard(ym)}`, false, { ic:IC.spark })}
   ${foldHTML('h-notes', 'Заметки', nNotes ? plural(nNotes, ['заметка', 'заметки', 'заметок']) + ' за месяц' : 'за месяц пока нет', () => notesCard(ym), false, { ic:IC.note })}`;
 }
 
@@ -440,7 +442,7 @@ function onbDraw() {
     ${last ? '' : `<div class="onb-art">${s.art}</div>`}
     <div class="onb-txt"><small>Шаг ${onbStep + 1} из ${steps.length}</small><h2>${s.h}</h2>${s.p ? `<p>${s.p}</p>` : ''}</div>
     ${last ? s.art : ''}
-    ${last ? `<div class="onb-foot last"><button class="btn pri" data-act="onbdone">Начать</button>
+    ${last ? `<div class="onb-foot last"><button class="btn pri" data-act="onbdone">Начать</button><button class="btn" data-act="onbtour">${I(IC.spark, 16)} Начать и показать, где что находится</button>
       <div class="onb-sub"><button data-act="onbback">← Назад</button><button data-act="onbdemo" title="Заполнить разделы примером">Посмотреть на примере</button></div></div>`
     : `<div class="onb-foot"><div class="onb-dots">${steps.map((_, i) => `<i class="${i === onbStep ? 'on' : ''}"></i>`).join('')}</div>
       ${onbStep ? '<button class="btn" data-act="onbback">Назад</button>' : ''}<button class="btn pri" data-act="onbnext">Далее</button></div>`}</div>`;
@@ -459,7 +461,7 @@ function onbType(i) {
   };
   onbT = setTimeout(step, 500);
 }
-function onbFinish(demo) {
+function onbFinish(demo, thenTour) {
   const n = $('#onb_name'); if (n) onbName = n.value;
   if (onbName.trim()) S.settings.name = onbName.trim().slice(0, 40);
   if (onbAreas && onbAreas.size) S.settings.secs.forEach(x => { if (AREAS.some(a => a[0] === x.k)) x.on = onbAreas.has(x.k); });
@@ -467,6 +469,7 @@ function onbFinish(demo) {
   if (demo) { if (!S.events.some(e => e.demo && !e.goal)) SEC.tasks.demo(true); if (!S.goals.some(g => g.demo)) SEC.goals.demo(true); if (!S.habits.some(h => h.demo)) SEC.habits.demo(true); if (!S.fin.ops.some(o => o.demo)) SEC.fin.demo(true); }
   save(); onbClose();
   if (sec !== 'home') setSec('home'); else render();
+  if (thenTour) return setTimeout(() => tourStart('all'), 350);
   toast(demo ? 'Добавлен пример — в каждом разделе его можно убрать одной кнопкой' : 'Готово! Напишите первую запись в строке на Главной');
   const o = $('.h2-omni'); if (o) { o.classList.add('pulse'); setTimeout(() => o.classList.remove('pulse'), 2600); }
 }
@@ -474,6 +477,7 @@ ACT.onbnext = () => { onbStep = Math.min(2, onbStep + 1); onbDraw(); };
 ACT.onbback = () => { const n = $('#onb_name'); if (n) onbName = n.value; onbStep = Math.max(0, onbStep - 1); onbDraw(); };
 ACT.onbskip = () => { S.settings.onboarded = 1; save(); onbClose(); };
 ACT.onbdone = () => onbFinish(false);
+ACT.onbtour = () => onbFinish(false, true);
 ACT.onbdemo = () => onbFinish(true);
 ACT.onbarea = el => { const n = $('#onb_name'); if (n) onbName = n.value; const k = el.dataset.k; onbAreas.has(k) ? onbAreas.size > 1 && onbAreas.delete(k) : onbAreas.add(k); onbDraw(); };
 ACT.onbshow = () => onbOpen();

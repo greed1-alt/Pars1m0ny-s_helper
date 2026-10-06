@@ -103,7 +103,7 @@ SEC.tasks = {
   move: n => { sel = addDays(sel, 7 * n); syncMini(); },
   create: () => newTask(),
   side: () => `<div class="sb-sec"><div class="sb-h">Важные задачи</div>${importantHTML()}</div>`,
-  info: () => { const l = dayTasks(todayK()), d = l.filter(e => e.done).length; return l.length ? `Сегодня: <b>${d} из ${l.length}</b>` : 'На сегодня задач нет'; },
+
   demo: on => {
     if (!on) { S.events = S.events.filter(e => !e.demo || e.goal); return; }
     const wk = taskWeek(), t = todayK(), c = i => S.cats[i % S.cats.length].id;

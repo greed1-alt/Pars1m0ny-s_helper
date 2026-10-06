@@ -277,7 +277,7 @@ SEC.fin = {
   move: n => { secYM = ymAdd(secYM, n); },
   create: () => openOp(),
   side: () => `<div class="sb-sec"><div class="sb-h">Топ покупок · ${MON[Number(secYM.slice(5)) - 1].toLowerCase()}</div>${topBuysHTML(secYM)}</div>`,
-  info: () => { const st = finStat(ymOf(todayK())), lim = dailyLimit(st, ymOf(todayK())); return lim ? `Сегодня можно: <b>${rub0(Math.max(0, lim.left))}</b>` : `Расходы за месяц: <b>${rub0(st.spent)}</b>`; },
+
   demo: on => {
     if (!on) {
       S.fin.ops = S.fin.ops.filter(o => !o.demo);

@@ -319,7 +319,7 @@ SEC.habits = {
     const days = ymDays(secYM), top = hByKind('daily').map(h => ({ h, s: hStat(h, days) })).filter(x => x.s.plan).sort((a, b) => b.s.pct - a.s.pct).slice(0, 5);
     return `<div class="sb-sec"><div class="sb-h">Топ привычек · ${MON[Number(secYM.slice(5)) - 1].toLowerCase()}</div>${top.length ? top.map((x, i) => `<button class="sbl sbl-top" data-act="hedit" data-id="${x.h.id}"><span class="sbl-n">${i + 1}</span><span class="sbl-em">${esc(x.h.emoji || '•')}</span><span class="sbl-t">${esc(x.h.name)}</span><b>${pctTxt(x.s.pct)}</b><i class="sbl-bar"><i style="width:${Math.round(x.s.pct * 100)}%"></i></i></button>`).join('') : '<p class="sbl-empty">Появится, когда будут отметки</p>'}</div>`;
   },
-  info: () => { const d = dayStat(todayK()); return d.plan ? `Сегодня: <b>${d.done} из ${d.plan}</b>` : 'Привычек на сегодня нет'; },
+
   demo: on => {
     if (!on) {
       S.habits = S.habits.filter(h => !h.demo);

@@ -171,7 +171,7 @@ function sideHTML() {
   const top = `<div class="sb-top"><button class="sb-title" data-act="sec" data-s="home" title="Главная"><span class="sb-logo" title="Сегодня ${esc(fmtLong(todayK()))}"><span>${pd(todayK()).getDate()}</span></span><span class="wordmark">${APP_NAME}</span></button><button class="sb-ic" data-act="search" aria-label="Поиск" title="Поиск и команды (Ctrl+K)">${I(IC.search)}</button></div>
   ${navHTML()}`;
   const foot = `<div class="sb-foot">
-    <button class="sb-link sb-prof${sec === 'profile' || sec === 'profedit' ? ' on' : ''}" data-act="sec" data-s="profile">${avatarHTML(22)}<span>${esc((S.settings.name || '').trim() || 'Профиль')}</span></button>
+
     <button class="sb-link${sec === 'settings' ? ' on' : ''}" data-act="sec" data-s="settings" title="Уведомления: ${esc(notif.short)}">${I(IC.gear,15)} Настройки</button>
     <button class="sb-link" data-act="help">${I(IC.key,15)} Горячие клавиши <kbd>?</kbd></button>
   </div>`;
@@ -221,7 +221,7 @@ function render(dir) {
   $$('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === view));
   const bn = $('.btn-new'); if (bn) { bn.innerHTML = I(IC.plus, 17) + (S2.newLabel || ''); bn.setAttribute('aria-label', S2.newLabel || 'Создать'); bn.title = S2.newLabel || 'Создать'; }
   const ha = $('.hdr-ava'); if (ha) { ha.innerHTML = avatarHTML(28); ha.classList.toggle('on', sec === 'profile' || sec === 'profedit'); }
-  const si = $('#secinfo'); if (si) si.innerHTML = !cal && S2.info ? S2.info() : '';
+  const si = $('#secinfo'); if (si) si.innerHTML = '';   // сводки в шапке убраны 6 октября 2026: они повторяли то, что видно на странице
   root.style.setProperty('--hh', $('header').offsetHeight + 'px');
   const main = $('#main'), oldW = $('.wgwrap'), oldTop = oldW ? oldW.scrollTop : null;
   hsSave();
@@ -240,6 +240,7 @@ function render(dir) {
   hsRestore();
   if (dir) { main.classList.add(dir < 0 ? 'anim-l' : dir > 0 ? 'anim-r' : 'anim-f'); }
   const m = $('meta[name=theme-color]'); if (m) m.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#ffffff';
+  tourSync(); tourInvite();   // js/tour.js
 }
 
 function move(n) {

@@ -99,7 +99,7 @@ document.addEventListener('input', e => {
 
 SEC.home = {
   name:'Главная', icon:IC.home, newLabel:'Создать', noNav:true,
-  title: () => innerWidth >= 900 ? `Главная<span class="sub">${esc(fmtLong(todayK()))}</span>` : `<span class="wordmark">${APP_NAME}</span>`,
+  title: () => innerWidth >= 900 ? 'Главная' : `<span class="wordmark">${APP_NAME}</span>`,   // дата — в приветствии, в шапке не повторяем
   html: () => homeHTML(), move: () => {},
 };
 
@@ -358,7 +358,7 @@ function settingsHTML() {
   const about = `<div class="set-sec">О приложении</div>
     <div class="st-about"><span class="wordmark">${APP_NAME}</span><small>Календарь, задачи, привычки и финансы — в одном месте.</small></div>
     <button class="btn" style="width:100%" data-act="help">${I(IC.key, 16)} Горячие клавиши</button>
-    <button class="btn" style="width:100%;margin-top:8px" data-act="onbshow">${I(IC.spark, 16)} Знакомство с приложением</button>`;
+    <button class="btn" style="width:100%;margin-top:8px" data-act="tourmenu">${I(IC.spark, 16)} Знакомство с приложением</button>`;
   return `<button class="card st-prof" data-act="pe" data-tab="main">${avatarHTML(48)}<span><b>${esc(name || 'Ваш профиль')}</b><small>${name ? 'Личные данные, аватар и обложка' : 'Укажите имя, выберите аватар и обложку'}</small></span>${I(IC.right, 18)}</button>
   <div class="st-grid"><div class="card">${b.look}</div><div class="card">${b.cal}</div><div class="card">${b.cats}</div><div class="card">${secs}</div><div class="card">${b.notif}</div><div class="card">${b.data}</div><div class="card">${about}</div></div>`;
 }
