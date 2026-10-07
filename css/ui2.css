@@ -544,3 +544,29 @@ html.touring{overflow:hidden;scrollbar-gutter:stable}
   .hdr-name{display:block;font-size:14px;font-weight:600;color:var(--tx);text-align:right;white-space:nowrap}
   .hdr-ava.on .hdr-name{color:var(--acc)}
 }
+
+/* ---- Аккаунт и вход (js/cloud.js) ---- */
+.acc-box{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
+.acc-st{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:var(--hov)}
+.acc-st>svg{flex:none;color:var(--mut)}
+.acc-st.on>svg{color:var(--good)}
+.acc-st span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.acc-st b{font-size:15px;font-weight:650;overflow-wrap:anywhere}
+.acc-st small{font-size:12.5px;color:var(--mut);line-height:1.35}
+.acc-st small.bad{color:var(--dng)}
+.acc-del{align-self:flex-start;font-size:13px;color:var(--dng)!important;margin-top:2px}
+.lg-l{display:block;font-size:13px;font-weight:600;color:var(--tx2);margin:0 0 6px}
+.lg-in{width:100%;height:50px;font-size:17px!important}
+.lg-code{letter-spacing:.3em;font-size:22px!important;font-weight:650;text-align:center}
+.lg-err{min-height:20px;margin:6px 0 4px;font-size:13px;color:var(--dng);line-height:1.35}
+.lg-go{width:100%;height:48px;font-size:15.5px}
+.lg-row{display:flex;justify-content:space-between;gap:8px;margin-top:12px;font-size:13.5px}
+.lg-row .lnk:disabled{opacity:.5;text-decoration:none;cursor:default}
+.lg-beta{display:flex;gap:8px;align-items:flex-start;margin:16px 0 0!important;font-size:12px!important}
+.lg-beta svg{flex:none;margin-top:1px}
+.lg-choice{display:flex;align-items:center;gap:12px;width:100%;padding:14px;margin-bottom:8px;border:1.5px solid var(--line);border-radius:14px;text-align:left;color:var(--tx)}
+.lg-choice>svg{flex:none;color:var(--acc)}
+.lg-choice span{display:flex;flex-direction:column;gap:3px}
+.lg-choice b{font-size:15px}
+.lg-choice small{font-size:12.5px;color:var(--mut);line-height:1.35}
+@media(hover:hover){.lg-choice:hover{border-color:var(--acc)}}

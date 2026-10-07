@@ -56,7 +56,9 @@ const onMigrate = f => { MIGRATE.push(f); f(); };
 onMigrate(() => { const st = S.settings; if (typeof st.name === 'string' && st.name.trim().length > NAME_MAX) st.name = st.name.trim().slice(0, NAME_MAX).trim(); });
 migrate();
 const evCache = new Map();
-const save = () => { evCache.clear(); try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} };
+// После каждого сохранения — подписчики (синхронизация с аккаунтом, js/cloud.js)
+const SAVE_HOOKS = [];
+const save = () => { evCache.clear(); try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} SAVE_HOOKS.forEach(f => f()); };
 // Метка этого устройства: по ней узнаём свои же ссылки и обновляем присланное, а не дублируем
 if (!S.settings.dev) { S.settings.dev = uid(); save(); }
 let hiddenCats = new Set();

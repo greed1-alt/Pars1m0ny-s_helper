@@ -383,9 +383,11 @@ function settingsBlocks() {
   <div style="display:flex;gap:8px;flex-wrap:wrap">${PUSH_SUBSCRIBE ? `<button class="btn pri grow" data-act="push">${I(IC.bell,16)} Включить уведомления</button>` : ''}<button class="btn grow" data-act="ntest">${PUSH_SUBSCRIBE ? '' : I(IC.bell,16) + ' '}Проверить</button></div>
   <p class="set-note">${st.lastTest ? 'Последняя проверка: ' + new Date(st.lastTest).toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'}) : 'Проверок ещё не было.'} «Проверить» показывает тестовое уведомление на этом устройстве.${PUSH_SUBSCRIBE ? '' : ' Напоминания по времени появятся позже — для них нужен сервер.'}</p>
   <div id="plog"></div>`,
-  data: `<div class="set-sec">Данные</div>
+  data: `<div class="set-sec">Аккаунт и данные</div>
+  ${accountHTML()}
+  <div class="set-sub">Копия в файл — на всякий случай</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn grow" data-act="export">${I(IC.down,16)} Скачать копию</button><button class="btn grow" data-act="import">${I(IC.up,16)} Загрузить из файла</button></div>
-  <p class="set-note">Всё — события, задачи, привычки, финансы и заметки — хранится только на этом устройстве. Делайте копию, чтобы ничего не потерять.</p>`,
+  <p class="set-note">Копия — файл со всеми записями. Его можно загрузить обратно или на другом устройстве.</p>`,
   };
 }
 

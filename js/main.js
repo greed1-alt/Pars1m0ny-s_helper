@@ -10,5 +10,6 @@ save();   // сохранить то, что добавила проверка �
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 render();
+cloudStart();   // аккаунт: забрать свежие записи с сервера (js/cloud.js)
 checkNotif();
 checkShareHash();

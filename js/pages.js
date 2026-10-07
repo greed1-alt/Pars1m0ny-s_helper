@@ -289,8 +289,9 @@ function profEditHTML() {
       <div class="pe-btns"><button class="btn" data-act="upcover">${I(IC.up, 15)} Загрузить своё фото</button>${okImg(cv.img) ? '<button class="btn dng" data-act="rmcover">Убрать фото</button>' : ''}</div>
       <p class="set-note">Лучше всего подходит широкая картинка. Фото хранится только на этом устройстве.</p></div>`;
   else if (peTab === 'acc') body = `<div class="card"><div class="pe-sec">Аккаунт</div>
-      <div class="acc-row"><span class="acc-t"><b>Данные на этом устройстве</b><small>Всё хранится в браузере. Делайте копию, чтобы ничего не потерять.</small></span><div class="pe-btns"><button class="btn" data-act="export">${I(IC.down, 15)} Скачать копию</button><button class="btn" data-act="import">${I(IC.up, 15)} Загрузить</button></div></div>
-      <div class="acc-row"><span class="acc-t"><b>Вход и синхронизация</b><small>Один аккаунт для iPhone и компьютера — события и задачи будут везде одинаковые.</small></span><span class="soon">Скоро</span></div>
+      ${accountHTML()}
+      <div class="acc-row"><span class="acc-t"><b>Копия в файл</b><small>На всякий случай — например, перед переездом на другое устройство.</small></span><div class="pe-btns"><button class="btn" data-act="export">${I(IC.down, 15)} Скачать копию</button><button class="btn" data-act="import">${I(IC.up, 15)} Загрузить</button></div></div>
+
       <div class="acc-row"><span class="acc-t"><b>Ссылка на профиль</b><small>Своя страница по нику${st.nick ? ` <b>@${esc(st.nick)}</b>` : ''} — чтобы делиться ей с друзьями.</small></span><span class="soon">Скоро</span></div>
       <div class="acc-row"><span class="acc-t"><b>Друзья</b><small>Добавлять друзей, смотреть их календарь и соревноваться в привычках.</small></span><span class="soon">Скоро</span></div></div>`;
   else body = `<div class="card"><div class="pe-sec">Личные данные</div>
