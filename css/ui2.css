@@ -577,3 +577,10 @@ html.touring{overflow:hidden;scrollbar-gutter:stable}
   .acc-row .pe-btns .btn{flex:1;min-width:0}
   .acc-row .soon{align-self:flex-start}
 }
+/* Отзыв (js/cloud.js) */
+.h2-cust{gap:4px;flex-wrap:wrap}
+.fb-kinds{margin-bottom:10px}
+.fb-text{width:100%;min-height:140px;resize:vertical;font-size:16px}
+.fb-meta{display:flex;gap:6px;align-items:flex-start;font-size:12px!important;margin:8px 0 12px!important}
+.fb-meta svg{flex:none;margin-top:1px}
+a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;color:inherit}

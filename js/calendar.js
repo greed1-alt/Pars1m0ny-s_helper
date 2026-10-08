@@ -173,6 +173,7 @@ function sideHTML() {
   const foot = `<div class="sb-foot">
 
     <button class="sb-link${sec === 'settings' ? ' on' : ''}" data-act="sec" data-s="settings" title="Уведомления: ${esc(notif.short)}">${I(IC.gear,15)} Настройки</button>
+    <button class="sb-link" data-act="feedback">${I(IC.msg,15)} Отзыв о бете</button>
     <button class="sb-link" data-act="help">${I(IC.key,15)} Горячие клавиши <kbd>?</kbd></button>
   </div>`;
   if (sec === 'profile' || sec === 'profedit' || sec === 'settings') return `${top}${foot}`;
@@ -274,7 +275,8 @@ function toast(msg, withUndo) {
 }
 
 // ---- Окна ----
-const sheet = (h, keep) => { const sh = $('#sh'), top = sh.scrollTop; sh.innerHTML = '<span class="grab"></span>' + h; $('#ov').classList.remove('ov-light'); $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; };
+const sheet = (h, keep) => { tinvHide(); const sh = $('#sh'), top = sh.scrollTop;   // плашка «Впервые здесь?» (tour.js) не висит поверх окна
+ sh.innerHTML = '<span class="grab"></span>' + h; $('#ov').classList.remove('ov-light'); $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; };
 const closeSheet = () => { $('#ov').classList.remove('show', 'ov-light'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; };
 const sheetOpen = () => $('#ov').classList.contains('show');
 const catChips = (selId, act) => S.cats.map(c => `<button type="button" class="ccat${c.id===selId?' on':''}" data-act="${act}" data-id="${c.id}" style="--c:${c.color}"><i></i>${esc(c.name)}</button>`).join('');
@@ -424,6 +426,7 @@ const COMMANDS = () => [
   { ic:IC.gear, t:'Настройки', run:() => openSettings() },
   { ic:IC.user, t:'Профиль', run:() => setSec('profile') },
   { ic:IC.key, t:'Горячие клавиши', k:'?', run:openHelp },
+  { ic:IC.msg, t:'Написать отзыв', run:() => { fb = null; openFeedback(); } },
   { ic:IC.down, t:'Скачать резервную копию', run:exportData },
   { ic:IC.share, t:'Поделиться всем календарём', run:() => openShare({ kind:'a' }) },
   ...S.cats.map(c => ({ ic:IC.share, t:`Поделиться календарём «${c.name}»`, run:() => openShare({ kind:'c', id:c.id }) })),

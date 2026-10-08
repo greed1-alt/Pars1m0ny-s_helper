@@ -298,3 +298,46 @@ function accountHTML() {
     <div class="lo-foot" style="margin-top:0"><button class="btn grow" data-act="syncnow">${I(IC.rep, 16)} Синхронизировать</button><button class="btn grow" data-act="logout">Выйти</button></div>${safe}
     <button class="lnk acc-del" data-act="accdel">Удалить аккаунт</button></div>`;
 }
+
+// ---- Отзыв бета-тестера (8 октября 2026) ----
+// Кнопка «Отзыв» внизу Главной и страниц, в Настройках → «О приложении», в боковой панели ПК и в меню команд.
+// Отзыв уходит в таблицу feedback (supabase/sql/feedback.sql): отправить может только вошедший человек, читает — владелец в панели Supabase.
+// Вместе с текстом — на каком экране был человек, размер экрана, версия приложения: так проще понять, где он запутался.
+const FB_KINDS = [['unclear', 'Непонятно'], ['inconvenient', 'Неудобно'], ['bug', 'Ошибка'], ['idea', 'Идея']];
+let fb = null;   // { kind, text, screen }
+const VIEW_N = { month:'месяц', week:'неделя', day:'день', list:'список' }, TVIEW_N = { today:'сегодня', week:'неделя', all:'все', goals:'цели' };
+function fbScreen() {
+  const s = SEC[sec] ? SEC[sec].name : sec;
+  let w = sec === 'cal' ? s + ' · ' + VIEW_N[view] : sec === 'tasks' ? s + ' · ' + TVIEW_N[tView] : s;
+  const h = sheetOpen() && $('#sh h3'); if (h && !/^Отзыв$/.test(h.textContent)) w += ' · окно «' + h.textContent.trim().slice(0, 60) + '»';
+  return w.slice(0, 200);
+}
+function openFeedback(keep) {
+  if (!fb) fb = { kind:'', text:'', screen: fbScreen() };
+  if (!signedIn()) return sheet(`<div class="sh-head"><h3>Отзыв</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+    <p class="set-note" style="margin:0 0 14px">Чтобы отправить отзыв, войдите в аккаунт — так понятно, от кого он и куда ответить.</p>
+    <button class="btn pri lg-go" data-act="login">Войти по почте</button>`);
+  sheet(`<div class="sh-head"><h3>Отзыв</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  <p class="set-note" style="margin:0 0 12px">Что непонятно, неудобно или сломалось? Чего не хватает? Пишите как есть — каждый отзыв читает автор приложения.</p>
+  <div class="chips fb-kinds" role="group" aria-label="О чём отзыв">${FB_KINDS.map(([k, n]) => `<button type="button" class="chip${fb.kind === k ? ' on' : ''}" data-act="fbkind" data-k="${k}" aria-pressed="${fb.kind === k}">${n}</button>`).join('')}</div>
+  <textarea id="fb_text" class="fin fb-text" maxlength="4000" placeholder="Например: «не понял, где поменять порядок вкладок» или «хочу видеть траты по неделям»">${esc(fb.text)}</textarea>
+  <p class="set-note fb-meta">${I(IC.alert, 13)} Вместе с отзывом отправится экран «${esc(fb.screen)}», размер экрана и версия приложения.</p>
+  <button class="btn pri lg-go" data-act="fbsend">Отправить</button>`, keep);
+  setTimeout(() => { const t = $('#fb_text'); if (t) t.focus(); }, 60);
+}
+async function fbSend() {
+  const t = $('#fb_text'); if (t) fb.text = t.value;
+  const body = fb.text.trim();
+  if (!body) { if (t) t.focus(); return toast('Напишите пару слов'); }
+  const b = $('[data-act="fbsend"]'); if (b) { b.disabled = true; b.textContent = 'Отправляю…'; }
+  let ver = ''; try { ver = (await caches.keys()).find(k => /^rem-v\d+$/.test(k)) || ''; } catch (e) {}
+  const meta = { ver, w: innerWidth, h: innerHeight, app: !!(matchMedia('(display-mode: standalone)').matches || navigator.standalone), theme: S.settings.theme, pal: S.settings.pal, ua: navigator.userAgent.slice(0, 200) };
+  try {
+    await api('/rest/v1/feedback', { method:'POST', user:true, body:{ kind: fb.kind || null, screen: fb.screen, body: body.slice(0, 4000), meta }, headers:{ Prefer:'return=minimal' } });
+    fb = null; closeSheet(); toast('Спасибо! Отзыв отправлен');
+  } catch (e) { if (b) { b.disabled = false; b.textContent = 'Отправить'; } toast(e.status === 0 ? 'Нет связи — отзыв сохранится в окне, попробуйте позже' : cloudErrText(e)); }
+}
+ACT.feedback = () => { fb = null; openFeedback(); };
+ACT.fbkind = el => { const t = $('#fb_text'); if (t) fb.text = t.value; fb.kind = fb.kind === el.dataset.k ? '' : el.dataset.k; openFeedback(true); };
+ACT.fbsend = fbSend;
+document.addEventListener('input', e => { if (e.target.id === 'fb_text' && fb) fb.text = e.target.value; });

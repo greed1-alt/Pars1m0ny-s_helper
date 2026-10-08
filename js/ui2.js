@@ -285,7 +285,7 @@ function homeHTML() {
   const omni = `<div class="card h2-omni">${omniHTML('om', 'home')}</div>`;
   const blocks = homeOrder().map(x => homeBlock(x, t)).join('');
   return `${hero}<div class="h2-cols"><div class="h2-col">${omni}${secOn('tasks') || secOn('cal') ? missedBar(true) : ''}${blocks}</div><div class="h2-col"></div></div>
-  <div class="h2-cust"><button class="lnk" data-act="blkcust" data-p="home">${I(IC.grid, 15)} Настроить Главную</button></div>`;
+  <div class="h2-cust"><button class="lnk" data-act="blkcust" data-p="home">${I(IC.grid, 15)} Настроить Главную</button><button class="lnk" data-act="feedback">${I(IC.msg, 15)} Отзыв</button></div>`;
 }
 
 

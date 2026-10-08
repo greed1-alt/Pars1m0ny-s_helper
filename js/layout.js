@@ -86,7 +86,7 @@ onMigrate(() => {
 const BL = p => p === 'home' ? HOME_BL : PAGE_BL[p];
 const layOf = p => p === 'home' ? S.settings.home : S.settings.lay[p];
 const setLay = (p, L) => { if (p === 'home') S.settings.home = L; else S.settings.lay[p] = L; };
-const pageCust = p => `<div class="h2-cust pg-cust"><button class="lnk" data-act="blkcust" data-p="${p}">${I(IC.grid, 15)} Настроить страницу</button></div>`;
+const pageCust = p => `<div class="h2-cust pg-cust"><button class="lnk" data-act="blkcust" data-p="${p}">${I(IC.grid, 15)} Настроить страницу</button><button class="lnk" data-act="feedback">${I(IC.msg, 15)} Отзыв</button></div>`;
 // Блоки страницы в порядке пользователя. defs[k] = { sum, body(), foldBody() (если свёрнутым нужен другой вид), def — открыт ли свёрнутый по умолчанию, fk — ключ открытости, own, skip — нечего показать }
 function pageBlocks(p, defs) {
   return layOf(p).filter(x => x.m !== 'off').map(x => { const d = defs[x.k], b = PAGE_BL[p][x.k]; if (!d || d.skip) return '';
