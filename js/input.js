@@ -345,10 +345,13 @@ document.addEventListener('keydown', e => {
 
 // ---- Свайп между периодами ----
 let tsx = 0, tsy = 0, tsIn = false;
-// В разделах таблицы листаются пальцем вбок — там свайп не переключает месяц
-document.addEventListener('touchstart', e => { tsx = e.touches[0].clientX; tsy = e.touches[0].clientY; tsIn = !!(e.target.closest && e.target.closest('[data-hs], .chart, input, textarea, .onb, .om-types')); }, {passive:true});
+// В разделах таблицы листаются пальцем вбок — там свайп не переключает месяц.
+// То же для любого ряда, который сам прокручивается вбок (вкладки профиля, кнопки и т. п.), — 8 октября 2026, жалоба пользователя
+const inHScroll = el => { for (; el && el !== document.body; el = el.parentElement) { if (el.scrollWidth > el.clientWidth + 2 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true; } return false; };
+document.addEventListener('touchstart', e => { tsx = e.touches[0].clientX; tsy = e.touches[0].clientY; tsIn = !!(e.target.closest && e.target.closest('[data-hs], .chart, input, textarea, .onb, .om-types')) || inHScroll(e.target); }, {passive:true});
 document.addEventListener('touchend', e => {
   if (!e.changedTouches || tsIn || sheetOpen() || cmdOpen() || quickOpen() || drag || Date.now() - lastDragEnd < 600) return;
+  if (sec !== 'cal' && SEC[sec].noNav) return;   // Главная, профиль, настройки, вкладка «Цели»: листать нечего
   const dx = e.changedTouches[0].clientX - tsx, dy = e.changedTouches[0].clientY - tsy;
   if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5) move(dx < 0 ? 1 : -1);
 }, {passive:true});

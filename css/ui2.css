@@ -570,3 +570,10 @@ html.touring{overflow:hidden;scrollbar-gutter:stable}
 .lg-choice b{font-size:15px}
 .lg-choice small{font-size:12.5px;color:var(--mut);line-height:1.35}
 @media(hover:hover){.lg-choice:hover{border-color:var(--acc)}}
+/* Профиль → «Аккаунт»: на телефоне подпись сверху, кнопки под ней во всю ширину (раньше текст сжимался в столбик по слову) */
+@media(max-width:599px){
+  .acc-row{flex-direction:column;align-items:stretch;gap:8px}
+  .acc-row .pe-btns{width:100%}
+  .acc-row .pe-btns .btn{flex:1;min-width:0}
+  .acc-row .soon{align-self:flex-start}
+}
