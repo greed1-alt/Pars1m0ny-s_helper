@@ -189,7 +189,8 @@ async function cloudLogout(force) {
     const b = readBase();
     if (!b || !same(packS(), b)) return openLogoutAsk(true);
   }
-  try { await api('/auth/v1/logout', { method:'POST', user:true }); } catch (e) {}
+  // Выход только на этом устройстве (без scope Supabase выходит со всех устройств сразу)
+  try { await api('/auth/v1/logout?scope=local', { method:'POST', user:true }); } catch (e) {}
   auth = null; saveAuth(); wipeDevice();
 }
 function openLogoutAsk(unsaved) {
