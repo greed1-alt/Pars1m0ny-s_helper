@@ -4,7 +4,7 @@
 // Два устройства не затирают друг друга: сервер ведёт номер версии (rev), при расхождении изменения объединяются (merge3).
 // Весь код работы с сервером — здесь: переезд на российский сервер = замена SUPABASE_URL / SUPABASE_KEY (решение пользователя 7 октября 2026).
 // Таблица и правила доступа — supabase/sql/user_data.sql. Бета закрытая: в Supabase выключена регистрация, войти могут только добавленные почты.
-const AUTH_LS = 'remapp_auth', SYNC_LS = 'remapp_sync', BASE_LS = 'remapp_v1_base', SAFE_LS = 'remapp_v1_safety';
+const LG_LS = 'remapp_login', AUTH_LS = 'remapp_auth', SYNC_LS = 'remapp_sync', BASE_LS = 'remapp_v1_base', SAFE_LS = 'remapp_v1_safety';
 const DEVICE_ONLY = ['dev', 'sec', 'lastTest'];   // настройки устройства — не синхронизируются
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); } catch (e) {} };
@@ -137,6 +137,10 @@ async function syncNow() {
   }
 }
 function cloudStart() {
+  // iPhone мог перезапустить приложение, пока человек ходил в почту за кодом, — сразу снова открываем ввод кода (15 минут)
+  const pend = lsGet(LG_LS);
+  if (!signedIn() && pend && EMAIL_RE.test(pend.email || '') && Date.now() - pend.sentAt < 15 * 60000) { lg = { step:'code', email: pend.email, sentAt: pend.sentAt, err:'' }; setTimeout(() => openLogin(), 400); }
+  else lsSet(LG_LS, null);
   if (signedIn()) syncNow();
   document.addEventListener('visibilitychange', () => { if (!signedIn()) return; document.hidden ? syncSoon(0) : syncNow(); });
   addEventListener('online', () => { if (signedIn()) syncNow(); });
@@ -247,7 +251,7 @@ async function lgSend() {
   const i = $('#lg_email'), email = (i ? i.value : lg.email).trim().toLowerCase();
   if (!EMAIL_RE.test(email)) { if (i) i.focus(); return lgErr('Проверьте почту — похоже, в ней ошибка'); }
   lg.email = email; lgErr(''); lgBusy(true, 'Отправляю…');
-  try { await api('/auth/v1/otp', { method:'POST', body:{ email, create_user:false } }); lg.step = 'code'; lg.sentAt = Date.now(); openLogin(true); }
+  try { await api('/auth/v1/otp', { method:'POST', body:{ email, create_user:false } }); lg.step = 'code'; lg.sentAt = Date.now(); lsSet(LG_LS, { email, sentAt: lg.sentAt }); openLogin(true); }
   catch (e) { lgBusy(false, 'Получить код'); lgErr(cloudErrText(e)); }
 }
 async function lgVerify() {
@@ -256,14 +260,14 @@ async function lgVerify() {
   lgErr(''); lgBusy(true, 'Проверяю…');
   try { setSession(await api('/auth/v1/verify', { method:'POST', body:{ type:'email', email: lg.email, token: code } })); }
   catch (e) { lgBusy(false, 'Войти'); return lgErr(cloudErrText(e)); }
-  lg = null; closeSheet();
+  lg = null; lsSet(LG_LS, null); closeSheet();
   try { await afterLogin(); } catch (e) { toast(cloudErrText(e)); syncUI(); }
 }
 ACT.login = () => { lg = null; openLogin(); };
 ACT.lgsend = lgSend;
 ACT.lgverify = lgVerify;
 ACT.lgresend = () => { if (lg) { lg.step = 'email'; lgSend(); } };
-ACT.lgback = () => { if (lg) { lg.step = 'email'; lg.err = ''; openLogin(true); } };
+ACT.lgback = () => { lsSet(LG_LS, null); if (lg) { lg.step = 'email'; lg.err = ''; openLogin(true); } };
 ACT.syncnow = () => syncNow();
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || e.isComposing || !lg) return;
