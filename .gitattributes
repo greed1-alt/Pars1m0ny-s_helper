@@ -1,0 +1,2 @@
+# Скрипты bash — всегда с переводом строки LF, иначе Git Bash на Windows спотыкается о 
+*.sh text eol=lf
