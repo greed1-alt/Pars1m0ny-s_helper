@@ -23,7 +23,11 @@ async function api(path, o) {
   if (o.body !== undefined) h['Content-Type'] = 'application/json';
   if (o.user) h.Authorization = 'Bearer ' + await accessToken();
   let r;
-  try { r = await fetch(SUPABASE_URL + path, { method: o.method || 'GET', headers: h, body: o.body === undefined ? undefined : JSON.stringify(o.body), cache: 'no-store' }); }
+  const body = o.body === undefined ? undefined : JSON.stringify(o.body);
+  // Приложение закрывают (вкладка скрыта) — keepalive: браузер доведёт запрос до конца, даже если страницу «заморозят».
+  // Так событие, созданное прямо перед закрытием, успевает попасть в аккаунт, и сервер пришлёт по нему напоминание. Лимит keepalive — 64 КБ
+  const keepalive = document.visibilityState === 'hidden' && (!body || body.length < 60000);
+  try { r = await fetch(SUPABASE_URL + path, { method: o.method || 'GET', headers: h, body, cache: 'no-store', keepalive }); }
   catch (e) { throw new CloudErr('offline', 0); }
   const txt = await r.text(); let j = null; try { j = txt ? JSON.parse(txt) : null; } catch (e) {}
   if (!r.ok) throw new CloudErr(String((j && (j.msg || j.message || j.error_description || j.error)) || 'HTTP ' + r.status), r.status, j && (j.error_code || j.code));
@@ -112,7 +116,9 @@ async function syncNow() {
   try {
     for (let attempt = 0; attempt < 4; attempt++) {
       const base = readBase(), local = packS(), changed = !base || !same(local, base);
-      const head = await rowGet('rev');
+      // Приложение закрывают: сразу одна запись (с проверкой версии на сервере), без предварительного вопроса —
+      // второй запрос после ответа на первый iPhone может уже не отправить. Не совпала версия — обычный путь ниже
+      const head = attempt === 0 && base && changed && document.visibilityState === 'hidden' ? { rev: sync.rev } : await rowGet('rev');
       if (!head) { const r = await rowInsert(local); writeBase(local, r.rev); break; }
       if (base && head.rev === sync.rev) {
         if (!changed) { sync.at = Date.now(); sync.err = ''; break; }
@@ -142,7 +148,7 @@ function cloudStart() {
   if (!signedIn() && pend && EMAIL_RE.test(pend.email || '') && Date.now() - pend.sentAt < 15 * 60000) { lg = { step:'code', email: pend.email, sentAt: pend.sentAt, err:'' }; setTimeout(() => openLogin(), 400); }
   else lsSet(LG_LS, null);
   if (signedIn()) { syncNow(); pushSync(); }
-  document.addEventListener('visibilitychange', () => { if (!signedIn()) return; document.hidden ? syncSoon(0) : syncNow(); });
+  document.addEventListener('visibilitychange', () => { if (!signedIn()) return; clearTimeout(syncTimer); syncNow(); });   // при закрытии — сразу, без таймера: его iPhone может не дождаться
   addEventListener('online', () => { if (signedIn()) syncNow(); });
   setInterval(() => { if (signedIn() && !document.hidden) syncNow(); }, 60000);   // раз в минуту — проверить, не изменилось ли на другом устройстве
 }
