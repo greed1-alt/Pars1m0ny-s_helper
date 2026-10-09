@@ -331,7 +331,7 @@ async function fbSend() {
   if (!body) { if (t) t.focus(); return toast('Напишите пару слов'); }
   const b = $('[data-act="fbsend"]'); if (b) { b.disabled = true; b.textContent = 'Отправляю…'; }
   let ver = ''; try { ver = (await caches.keys()).find(k => /^rem-v\d+$/.test(k)) || ''; } catch (e) {}
-  const meta = { ver, w: innerWidth, h: innerHeight, app: !!(matchMedia('(display-mode: standalone)').matches || navigator.standalone), theme: S.settings.theme, pal: S.settings.pal, ua: navigator.userAgent.slice(0, 200) };
+  const meta = { ver, site: location.hostname, w: innerWidth, h: innerHeight, app: !!(matchMedia('(display-mode: standalone)').matches || navigator.standalone), theme: S.settings.theme, pal: S.settings.pal, ua: navigator.userAgent.slice(0, 200) };
   try {
     await api('/rest/v1/feedback', { method:'POST', user:true, body:{ kind: fb.kind || null, screen: fb.screen, body: body.slice(0, 4000), meta }, headers:{ Prefer:'return=minimal' } });
     fb = null; closeSheet(); toast('Спасибо! Отзыв отправлен');

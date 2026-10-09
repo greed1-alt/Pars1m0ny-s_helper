@@ -99,7 +99,7 @@ document.addEventListener('input', e => {
 
 SEC.home = {
   name:'Главная', icon:IC.home, newLabel:'Создать', noNav:true,
-  title: () => innerWidth >= 900 ? 'Главная' : `<span class="wordmark">${APP_NAME}</span>`,   // дата — в приветствии, в шапке не повторяем
+  title: () => innerWidth >= 900 ? 'Главная' : `<span class="wordmark">${APP_NAME}</span>${BETA_PILL}`,   // дата — в приветствии, в шапке не повторяем
   html: () => homeHTML(), move: () => {},
 };
 

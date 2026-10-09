@@ -168,7 +168,7 @@ const tplSub = t => t.time ? (t.time2 ? t.time + '–' + t.time2 : t.time) : 'В
 function sideHTML() {
   const open = S.settings.tplOpen !== false, n = nextUp();
   const cnt = id => S.events.filter(e => e.cat === id).length;
-  const top = `<div class="sb-top"><button class="sb-title" data-act="sec" data-s="home" title="Главная"><span class="sb-logo" title="Сегодня ${esc(fmtLong(todayK()))}"><span>${pd(todayK()).getDate()}</span></span><span class="wordmark">${APP_NAME}</span></button><button class="sb-ic" data-act="search" aria-label="Поиск" title="Поиск и команды (Ctrl+K)">${I(IC.search)}</button></div>
+  const top = `<div class="sb-top"><button class="sb-title" data-act="sec" data-s="home" title="Главная"><span class="sb-logo" title="Сегодня ${esc(fmtLong(todayK()))}"><span>${pd(todayK()).getDate()}</span></span><span class="wordmark">${APP_NAME}</span>${BETA_PILL}</button><button class="sb-ic" data-act="search" aria-label="Поиск" title="Поиск и команды (Ctrl+K)">${I(IC.search)}</button></div>
   ${navHTML()}`;
   const foot = `<div class="sb-foot">
 
