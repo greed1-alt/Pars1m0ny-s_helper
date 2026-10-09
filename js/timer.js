@@ -75,7 +75,7 @@ function tmPaint() {
     if (arc) { const p = r.mode === 'watch' ? (tmWatch() / 1000 % 60) / 60 : r.total ? tmLeft() / r.total : 0; arc.setAttribute('stroke-dashoffset', f1(C * (1 - p))); }
   }
   $$('.tm-mini').forEach(m => m.textContent = r.running ? txt : '');
-  document.title = r.running ? `${txt} · ${APP_NAME}` : APP_NAME;
+  document.title = r.running ? `${txt} · ${APP_TITLE}` : APP_TITLE;
 }
 function tmFinish() {
   const r = TR(), t = todayK(); let msg;

@@ -584,3 +584,7 @@ html.touring{overflow:hidden;scrollbar-gutter:stable}
 .fb-meta{display:flex;gap:6px;align-items:flex-start;font-size:12px!important;margin:8px 0 12px!important}
 .fb-meta svg{flex:none;margin-top:1px}
 a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;color:inherit}
+
+/* Тестовая версия (beta.parsimony.ru): значок «β» у названия и янтарная полоса сверху. Цвет постоянный, не из палитры — чтобы бросался в глаза в любой теме */
+.beta-pill{display:inline-block;margin-left:6px;padding:0 7px;border-radius:999px;background:#f59e0b;color:#1f1400;font:700 12px/1.6 Inter,system-ui,sans-serif;letter-spacing:.02em;vertical-align:middle;white-space:nowrap}
+html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;background:#f59e0b;z-index:2147483647;pointer-events:none}
