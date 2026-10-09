@@ -141,7 +141,7 @@ function cloudStart() {
   const pend = lsGet(LG_LS);
   if (!signedIn() && pend && EMAIL_RE.test(pend.email || '') && Date.now() - pend.sentAt < 15 * 60000) { lg = { step:'code', email: pend.email, sentAt: pend.sentAt, err:'' }; setTimeout(() => openLogin(), 400); }
   else lsSet(LG_LS, null);
-  if (signedIn()) syncNow();
+  if (signedIn()) { syncNow(); pushSync(); }
   document.addEventListener('visibilitychange', () => { if (!signedIn()) return; document.hidden ? syncSoon(0) : syncNow(); });
   addEventListener('online', () => { if (signedIn()) syncNow(); });
   setInterval(() => { if (signedIn() && !document.hidden) syncNow(); }, 60000);   // раз в минуту — проверить, не изменилось ли на другом устройстве
@@ -156,7 +156,7 @@ async function afterLogin() {
   else if (sync.owner === auth.uid && readBase()) { await syncNow(); toast('С возвращением! Записи обновлены'); }
   else if (hasLocalData()) { cloudPending = row; openMergeAsk(); return; }
   else { const remote = cleanTree(row.data || {}, ''); applyData(remote); writeBase(remote, row.rev); toast('Вы вошли — записи загружены из аккаунта'); }
-  syncUI(); render();
+  syncUI(); render(); checkNotif();
 }
 let cloudPending = null;
 function openMergeAsk() {
@@ -189,6 +189,7 @@ async function cloudLogout(force) {
     const b = readBase();
     if (!b || !same(packS(), b)) return openLogoutAsk(true);
   }
+  await disablePush(true);   // напоминания этого аккаунта больше не должны приходить на это устройство
   // Выход только на этом устройстве (без scope Supabase выходит со всех устройств сразу)
   try { await api('/auth/v1/logout?scope=local', { method:'POST', user:true }); } catch (e) {}
   auth = null; saveAuth(); wipeDevice();

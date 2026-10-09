@@ -15,3 +15,4 @@ render();
 cloudStart();   // аккаунт: забрать свежие записи с сервера (js/cloud.js)
 checkNotif();
 checkShareHash();
+checkDayHash();   // открыли по нажатию на напоминание — показать этот день

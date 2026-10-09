@@ -1,4 +1,4 @@
-const CACHE = 'rem-v47';
+const CACHE = 'rem-v48';
 const FILES = ['./', './index.html', './beta.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png',
   './css/app.css', './css/sections.css', './css/ui2.css', ...['core', 'look', 'help', 'calendar', 'charts', 'sections', 'tasks', 'habits', 'finance', 'goals', 'pages', 'timer', 'ui2', 'layout', 'tour', 'input', 'share', 'cloud', 'notify', 'main'].map(n => './js/' + n + '.js')];
 // cache:'reload' / 'no-cache' — мимо кэша браузера: GitHub Pages разрешает хранить файлы 10 минут, и без этого новая версия приходила с опозданием
@@ -16,9 +16,20 @@ self.addEventListener('fetch', e => {
     return r;
   }).catch(() => caches.match(e.request).then(r => r || caches.match('./index.html'))));
 });
+// Напоминание с сервера (функция reminders): { title, body, tag, url, k }. Одинаковый tag — новое заменяет прежнее («за час» → «за 15 минут»)
 self.addEventListener('push', e => {
-  let d = { title: 'Parsimony', body: 'Уведомление' };
-  try { if (e.data) d = e.data.json(); } catch (x) {}
-  e.waitUntil(self.registration.showNotification(d.title, { body: d.body, icon: 'icon-192.png', data: { url: d.url || './index.html' } }));
+  let d = { title: 'Parsimony', body: 'Напоминание' };
+  try { if (e.data) d = Object.assign(d, e.data.json()); } catch (x) {}
+  e.waitUntil(self.registration.showNotification(String(d.title), { body: String(d.body), icon: 'icon-192.png', badge: 'icon-192.png',
+    tag: d.tag || undefined, renotify: !!d.tag, data: { url: d.url || './', k: d.k || '' } }));
 });
-self.addEventListener('notificationclick', e => { e.notification.close(); e.waitUntil(clients.openWindow(e.notification.data.url)); });
+// Нажатие: открытое приложение — показать в нём нужный день; закрытое — открыть сразу на этом дне
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const d = e.notification.data || {}, url = new URL(d.url || './', self.registration.scope).href;
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    const c = list.find(w => w.url.startsWith(self.registration.scope));
+    if (c) { if (d.k) c.postMessage({ open: d.k }); return c.focus(); }
+    return clients.openWindow(url);
+  }));
+});

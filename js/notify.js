@@ -1,52 +1,102 @@
-// ---- Уведомления ----
+// ---- Уведомления и напоминания по времени ----
+// Напоминания шлёт сервер (функция reminders, раз в минуту) на устройства, где человек нажал «Включить напоминания».
+// Подписка устройства привязана к аккаунту: rpc push_register / push_unregister (supabase/sql/reminders.sql).
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-let notif = { state:'', text:'Проверяю…', short:'проверяю…' };
+const PUSH_LS = 'remapp_push';   // { uid, endpoint, at } — устройство подписано на напоминания этого аккаунта
+let notif = { state:'', text:'Проверяю…', short:'проверяю…', on:false };
 const swReady = () => Promise.race([navigator.serviceWorker.ready, new Promise((_, rej) => setTimeout(() => rej(new Error('service worker не запустился')), 4000))]);
+const pushSupported = () => 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+const pushSub = async () => { try { const reg = await swReady(); return reg.pushManager ? await reg.pushManager.getSubscription() : null; } catch (x) { return null; } };
+const pushMine = sub => { const p = lsGet(PUSH_LS); return !!(sub && p && signedIn() && p.uid === auth.uid && p.endpoint === sub.endpoint); };
 async function checkNotif() {
-  const set = (state, text, short) => { notif = { state, text, short }; };
-  if (!('Notification' in window) || !('serviceWorker' in navigator)) set('off', 'Этот браузер не поддерживает уведомления', 'нет поддержки');
-  else if (isIOS && navigator.standalone !== true) set('off', 'Откройте приложение с экрана «Домой», а не из Safari', 'откройте с «Домой»');
-  else if (Notification.permission === 'denied') set('off', 'Запрещены в настройках телефона или браузера', 'запрещены');
-  else if (Notification.permission !== 'granted') PUSH_SUBSCRIBE ? set('off', 'Выключены — нажмите «Включить уведомления»', 'выключены') : set('off', 'Напоминания по времени появятся в следующих версиях', 'скоро');
-  else {
-    let sub = null; try { const reg = await swReady(); sub = reg.pushManager ? await reg.pushManager.getSubscription() : null; } catch (x) {}
-    sub ? set('on', 'Включены, устройство подписано', 'включены')
-      : PUSH_SUBSCRIBE ? set('warn', 'Разрешены, но устройство ещё не подписано — нажмите «Включить»', 'не подписано') : set('on', 'Разрешены. Напоминания по времени появятся в следующих версиях', 'разрешены');
-  }
-  const sl = $('.sb-link .ndot'); if (sl) $('#side').innerHTML = sideHTML();
-  const ns = $('#nstat_t'); if (ns) { ns.textContent = notif.text; ns.previousElementSibling.className = 'ndot ' + notif.state; }
+  const set = (state, text, short, on) => { notif = { state, text, short, on: !!on }; };
+  if (!pushSupported()) set('off', 'Этот браузер не умеет показывать напоминания', 'нет поддержки');
+  else if (isIOS && navigator.standalone !== true) set('off', 'На iPhone напоминания работают в приложении с экрана «Домой», а не в Safari', 'откройте с «Домой»');
+  else if (Notification.permission === 'denied') set('off', 'Уведомления запрещены в настройках телефона или браузера', 'запрещены');
+  else if (!signedIn()) set('off', 'Войдите в аккаунт — напоминания приходят на устройства, где вы вошли', 'нужен вход');
+  else if (Notification.permission !== 'granted') set('off', 'Выключены на этом устройстве', 'выключены');
+  else { const mine = pushMine(await pushSub()); mine ? set('on', 'Включены на этом устройстве', 'включены', true) : set('warn', 'Разрешены, но это устройство ещё не подписано', 'не подписано'); }
+  const ns = $('#nstat_t'); if (ns && ns.textContent !== notif.text && sec === 'settings') render();
 }
 const plog = t => { const l = $('#plog'); if (l) l.textContent += (l.textContent ? '\n' : '') + t; else toast(t); };
 const b64 = v => { const raw = atob((v + '='.repeat((4 - v.length % 4) % 4)).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from([...raw].map(c => c.charCodeAt(0))); };
+// Отправить подписку устройства на сервер (тихо — при входе и запуске, если разрешение уже есть)
+async function pushRegister(sub) {
+  const j = sub.toJSON();
+  await api('/rest/v1/rpc/push_register', { method:'POST', user:true, body:{ p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_ua: navigator.userAgent.slice(0, 200) } });
+  lsSet(PUSH_LS, { uid: auth.uid, endpoint: j.endpoint, at: Date.now() });
+}
 async function enablePush() {
-  if (!PUSH_SUBSCRIBE) return plog('Напоминания по времени появятся в следующих версиях.');
+  if (!signedIn()) { toast('Сначала войдите в аккаунт'); return openLogin(); }
+  if (isIOS && navigator.standalone !== true) return plog('Откройте приложение с экрана «Домой», а не из Safari.');
+  if (!pushSupported()) return plog('Этот браузер не умеет показывать напоминания.');
   try {
-    if (isIOS && navigator.standalone !== true) return plog('Откройте приложение с экрана «Домой», а не из Safari.');
-    if (!('PushManager' in window)) return plog('Уведомления не поддерживаются.');
+    // Разрешение спрашиваем сразу по нажатию: iPhone не покажет вопрос, если перед ним было ожидание
+    if (Notification.permission !== 'granted' && await Notification.requestPermission() !== 'granted') { checkNotif(); return plog('Разрешение на уведомления не выдано. Его можно включить в настройках телефона или браузера.'); }
     const reg = await swReady();
-    if (await Notification.requestPermission() !== 'granted') { checkNotif(); return plog('Разрешение на уведомления не выдано.'); }
-    const sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64(VAPID_PUBLIC) });
-    const j = sub.toJSON();
-    const r = await fetch(SUPABASE_URL + '/rest/v1/push_subscriptions', { method:'POST',
-      headers:{ 'Content-Type':'application/json', apikey:SUPABASE_KEY, Authorization:'Bearer ' + SUPABASE_KEY },
-      body: JSON.stringify({ endpoint:j.endpoint, p256dh:j.keys.p256dh, auth:j.keys.auth }) });
-    plog(r.ok || r.status === 409 ? 'Уведомления включены.' : 'Ошибка сохранения: ' + r.status);
-  } catch (e) { plog('Ошибка: ' + e.message); }
+    const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64(VAPID_PUBLIC) });
+    await pushRegister(sub);
+    toast('Напоминания включены на этом устройстве');
+  } catch (e) { plog('Не получилось: ' + (e instanceof CloudErr ? cloudErrText(e) : e.message)); }
   checkNotif();
 }
+// Выключить на этом устройстве. quiet — при выходе из аккаунта: без сообщений, ошибки сети не мешают выйти
+async function disablePush(quiet) {
+  const sub = await pushSub();
+  try { if (sub && signedIn()) await api('/rest/v1/rpc/push_unregister', { method:'POST', user:true, body:{ p_endpoint: sub.endpoint } }); } catch (e) { if (!quiet) return plog('Не получилось: ' + cloudErrText(e)); }
+  try { if (sub) await sub.unsubscribe(); } catch (e) {}
+  lsSet(PUSH_LS, null);
+  if (!quiet) { toast('Напоминания на этом устройстве выключены'); checkNotif(); }
+}
+// При входе и запуске: если разрешение уже есть, привязать устройство к текущему аккаунту (раз в сутки — обновить)
+async function pushSync() {
+  if (!signedIn() || !pushSupported() || Notification.permission !== 'granted') return;
+  const sub = await pushSub(), p = lsGet(PUSH_LS);
+  if (!sub || !p) return;   // человек сам не включал — не подписываем молча
+  if (p.uid === auth.uid && p.endpoint === sub.endpoint && Date.now() - (p.at || 0) < 864e5) return;
+  try { await pushRegister(sub); } catch (e) {}
+  checkNotif();
+}
+// «Проверить»: подписанное устройство — уведомление идёт через сервер, как настоящее напоминание; иначе — показываем прямо здесь
 async function testNotif() {
   try {
-    if (!('Notification' in window)) return plog('Этот браузер не поддерживает уведомления.');
+    if (!('Notification' in window)) return plog('Этот браузер не умеет показывать уведомления.');
     if (isIOS && navigator.standalone !== true) return plog('Откройте приложение с экрана «Домой», а не из Safari.');
-    if (Notification.permission !== 'granted' && await Notification.requestPermission() !== 'granted') { checkNotif(); return plog('Разрешение на уведомления не выдано.'); }
-    const reg = await swReady();
-    await reg.showNotification(APP_NAME, { body:'Тестовое уведомление — всё работает ✓', icon:'icon-192.png', tag:'test' });
+    if (notif.on) {
+      const r = await fetch(SUPABASE_URL + '/functions/v1/reminders', { method:'POST', cache:'no-store',
+        headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body:'{"test":true}' });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return plog('Сервер напоминаний не ответил (' + r.status + '). Попробуйте позже.');
+      if (j.error === 'rate') return toast('Проверка уже отправлена — подождите минуту');
+      if (!j.devices) { lsSet(PUSH_LS, null); checkNotif(); return plog('Сервер не знает это устройство — нажмите «Включить напоминания» ещё раз.'); }
+      toast(j.ok ? `Отправили на ${plural(j.ok, ['устройство', 'устройства', 'устройств'])} — уведомление придёт через несколько секунд` : 'Сервер не смог отправить уведомление — включите напоминания заново');
+    } else {
+      if (Notification.permission !== 'granted' && await Notification.requestPermission() !== 'granted') { checkNotif(); return plog('Разрешение на уведомления не выдано.'); }
+      const reg = await swReady();
+      await reg.showNotification(APP_NAME, { body:'Тестовое уведомление — на этом устройстве показываются ✓', icon:'icon-192.png', tag:'test' });
+      toast('Тестовое уведомление показано');
+    }
     S.settings.lastTest = Date.now(); save();
-    toast('Тестовое уведомление отправлено');
     if (sec === 'settings') render();
-  } catch (e) { plog('Ошибка: ' + e.message); }
+  } catch (e) { plog('Ошибка: ' + (e instanceof CloudErr ? cloudErrText(e) : e.message)); }
   checkNotif();
 }
+// Нажали на уведомление о напоминании — открываем этот день в календаре (#d=2026-10-12 или сообщение от service worker)
+function openDay(k) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(k || '')) return;
+  sel = k; view = 'day'; syncMini(); monthAnchor = pd(k); monthAnchor.setDate(1);
+  if (typeof closeSheet === 'function') closeSheet();
+  setSec('cal');
+}
+function checkDayHash() {
+  const m = location.hash.match(/^#d=(\d{4}-\d{2}-\d{2})$/); if (!m) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  openDay(m[1]);
+}
+addEventListener('hashchange', checkDayHash);
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.open) openDay(e.data.open); });
+// Часовой пояс устройства — по нему сервер считает время напоминаний
+try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (tz && S.settings.tz !== tz) S.settings.tz = tz; } catch (e) {}
 
 // ---- Обновление «сейчас» раз в 30 секунд ----
 function tick() {

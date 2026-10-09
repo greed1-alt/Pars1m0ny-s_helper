@@ -89,6 +89,7 @@ document.addEventListener('click', async ev => {
   }
   else if (a === 'delno') { delAsk = null; openSettings(true); }
   else if (a === 'push') enablePush();
+  else if (a === 'pushoff') disablePush();
   else if (a === 'ntest') testNotif();
   else if (a === 'export') exportData();
   else if (a === 'import') $('#imp_file').click();

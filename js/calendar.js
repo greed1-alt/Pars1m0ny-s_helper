@@ -380,10 +380,12 @@ function settingsBlocks() {
     ${palOpen === c.id ? `<div class="cpal">${PALETTE.map(col => `<button class="cdot${col.toLowerCase() === c.color.toLowerCase() ? ' on' : ''}" data-act="setcolor" data-id="${c.id}" data-c="${col}" style="--c:${col}" aria-label="${col}"></button>`).join('')}<label class="cdot custom" title="Свой цвет"><input type="color" data-cat="${c.id}" data-f="color" value="${c.color}"></label></div>` : ''}`).join('')}</div>
   <button class="addcat" data-act="addcat">+ Добавить категорию</button>
   <button class="btn" style="width:100%;margin-top:8px" data-act="shareall">${I(IC.share,16)} Поделиться всем календарём</button>`,
-  notif: `<div class="set-sec">Уведомления</div>
+  notif: `<div class="set-sec">Напоминания</div>
   <div class="nstat"><i class="ndot ${notif.state}"></i><span id="nstat_t">${esc(notif.text)}</span></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">${PUSH_SUBSCRIBE ? `<button class="btn pri grow" data-act="push">${I(IC.bell,16)} Включить уведомления</button>` : ''}<button class="btn grow" data-act="ntest">${PUSH_SUBSCRIBE ? '' : I(IC.bell,16) + ' '}Проверить</button></div>
-  <p class="set-note">${st.lastTest ? 'Последняя проверка: ' + new Date(st.lastTest).toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'}) : 'Проверок ещё не было.'} «Проверить» показывает тестовое уведомление на этом устройстве.${PUSH_SUBSCRIBE ? '' : ' Напоминания по времени появятся позже — для них нужен сервер.'}</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">${!signedIn() ? `<button class="btn pri grow" data-act="login">${I(IC.user,16)} Войти</button>`
+    : notif.on ? `<button class="btn pri grow" data-act="ntest">${I(IC.bell,16)} Проверить</button><button class="btn grow" data-act="pushoff">Выключить здесь</button>`
+    : `<button class="btn pri grow" data-act="push">${I(IC.bell,16)} Включить напоминания</button><button class="btn grow" data-act="ntest">Проверить</button>`}</div>
+  <p class="set-note">Напоминание приходит в выбранное время — «за час», «за 15 минут» и т. п. задаются в карточке события. Для дел без времени — от 9:00. Включите на каждом устройстве, где хотите их получать${isIOS ? '; на iPhone — в приложении с экрана «Домой»' : ''}.${st.lastTest ? ' Последняя проверка: ' + new Date(st.lastTest).toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'}) + '.' : ''}</p>
   <div id="plog"></div>`,
   data: `<div class="set-sec">Аккаунт и данные</div>
   ${accountHTML()}
