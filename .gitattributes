@@ -1,2 +1,2 @@
-# Скрипты bash — всегда с переводом строки LF, иначе Git Bash на Windows спотыкается о 
+# Скрипты bash — всегда с переводом строки LF: с CRLF Git Bash на Windows не запустит скрипт
 *.sh text eol=lf
