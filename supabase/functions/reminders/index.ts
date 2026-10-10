@@ -6,6 +6,7 @@
 // Кто вызывает:
 // 1) pg_cron раз в минуту (supabase/sql/reminders_cron.sql) с секретным ключом sb_secret_… в заголовке apikey.
 //    Функция находит напоминания, время которых наступило за последние 10 минут, и шлёт пуш на устройства владельца записей.
+//    Так же — утренняя сводка «План на сегодня» и вечернее «Запишите задачи на завтра» (время — в S.settings.digest).
 //    Каждое напоминание уходит один раз: перед отправкой оно записывается в reminder_log (повтор ключа — пропуск).
 // 2) Приложение с токеном пользователя и {"test":true} — проверочное уведомление на устройства этого человека
 //    (не чаще раза в минуту).
@@ -16,7 +17,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 // ==== CORE start ====
 // Тот же смысл, что в приложении (js/core.js: occurs, isDone, remOffs), но даты считаются в часовом поясе пользователя
 const DAY = 864e5, WINDOW = 10 * 60000, NO_TIME = 9 * 60;   // дела без времени — напоминание от 9:00
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/, TIME_RE = /^\d{2}:\d{2}$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/, TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;   // время — только настоящее, 00:00–23:59
 const MONG = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
 const pad = n => String(n).padStart(2, '0');
 const ymd = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
@@ -85,6 +86,43 @@ function remPayload(r, now, tz) {
   if (e.loc) body += ` · ${String(e.loc).slice(0, 80)}`;
   return { title: String(e.title || 'Напоминание').slice(0, 120), body, k: r.k, url: `./#d=${r.k}`, tag: `r:${String(e.id).slice(0, 60)}:${r.k}` };
 }
+
+// ---- Сводки: утром — план на день, вечером — «запишите задачи на завтра» (S.settings.digest) ----
+const DG_DEF = { am: true, amT: '09:00', pm: true, pmT: '22:00' };
+const digestOf = data => { const s = data && data.settings && data.settings.digest, d = Object.assign({}, DG_DEF, s && typeof s === 'object' ? s : {});
+  if (!TIME_RE.test(d.amT)) d.amT = DG_DEF.amT; if (!TIME_RE.test(d.pmT)) d.pmT = DG_DEF.pmT; d.am = d.am !== false; d.pm = d.pm !== false; return d; };
+function dueDigests(data, from, to) {
+  const tz = tzOf(data), dg = digestOf(data), out = [];
+  for (const k of new Set([dayIn(from, tz), dayIn(to, tz)]))
+    for (const [kind, on, t] of [['am', dg.am, dg.amT], ['pm', dg.pm, dg.pmT]]) {
+      if (!on) continue;
+      const fire = zoned(k, tmin(t), tz);
+      if (fire > from && fire <= to) out.push({ key: `${kind}|${k}`, fire, kind, k });
+    }
+  return out;
+}
+const plural = (n, f) => n + ' ' + f[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
+const DELO = ['дело', 'дела', 'дел'];
+const okEv = e => e && typeof e === 'object' && DATE_RE.test(e.date || '') && typeof e.title === 'string';
+// Невыполненные дела дня: сначала по времени, потом без времени
+const dayItems = (data, k) => (data && Array.isArray(data.events) ? data.events : []).filter(e => okEv(e) && occurs(e, k) && !isDone(e, k))
+  .sort((a, b) => (TIME_RE.test(a.time || '') ? a.time : '99').localeCompare(TIME_RE.test(b.time || '') ? b.time : '99') || a.title.localeCompare(b.title));
+const itemText = e => (TIME_RE.test(e.time || '') ? e.time + ' ' : '') + String(e.title).slice(0, 40);
+const listText = (items, n) => items.slice(0, n).map(itemText).join(', ') + (items.length > n ? ` и ещё ${items.length - n}` : '');
+// «Вы пропустили» — как в приложении (missedList): разовые дела за 30 дней до сегодня без галочки
+const missedCount = (data, k) => (data && Array.isArray(data.events) ? data.events : []).filter(e => okEv(e) && !isRec(e) && !e.done && e.date < k && e.date >= addD(k, -30)).length;
+function digestPayload(d, data) {
+  if (d.kind === 'am') {
+    const items = dayItems(data, d.k), missed = missedCount(data, d.k);
+    let body = items.length ? listText(items, 3) : 'Запишите, что хотите успеть сегодня';
+    if (missed) body += ` · пропущено: ${missed}`;
+    return { title: items.length ? `План на сегодня: ${plural(items.length, DELO)}` : 'На сегодня дел не запланировано', body, s: 'home', url: './#s=home', tag: 'am' };
+  }
+  const next = addD(d.k, 1), items = dayItems(data, next), left = dayItems(data, d.k).filter(e => e.task).length;
+  let body = items.length ? `На завтра уже ${plural(items.length, DELO)}: ${listText(items, 2)}` : 'На завтра пока ничего нет';
+  if (left) body = `Не сделано сегодня: ${left} · ${body}`;
+  return { title: 'Запишите задачи на завтра', body, k: next, url: `./#d=${next}`, tag: 'pm' };
+}
 // ==== CORE end ====
 
 const clean = v => (v ?? '').trim().replace(/^["']|["']$/g, '');
@@ -125,6 +163,11 @@ async function tick(now) {
         due++;
         if (!(await once(row.user_id, r.key, r.fire))) continue;
         sent += (await sendTo(byUser.get(row.user_id), JSON.stringify(remPayload(r, now, tz)), 3600)).ok;
+      }
+      for (const d of dueDigests(data, now - WINDOW, now)) {
+        due++;
+        if (!(await once(row.user_id, d.key, d.fire))) continue;
+        sent += (await sendTo(byUser.get(row.user_id), JSON.stringify(digestPayload(d, data)), 3 * 3600)).ok;
       }
     }
   }

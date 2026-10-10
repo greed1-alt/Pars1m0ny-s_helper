@@ -588,3 +588,10 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text
 /* Тестовая версия (beta.parsimony.ru): значок «β» у названия и янтарная полоса сверху. Цвет постоянный, не из палитры — чтобы бросался в глаза в любой теме */
 .beta-pill{display:inline-block;margin-left:6px;padding:0 7px;border-radius:999px;background:#f59e0b;color:#1f1400;font:700 12px/1.6 Inter,system-ui,sans-serif;letter-spacing:.02em;vertical-align:middle;white-space:nowrap}
 html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;background:#f59e0b;z-index:2147483647;pointer-events:none}
+
+/* Сводки в блоке «Напоминания»: подпись в две строки, время и переключатель справа */
+.dg-row > span:first-child{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dg-row small{font-size:12px;color:var(--mut)}
+.dg-r{display:flex;align-items:center;gap:10px;flex:none}
+.set-row .dg-t{min-width:0;width:116px;padding-left:10px;padding-right:8px}
+.dg-t:disabled{opacity:.45}

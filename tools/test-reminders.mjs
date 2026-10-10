@@ -10,7 +10,7 @@ process.env.TZ = 'Europe/Moscow';   // так приложение считае�
 const root = new URL('..', import.meta.url);
 const fn = readFileSync(new URL('supabase/functions/reminders/index.ts', root), 'utf8');
 const core = fn.slice(fn.indexOf('// ==== CORE start ===='), fn.indexOf('// ==== CORE end ===='));
-const srv = new Function(core + '\nreturn { occurs, isDone, remOffs, dueReminders, remPayload, zoned, dayIn, addD, tzOf, WINDOW };')();
+const srv = new Function(core + '\nreturn { occurs, isDone, remOffs, dueReminders, remPayload, dueDigests, digestPayload, zoned, dayIn, addD, tzOf, WINDOW };')();
 
 // Функции приложения — прямо из js/core.js
 const app = readFileSync(new URL('js/core.js', root), 'utf8');
@@ -122,4 +122,53 @@ const fmt = t => srv.dayIn(t, MSK) + ' ' + new Date(t + 3 * 3600e3).toISOString(
   const s = simulate({ settings: { tz: 'Asia/Vladivostok' }, events: [ev({ date: '2026-10-12', time: '09:00', reminder: { enabled: true, offsets: [0] } })] }, '2026-10-11', '2026-10-12');
   assert.deepEqual([...s.values()].map(v => fmt(v.at)), ['2026-10-12 02:00']);
 }
-console.log(`Все проверки прошли (${checks} сравнений с приложением и часовых поясов + сценарии напоминаний)`);
+// ---- 4. Сводки: утром в 9:00 и вечером в 22:00 (по умолчанию), каждая раз в день ----
+function simDigests(data, fromK, toK, skipMinutes = new Set()) {
+  const sent = new Map();
+  for (let t = at(fromK, '00:00'); t <= at(toK, '23:59'); t += 60000) {
+    if (skipMinutes.has(t)) continue;
+    for (const d of srv.dueDigests(data, t - srv.WINDOW, t)) if (!sent.has(d.key)) sent.set(d.key, { at: t, d });
+  }
+  return sent;
+}
+const day = (k, o) => Object.assign({ id: 'd' + Math.random(), title: 'Дело', date: k }, o);
+{ // по умолчанию — 9:00 и 22:00 каждый день
+  const s = simDigests({ settings: { tz: MSK } }, '2026-10-12', '2026-10-13');
+  assert.deepEqual([...s.values()].map(v => v.d.kind + ' ' + fmt(v.at)), ['am 2026-10-12 09:00', 'pm 2026-10-12 22:00', 'am 2026-10-13 09:00', 'pm 2026-10-13 22:00']);
+}
+{ // своё время, выключенная вечерняя, мусор в настройках
+  const s = simDigests({ settings: { tz: MSK, digest: { am: true, amT: '07:30', pm: false, pmT: '23:00' } } }, '2026-10-12', '2026-10-12');
+  assert.deepEqual([...s.values()].map(v => v.d.kind + ' ' + fmt(v.at)), ['am 2026-10-12 07:30']);
+  const bad = simDigests({ settings: { digest: { amT: '99:99', pmT: 5, am: 'x' } } }, '2026-10-12', '2026-10-12');
+  assert.deepEqual([...bad.values()].map(v => v.d.kind + ' ' + fmt(v.at)), ['am 2026-10-12 09:00', 'pm 2026-10-12 22:00']);
+  assert.equal(simDigests({ settings: { digest: { am: false, pm: false } } }, '2026-10-12', '2026-10-12').size, 0);
+}
+{ // пропущенные запуски — сводка всё равно приходит, один раз
+  const miss = new Set(); for (let i = 0; i < 5; i++) miss.add(at('2026-10-12', '09:00') + i * 60000);
+  const s = simDigests({}, '2026-10-12', '2026-10-12', miss);
+  assert.deepEqual([...s.values()].map(v => v.d.kind + ' ' + fmt(v.at)), ['am 2026-10-12 09:05', 'pm 2026-10-12 22:00']);
+}
+{ // Владивосток: 9:00 по местному
+  const s = simDigests({ settings: { tz: 'Asia/Vladivostok' } }, '2026-10-12', '2026-10-12');
+  assert.ok([...s.values()].some(v => v.d.kind === 'am' && fmt(v.at) === '2026-10-12 02:00'));
+}
+{ // тексты
+  const data = { events: [
+    day('2026-10-12', { title: 'Купить подарок', task: true }), day('2026-10-12', { title: 'Встреча', time: '14:00' }), day('2026-10-12', { title: 'Врач', time: '10:00' }),
+    day('2026-10-12', { title: 'Сделано', time: '08:00', done: true }), day('2026-10-05', { title: 'Работа', time: '09:00', repeat: { type: 'weekdays' } }),
+    day('2026-10-12', { title: 'Позвонить', task: true }),
+    day('2026-10-10', { title: 'Забыл', task: true }), day('2026-10-11', { title: 'Тоже забыл' }), day('2026-08-01', { title: 'Давно', task: true }),
+    day('2026-10-13', { title: 'Тренировка', time: '19:00' }), day('2026-10-13', { title: 'Отчёт', task: true }) ] };
+  const am = srv.digestPayload({ kind: 'am', k: '2026-10-12' }, data);
+  assert.equal(am.title, 'План на сегодня: 5 дел');
+  assert.equal(am.body, '09:00 Работа, 10:00 Врач, 14:00 Встреча и ещё 2 · пропущено: 2');
+  const pm = srv.digestPayload({ kind: 'pm', k: '2026-10-12' }, data);
+  assert.equal(pm.title, 'Запишите задачи на завтра');
+  assert.equal(pm.body, 'Не сделано сегодня: 2 · На завтра уже 3 дела: 09:00 Работа, 19:00 Тренировка и ещё 1');
+  assert.equal(pm.url, './#d=2026-10-13'); assert.equal(pm.k, '2026-10-13');
+  const empty = srv.digestPayload({ kind: 'am', k: '2026-10-18' }, { events: [] });
+  assert.equal(empty.title, 'На сегодня дел не запланировано');
+  assert.equal(srv.digestPayload({ kind: 'pm', k: '2026-10-18' }, {}).body, 'На завтра пока ничего нет');
+  assert.equal(srv.digestPayload({ kind: 'am', k: '2026-10-18' }, { events: [day('2026-10-18', { title: 'Одно' })] }).title, 'План на сегодня: 1 дело');
+}
+console.log(`Все проверки прошли (${checks} сравнений с приложением и часовых поясов + сценарии напоминаний и сводок)`);

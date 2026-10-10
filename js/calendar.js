@@ -385,6 +385,7 @@ function settingsBlocks() {
   <div style="display:flex;gap:8px;flex-wrap:wrap">${!signedIn() ? `<button class="btn pri grow" data-act="login">${I(IC.user,16)} Войти</button>`
     : notif.on ? `<button class="btn pri grow" data-act="ntest">${I(IC.bell,16)} Проверить</button><button class="btn grow" data-act="pushoff">Выключить здесь</button>`
     : `<button class="btn pri grow" data-act="push">${I(IC.bell,16)} Включить напоминания</button>`}</div>
+  ${notif.on ? digestHTML() : ''}
   <p class="set-note">Напоминание приходит в выбранное время — «за час», «за 15 минут» и т. п. задаются в карточке события. Для дел без времени — от 9:00. Включите на каждом устройстве, где хотите их получать${isIOS ? '; на iPhone — в приложении с экрана «Домой»' : ''}.${st.lastTest ? ' Последняя проверка: ' + new Date(st.lastTest).toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'}) + '.' : ''}</p>
   <div id="plog"></div>`,
   data: `<div class="set-sec">Аккаунт и данные</div>

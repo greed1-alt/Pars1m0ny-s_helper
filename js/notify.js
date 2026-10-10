@@ -81,6 +81,23 @@ async function testNotif() {
   } catch (e) { plog('Ошибка: ' + (e instanceof CloudErr ? cloudErrText(e) : e.message)); }
   checkNotif();
 }
+// ---- Сводки: утром — план на день, вечером — «запишите задачи на завтра». Шлёт сервер (функция reminders) по S.settings.digest ----
+const HM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+onMigrate(() => { const d = S.settings.digest && typeof S.settings.digest === 'object' ? S.settings.digest : {};
+  S.settings.digest = { am: d.am !== false, amT: HM_RE.test(d.amT || '') ? d.amT : '09:00', pm: d.pm !== false, pmT: HM_RE.test(d.pmT || '') ? d.pmT : '22:00' }; });
+const digestRow = (k, label, hint) => { const d = S.settings.digest;
+  return `<div class="set-row dg-row"><span>${label}<small>${hint}</small></span><span class="dg-r"><input class="fin dg-t" type="time" data-dg="${k}T" value="${esc(d[k + 'T'])}" aria-label="Время"${d[k] ? '' : ' disabled'}><input class="sw" type="checkbox" data-dg="${k}" aria-label="${label}"${d[k] ? ' checked' : ''}></span></div>`; };
+const digestHTML = () => `<div class="set-sub">Сводки</div>
+  ${digestRow('am', 'Утром — план на день', 'дела на сегодня и пропущенные')}
+  ${digestRow('pm', 'Вечером — «запишите задачи на завтра»', 'что уже есть на завтра')}`;
+document.addEventListener('change', e => {
+  const t = e.target, k = t.dataset && t.dataset.dg; if (!k) return;
+  const d = S.settings.digest;
+  if (k === 'am' || k === 'pm') d[k] = t.checked;
+  else if (HM_RE.test(t.value)) d[k] = t.value; else { t.value = d[k]; return; }
+  save(); render();
+  toast(k === 'am' || k === 'pm' ? (t.checked ? 'Сводка включена' : 'Сводка выключена') : 'Время сводки: ' + t.value);
+});
 // Нажали на уведомление о напоминании — открываем этот день в календаре (#d=2026-10-12 или сообщение от service worker)
 function openDay(k) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(k || '')) return;
@@ -88,13 +105,15 @@ function openDay(k) {
   if (typeof closeSheet === 'function') closeSheet();
   setSec('cal');
 }
+// Утренняя сводка открывает Главную (#s=home), напоминание и вечерняя — день в календаре (#d=…)
+const openSecFromPush = s => { if (s === 'home' && SEC.home) { if (typeof closeSheet === 'function') closeSheet(); setSec('home'); } };
 function checkDayHash() {
-  const m = location.hash.match(/^#d=(\d{4}-\d{2}-\d{2})$/); if (!m) return;
+  const m = location.hash.match(/^#(d|s)=([\w-]{1,20})$/); if (!m) return;
   history.replaceState(null, '', location.pathname + location.search);
-  openDay(m[1]);
+  m[1] === 'd' ? openDay(m[2]) : openSecFromPush(m[2]);
 }
 addEventListener('hashchange', checkDayHash);
-if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.open) openDay(e.data.open); });
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { const d = e.data || {}; if (d.open) openDay(d.open); else if (d.sec) openSecFromPush(d.sec); });
 // Часовой пояс устройства — по нему сервер считает время напоминаний
 try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (tz && S.settings.tz !== tz) S.settings.tz = tz; } catch (e) {}
 
