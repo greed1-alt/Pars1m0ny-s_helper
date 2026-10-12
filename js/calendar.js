@@ -21,18 +21,19 @@ function gridCells(anchor) {
 const dowsOrdered = () => S.settings.weekStart === 1 ? DOW : [DOW[6], ...DOW.slice(0,6)];
 
 function monthHTML() {
-  const today = todayK(), cells = gridCells(monthAnchor), rows = cells.length / 7, pc = innerWidth >= 900;
+  const today = todayK(), cells = gridCells(monthAnchor), rows = cells.length / 7, pc = innerWidth >= 900, side = pc && wkSide(), dAct = side ? 'pick' : 'goday';
   const hh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hh')) || 60;
   const maxChips = Math.max(1, Math.floor(((innerHeight - hh - 32) / rows - 32) / 20));
   let h = `<div class="month" style="--rows:${rows}">` + dowsOrdered().map(x => `<div class="mdw">${x}</div>`).join('');
   h += cells.map(([c, inMonth]) => {
     const k = ds(c), es = evOn(k), lim = es.length > maxChips ? maxChips - 1 : maxChips;
     const chips = pc ? es.slice(0, lim).map(e => `<button class="mchip${e.time?'':' all'}${e.done?' done':''}" data-act="edit" data-id="${e.id}" data-d="${k}" style="--c:${cat(e.cat).color}"><i></i>${e.time?`<span class="t">${esc(e.time)}</span>`:''}<span class="n">${esc(e.title)}</span></button>`).join('')
-      + (es.length > lim ? `<button class="mmore" data-act="goday" data-d="${k}">ещё ${es.length - lim}</button>` : '') : '';
+      + (es.length > lim ? `<button class="mmore" data-act="${dAct}" data-d="${k}">ещё ${es.length - lim}</button>` : '') : '';
     const dots = es.slice(0,4).map(e => `<u style="background:${cat(e.cat).color}"></u>`).join('');
-    return `<div class="mc${inMonth?'':' oth'}${k===today?' today':''}${k===sel?' sel':''}${isWknd(k)?' wknd':''}" data-act="pick" data-d="${k}"><span class="mc-n"${pc?` data-act="goday" data-d="${k}" title="Открыть день"`:''}>${c.getDate()}</span><span class="mdots">${dots}</span><div class="mchips">${chips}</div></div>`;
+    return `<div class="mc${inMonth?'':' oth'}${k===today?' today':''}${k===sel?' sel':''}${isWknd(k)?' wknd':''}" data-act="pick" data-d="${k}"><span class="mc-n"${pc?` data-act="${dAct}" data-d="${k}" title="${side ? 'Показать день справа' : 'Открыть день'}"`:''}>${c.getDate()}</span><span class="mdots">${dots}</span><div class="mchips">${chips}</div></div>`;
   }).join('');
   h += '</div>';
+  if (side) return `<div class="wkview"><div class="wkgrid">${h}</div><aside class="wkside">${calDayHTML(sel, true)}</aside></div>`;
   return pc ? h : `<div class="cd-wrap">${missedBar()}${h}${calDayHTML(sel)}</div>`;
 }
 
@@ -80,6 +81,46 @@ function weekHTML() {
   if (innerWidth < 900) return `<div class="cd-wrap">${missedBar()}${calWeekStrip()}${calDayHTML(sel)}</div>`;
   const g = gridHTML(weekDays());
   return wkSide() ? `<div class="wkview"><div class="wkgrid">${g}</div><aside class="wkside">${calDayHTML(sel, true)}</aside></div>` : g;
+}
+
+// ---- Календарь, вариант Б на телефоне (12 октября 2026): «Лента» — две недели подряд от выбранного дня одним списком.
+// Сверху полоска недели и строка добавления; пустые дни сжаты в строку «свободно»; сегодня прошедшее (больше двух) свёрнуто,
+// красная черта — «сейчас». Стрелки и свайп листают по неделе, «Следующие 2 недели» — дальше. На ПК вид «Список» прежний ----
+const FEED_N = 14;
+let feedPastOpen = false;
+ACT.cdpast = () => { feedPastOpen = !feedPastOpen; render(); };
+ACT.cdmore = () => { sel = addDays(sel, FEED_N); syncMini(); render(); window.scrollTo(0, 0); };
+const feedLbl = k => { const t = todayK(), d = pd(k), dw = DOW[dowIdx(k)].toLowerCase();
+  return k === t ? `Сегодня · ${dw} ${d.getDate()}` : k === addDays(t, 1) ? `Завтра · ${dw} ${d.getDate()}` : k === addDays(t, -1) ? `Вчера · ${dw} ${d.getDate()}` : `${dw} · ${d.getDate()} ${MONS[d.getMonth()]}`; };
+function feedDay(k, all, nx, nm) {
+  const t = todayK(), timed = all.filter(e => e.time), untimed = daySort(all.filter(e => !e.time)), dn = all.filter(e => e.done).length, rows = [];
+  const line = `<div class="cd-now" aria-label="Сейчас ${fmtMin(nm)}"><span>${fmtMin(nm)}</span><i></i></div>`;
+  let list = timed;
+  if (k === t) {
+    const past = timed.filter(e => evEndMin(e) <= nm);
+    if (past.length > 2) {
+      rows.push(`<button class="cf-past" data-act="cdpast" aria-expanded="${feedPastOpen}">${I(IC.clock, 15)}<span>Раньше: ${plural(past.length, NEV)}${past.some(e => e.done) ? ` · сделано ${past.filter(e => e.done).length}` : ''}</span><em>${feedPastOpen ? 'свернуть' : 'показать'}</em></button>`);
+      if (!feedPastOpen) list = timed.filter(e => !past.includes(e));
+    }
+    const at = list.findIndex(e => timeMin(e.time) > nm);
+    list.forEach((e, i) => { if (i === at) rows.push(line); rows.push(cdRow(e, k, nx, nm)); });
+    if (timed.length && at === -1) rows.push(line);
+  } else list.forEach(e => rows.push(cdRow(e, k, nx, nm)));
+  untimed.forEach(e => rows.push(cdRow(e, k, nx, nm)));
+  if (!all.length) rows.push('<p class="t3-empty">На сегодня пусто — добавьте дело в строке выше.</p>');
+  return `<div class="t3-gh cf-gh${k === t ? ' today' : ''}"><b>${feedLbl(k)}</b>${all.length ? `<small>${dn} из ${all.length}</small>` : ''}<button class="t3-gbtn" data-act="goday" data-d="${k}" title="Почасовая сетка этого дня" aria-label="По часам: ${esc(fmtLong(k))}">по часам</button></div>${rows.join('')}`;
+}
+function feedHTML() {
+  const t = todayK(), nm = nowMin(), nx = nextUp(t), out = []; let free = [];
+  const flush = () => { if (!free.length) return; const a = free[0], b = free[free.length - 1], f = k => `${DOW[dowIdx(k)].toLowerCase()} ${pd(k).getDate()}`;
+    out.push(`<div class="cf-free"><b>${f(a)}${b !== a ? ' – ' + f(b) : ''}</b><span>свободно</span></div>`); free = []; };
+  for (let i = 0; i < FEED_N; i++) { const k = addDays(sel, i), all = evOn(k);
+    if (!all.length && k !== t) { free.push(k); continue; }
+    flush(); out.push(feedDay(k, all, nx, nm)); }
+  flush();
+  const st = omSt('omc'); st.base = sel !== t ? sel : null; st.ph = st.base ? `Добавить на ${relDay(sel)}…` : null;
+  return `<div class="cd-wrap">${missedBar()}${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>
+    <div class="card t3-list cd-feed">${out.join('')}<button class="t3-more" data-act="cdmore">Следующие 2 недели →</button></div></div>`;
 }
 
 function miniHTML() {
@@ -230,7 +271,7 @@ function sideHTML() {
   return `${top}
   <button class="newbtn" data-act="add">${I(IC.plus,16)} Создать событие <kbd>N</kbd></button>
   <div class="sb-miss">${missedBar()}</div>
-  ${n && !(view === 'week' && wkSide()) ? `<div class="sb-next">${nextCard(n)}</div>` : ''}
+  ${n && !((view === 'week' || view === 'month') && wkSide()) ? `<div class="sb-next">${nextCard(n)}</div>` : ''}
   ${mini}
   <div class="sb-sec"><div class="sb-h">Мои календари</div>
   ${S.cats.map(c => `<div class="sb-catw"><button type="button" class="sb-cat${hiddenCats.has(c.id)?'':' on'}" data-act="catfilter" data-id="${c.id}" style="--c:${c.color}"><span class="sb-box">${hiddenCats.has(c.id)?'':I(IC.check,11)}</span>${esc(c.name)}<span class="cnt">${cnt(c.id) || ''}</span></button><button type="button" class="cshare" data-act="sharecat" data-id="${c.id}" aria-label="Поделиться календарём «${esc(c.name)}»" title="Поделиться">${I(IC.share,14)}</button></div>`).join('')}
@@ -252,7 +293,7 @@ function titleHTML() {
     return a.getMonth() === b.getMonth() ? `${a.getDate()}–${b.getDate()} ${MONS[b.getMonth()]}` : `${a.getDate()} ${MONS[a.getMonth()]} – ${b.getDate()} ${MONS[b.getMonth()]}`;
   }
   if (view === 'day') { const d = pd(sel); return pc ? `${d.getDate()} ${MONG[d.getMonth()]} ${d.getFullYear()}<span class="sub">${DOWF[dowIdx(sel)].toLowerCase()}</span>` : `${d.getDate()} ${MONS[d.getMonth()]}, ${dowName(sel).toLowerCase()}`; }
-  const d = pd(sel); return `Список<span class="sub">с ${d.getDate()} ${MONG[d.getMonth()]}</span>`;
+  const d = pd(sel); return pc ? `Список<span class="sub">с ${d.getDate()} ${MONG[d.getMonth()]}</span>` : `${MON[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 let lastGridView = null;
@@ -273,7 +314,7 @@ function render(dir) {
   const main = $('#main'), oldW = $('.wgwrap'), oldTop = oldW ? oldW.scrollTop : null;
   hsSave();
   main.className = cal ? 'v-' + view : 'sec sec-' + sec;
-  main.innerHTML = !cal ? S2.html() : view === 'month' ? monthHTML() : view === 'week' ? weekHTML() : view === 'day' ? dayHTML() : agendaHTML();
+  main.innerHTML = !cal ? S2.html() : view === 'month' ? monthHTML() : view === 'week' ? weekHTML() : view === 'day' ? dayHTML() : innerWidth < 900 ? feedHTML() : agendaHTML();
   const w = $('.wgwrap');
   if (w) {
     if (oldTop != null && lastGridView === view) w.scrollTop = oldTop;
@@ -295,7 +336,7 @@ function move(n) {
   if (view === 'month') { monthAnchor.setDate(1); monthAnchor.setMonth(monthAnchor.getMonth() + n);
     // На телефоне под месяцем — выбранный день: он остаётся в показанном месяце (сегодня или 1-е число)
     if (innerWidth < 900) { const ym = ymOf(ds(monthAnchor)); if (ymOf(sel) !== ym) { sel = ymOf(todayK()) === ym ? todayK() : ym + '-01'; syncMini(); } } }
-  else if (view === 'list') { sel = addDays(sel, 14 * n); syncMini(); }
+  else if (view === 'list') { sel = addDays(sel, (innerWidth < 900 ? 7 : 14) * n); syncMini(); }   // «Лента» на телефоне — по неделе, как полоска дней
   else { sel = addDays(sel, view === 'week' ? 7 * n : n); syncMini(); }
   render(n);
 }

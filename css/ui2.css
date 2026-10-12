@@ -676,11 +676,19 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .cd-now i{flex:1;height:2px;border-radius:1px;background:var(--red)}
 .cd-now+.t3-row{border-top:0}
 .cd-strip .t3-day.on .t3-marks i{box-shadow:0 0 0 1.5px var(--accfg)}
+.cf-gh.today b{color:var(--red)}
+.cf-gh .t3-gbtn{font-size:12px}
+.cf-free{display:flex;align-items:baseline;gap:8px;margin:12px 0 2px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+.cf-free span{font-weight:600;text-transform:none;letter-spacing:0}
+.cf-past{display:flex;align-items:center;gap:8px;width:100%;min-height:42px;text-align:left;font-size:13.5px;color:var(--tx2)}
+.cf-past span{flex:1}
+.cf-past em{font-style:normal;font-size:12.5px;font-weight:600;color:var(--acc)}
+.cd-feed>.t3-gh:first-child{margin-top:2px}
 .wg-more{text-align:left;font-size:11px;font-weight:600;line-height:18px;color:var(--tx2);padding:0 6px;border-radius:5px}
 @media(hover:hover){.wg-more:hover{background:var(--hov2);color:var(--tx)}}
 @media(max-width:899px){
-  /* Шапка: на телефоне два вида — «Месяц» и «Неделя»; почасовая сетка дня — кнопкой «по часам» у списка дня */
-  .bar2 .segc [data-v=day],.bar2 .segc [data-v=list]{display:none}
+  /* Шапка: на телефоне «Месяц», «Неделя» и «Лента» (вид list); почасовая сетка дня — кнопкой «по часам» у списка дня */
+  .bar2 .segc [data-v=day]{display:none}
   /* Месяц плотнее: под ним — список выбранного дня */
   .v-month .month{gap:2px 0}
   .v-month .mc{aspect-ratio:auto;height:46px;padding:4px 0 3px;gap:3px;border-radius:10px}
