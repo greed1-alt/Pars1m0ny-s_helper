@@ -640,6 +640,22 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .t3-day.on .t3-marks i{background:var(--accfg)}
 .t3-day.on .t3-marks{color:var(--accfg)}
 .t3-cols,.t3-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+/* Доска недели подстраивается под ширину своего места: 7 столбиков, на средней ширине 4 + 3, в узком месте дни идут строками (как на телефоне) */
+.tw-card{container-type:inline-size}
+@container (min-width:561px) and (max-width:839px){
+  .tw{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@container (max-width:560px){
+  .tw{display:flex;flex-direction:column;gap:8px}
+  .tw-day{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"h r" "l l" "a a";padding:10px 12px}
+  .tw-h{grid-area:h;align-self:center}
+  .tw-list{grid-area:l}
+  .tw-add{grid-area:a}
+  .tw-ring{grid-area:r;margin:0}
+  .tw-ring svg{width:44px;height:44px}
+  .tw-ring .rg-s{display:none}
+  .tw-ring .rg-t{transform:translateY(6px);font-size:22px!important}
+}
 .t3-goals .late{color:var(--dng)}
 @media(min-width:900px){
   .t3-cols{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px 18px;align-items:start}

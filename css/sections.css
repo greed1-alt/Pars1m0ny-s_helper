@@ -359,12 +359,13 @@ main.sec{padding:10px 12px 28px;display:flex;flex-direction:column;gap:12px}
 .tw-h span{font-size:11.5px;color:var(--mut)}
 .tw-day.is-today .tw-h span{color:var(--red);font-weight:600}
 .tw-list{display:flex;flex-direction:column;gap:1px;flex:1}
-.tw-row{display:flex;align-items:center;gap:7px;padding:3px 2px;border-radius:7px;min-width:0}
+.tw-row{position:relative;display:flex;align-items:center;gap:7px;padding:3px 2px;border-radius:7px;min-width:0}
+.tw-row:has(.tw-p) .tw-t{padding-right:7px}
 .tw-row .chk{width:18px;height:18px;margin:0;border-radius:5px}
-.tw-t{flex:1;min-width:0;text-align:left;font-size:13px;line-height:1.3;overflow-wrap:anywhere}
+.tw-t{flex:1;min-width:0;text-align:left;font-size:13px;line-height:1.3;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
 .tw-t small{color:var(--mut);font-size:11.5px}
 .tw-row.done .tw-t{text-decoration:line-through;color:var(--mut)}
-.tw-p{width:7px;height:7px;border-radius:50%;background:var(--c);flex:none}
+.tw-p{position:absolute;right:2px;top:7px;width:6px;height:6px;border-radius:50%;background:var(--c)}
 .tw-empty{margin:2px 2px 4px;font-size:12px;color:var(--mut)}
 .tw-add{width:100%;height:32px;margin-top:6px;padding:0 8px;border:1px dashed var(--line);border-radius:8px;background:transparent;font-size:13px}
 .tw-add:focus{outline:0;border-style:solid;border-color:var(--acc)}
@@ -726,7 +727,8 @@ button.sbl:hover{background:var(--hov)}
   .st-grid{display:block;column-count:2;column-gap:16px}
   .st-grid>.card{break-inside:avoid;margin-bottom:16px}
   .addm{grid-template-columns:repeat(3,1fr)}
-  .tw{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+  .tw{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+  .tw-day{padding:10px 8px 8px}
   .tw-day{min-height:250px}
   /* «Задачи»: карточки одного ряда — одной высоты */
   .tk-mid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:stretch}
