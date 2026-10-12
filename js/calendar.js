@@ -217,7 +217,7 @@ function render(dir) {
   applyLook(); hideTip();   // js/look.js, js/help.js
   document.body.dataset.sec = sec;
   document.body.dataset.nonav = S2.noNav ? '1' : '';    // «Главная», «Профиль», «Настройки»: без стрелок периода
-  document.body.dataset.nonew = S2.newLabel && sec !== 'home' ? '' : '1';   // на Главной добавляют строкой ввода — «+» в шапке не повторяем (12 октября 2026)
+  document.body.dataset.nonew = S2.newLabel && sec !== 'home' && !(sec === 'tasks' && tView !== 'goals') ? '' : '1';   // на Главной добавляют строкой ввода — «+» в шапке не повторяем (12 октября 2026)
   $('#ttl').innerHTML = cal ? titleHTML() : S2.title();
   $$('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === view));
   const bn = $('.btn-new'); if (bn) { bn.innerHTML = I(IC.plus, 17) + (S2.newLabel || ''); bn.setAttribute('aria-label', S2.newLabel || 'Создать'); bn.title = S2.newLabel || 'Создать'; }

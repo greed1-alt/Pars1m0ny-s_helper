@@ -312,7 +312,7 @@ function accountHTML() {
 // Вместе с текстом — на каком экране был человек, размер экрана, версия приложения: так проще понять, где он запутался.
 const FB_KINDS = [['unclear', 'Непонятно'], ['inconvenient', 'Неудобно'], ['bug', 'Ошибка'], ['idea', 'Идея']];
 let fb = null;   // { kind, text, screen }
-const VIEW_N = { month:'месяц', week:'неделя', day:'день', list:'список' }, TVIEW_N = { today:'сегодня', week:'неделя', all:'все', goals:'цели' };
+const VIEW_N = { month:'месяц', week:'неделя', day:'день', list:'список' }, TVIEW_N = { main:'по срокам / неделя', all:'все', goals:'цели' };
 function fbScreen() {
   const s = SEC[sec] ? SEC[sec].name : sec;
   let w = sec === 'cal' ? s + ' · ' + VIEW_N[view] : sec === 'tasks' ? s + ' · ' + TVIEW_N[tView] : s;

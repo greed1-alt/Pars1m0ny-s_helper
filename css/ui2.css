@@ -159,42 +159,13 @@ body.ui2 .fh-main{padding:9px 4px}
 body.ui2 .fh-t b{font-size:15px}
 
 /* ---- Задачи ---- */
-.t2-list{padding-top:14px!important}
 .t2-seg{width:100%;margin-bottom:6px}
 .t2-seg button{flex:1;height:38px;font-size:14px;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
 .t2-seg em{font-style:normal;display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--acc);color:var(--accfg);font-size:11.5px;font-weight:700}
-.t2-prog{display:flex;align-items:center;gap:10px;margin:10px 0 4px;font-size:12.5px;font-weight:600;color:var(--mut)}
-.t2-prog .ds-bar{flex:1}
-.t2-row{display:grid;grid-template-columns:22px minmax(0,1fr);gap:12px;align-items:start;padding:12px 0;border-top:1px solid var(--line)}
-.t2-prog+.t2-row,.t2-seg+.t2-row,.t2-dh+.t2-row,.t2-flt+.t2-row{border-top:0}
-.t2-main{display:flex;flex-direction:column;gap:6px;min-width:0;text-align:left}
-.t2-t{font-size:16px;font-weight:550;line-height:1.3;overflow-wrap:anywhere}
-.t2-m{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-.t2-m:empty{display:none}
-.t2-due,.t2-tm{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;color:var(--tx2)}
-.t2-due.late{color:var(--dng)}
-.t2-due.now{color:var(--acc)}
-.t2-row.done .t2-t{text-decoration:line-through;color:var(--mut)}
-.t2-row.done .t2-m{opacity:.6}
-.t2-foot{display:flex;justify-content:flex-end;margin-top:6px;padding-top:10px;border-top:1px solid var(--line)}
-.t2-foot button{font-size:13px;font-weight:600;color:var(--tx2);padding:6px 8px;border-radius:8px}
-.t2-day{border-top:1px solid var(--line)}
-.t2-seg+.t2-day{border-top:0}
-.t2-dh{display:flex;align-items:center;gap:8px;padding:12px 0 4px;min-height:52px}
-.t2-dh b{font-size:15px;font-weight:650}
-.t2-dh span{font-size:13px;color:var(--mut)}
-.t2-dh small{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--mut)}
-.t2-dadd{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--tx2);flex:none}
-.t2-day.free .t2-dh{min-height:44px;padding:6px 0}
-.t2-day.free .t2-dh b{font-weight:500;color:var(--tx2)}
-.t2-day.is-today .t2-dh b{color:var(--red)}
-.t2-day.past:not(.is-today) .t2-dh{opacity:.6}
-.t2-day .t2-row{padding:9px 0 9px 2px;border-top:0}
 .t2-flt{display:flex;flex-direction:column;gap:10px;margin:10px 0 6px}
 .t2-flt .seg2{align-self:flex-start}
 .t2-prios{display:flex;gap:6px;flex-wrap:wrap}
 .t2-prios .tk-pr{height:32px;border-radius:999px;padding:0 12px}
-@media(hover:hover){.t2-foot button:hover,.t2-dadd:hover{background:var(--hov);color:var(--tx)}}
 .tk-mid2{display:flex;flex-direction:column;gap:16px}
 
 /* ---- Неделя: свёрнутые пустые часы ---- */
@@ -290,7 +261,7 @@ body.ui2 .fh-t b{font-size:15px}
   .h2-cols{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;align-items:start}
   .h2-col{gap:20px}
   .h2-habs{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
-  .t2-list,.h2-omni:not(.h2-cols .h2-omni){max-width:920px}
+  .h2-omni:not(.h2-cols .h2-omni):not(.t3-col .h2-omni){max-width:920px}
   .tk-mid2{display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;align-items:start}
   .f2-hero,.f2-in{max-width:920px}
   .onb{background:color-mix(in srgb,var(--bg) 72%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);align-items:center;padding:24px}
@@ -314,8 +285,7 @@ body.ui2 main.sec .card .hg-pc{right:-22px}
 }
 
 /* «Задачи»: вкладки Сегодня / Неделя / Все / Цели — над строкой ввода, вне карточки */
-.t2-list>.t2-row:first-child,.t2-list>.t2-day:first-child,.t2-list>.t2-flt:first-child{border-top:0;margin-top:0}
-.t2-list>.t2-prog:first-child{margin-top:0}
+.t3-list>.t2-flt:first-child{border-top:0;margin-top:0}
 .t2-seg em.late{background:var(--dng);color:#fff}
 
 /* ---- Проверка телефона (4 октября 2026): удобство ---- */
@@ -331,7 +301,7 @@ body.ui2 main.sec .card .hg-pc{right:-22px}
 .pl-row.next{background:color-mix(in srgb,var(--acc) 11%,transparent)}
 .pl-next{color:var(--acc)!important}
 /* Ссылки внизу карточек — удобная область нажатия */
-body.ui2 .hm-foot button,body.ui2 .t2-foot button{min-height:38px;padding:8px 10px}
+body.ui2 .hm-foot button{min-height:38px;padding:8px 10px}
 body.ui2 .hm-more{min-height:38px}
 /* Кнопки вида записи листаются вбок — край плавно гаснет, видно, что есть ещё */
 .om-types{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}
@@ -380,7 +350,7 @@ body.ui2 main.sec .card-h{margin-bottom:10px}
   .h2-cols{gap:14px}
   .h2-col{gap:14px}
   .h2-hero{padding:2px 4px 0}
-  .t2-list,.h2-omni,.f2-hero,.f2-in{max-width:none!important}
+  .h2-omni,.f2-hero,.f2-in{max-width:none!important}
   .f2-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
   .f2-col{gap:14px}
 }
@@ -640,3 +610,48 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 
 /* Место у дела в «Плане на сегодня» */
 .pl-loc{font-size:12px;color:var(--mut)}
+
+/* ---- Задачи (12 октября 2026): компактные строки, список по срокам (ПК), полоска недели (телефон) ---- */
+.t3-list{padding-top:10px!important;padding-bottom:10px!important}
+.t3-gh{display:flex;align-items:baseline;gap:8px;margin:12px 0 2px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+.t3-list>.t3-gh:first-child,.t3-list>.t2-flt+.t3-gh{margin-top:2px}
+.t3-gh b{color:var(--tx2);font-weight:700}
+.t3-gh small{font-size:12px;font-weight:600;text-transform:none;letter-spacing:0}
+.t3-gh.late b,.t3-gh.late small{color:var(--dng)}
+.t3-gbtn{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--acc);text-transform:none;letter-spacing:0;padding:4px 0}
+.t3-row{display:flex;align-items:center;gap:10px;min-height:42px;border-top:1px solid var(--line)}
+.t3-gh+.t3-row{border-top:0}
+.t3-ck{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--pc);display:grid;place-items:center;color:#fff;position:relative;transition:background .12s,border-color .12s}
+.t3-ck::after{content:'';position:absolute;inset:-9px}
+.t3-row.p-urgent .t3-ck,.t3-row.p-high .t3-ck{background:color-mix(in srgb,var(--pc) 12%,transparent)}
+.t3-row.done .t3-ck{background:var(--good);border-color:var(--good)}
+.t3-main{flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:9px 0;text-align:left;font-size:15px}
+.t3-dot{flex:none;width:7px;height:7px;border-radius:50%}
+.t3-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t3-rep{flex:none;font-style:normal;font-size:12px;color:var(--mut)}
+.t3-main .gtag{flex:0 1 auto;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.t3-row.done .t3-t{text-decoration:line-through;color:var(--mut)}
+.t3-meta{flex:none;font-size:12.5px;font-weight:600;color:var(--tx2);white-space:nowrap;padding-left:4px}
+.t3-meta.late{color:var(--dng)}
+.t3-meta.now{color:var(--acc)}
+.t3-empty{margin:6px 0;color:var(--mut);font-size:14px}
+.t3-more{display:block;width:100%;padding:10px 0 2px;text-align:left;font-size:13.5px;font-weight:600;color:var(--acc)}
+.t3-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.t3-day{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 0 5px;border-radius:12px;background:var(--card);border:1px solid var(--cardbd,var(--line));transition:background .12s}
+.t3-day small{font-size:11px;font-weight:600;color:var(--mut)}
+.t3-day b{font-size:16px;font-weight:700;line-height:1.2}
+.t3-day.today b{color:var(--red)}
+.t3-day.past{opacity:.7}
+.t3-day.on{background:var(--acc);border-color:var(--acc);opacity:1}
+.t3-day.on small,.t3-day.on b{color:var(--accfg)}
+.t3-marks{display:flex;gap:2px;height:10px;align-items:center;color:var(--good)}
+.t3-marks i{width:5px;height:5px;border-radius:50%;background:var(--acc)}
+.t3-day.on .t3-marks i{background:var(--accfg)}
+.t3-day.on .t3-marks{color:var(--accfg)}
+.t3-cols,.t3-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.t3-goals .late{color:var(--dng)}
+@media(min-width:900px){
+  .t3-cols{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px 18px;align-items:start}
+  .t3-row{min-height:40px}
+  .t3-main{font-size:14.5px;padding:8px 0}
+}

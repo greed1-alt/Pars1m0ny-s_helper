@@ -102,7 +102,7 @@ function omniParse(raw, ctx, force, st, rawType) {
     return { type, title: title.charAt(0).toUpperCase() + title.slice(1), due: g.date || t.slice(0, 4) + '-12-31' }; }
   const title = nl.found && nl.title ? nl.title : s, guessed = nl.cat || guessCat(title);
   const catId = S_.cat || guessed || validCat(null);
-  return { type, title: title.charAt(0).toUpperCase() + title.slice(1), date: nl.date || t, time: nl.time || '', time2: nl.time2 || '', cat: catId, catDflt: !S_.cat && !guessed, prio: S_.prio || prio || (ctx === 'tasks' && tPrio) || 'mid' };
+  return { type, title: title.charAt(0).toUpperCase() + title.slice(1), date: nl.date || S_.base || t, time: nl.time || '', time2: nl.time2 || '', cat: catId, catDflt: !S_.cat && !guessed, prio: S_.prio || prio || (ctx === 'tasks' && tPrio) || 'mid' };
 }
 
 // Что получится — «таблетками»: вид, название, дата, время, категория, приоритет (категорию и приоритет можно сменить нажатием)
@@ -134,7 +134,7 @@ const omCalm = id => id !== 'oms' && ((S.settings.omUses || 0) >= 5 || S.events.
 function omniHTML(id, ctx) {
   const st = omSt(id); st.ctx = ctx;
   return `<div class="om${omCalm(id) ? ' calm' : ''}${st.v || st.force ? ' open' : ''}" data-om="${id}">
-    <div class="om-box">${I(IC.spark, 19)}<input id="${id}" class="om-in" type="text" value="${esc(st.v)}" placeholder="${esc(st.force ? OM_T[st.force].ph : OM_PH[ctx] || OM_PH.home)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" aria-label="Быстрое добавление"><button class="om-go om-keep" data-act="omgo" data-om="${id}" aria-label="Добавить">${I(IC.plus, 20)}</button></div>
+    <div class="om-box">${I(IC.spark, 19)}<input id="${id}" class="om-in" type="text" value="${esc(st.v)}" placeholder="${esc(st.force ? OM_T[st.force].ph : st.ph || OM_PH[ctx] || OM_PH.home)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" aria-label="Быстрое добавление"><button class="om-go om-keep" data-act="omgo" data-om="${id}" aria-label="Добавить">${I(IC.plus, 20)}</button></div>
     <div class="om-types" role="group" aria-label="Что добавить">${OM_ORDER.filter(t => (ctx !== 'tasks' || t === 'task' || t === 'event') && omOn(t)).map(t => `<button class="om-t om-keep" data-act="omtype" data-om="${id}" data-t="${t}" aria-pressed="false">${I(OM_T[t].ic, 15)}${OM_T[t].n}</button>`).join('')}</div>
     <div class="om-prev" id="${id}_prev" aria-live="polite"></div>
   </div>`;
@@ -149,7 +149,7 @@ function omUpdate(id) {
     box.classList.toggle('has', !!p);
     box.querySelectorAll('.om-t').forEach(b => { const on = p ? b.dataset.t === p.type : b.dataset.t === st.force; b.classList.toggle('on', on); b.classList.toggle('auto', on && !st.force); b.setAttribute('aria-pressed', on); });
   }
-  i.placeholder = st.force ? OM_T[st.force].ph : OM_PH[st.ctx] || OM_PH.home;
+  i.placeholder = st.force ? OM_T[st.force].ph : st.ph || OM_PH[st.ctx] || OM_PH.home;
 }
 const omRefresh = () => $$('.om-in').forEach(i => omUpdate(i.id));
 // Нажатие на «таблетку» не должно убирать курсор из строки (на ПК); на телефоне возвращаем фокус сами
@@ -313,48 +313,92 @@ function homeHTML() {
 }
 
 
-// ---- Задачи: строка ввода и один список (Сегодня / Неделя / Все); цели и статистика — в свёрнутых блоках ----
-let tView = 'today';
-const t2Row = (e, k, done, due) => { const pr = prioOf(e), [lt, lc] = due ? leftTxt(k, done) : ['', ''];
-  return `<div class="t2-row${done ? ' done' : ''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено">${done ? I(IC.check, 14) : ''}</button>
-  <button class="t2-main" data-act="edit" data-id="${e.id}" data-d="${k}"><span class="t2-t">${esc(e.title)}${isRec(e) ? ' <i class="tk-rep" title="Повторяется">↻</i>' : ''}</span>
-  <span class="t2-m">${due ? `<span class="t2-due ${lc}">${esc(shortDate(k))}${lt && !done && lc ? ' · ' + lt : ''}</span>` : ''}${e.time ? `<span class="t2-tm">${I(IC.clock, 12)}${esc(e.time)}</span>` : ''}${catTag(e.cat)}${goalTag(e)}${pr === 'urgent' || pr === 'high' ? pbadge(pr) : ''}</span></button></div>`; };
+// ---- Задачи (12 октября 2026, шаг 3 редизайна). Выбор пользователя: на ПК — список по срокам (вариант А),
+// на телефоне — полоска недели и задачи выбранного дня (вариант Б). Статистика и доска недели — блоками ниже / справа.
+// Вкладки: «По срокам» (ПК) или «Неделя» (телефон) · «Все» (фильтры) · «Цели» ----
+let tView = 'main';
+// Строка задачи: кружок цвета важности (срочно — красный, высокий — фиолетовый, остальные — серый), точка календаря, название, справа время или дата.
+// Без второй строки меток — список вдвое ниже
+const t3Ring = p => p === 'urgent' || p === 'high' ? PRIO[p].c : 'var(--mut)';
+function t3Row(e, k, meta, metaCls) {
+  const done = isDone(e, k), pr = prioOf(e), c = cat(e.cat);
+  return `<div class="t3-row${done ? ' done' : ''}${pr === 'urgent' || pr === 'high' ? ' p-' + pr : ''}">
+    <button class="t3-ck" data-act="toggle" data-id="${e.id}" data-d="${k}" style="--pc:${t3Ring(pr)}" aria-label="${done ? 'Снять отметку' : 'Выполнено'} · важность: ${PRIO[pr].n}" title="Важность: ${PRIO[pr].n}">${done ? I(IC.check, 12) : ''}</button>
+    <button class="t3-main" data-act="edit" data-id="${e.id}" data-d="${k}"><i class="t3-dot" style="background:${c.color}" title="${esc(c.name)}"></i><span class="t3-t">${esc(e.title)}</span>${isRec(e) ? '<i class="t3-rep" title="Повторяется">↻</i>' : ''}${goalTag(e)}</button>
+    ${meta ? `<span class="t3-meta${metaCls ? ' ' + metaCls : ''}">${meta}</span>` : ''}</div>`;
+}
 const daySort = l => [...l].sort((a, b) => a.done - b.done || prioRank(a) - prioRank(b) || (a.time || '99').localeCompare(b.time || '99'));
+const t3When = k => { const d = pd(k); return `${DOW[dowIdx(k)].toLowerCase()}, ${d.getDate()}`; };
+const t3Head = (n, sum, cls, btn) => `<div class="t3-gh${cls ? ' ' + cls : ''}"><b>${n}</b>${sum ? `<small>${sum}</small>` : ''}${btn || ''}</div>`;
+
+// ПК: один список по срокам — Просрочено → Сегодня → Завтра → На неделе → Позже
+function tasksByDue() {
+  const t = todayK(), out = [];
+  const late = missedList().filter(e => e.task);
+  if (late.length) out.push(t3Head('Просрочено', plural(late.length, ['задача', 'задачи', 'задач']), 'late', `<button class="t3-gbtn" data-act="t3latetoday">все на сегодня</button>`)
+    + late.map(e => t3Row(e, e.date, esc(shortDate(e.date)), 'late')).join(''));
+  const tl = dayTasks(t), tdn = tl.filter(e => e.done).length;
+  out.push(t3Head('Сегодня', tl.length ? `${tdn} из ${tl.length}` : '') + (tl.length ? daySort(tl).map(e => t3Row(e, t, e.time ? esc(e.time) : '')).join('')
+    : '<p class="t3-empty">На сегодня задач нет — напишите первую в строке выше.</p>'));
+  const k1 = addDays(t, 1), tm = daySort(dayTasks(k1));
+  if (tm.length) out.push(t3Head('Завтра', String(tm.length)) + tm.map(e => t3Row(e, k1, e.time ? esc(e.time) : '')).join(''));
+  const wk = []; for (let i = 2; i <= 7; i++) { const k = addDays(t, i); daySort(dayTasks(k)).forEach(e => wk.push([e, k])); }
+  if (wk.length) out.push(t3Head('На неделе', String(wk.length)) + wk.map(([e, k]) => t3Row(e, k, t3When(k) + (e.time ? ' · ' + esc(e.time) : ''))).join(''));
+  const lim = addDays(t, 7), later = tasksAll().filter(e => !isRec(e) && !e.done && e.date > lim).sort((a, b) => a.date.localeCompare(b.date));
+  if (later.length) out.push(t3Head('Позже', String(later.length)) + later.slice(0, 8).map(e => t3Row(e, e.date, esc(shortDate(e.date)))).join('')
+    + (later.length > 8 ? `<button class="t3-more" data-act="tview" data-v="all">Ещё ${later.length - 8} → все задачи</button>` : ''));
+  return out.join('');
+}
+ACT.t3latetoday = () => { const t = todayK(), l = missedList().filter(e => e.task); if (!l.length) return;
+  snap(); l.forEach(e => { e.date = t; }); save(); render(); toast(`Перенесено на сегодня: ${plural(l.length, ['задача', 'задачи', 'задач'])}`, true); };
+
+// Телефон: полоска недели (неделя — по выбранному дню sel; стрелки в шапке листают недели, свайп — дни) и задачи выбранного дня
+function tasksWeekStrip() {
+  const t = todayK();
+  return `<div class="t3-strip" role="tablist" aria-label="Дни недели">${taskWeek().map(k => { const l = dayTasks(k), left = l.filter(e => !e.done).length, d = pd(k);
+    const marks = !l.length ? '' : !left ? I(IC.check, 11) : '<i></i>'.repeat(Math.min(3, left));
+    return `<button class="t3-day${k === sel ? ' on' : ''}${k === t ? ' today' : ''}${k < t ? ' past' : ''}" data-act="t3day" data-d="${k}" role="tab" aria-selected="${k === sel}" aria-label="${esc(fmtLong(k))}: ${l.length ? left ? 'осталось ' + left : 'всё сделано' : 'задач нет'}"><small>${DOW[dowIdx(k)].toLowerCase()}</small><b>${d.getDate()}</b><span class="t3-marks${l.length && !left ? ' ok' : ''}">${marks}</span></button>`; }).join('')}</div>`;
+}
+function tasksDayList(k) {
+  const t = todayK(), l = daySort(dayTasks(k)), dn = l.filter(e => e.done).length, d = pd(k);
+  const ttl = `${DOWF[dowIdx(k)]}, ${d.getDate()} ${MONG[d.getMonth()]}${k === t ? ' · сегодня' : k === addDays(t, 1) ? ' · завтра' : ''}`;
+  return `${t3Head(ttl, l.length ? `${dn} из ${l.length}` : '')}${l.length ? l.map(e => t3Row(e, k, e.time ? esc(e.time) : '')).join('')
+    : `<p class="t3-empty">${k < t ? 'В этот день задач не было.' : 'Свободный день — задачу можно добавить ниже.'}</p>`}`;
+}
+ACT.t3day = el => { sel = el.dataset.d; syncMini(); render(); };
+
 function tasksHTML() {
-  const t = todayK(), hasAny = S.events.some(e => e.task), demo = S.events.some(e => e.demo);
-  const tl = dayTasks(t), tdn = tl.filter(e => e.done).length, left = tl.length - tdn;
-  const gLate = activeGoals().reduce((n, g) => n + goalStat(g).late.length, 0);
-  const views = [['today', 'Сегодня' + (left ? ` <em>${left}</em>` : '')], ['week', 'Неделя'], ['all', 'Все'], ['goals', 'Цели' + (gLate ? ` <em class="late">${gLate}</em>` : '')]];
+  const t = todayK(), wide = isWide(), hasAny = S.events.some(e => e.task), demo = S.events.some(e => e.demo);
+  const gLate = activeGoals().reduce((n, g) => n + goalStat(g).late.length, 0), lateN = missedList().filter(e => e.task).length;
+  const views = [['main', wide ? 'По срокам' + (lateN ? ` <em class="late">${lateN}</em>` : '') : 'Неделя'], ['all', 'Все'], ['goals', 'Цели' + (gLate ? ` <em class="late">${gLate}</em>` : '')]];
   const tabs = `<div class="seg2 t2-seg" role="tablist" aria-label="Что показать">${views.map(([v, n]) => `<button class="${tView === v ? 'on' : ''}" data-act="tview" data-v="${v}" role="tab" aria-selected="${tView === v}">${n}</button>`).join('')}</div>`;
   // Вкладка «Цели» — та же страница целей (js/goals.js), что и раньше была отдельным разделом
   if (tView === 'goals') return `${missedBar(true)}${tabs}${goalsHTML()}`;
-  let body = '';
-  if (tView === 'today') {
-    const tm = dayTasks(addDays(t, 1)).length;
-    body = `${tl.length ? `<div class="t2-prog"><div class="ds-bar"><i style="width:${Math.round(tdn / tl.length * 100)}%"></i></div><span>${tdn} из ${tl.length}</span></div>` : ''}
-      ${daySort(tl).map(e => t2Row(e, t, e.done, false)).join('') || '<p class="h2-empty">На сегодня задач нет. Напишите первую в строке выше — Enter, и готово.</p>'}
-      <div class="t2-foot"><button data-act="tview" data-v="week">Завтра: ${tm ? plural(tm, ['задача', 'задачи', 'задач']) : 'пусто'} · вся неделя →</button></div>`;
-  } else if (tView === 'week') {
-    const wk = taskWeek();
-    body = wk.map(k => { const l = daySort(dayTasks(k)), dn = l.filter(e => e.done).length, d = pd(k);
-      return `<div class="t2-day${k === t ? ' is-today' : ''}${k < t ? ' past' : ''}${l.length ? '' : ' free'}">
-        <div class="t2-dh"><b>${DOWF[dowIdx(k)]}</b><span>${d.getDate()} ${MONS[d.getMonth()]}${k === t ? ' · сегодня' : ''}</span><small>${l.length ? dn + ' из ' + l.length : 'свободно'}</small><button class="t2-dadd" data-act="t2add" data-d="${k}" aria-label="Задача на ${esc(fmtLong(k))}">${I(IC.plus, 17)}</button></div>
-        ${l.map(e => t2Row(e, k, e.done, false)).join('')}</div>`; }).join('');
-  } else {
+  // Строка ввода на телефоне добавляет задачу на выбранный день
+  const st = omSt('omt'); st.base = !wide && tView === 'main' && sel !== t ? sel : null;
+  st.ph = st.base ? `Задача на ${relDay(st.base)}…` : null;
+  const omni = `<div class="card h2-omni">${omniHTML('omt', 'tasks')}</div>`;
+  let list;
+  if (tView === 'all') {
     const rows = taskRows(), fl = [['active', 'Активные'], ['done', 'Выполненные'], ['all', 'Все']];
-    body = `<div class="t2-flt"><div class="seg2">${fl.map(([v, n]) => `<button class="${tFilter === v ? 'on' : ''}" data-act="tfilter" data-f="${v}">${n}</button>`).join('')}</div>
+    list = `${omni}<div class="card t3-list"><div class="t2-flt"><div class="seg2">${fl.map(([v, n]) => `<button class="${tFilter === v ? 'on' : ''}" data-act="tfilter" data-f="${v}">${n}</button>`).join('')}</div>
       <div class="t2-prios">${PRIO_ORDER.map(p => `<button class="tk-pr${tPrio === p ? ' on' : ''}" data-act="tprio" data-p="${p}" style="--c:${PRIO[p].c}" aria-pressed="${tPrio === p}"><i></i>${PRIO[p].n}</button>`).join('')}</div></div>
-      ${rows.slice(0, 80).map(({ e, k, done }) => t2Row(e, k, done, true)).join('') || `<p class="h2-empty">${tFilter === 'done' ? 'Выполненных задач пока нет.' : 'Задач нет — напишите первую в строке выше.'}</p>`}
-      ${rows.length > 80 ? `<p class="h2-empty">Показаны первые 80 из ${rows.length}</p>` : ''}`;
-  }
+      ${rows.slice(0, 80).map(({ e, k, done }) => { const [lt, lc] = leftTxt(k, done); return t3Row(e, k, esc(shortDate(k)) + (lt && !done && lc ? ' · ' + lt : ''), lc); }).join('') || `<p class="t3-empty">${tFilter === 'done' ? 'Выполненных задач пока нет.' : 'Задач нет — напишите первую в строке выше.'}</p>`}
+      ${rows.length > 80 ? `<p class="t3-empty">Показаны первые 80 из ${rows.length}</p>` : ''}</div>`;
+  } else list = wide ? `${omni}<div class="card t3-list">${tasksByDue()}</div>` : `${tasksWeekStrip()}<div class="card t3-list">${tasksDayList(sel)}</div>${omni}`;
   const act = tasksAll().map(e => ({ e, k: isRec(e) ? nextOcc(e) : e.date })).filter(x => !isDone(x.e, x.k)), urg = act.filter(x => prioOf(x.e) === 'urgent').length;
   const wk = taskWeek();
-  return `${missedBar(true)}${demoBar('tasks', demo)}
-  ${!hasAny ? emptyCard('tasks', 'Задачи', 'Пишите задачи обычной фразой в строке ниже: «позвонить маме», «отчёт в пятницу #работа !!». Задача с датой видна и в календаре.') : ''}
-  ${pageBlocks('tasks', {   // порядок блоков — js/layout.js
-    list:{ body: () => `${tabs}<div class="card h2-omni">${omniHTML('omt', 'tasks')}</div><div class="card t2-list">${body}</div>` },
-    board:{ fk:'t-board', sum:`неделя ${isoWeek(wk[0])}`, body: () => `<div class="card tw-card">${weekBoard()}</div>`, def:isWide },
-    stats:{ fk:'t-stats', sum:`${plural(act.length, ['активная', 'активные', 'активных'])}${urg ? ` · ${urg} срочн.` : ''}`, body: () => `<div class="tk-mid2">${taskSummary()}${taskDynamics()}</div>` } })}`;
+  // Доска недели на телефоне в «Неделе» не нужна — её заменяет полоска дней
+  const blocks = pageBlocks('tasks', {   // порядок блоков — js/layout.js
+    list:{ skip:true },
+    board:{ fk:'t-board', sum:`неделя ${isoWeek(wk[0])}`, body: () => `<div class="card tw-card">${weekBoard()}</div>`, def:isWide, skip: !wide && tView === 'main' },
+    stats:{ fk:'t-stats', sum:`${plural(act.length, ['активная', 'активные', 'активных'])}${urg ? ` · ${urg} срочн.` : ''}`, body: () => `<div class="tk-mid2">${taskSummary()}${taskDynamics()}</div>` } }, { noCust:true });
+  const empty = !hasAny ? emptyCard('tasks', 'Задачи', 'Пишите задачи обычной фразой в строке ввода: «позвонить маме», «отчёт в пятницу #работа !!». Задача с датой видна и в календаре.') : '';
+  // На ПК пропущенное — в самом списке («Просрочено»), отдельная плашка не повторяет его
+  const miss = wide && tView === 'main' ? '' : missedBar(true);
+  if (wide) return `${miss}${demoBar('tasks', demo)}${empty}${tabs}
+    <div class="t3-cols"><div class="t3-col">${list}</div><div class="t3-col">${secOn('tasks') && activeGoals().length ? `<div class="card t3-goals"><div class="h2-h"><b>${I(IC.goal, 18)}Цели</b><small>${gLate ? `<span class="late">просрочено шагов: ${gLate}</span>` : ''}</small></div>${goalsMiniHTML(3)}<div class="hm-foot"><span></span><button data-act="gall">Все цели →</button></div></div>` : ''}${blocks}</div></div>${pageCust('tasks')}`;
+  return `${miss}${demoBar('tasks', demo)}${empty}${tabs}${list}${blocks}${pageCust('tasks')}`;
 }
 ACT.tview = el => { tView = el.dataset.v; render(); };
 // На вкладке «Цели» шапка, «Создать» и подсказка в шапке — про цели, стрелок недели нет
@@ -364,9 +408,9 @@ Object.defineProperty(SEC.tasks, 'newLabel', { get: () => tasksGoals() ? 'Цел
 Object.defineProperty(SEC.tasks, 'noNav', { get: () => tasksGoals(), configurable: true });
 { const T = SEC.tasks, title = T.title, create = T.create;
   T.title = () => tasksGoals() ? SEC.goals.title() : title();
-
-  T.create = () => tasksGoals() ? openGoal() : create(); }
-ACT.t2add = el => newTask(el.dataset.d);
+  T.create = () => tasksGoals() ? openGoal() : create();
+  // Свайп на телефоне в «Неделе» листает дни (стрелки в шапке — недели)
+  T.swipe = n => { if (!isWide() && tView === 'main') { sel = addDays(sel, n); syncMini(); render(); } else move(n); }; }
 
 // ---- Финансы: крупно — сколько можно потратить, строка записи, последние записи; графики и таблицы — свёрнуты ----
 const f2Row = o => { const c = fcat(o.cat), plus = c.g === 'inc', t = todayK();

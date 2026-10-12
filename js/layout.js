@@ -88,11 +88,11 @@ const layOf = p => p === 'home' ? S.settings.home : S.settings.lay[p];
 const setLay = (p, L) => { if (p === 'home') S.settings.home = L; else S.settings.lay[p] = L; };
 const pageCust = p => `<div class="h2-cust pg-cust"><button class="lnk" data-act="blkcust" data-p="${p}">${I(IC.grid, 15)} Настроить страницу</button><button class="lnk" data-act="feedback">${I(IC.msg, 15)} Отзыв</button></div>`;
 // Блоки страницы в порядке пользователя. defs[k] = { sum, body(), foldBody() (если свёрнутым нужен другой вид), def — открыт ли свёрнутый по умолчанию, fk — ключ открытости, own, skip — нечего показать }
-function pageBlocks(p, defs) {
+function pageBlocks(p, defs, opt) {
   return layOf(p).filter(x => x.m !== 'off').map(x => { const d = defs[x.k], b = PAGE_BL[p][x.k]; if (!d || d.skip) return '';
     if (x.m === 'fold' && !b.fixed) return foldHTML(d.fk, b.n, d.sum, d.foldBody || d.body, d.def || false, { ic:b.ic });
     if (b.fixed || d.own) return d.body();
-    return `<section class="fold open fixed"><div class="fold-h">${I(b.ic, 18)}<span class="fold-tt"><b>${b.n}</b>${d.sum ? `<small>${d.sum}</small>` : ''}</span></div><div class="fold-b">${d.body()}</div></section>`; }).join('') + pageCust(p);
+    return `<section class="fold open fixed"><div class="fold-h">${I(b.ic, 18)}<span class="fold-tt"><b>${b.n}</b>${d.sum ? `<small>${d.sum}</small>` : ''}</span></div><div class="fold-b">${d.body()}</div></section>`; }).join('') + (opt && opt.noCust ? '' : pageCust(p));
 }
 
 // ---- Окно «Блоки страницы»: что показывать и в каком порядке ----
