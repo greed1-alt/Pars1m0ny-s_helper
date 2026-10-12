@@ -133,5 +133,6 @@ addEventListener('resize', () => { clearTimeout(rsT); rsT = setTimeout(() => {
   const wide = innerWidth >= 900, wChanged = innerWidth !== lastW; lastW = innerWidth;
   if (wide !== lastWide) { lastWide = wide; lastGridView = null; }
   // На телефоне клавиатура меняет только высоту окна — разделы не трогаем, чтобы поле ввода не теряло фокус
-  if (sec !== 'cal' && !wChanged) return;
+  // В календаре на ПК от высоты зависит месяц (сколько дел помещается в клетку); на телефоне там строка ввода — её не трогаем
+  if (!wChanged && !(sec === 'cal' && wide)) return;
   if (!drag && !mk && !quickOpen()) render(); }, 150); });

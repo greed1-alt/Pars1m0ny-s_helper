@@ -11,7 +11,6 @@ function evHTML(e) {
   return `<div class="ev${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${e.date}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button>
   <button class="evb" data-act="edit" data-id="${e.id}" data-d="${e.date}"><b>${esc(e.title)}</b><small>${e.time?`<span class="ev-tm">${timeRange(e)}</span>`:''}${catTag(e.cat)}${goalTag(e)}${e.rec?'<span>↻</span>':''}${remLabel(e) ? `<span>${remLabel(e).replace(/^ · /, '')}</span>` : ''}${e.loc?`<span>${esc(e.loc)}</span>`:''}</small>${e.note?`<p>${esc(e.note)}</p>`:''}</button></div>`;
 }
-const dayList = k => { const es = evOn(k); return es.length ? es.map(evHTML).join('') : '<p class="empty">Событий нет</p>'; };
 
 function gridCells(anchor) {
   const d = new Date(anchor), off = S.settings.weekStart === 1 ? (d.getDay()+6)%7 : d.getDay();
@@ -34,8 +33,53 @@ function monthHTML() {
     return `<div class="mc${inMonth?'':' oth'}${k===today?' today':''}${k===sel?' sel':''}${isWknd(k)?' wknd':''}" data-act="pick" data-d="${k}"><span class="mc-n"${pc?` data-act="goday" data-d="${k}" title="Открыть день"`:''}>${c.getDate()}</span><span class="mdots">${dots}</span><div class="mchips">${chips}</div></div>`;
   }).join('');
   h += '</div>';
-  if (!pc) h += `<div class="mpanel"><div class="mp-head"><b>${fmtLong(sel)}</b><button class="pill sm" data-act="addday">${I(IC.plus,14)} Добавить</button></div>${dayList(sel)}</div>`;
-  return (pc ? '' : missedBar()) + h;
+  return pc ? h : `<div class="cd-wrap">${missedBar()}${h}${calDayHTML(sel)}</div>`;
+}
+
+// ---- Календарь, вариант А (12 октября 2026): выбранный день списком — на телефоне под месяцем или полоской недели,
+// на ПК панелью справа от недели. События по времени с чертой «сейчас», ниже дела без времени, внизу строка добавления на этот день ----
+// Коротко, чтобы название не обрезалось: «идёт», «через 40 мин», «через 2 ч» (полностью — в подсказке)
+const cdSoon = (e, nm) => { const m = timeMin(e.time) - nm; return m <= 0 ? 'идёт' : m < 60 ? `через ${m} мин` : `через ${Math.round(m / 60)} ч`; };
+function cdRow(e, k, nx, nm) {
+  const c = cat(e.cat), pr = e.task ? prioOf(e) : '', next = nx && nx.k === k && nx.e.id === e.id, t = todayK();
+  const past = e.time && (k < t || (k === t && evEndMin(e) <= nm));
+  const meta = next ? `<span class="t3-meta now" title="${esc(nx.label)}">${cdSoon(e, nm)}</span>` : e.loc ? `<span class="t3-meta cd-loc">${esc(e.loc)}</span>` : '';
+  return `<div class="t3-row cd-row${e.done ? ' done' : ''}${next ? ' next' : ''}${past && !e.done ? ' past' : ''}${pr === 'urgent' || pr === 'high' ? ' p-' + pr : ''}" style="--c:${c.color}">
+    ${e.time ? `<span class="cd-tm" title="${esc(c.name)}"><b>${esc(e.time)}</b>${e.time2 ? `<small>${esc(e.time2)}</small>` : ''}</span>` : ''}
+    <button class="t3-ck" data-act="toggle" data-id="${e.id}" data-d="${k}" style="--pc:${pr ? t3Ring(pr) : 'var(--mut)'}" aria-label="${e.done ? 'Снять отметку' : 'Выполнено'}">${e.done ? I(IC.check, 12) : ''}</button>
+    <button class="t3-main" data-act="edit" data-id="${e.id}" data-d="${k}">${e.time ? '' : `<i class="t3-dot" style="background:${c.color}" title="${esc(c.name)}"></i>`}<span class="t3-t">${esc(e.title)}</span>${e.rec ? '<i class="t3-rep" title="Повторяется">↻</i>' : ''}${goalTag(e)}</button>
+    ${meta}</div>`;
+}
+function calDayHTML(k, side) {
+  const t = todayK(), all = evOn(k), nm = nowMin(), nx = k === t ? nextUp(k) : null, d = pd(k);
+  const timed = all.filter(e => e.time), untimed = daySort(all.filter(e => !e.time)), dn = all.filter(e => e.done).length;
+  const line = `<div class="cd-now" aria-label="Сейчас ${fmtMin(nm)}"><span>${fmtMin(nm)}</span><i></i></div>`;
+  const at = k === t && timed.length ? timed.findIndex(e => timeMin(e.time) > nm) : -2, rows = [];
+  timed.forEach((e, i) => { if (i === at) rows.push(line); rows.push(cdRow(e, k, nx, nm)); });
+  if (at === -1) rows.push(line);
+  const ttl = `${DOW[dowIdx(k)]}, ${d.getDate()} ${MONG[d.getMonth()]}${k === t ? ' · сегодня' : k === addDays(t, 1) ? ' · завтра' : ''}`;
+  const btn = `<button class="t3-gbtn" data-act="goday" data-d="${k}" title="Почасовая сетка этого дня">по часам${side ? ' →' : ''}</button>`;
+  // Строка ввода добавляет на выбранный день, если дата не написана в тексте
+  const st = omSt('omc'); st.base = k !== t ? k : null; st.ph = st.base ? `Добавить на ${relDay(k)}…` : null;
+  return `<div class="card t3-list cd-day">${t3Head(ttl, all.length ? `${dn} из ${all.length}` : '', '', btn)}${rows.join('')}
+    ${timed.length && untimed.length ? t3Head('Без времени') : ''}${untimed.map(e => cdRow(e, k, nx, nm)).join('')}
+    ${all.length ? '' : `<p class="t3-empty">${k < t ? 'В этот день ничего не было.' : 'Свободный день — добавьте дело или встречу в строке ниже.'}</p>`}</div>
+  <div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>`;
+}
+// Телефон, «Неделя»: полоска дней (точки — цвета календарей несделанных дел, галочка — всё сделано) и выбранный день.
+// Свайп листает дни, стрелки в шапке — недели
+function calWeekStrip() {
+  const t = todayK();
+  return `<div class="t3-strip cd-strip" role="tablist" aria-label="Дни недели">${taskWeek().map(k => { const l = evOn(k), open = l.filter(e => !e.done), d = pd(k);
+    const marks = !l.length ? '' : !open.length ? I(IC.check, 11) : [...new Set(open.map(e => cat(e.cat).color))].slice(0, 3).map(cl => `<i style="background:${cl}"></i>`).join('');
+    return `<button class="t3-day${k === sel ? ' on' : ''}${k === t ? ' today' : ''}${k < t ? ' past' : ''}" data-act="t3day" data-d="${k}" role="tab" aria-selected="${k === sel}" aria-label="${esc(fmtLong(k))}: ${l.length ? open.length ? 'осталось ' + open.length : 'всё сделано' : 'пусто'}"><small>${DOW[dowIdx(k)].toLowerCase()}</small><b>${d.getDate()}</b><span class="t3-marks${l.length && !open.length ? ' ok' : ''}">${marks}</span></button>`; }).join('')}</div>`;
+}
+// ПК, «Неделя»: справа — панель выбранного дня (на узком экране её нет). Число в шапке недели выбирает день, «по часам →» открывает его целиком
+const wkSide = () => innerWidth >= 1100;
+function weekHTML() {
+  if (innerWidth < 900) return `<div class="cd-wrap">${missedBar()}${calWeekStrip()}${calDayHTML(sel)}</div>`;
+  const g = gridHTML(weekDays());
+  return wkSide() ? `<div class="wkview"><div class="wkgrid">${g}</div><aside class="wkside">${calDayHTML(sel, true)}</aside></div>` : g;
 }
 
 function miniHTML() {
@@ -94,9 +138,11 @@ function gridHTML(days) {
   TA = buildAxis(days);
   const fz = TA.segs.some(s => s.fold);
   const showNow = days.includes(today) && nm >= SH*60, nowTop = yOf(nm);
-  const head = days.map(k => `<div class="wg-day${isWknd(k)?' wknd':''}"><span class="wg-dow">${days.length === 1 ? DOWF[dowIdx(k)] : dowName(k)}</span><button class="wg-num${k===today?' today':''}${k===sel&&k!==today&&days.length>1?' sel':''}" data-act="goday" data-d="${k}" title="Открыть день">${pd(k).getDate()}</button></div>`).join('');
-  const allrow = days.map(k => { const es = evOn(k).filter(e => !e.time);
-    return `<div class="wg-allcol${isWknd(k)?' wknd':''}" data-act="quickadd" data-d="${k}" title="Добавить задачу на весь день">${es.map(e => `<button class="wg-chip${e.done?' done':''}" data-act="edit" data-id="${e.id}" data-d="${k}" style="--c:${cat(e.cat).color}">${e.done?'✓ ':''}${esc(e.title)}</button>`).join('')}</div>`; }).join('');
+  // Неделя с панелью дня справа: число выбирает день для панели; дел без времени над сеткой — не больше трёх строк, остальное «ещё N»
+  const side = days.length > 1 && wkSide(), dAct = side ? 'pick' : 'goday';
+  const head = days.map(k => `<div class="wg-day${isWknd(k)?' wknd':''}"><span class="wg-dow">${days.length === 1 ? DOWF[dowIdx(k)] : dowName(k)}</span><button class="wg-num${k===today?' today':''}${k===sel&&days.length>1?' sel':''}" data-act="${dAct}" data-d="${k}" title="${side ? 'Показать день справа' : 'Открыть день'}">${pd(k).getDate()}</button></div>`).join('');
+  const allrow = days.map(k => { const es = evOn(k).filter(e => !e.time), show = days.length > 1 && es.length > 3 ? es.slice(0, 2) : es;
+    return `<div class="wg-allcol${isWknd(k)?' wknd':''}" data-act="quickadd" data-d="${k}" title="Добавить задачу на весь день">${show.map(e => `<button class="wg-chip${e.done?' done':''}" data-act="edit" data-id="${e.id}" data-d="${k}" style="--c:${cat(e.cat).color}">${e.done?'✓ ':''}${esc(e.title)}</button>`).join('')}${es.length > show.length ? `<button class="wg-more" data-act="${dAct}" data-d="${k}">ещё ${es.length - show.length}</button>` : ''}</div>`; }).join('');
   const hours = TA.segs.map((s, si) => s.fold
     ? `<button class="wg-foldlbl" data-act="wgfold" data-h="${s.a / 60}" style="height:${s.h}px" title="Показать пустые часы">${hh2(s.a).slice(0, 2)}–${hh2(s.b).slice(0, 2)}</button>`
     : [...Array((s.b - s.a) / 60)].map((_, i) => { const h = s.a / 60 + i, hide = h === SH || (i === 0 && si > 0 && TA.segs[si - 1].fold) || (showNow && Math.abs(nm - h*60) < 14);
@@ -184,7 +230,7 @@ function sideHTML() {
   return `${top}
   <button class="newbtn" data-act="add">${I(IC.plus,16)} Создать событие <kbd>N</kbd></button>
   <div class="sb-miss">${missedBar()}</div>
-  ${n ? `<div class="sb-next">${nextCard(n)}</div>` : ''}
+  ${n && !(view === 'week' && wkSide()) ? `<div class="sb-next">${nextCard(n)}</div>` : ''}
   ${mini}
   <div class="sb-sec"><div class="sb-h">Мои календари</div>
   ${S.cats.map(c => `<div class="sb-catw"><button type="button" class="sb-cat${hiddenCats.has(c.id)?'':' on'}" data-act="catfilter" data-id="${c.id}" style="--c:${c.color}"><span class="sb-box">${hiddenCats.has(c.id)?'':I(IC.check,11)}</span>${esc(c.name)}<span class="cnt">${cnt(c.id) || ''}</span></button><button type="button" class="cshare" data-act="sharecat" data-id="${c.id}" aria-label="Поделиться календарём «${esc(c.name)}»" title="Поделиться">${I(IC.share,14)}</button></div>`).join('')}
@@ -217,7 +263,7 @@ function render(dir) {
   applyLook(); hideTip();   // js/look.js, js/help.js
   document.body.dataset.sec = sec;
   document.body.dataset.nonav = S2.noNav ? '1' : '';    // «Главная», «Профиль», «Настройки»: без стрелок периода
-  document.body.dataset.nonew = S2.newLabel && sec !== 'home' && !(sec === 'tasks' && tView !== 'goals') ? '' : '1';   // на Главной добавляют строкой ввода — «+» в шапке не повторяем (12 октября 2026)
+  document.body.dataset.nonew = S2.newLabel && sec !== 'home' && sec !== 'cal' && !(sec === 'tasks' && tView !== 'goals') ? '' : '1';   // на Главной, в Календаре и Задачах добавляют строкой ввода — «+» в шапке не повторяем (12 октября 2026)
   $('#ttl').innerHTML = cal ? titleHTML() : S2.title();
   $$('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === view));
   const bn = $('.btn-new'); if (bn) { bn.innerHTML = I(IC.plus, 17) + (S2.newLabel || ''); bn.setAttribute('aria-label', S2.newLabel || 'Создать'); bn.title = S2.newLabel || 'Создать'; }
@@ -227,7 +273,7 @@ function render(dir) {
   const main = $('#main'), oldW = $('.wgwrap'), oldTop = oldW ? oldW.scrollTop : null;
   hsSave();
   main.className = cal ? 'v-' + view : 'sec sec-' + sec;
-  main.innerHTML = !cal ? S2.html() : view === 'month' ? monthHTML() : view === 'week' ? gridHTML(weekDays()) : view === 'day' ? dayHTML() : agendaHTML();
+  main.innerHTML = !cal ? S2.html() : view === 'month' ? monthHTML() : view === 'week' ? weekHTML() : view === 'day' ? dayHTML() : agendaHTML();
   const w = $('.wgwrap');
   if (w) {
     if (oldTop != null && lastGridView === view) w.scrollTop = oldTop;
@@ -246,7 +292,9 @@ function render(dir) {
 
 function move(n) {
   if (sec !== 'cal') { SEC[sec].move(n); if (sec !== 'tasks') miniAnchor = pd(secYM + '-01'); return render(n); }
-  if (view === 'month') { monthAnchor.setDate(1); monthAnchor.setMonth(monthAnchor.getMonth() + n); }
+  if (view === 'month') { monthAnchor.setDate(1); monthAnchor.setMonth(monthAnchor.getMonth() + n);
+    // На телефоне под месяцем — выбранный день: он остаётся в показанном месяце (сегодня или 1-е число)
+    if (innerWidth < 900) { const ym = ymOf(ds(monthAnchor)); if (ymOf(sel) !== ym) { sel = ymOf(todayK()) === ym ? todayK() : ym + '-01'; syncMini(); } } }
   else if (view === 'list') { sel = addDays(sel, 14 * n); syncMini(); }
   else { sel = addDays(sel, view === 'week' ? 7 * n : n); syncMini(); }
   render(n);

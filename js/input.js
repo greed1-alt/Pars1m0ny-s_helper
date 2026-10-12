@@ -31,7 +31,6 @@ document.addEventListener('click', async ev => {
     if (sec === 'habits' || sec === 'fin') { if (ymOf(d) !== secYM) { secYM = ymOf(d); window.scrollTo(0, 0); } }   // в «Привычках» и «Финансах» день открывает его месяц
     if (fromMini) syncMini(); render(); }
   else if (a === 'goday') { sel = el.dataset.d; view = 'day'; syncMini(); render(2); }
-  else if (a === 'addday') openEvent(null, { date: sel });
   else if (a === 'quickadd') { if (ev.target.closest('.wg-chip')) return; openQuick(el.dataset.d, '', ev.clientX, ev.clientY); }
   else if (a === 'colclick') {
     const rect = el.getBoundingClientRect();

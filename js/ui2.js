@@ -79,7 +79,8 @@ function omniParse(raw, ctx, force, st, rawType) {
   s = s.replace(/(^|\s)срочно(?=\s|$)/i, (m0, a) => { prio = prio || 'urgent'; return a; }).replace(/\s+/g, ' ').trim();
   if (!s) return null;
   const t = todayK(), yest = /(^|\s)вчера(?=\s|$)/i.test(s), sm = s.replace(/(^|\s)вчера(?=\s|$)/i, ' ').trim();
-  const nl = parseNL(s, t), mo = parseMoney(plus ? '+ ' + sm : sm);
+  // Время без даты («в 16») — на выбранный день строки (st.base), а не на сегодня
+  const nl = parseNL(s, (st && st.base) || t), mo = parseMoney(plus ? '+ ' + sm : sm);
   if (!type) {
     if (mo.ok && !nl.time && ctx !== 'tasks') {
       const plusM = plus || /^\+/.test(sm), cur = /\d\s*(₽|р\.?(?=\s|$)|руб|к(?=\s|$)|k(?=\s|$)|тыс)/i.test(sm);
@@ -132,7 +133,7 @@ function omniHTML(id, ctx) {
   const st = omSt(id); st.ctx = ctx;
   return `<div class="om" data-om="${id}">
     <div class="om-box">${I(IC.spark, 19)}<input id="${id}" class="om-in" type="text" value="${esc(st.v)}" placeholder="${esc(st.force ? OM_T[st.force].ph : st.ph || OM_PH[ctx] || OM_PH.home)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" aria-label="Быстрое добавление"><button class="om-go om-keep" data-act="omgo" data-om="${id}" aria-label="Добавить">${I(IC.plus, 20)}</button></div>
-    <div class="om-types" role="group" aria-label="Что добавить">${OM_ORDER.filter(t => (ctx !== 'tasks' || t === 'task' || t === 'event') && omOn(t)).map(t => `<button class="om-t om-keep" data-act="omtype" data-om="${id}" data-t="${t}" aria-pressed="false">${I(OM_T[t].ic, 15)}${OM_T[t].n}</button>`).join('')}</div>
+    <div class="om-types" role="group" aria-label="Что добавить">${OM_ORDER.filter(t => (ctx === 'home' || t === 'task' || t === 'event') && omOn(t)).map(t => `<button class="om-t om-keep" data-act="omtype" data-om="${id}" data-t="${t}" aria-pressed="false">${I(OM_T[t].ic, 15)}${OM_T[t].n}</button>`).join('')}</div>
     <div class="om-prev" id="${id}_prev" aria-live="polite"></div>
   </div>`;
 }
@@ -404,6 +405,8 @@ Object.defineProperty(SEC.tasks, 'noNav', { get: () => tasksGoals(), configurabl
   T.create = () => tasksGoals() ? openGoal() : create();
   // Свайп на телефоне в «Неделе» листает дни (стрелки в шапке — недели)
   T.swipe = n => { if (!isWide() && tView === 'main') { sel = addDays(sel, n); syncMini(); render(); } else move(n); }; }
+// Календарь на телефоне: в «Неделе» свайп тоже листает дни (стрелки в шапке — недели), в «Месяце» — месяцы
+SEC.cal.swipe = n => { if (!isWide() && view === 'week') { sel = addDays(sel, n); syncMini(); render(); } else move(n); };
 
 // ---- Финансы: крупно — сколько можно потратить, строка записи, последние записи; графики и таблицы — свёрнуты ----
 const f2Row = o => { const c = fcat(o.cat), plus = c.g === 'inc', t = todayK();
@@ -565,4 +568,5 @@ function balanceHome() {
 }
 SEC.home.after = () => { omRefresh(); balanceHome(); };
 SEC.tasks.after = omRefresh;
+SEC.cal.after = omRefresh;   // строка добавления под выбранным днём (js/calendar.js: calDayHTML)
 if (!S.settings.onboarded) setTimeout(onbOpen, 350);

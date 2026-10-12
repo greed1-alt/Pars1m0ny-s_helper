@@ -18,7 +18,6 @@ body.ui2 .missbar,body.ui2 .demobar{border-radius:14px;padding:12px 14px}
 body.ui2 .missbar b{font-size:14.5px}
 body.ui2 .ev{padding:10px 4px;gap:12px}
 body.ui2 .evb b{font-size:15.5px}
-body.ui2 .mpanel{border-radius:var(--rc);padding:16px 14px;margin-top:16px}
 body.ui2 .chk{width:22px;height:22px;border-radius:7px}
 .h2-empty{margin:4px 0 8px;font-size:14px;color:var(--mut);line-height:1.5}
 
@@ -646,4 +645,34 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
   .t3-cols{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px 18px;align-items:start}
   .t3-row{min-height:40px}
   .t3-main{font-size:14.5px;padding:8px 0}
+}
+
+/* ---- Календарь, вариант А (12 октября 2026): выбранный день списком, полоска недели на телефоне, панель дня на ПК ---- */
+.cd-wrap{display:flex;flex-direction:column;gap:12px}
+.cd-day .t3-gh:first-child small,.cd-day .t3-gbtn{white-space:nowrap}
+.cd-tm{flex:none;align-self:stretch;width:50px;display:flex;flex-direction:column;justify-content:center;padding:6px 8px 6px 0;border-right:3px solid var(--c);line-height:1.15}
+.cd-tm b{font-size:13.5px;font-weight:650}
+.cd-tm small{font-size:11px;color:var(--mut);font-weight:500}
+.cd-row.past .t3-t{color:var(--tx2)}
+.cd-row.next .t3-t{font-weight:650}
+.cd-loc{max-width:38%;overflow:hidden;text-overflow:ellipsis;color:var(--mut);font-weight:500}
+.cd-now{display:flex;align-items:center;gap:6px;margin:3px 0;color:var(--red);font-size:11.5px;font-weight:700}
+.cd-now i{flex:1;height:2px;border-radius:1px;background:var(--red)}
+.cd-now+.t3-row{border-top:0}
+.cd-strip .t3-day.on .t3-marks i{box-shadow:0 0 0 1.5px var(--accfg)}
+.wg-more{text-align:left;font-size:11px;font-weight:600;line-height:18px;color:var(--tx2);padding:0 6px;border-radius:5px}
+@media(hover:hover){.wg-more:hover{background:var(--hov2);color:var(--tx)}}
+@media(max-width:899px){
+  /* Шапка: на телефоне два вида — «Месяц» и «Неделя»; почасовая сетка дня — кнопкой «по часам» у списка дня */
+  .bar2 .segc [data-v=day],.bar2 .segc [data-v=list]{display:none}
+  /* Месяц плотнее: под ним — список выбранного дня */
+  .v-month .month{gap:2px 0}
+  .v-month .mc{aspect-ratio:auto;height:46px;padding:4px 0 3px;gap:3px;border-radius:10px}
+  .v-month .mc.sel{background:color-mix(in srgb,var(--acc) 15%,transparent)}
+}
+@media(min-width:900px){
+  .wkview{display:flex;align-items:stretch}
+  .wkgrid{flex:1;min-width:0}
+  .wkside{width:340px;flex:none;border-left:1px solid var(--line);height:calc(100vh - var(--hh));overflow-y:auto;position:sticky;top:var(--hh);padding:14px;display:flex;flex-direction:column;gap:12px}
+  .wkside .cd-day{padding:6px 14px 10px}
 }

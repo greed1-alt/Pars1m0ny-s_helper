@@ -185,9 +185,6 @@ body.dragmode{-webkit-user-select:none;user-select:none;cursor:grabbing}
 .mdots{display:flex;gap:3px;height:6px}
 .mdots u{width:6px;height:6px;border-radius:50%}
 .mchips{display:none}
-.mpanel{margin-top:14px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r3);padding:14px 12px}
-.mp-head{display:flex;align-items:center;justify-content:space-between;margin:0 4px 6px}
-.mp-head b{font-size:16px;letter-spacing:-.01em}
 
 /* ---- Список (agenda) ---- */
 .agenda{max-width:780px;margin:0 auto}
