@@ -293,7 +293,9 @@ function homeBlock(x, t) {
 // Самочувствие, цели и мысли дня — свёрнутыми блоками, как в «Настроить Главную». Вид выбирается кнопкой внизу Главной (S.settings.homeView).
 let hbPastOpen = false;
 ACT.hbpast = () => { hbPastOpen = !hbPastOpen; render(); };
-ACT.homeview = () => { S.settings.homeView = S.settings.homeView === 'b' ? 'a' : 'b'; save(); render(); window.scrollTo(0, 0); toast('Вид Главной: ' + (S.settings.homeView === 'b' ? 'лента дня' : 'блоки')); };
+const HOME_VIEWS = { a: 'Блоки', b: 'Лента', c: 'Плитки' };
+const homeView = () => HOME_VIEWS[S.settings.homeView] ? S.settings.homeView : 'a';
+ACT.homeview = el => { const v = el.dataset.v; if (!HOME_VIEWS[v] || v === homeView()) return; S.settings.homeView = v; save(); render(); window.scrollTo(0, 0); };
 function hbStats(t) {
   const out = [], tasks = secOn('tasks') || secOn('cal') ? evOn(t) : [], habs = todayHabs(t);
   if (tasks.length) out.push({ s: secOn('tasks') ? 'tasks' : 'cal', n: 'дела', v: `${tasks.filter(e => e.done).length} из ${tasks.length}` });
@@ -338,18 +340,41 @@ function homeHTMLB() {
   </div>
   ${homeCustHTML()}`;
 }
-const homeCustHTML = () => `<div class="h2-cust"><button class="lnk" data-act="homeview">${I(IC.home, 15)} Вид: ${S.settings.homeView === 'b' ? 'лента дня' : 'блоки'}</button><button class="lnk" data-act="blkcust" data-p="home">${I(IC.grid, 15)} Настроить Главную</button><button class="lnk" data-act="feedback">${I(IC.msg, 15)} Отзыв</button></div>`;
+// Внизу Главной — выбор вида (пока сравниваем варианты) и «Настроить Главную» / «Отзыв»
+const homeCustHTML = () => `<div class="hv-row"><span>Вид Главной</span><div class="hv-seg" role="group" aria-label="Вид Главной">${Object.entries(HOME_VIEWS).map(([k, n]) => `<button class="${homeView() === k ? 'on' : ''}" data-act="homeview" data-v="${k}" aria-pressed="${homeView() === k}">${n}</button>`).join('')}</div></div>
+  <div class="h2-cust"><button class="lnk" data-act="blkcust" data-p="home">${I(IC.grid, 15)} Настроить Главную</button><button class="lnk" data-act="feedback">${I(IC.msg, 15)} Отзыв</button></div>`;
 
-function homeHTML() {
-  if (S.settings.homeView === 'b') return homeHTMLB();
-  const t = todayK(), d = pd(t), name = (S.settings.name || '').trim();
+// ---- Главная, вариант В «Плитки» (12 октября 2026): приветствие с кольцом, четыре плитки-цифры (нажатие — в раздел),
+// строка ввода и список дел на сегодня. Подробности — в разделах; самочувствие, цели и мысли дня — свёрнутыми блоками ----
+const HC_IC = { tasks: IC.tasks, cal: IC.cal, habits: IC.habit, fin: IC.wallet, gall: IC.goal };
+const HC_N = { tasks: 'План', cal: 'План', habits: 'Привычки', fin: 'Можно сегодня', gall: 'Цели' };
+function homeHTMLC() {
+  const t = todayK(), tiles = hbStats(t);
+  const extra = homeOrder().filter(x => ['bio', 'goals', 'notes'].includes(x.k) && x.m !== 'hide').map(x => homeBlock({ k: x.k, m: 'fold' }, t)).join('');
+  const plan = secOn('tasks') || secOn('cal') ? (() => { const all = evOn(t); return `<div class="card h2-card hc-today" data-blk="plan"><div class="h2-h"><b>${I(IC.cal, 18)}Сегодня</b><small>${all.length ? '' : 'пусто'}</small></div>${homePlan(t)}</div>`; })() : '';
+  return `${homeHeroHTML(t)}
+  ${tiles.length ? `<div class="hc-tiles">${tiles.map(x => { const k = x.act || x.s; // У целей крупно — сколько их, а просрочка — строкой ниже (иначе «просрочено 1» не помещается в плитку)
+    let big = x.v, sub = ''; if (k === 'gall') { const ga = activeGoals(), late = ga.reduce((n, g) => n + goalStat(g).late.length, 0); big = ga.length; sub = late ? `просрочено шагов: ${late}` : ''; }
+    return `<button class="hc-tile${x.bad && k !== 'gall' ? ' bad' : ''}" data-act="${x.act || 'sec'}"${x.s ? ` data-s="${x.s}"` : ''}><span class="hc-ic">${I(HC_IC[k] || IC.grid, 18)}</span><small>${HC_N[k] || x.n}</small><b>${big}</b>${sub ? `<em>${sub}</em>` : ''}</button>`; }).join('')}</div>` : ''}
+  <div class="hc-cols"><div class="hc-col"><div class="card h2-omni">${omniHTML('om', 'home')}</div>${secOn('tasks') || secOn('cal') ? missedBar(true) : ''}${plan}</div><div class="hc-col">${extra}</div></div>
+  ${homeCustHTML()}`;
+}
+// Приветствие с кольцом — общее для вариантов А и В
+function homeHeroHTML(t) {
+  const d = pd(t), name = (S.settings.name || '').trim();
   const tasks = secOn('tasks') || secOn('cal') ? dayTasks(t) : [], habs = todayHabs(t);
   const total = tasks.length + habs.length, done = tasks.filter(e => e.done).length + habs.filter(h => h.log[t]).length, pct = total ? done / total : 0;
-  // Вариант А (12 октября 2026): приветствие компактнее, без фразы дня, кольцо меньше — на первом экране больше дел
-  const hero = `<div class="h2-hero">
+  return `<div class="h2-hero">
     <div class="h2-hi"><div class="h2-date">${DOWF[dowIdx(t)]}, ${d.getDate()} ${MONG[d.getMonth()]}</div>
       <h2 class="h2-greet">${greet()}${name ? ', ' + esc(name) : ''}</h2></div>
     <div class="h2-ring" title="Задачи и привычки на сегодня">${ringSVG(pct, 56, 'var(--good)', total ? Math.round(pct * 100) + '%' : '—', '')}<small>${withHint(total ? 'дела и привычки' : 'пока пусто', 'ring')}</small></div></div>`;
+}
+
+function homeHTML() {
+  if (homeView() === 'b') return homeHTMLB();
+  if (homeView() === 'c') return homeHTMLC();
+  // Вариант А (12 октября 2026): приветствие компактнее, без фразы дня, кольцо меньше — на первом экране больше дел
+  const t = todayK(), hero = homeHeroHTML(t);
   const omni = `<div class="card h2-omni">${omniHTML('om', 'home')}</div>`;
   const blocks = homeOrder().map(x => homeBlock(x, t)).join('');
   return `${hero}<div class="h2-cols"><div class="h2-col">${omni}${secOn('tasks') || secOn('cal') ? missedBar(true) : ''}${blocks}</div><div class="h2-col"></div></div>
