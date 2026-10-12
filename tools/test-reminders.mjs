@@ -8,12 +8,14 @@ import assert from 'node:assert/strict';
 
 process.env.TZ = 'Europe/Moscow';   // так приложение считает даты на устройстве в Москве
 const root = new URL('..', import.meta.url);
-const fn = readFileSync(new URL('supabase/functions/reminders/index.ts', root), 'utf8');
+// После git checkout на Windows файлы бывают с переводом строки CRLF — приводим к LF, иначе поиск кусков кода не сработает
+const rd = f => readFileSync(new URL(f, root), 'utf8').replace(/\r\n/g, '\n');
+const fn = rd('supabase/functions/reminders/index.ts');
 const core = fn.slice(fn.indexOf('// ==== CORE start ===='), fn.indexOf('// ==== CORE end ===='));
 const srv = new Function(core + '\nreturn { occurs, isDone, remOffs, dueReminders, remPayload, dueDigests, digestPayload, zoned, dayIn, addD, tzOf, WINDOW };')();
 
 // Функции приложения — прямо из js/core.js
-const app = readFileSync(new URL('js/core.js', root), 'utf8');
+const app = rd('js/core.js');
 const pick = re => { const m = app.match(re); assert.ok(m, 'не нашёл в core.js: ' + re); return m[0]; };
 const cli = new Function([
   pick(/const ds = d => .*\n/), pick(/const pd = s => .*\n/), pick(/const dowIdx = s => .*\n/),
