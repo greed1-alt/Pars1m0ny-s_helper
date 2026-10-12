@@ -226,17 +226,21 @@ const secLink = (s, n) => secOn(s) ? `<button data-act="sec" data-s="${s}">${n} 
 const todayHabs = t => secOn('habits') ? hByKind('daily').filter(h => t >= hStart(h) && hDow(h, t)) : [];
 
 // Содержимое блоков (без заголовка — его рисует homeBlock)
+// Строка дела дня — общая для «Плана на сегодня» (вариант А) и ленты дня (вариант Б)
+const evEndMin = e => timeMin(e.time2) != null && timeMin(e.time2) > timeMin(e.time) ? timeMin(e.time2) : timeMin(e.time) + 60;
+function planRow(e, t, nx, nm) {
+  const past = e.time && evEndMin(e) <= nm, pr = e.task ? prioOf(e) : '', next = nx && nx.k === t && nx.e.id === e.id;
+  return `<div class="pl-row${e.time ? '' : ' nt'}${e.done ? ' done' : ''}${past && !e.done ? ' past' : ''}${next ? ' next' : ''}" style="--c:${cat(e.cat).color}">
+      <span class="pl-tm">${e.time ? `<b>${esc(e.time)}</b>${e.time2 ? `<small>${esc(e.time2)}</small>` : ''}` : ''}</span>
+      <button class="chk" data-act="toggle" data-id="${e.id}" data-d="${t}" aria-label="Выполнено">${e.done ? I(IC.check, 14) : ''}</button>
+      <button class="pl-main" data-act="edit" data-id="${e.id}" data-d="${t}"><span class="pl-t">${esc(e.title)}</span><span class="pl-m">${next ? `<em class="pl-next">${esc(nx.label)}</em>` : ''}${catTag(e.cat)}${goalTag(e)}${pr === 'urgent' || pr === 'high' ? pbadge(pr) : ''}${e.rec ? '<span class="pl-rep" title="Повторяется">↻</span>' : ''}${e.loc ? `<span class="pl-loc">${esc(e.loc)}</span>` : ''}</span></button></div>`;
+}
 function homePlan(t) {
   const all = evOn(t), nm = nowMin(), nx = nextUp(t);
-  const evEnd = e => timeMin(e.time2) != null && timeMin(e.time2) > timeMin(e.time) ? timeMin(e.time2) : timeMin(e.time) + 60;
   const timed = all.filter(e => e.time).sort((a, b) => a.time.localeCompare(b.time));
   const untimed = all.filter(e => !e.time).sort((a, b) => a.done - b.done || prioRank(a) - prioRank(b));
   const MAX = 8, tShow = timed.slice(0, MAX), uShow = untimed.slice(0, Math.max(3, MAX - tShow.length)), rest = all.length - tShow.length - uShow.length;
-  const row = e => { const past = e.time && evEnd(e) <= nm, pr = e.task ? prioOf(e) : '', next = nx && nx.k === t && nx.e.id === e.id;
-    return `<div class="pl-row${e.time ? '' : ' nt'}${e.done ? ' done' : ''}${past && !e.done ? ' past' : ''}${next ? ' next' : ''}" style="--c:${cat(e.cat).color}">
-      <span class="pl-tm">${e.time ? `<b>${esc(e.time)}</b>${e.time2 ? `<small>${esc(e.time2)}</small>` : ''}` : ''}</span>
-      <button class="chk" data-act="toggle" data-id="${e.id}" data-d="${t}" aria-label="Выполнено">${e.done ? I(IC.check, 14) : ''}</button>
-      <button class="pl-main" data-act="edit" data-id="${e.id}" data-d="${t}"><span class="pl-t">${esc(e.title)}</span><span class="pl-m">${next ? `<em class="pl-next">${esc(nx.label)}</em>` : ''}${catTag(e.cat)}${goalTag(e)}${pr === 'urgent' || pr === 'high' ? pbadge(pr) : ''}${e.rec ? '<span class="pl-rep" title="Повторяется">↻</span>' : ''}</span></button></div>`; };
+  const row = e => planRow(e, t, nx, nm);
   const tm = evOn(addDays(t, 1)).length;
   return `${all.length ? `${tShow.length && uShow.length ? '<div class="pl-sub">По времени</div>' : ''}${tShow.map(row).join('')}
       ${uShow.length && tShow.length ? '<div class="pl-sub">Без времени</div>' : ''}${uShow.map(row).join('')}${rest > 0 ? `<button class="hm-more" data-act="pick" data-d="${t}">Ещё ${plural(rest, NEV)} →</button>` : ''}`
@@ -283,7 +287,61 @@ function homeBlock(x, t) {
   if (x.m === 'fold') return foldHTML('h-' + x.k, b.n, d.sum, d.body, d.def || false, { card:true, ic:b.ic, cls:'h2-blk' });
   return `<div class="card h2-card h2-blk" data-blk="${x.k}"><div class="h2-h"><b>${I(b.ic, 18)}${b.n}</b><small>${homeCardSum(x.k, d, t)}</small></div>${d.body()}</div>`;
 }
+// ---- Главная, вариант Б «Лента дня» (12 октября 2026): весь день одним списком по времени ----
+// Сверху — цифры дня (нажатие ведёт в раздел), ниже лента: привычки, прошедшее (свёрнуто), черта «сейчас», ближайшее дело подсвечено,
+// потом остальное по времени, дела без времени и сегодняшние траты. Строка ввода на телефоне — внизу, у большого пальца.
+// Самочувствие, цели и мысли дня — свёрнутыми блоками, как в «Настроить Главную». Вид выбирается кнопкой внизу Главной (S.settings.homeView).
+let hbPastOpen = false;
+ACT.hbpast = () => { hbPastOpen = !hbPastOpen; render(); };
+ACT.homeview = () => { S.settings.homeView = S.settings.homeView === 'b' ? 'a' : 'b'; save(); render(); window.scrollTo(0, 0); toast('Вид Главной: ' + (S.settings.homeView === 'b' ? 'лента дня' : 'блоки')); };
+function hbStats(t) {
+  const out = [], tasks = secOn('tasks') || secOn('cal') ? evOn(t) : [], habs = todayHabs(t);
+  if (tasks.length) out.push({ s: secOn('tasks') ? 'tasks' : 'cal', n: 'дела', v: `${tasks.filter(e => e.done).length} из ${tasks.length}` });
+  if (habs.length) out.push({ s: 'habits', n: 'привычки', v: `${habs.filter(h => h.log[t]).length} из ${habs.length}` });
+  if (secOn('fin')) { const ym = ymOf(t), st = finStat(ym), lim = dailyLimit(st, ym); if (lim) out.push({ s: 'fin', n: 'можно сегодня', v: rub0(Math.max(0, lim.left)), bad: lim.left < 0 }); }
+  if (secOn('tasks')) { const ga = activeGoals(), late = ga.reduce((n, g) => n + goalStat(g).late.length, 0); if (ga.length) out.push({ act: 'gall', n: 'цели', v: late ? `просрочено ${late}` : plural(ga.length, ['активная', 'активные', 'активных']), bad: late > 0 }); }
+  return out;
+}
+const hbStatsHTML = t => { const l = hbStats(t); return l.length ? `<div class="hb-stats">${l.map(x => `<button class="hb-st${x.bad ? ' bad' : ''}" data-act="${x.act || 'sec'}"${x.s ? ` data-s="${x.s}"` : ''}><small>${x.n}</small><b>${x.v}</b></button>`).join('')}</div>` : ''; };
+function dayFeed(t) {
+  const all = secOn('tasks') || secOn('cal') ? evOn(t) : [], nm = nowMin(), nx = nextUp(t), habs = todayHabs(t);
+  const timed = all.filter(e => e.time).sort((a, b) => a.time.localeCompare(b.time));
+  const untimed = all.filter(e => !e.time).sort((a, b) => a.done - b.done || prioRank(a) - prioRank(b));
+  const past = timed.filter(e => evEndMin(e) <= nm), ahead = timed.filter(e => evEndMin(e) > nm);
+  const row = e => planRow(e, t, nx, nm), parts = [];
+  if (habs.length) parts.push(`<div class="fd-sub">Привычки</div><div class="h2-hchips">${habs.slice(0, 12).map(h => habChip(h, t)).join('')}${habs.length > 12 ? `<button class="h2-hc more" data-act="sec" data-s="habits">ещё ${habs.length - 12} →</button>` : ''}</div>`);
+  if (timed.length) {
+    // Прошедшее сворачивается в одну строку, когда его больше двух
+    if (past.length > 2 && !hbPastOpen) parts.push(`<button class="fd-past" data-act="hbpast">${I(IC.clock, 14)}Раньше сегодня: ${plural(past.length, NEV)} · сделано ${past.filter(e => e.done).length}<span>показать</span></button>`);
+    else if (past.length) parts.push(past.map(row).join('') + (past.length > 2 ? `<button class="fd-past" data-act="hbpast">Свернуть прошедшее</button>` : ''));
+    parts.push(`<div class="fd-now"><span>сейчас ${fmtMin(nm)}</span></div>`);
+    parts.push(ahead.length ? ahead.map(row).join('') : '<p class="fd-empty">Больше дел по времени сегодня нет</p>');
+  }
+  if (untimed.length) parts.push(`<div class="fd-sub">В течение дня</div>${untimed.map(row).join('')}`);
+  if (!all.length) parts.push('<p class="h2-empty">На сегодня пусто. Напишите в строке — например, «позвонить маме в 18» или «купить продукты».</p>');
+  if (secOn('fin')) { const ops = finStat(ymOf(t)).ops.filter(o => o.date === t && FG_OUT.includes(fcat(o.cat).g));
+    if (ops.length) parts.push(`<div class="fd-sub">Траты сегодня</div><div class="fd-ops">${ops.slice(0, 4).map(o => { const c = fcat(o.cat); return `<button class="fd-op" data-act="opedit" data-id="${o.id}"><span class="em">${esc(c.emoji || '•')}</span><span class="n">${esc(o.note || c.name)}</span><b>−${rub0(o.amt)}</b></button>`; }).join('')}${ops.length > 4 ? `<button class="fd-op more" data-act="sec" data-s="fin">ещё ${ops.length - 4} →</button>` : ''}</div>`); }
+  const tm = all.length || secOn('tasks') || secOn('cal') ? evOn(addDays(t, 1)).length : 0;
+  return `${parts.join('')}<div class="hm-foot"><span>${tm ? 'Завтра: ' + plural(tm, NEV) : 'На завтра пока пусто'}</span><span>${secLink('cal', 'Календарь')}</span></div>`;
+}
+function homeHTMLB() {
+  const t = todayK(), d = pd(t), name = (S.settings.name || '').trim();
+  const extra = homeOrder().filter(x => ['bio', 'goals', 'notes'].includes(x.k) && x.m !== 'hide').map(x => homeBlock({ k: x.k, m: 'fold' }, t)).join('');
+  return `<div class="hb">
+    <div class="hb-head"><div class="h2-date">${DOWF[dowIdx(t)]}, ${d.getDate()} ${MONG[d.getMonth()]}</div><h2 class="hb-greet">${greet()}${name ? ', ' + esc(name) : ''}</h2></div>
+    <div class="hb-main">
+      <div class="card h2-omni hb-omni">${omniHTML('om', 'home')}</div>
+      ${secOn('tasks') || secOn('cal') ? missedBar(true) : ''}
+      <div class="card hb-day" data-blk="feed">${dayFeed(t)}</div>
+    </div>
+    <div class="hb-side">${hbStatsHTML(t)}${extra}</div>
+  </div>
+  ${homeCustHTML()}`;
+}
+const homeCustHTML = () => `<div class="h2-cust"><button class="lnk" data-act="homeview">${I(IC.home, 15)} Вид: ${S.settings.homeView === 'b' ? 'лента дня' : 'блоки'}</button><button class="lnk" data-act="blkcust" data-p="home">${I(IC.grid, 15)} Настроить Главную</button><button class="lnk" data-act="feedback">${I(IC.msg, 15)} Отзыв</button></div>`;
+
 function homeHTML() {
+  if (S.settings.homeView === 'b') return homeHTMLB();
   const t = todayK(), d = pd(t), name = (S.settings.name || '').trim();
   const tasks = secOn('tasks') || secOn('cal') ? dayTasks(t) : [], habs = todayHabs(t);
   const total = tasks.length + habs.length, done = tasks.filter(e => e.done).length + habs.filter(h => h.log[t]).length, pct = total ? done / total : 0;
@@ -295,7 +353,7 @@ function homeHTML() {
   const omni = `<div class="card h2-omni">${omniHTML('om', 'home')}</div>`;
   const blocks = homeOrder().map(x => homeBlock(x, t)).join('');
   return `${hero}<div class="h2-cols"><div class="h2-col">${omni}${secOn('tasks') || secOn('cal') ? missedBar(true) : ''}${blocks}</div><div class="h2-col"></div></div>
-  <div class="h2-cust"><button class="lnk" data-act="blkcust" data-p="home">${I(IC.grid, 15)} Настроить Главную</button><button class="lnk" data-act="feedback">${I(IC.msg, 15)} Отзыв</button></div>`;
+  ${homeCustHTML()}`;
 }
 
 
