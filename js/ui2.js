@@ -128,9 +128,12 @@ function omPrevHTML(p, id, demo) {
 }
 const omHint = st => `<span class="om-hint">${withHint(st.force ? 'Напишите и нажмите Enter' : st.ctx === 'tasks' ? 'Дата, время, <b>#категория</b> и <b>!</b> приоритет — прямо в тексте' : 'Пишите как говорите — Parsimony сам поймёт, что это: дело, встреча, трата или привычка', 'omni')}</span>`;
 
+// «Спокойная» строка (Главная, вариант А, 12 октября 2026): кто уже добавил 5 записей, видит одну строку,
+// а кнопки вида записи и подсказка появляются, когда нажали на строку или начали писать. Новичкам — всё сразу
+const omCalm = id => id !== 'oms' && ((S.settings.omUses || 0) >= 5 || S.events.length + S.fin.ops.length >= 15);
 function omniHTML(id, ctx) {
   const st = omSt(id); st.ctx = ctx;
-  return `<div class="om" data-om="${id}">
+  return `<div class="om${omCalm(id) ? ' calm' : ''}${st.v || st.force ? ' open' : ''}" data-om="${id}">
     <div class="om-box">${I(IC.spark, 19)}<input id="${id}" class="om-in" type="text" value="${esc(st.v)}" placeholder="${esc(st.force ? OM_T[st.force].ph : OM_PH[ctx] || OM_PH.home)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" aria-label="Быстрое добавление"><button class="om-go om-keep" data-act="omgo" data-om="${id}" aria-label="Добавить">${I(IC.plus, 20)}</button></div>
     <div class="om-types" role="group" aria-label="Что добавить">${OM_ORDER.filter(t => (ctx !== 'tasks' || t === 'task' || t === 'event') && omOn(t)).map(t => `<button class="om-t om-keep" data-act="omtype" data-om="${id}" data-t="${t}" aria-pressed="false">${I(OM_T[t].ic, 15)}${OM_T[t].n}</button>`).join('')}</div>
     <div class="om-prev" id="${id}_prev" aria-live="polite"></div>
@@ -169,6 +172,7 @@ function omGo(id) {
   if (p.type === 'money' && !p.amt) { i.focus(); return toast('Добавьте сумму, например «кафе 450»'); }
   const inSheet = !!i.closest('#sh'), was = document.activeElement === i;
   omReset(st); i.value = '';
+  S.settings.omUses = Math.min(999, (S.settings.omUses || 0) + 1);
   if (inSheet) closeSheet();
   omCreate(p);
   if (!inSheet && was) { const n = $('#' + id); if (n) n.focus(); }
@@ -194,6 +198,10 @@ ACT.omfull = el => {
   else { openQuickNote(); const t = $('#qn_text'); if (t) t.value = p.title; }
 };
 document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('om-in')) omUpdate(e.target.id); });
+// Спокойная строка раскрывается по нажатию и сворачивается, когда ушли из неё с пустым полем (с задержкой — чтобы успел сработать тап по кнопке вида)
+document.addEventListener('focusin', e => { const o = e.target.closest && e.target.closest('.om.calm'); if (o) o.classList.add('open'); });
+document.addEventListener('focusout', e => { const o = e.target.closest && e.target.closest('.om.calm'); if (!o) return;
+  setTimeout(() => { const i = o.querySelector('.om-in'), st = i && omSt(i.id); if (o.contains(document.activeElement) || !i || i.value.trim() || (st && st.force)) return; o.classList.remove('open'); }, 700); });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.target.classList && e.target.classList.contains('om-in')) { e.preventDefault(); omGo(e.target.id); } });
 
 // Окно «Добавить» (кнопка «Создать», клавиша N): та же строка + примеры + полные формы
@@ -212,6 +220,8 @@ function openOmni(ctx) {
 const AREAS = [['tasks', IC.tasks, 'Дела и задачи'], ['cal', IC.cal, 'Календарь'], ['habits', IC.habit, 'Привычки'], ['fin', IC.wallet, 'Деньги']];
 const pbadge = p => `<span class="pbadge" style="--c:${PRIO[p].c}">${PRIO[p].n}</span>`;
 const habTile = (h, key, act) => { const on = !!h.log[key]; return `<button class="h2-hab${on ? ' on' : ''}" data-act="${act}" data-id="${h.id}" ${act === 'hmark' ? 'data-k' : 'data-key'}="${key}" aria-pressed="${on}"><span class="em">${esc(h.emoji || '•')}</span><span class="nm">${esc(h.name)}</span><i>${on ? I(IC.check, 14) : ''}</i></button>`; };
+// Привычка на Главной — «таблетка»: значок и название, нажатие отмечает. Шесть привычек — две-три строки вместо пол-экрана
+const habChip = (h, key) => { const on = !!h.log[key]; return `<button class="h2-hc${on ? ' on' : ''}" data-act="hmark" data-id="${h.id}" data-k="${key}" aria-pressed="${on}"><span class="em">${esc(h.emoji || '•')}</span><span class="nm">${esc(h.name)}</span>${on ? I(IC.check, 13) : ''}</button>`; };
 const secLink = (s, n) => secOn(s) ? `<button data-act="sec" data-s="${s}">${n} →</button>` : '';
 const todayHabs = t => secOn('habits') ? hByKind('daily').filter(h => t >= hStart(h) && hDow(h, t)) : [];
 
@@ -234,20 +244,19 @@ function homePlan(t) {
     <div class="hm-foot"><span>${tm ? 'Завтра: ' + plural(tm, NEV) : 'На завтра пока пусто'}</span><span>${secLink('tasks', 'Задачи')}${secLink('cal', 'Календарь')}</span></div>`;
 }
 function homeHabits(t) {
-  const habs = todayHabs(t), sk = habitStreaks(), show = habs.slice(0, 6);
-  return `${habs.length ? `<div class="h2-habs">${show.map(h => habTile(h, t, 'hmark')).join('')}${habs.length > show.length ? `<button class="h2-hab more" data-act="sec" data-s="habits"><span class="nm">Ещё ${plural(habs.length - show.length, ['привычка', 'привычки', 'привычек'])} →</span></button>` : ''}</div>`
+  const habs = todayHabs(t), sk = habitStreaks(), show = habs.slice(0, 12);
+  return `${habs.length ? `<div class="h2-hchips">${show.map(h => habChip(h, t)).join('')}${habs.length > show.length ? `<button class="h2-hc more" data-act="sec" data-s="habits">ещё ${habs.length - show.length} →</button>` : ''}</div>`
       : `<p class="h2-empty">Привычек пока нет. Начните с одной — напишите выше «привычка: 2 литра воды».</p>`}
     <div class="hm-foot"><span>${sk.cur > 1 ? `🔥 ${plural(sk.cur, NDAY)} подряд` : sk.best > 1 ? `Лучшая серия: ${plural(sk.best, NDAY)}` : ''}</span>${secLink('habits', 'Трекер')}</div>`;
 }
 function homeMoney(t) {
   const ym = ymOf(t), st = finStat(ym), lim = dailyLimit(st, ym);
-  const ops = st.ops.filter(o => o.date === t).sort((a, b) => b.id.localeCompare(a.id));
+  const ops = st.ops.filter(o => o.date === t);
   const spent = ops.filter(o => FG_OUT.includes(fcat(o.cat).g)).reduce((a, o) => a + o.amt, 0);
-  const bar = st.spentPlan ? `<div class="f2-bar"><div class="ds-bar${st.spent > st.spentPlan ? ' over' : ''}"><i style="width:${Math.min(100, Math.round(st.spent / st.spentPlan * 100))}%"></i></div><span>Расходы за месяц: ${rub0(st.spent)} из ${rub0(st.spentPlan)}</span></div>` : '';
-  return `<div class="h2-big${lim && lim.left < 0 ? ' neg' : ''}"><small>${lim ? withHint('Можно потратить сегодня', 'limit') : 'Потрачено сегодня'}</small><b>${lim ? rub0(Math.max(0, lim.left)) : rub0(spent)}</b>
-      <span>${lim ? (lim.left >= 0 ? `лимит ${rub0(lim.limit)} в день · сегодня ${rub0(lim.today)}` : `лимит превышен на ${rub0(-lim.left)}`) : '<button class="lnk" data-act="finbudget">Задайте бюджет — появится дневной лимит</button>'}</span></div>
-    ${bar}
-    ${ops.length ? `<div class="hm-ops">${ops.slice(0, 3).map(o => { const c = fcat(o.cat), plus = c.g === 'inc'; return `<button class="hm-op" data-act="opedit" data-id="${o.id}"><span class="em">${esc(c.emoji || '•')}</span><span class="n">${esc(o.note || c.name)}</span><b class="${plus ? 'plus' : ''}">${plus ? '+' : '−'}${rub0(o.amt)}</b></button>`; }).join('')}</div>` : ''}
+  // Одна строка «Можно потратить сегодня — сумма», тонкая полоска месяца и строка цифр. Сами траты — в «Финансах»
+  return `<div class="h2-money${lim && lim.left < 0 ? ' neg' : ''}"><span>${lim ? withHint('Можно потратить сегодня', 'limit') : 'Потрачено сегодня'}</span><b>${lim ? rub0(Math.max(0, lim.left)) : rub0(spent)}</b></div>
+    ${st.spentPlan ? `<div class="ds-bar h2-mbar${st.spent > st.spentPlan ? ' over' : ''}"><i style="width:${Math.min(100, Math.round(st.spent / st.spentPlan * 100))}%"></i></div>` : ''}
+    <p class="h2-msub">${lim ? (lim.left >= 0 ? `лимит ${rub0(lim.limit)} в день · сегодня ${rub0(lim.today)}` : `лимит превышен на ${rub0(-lim.left)}`) : '<button class="lnk" data-act="finbudget">Задайте бюджет — появится дневной лимит</button>'}${st.spentPlan ? ` · за месяц ${rub0(st.spent)} из ${rub0(st.spentPlan)}` : ''}</p>
     <div class="hm-foot"><span>${ops.length ? '' : 'Трату можно записать в строке выше: «кафе 450»'}</span>${secLink('fin', 'Финансы')}</div>`;
 }
 const homeBio = t => { const M = S.bio.metrics; return `<div class="hm-bio">${M.map(m => { const v = bioVal(t, m.id), opts = m.type === 'hours' ? [5, 6, 7, 8, 9, 10] : [1, 2, 3, 4, 5];
@@ -278,10 +287,11 @@ function homeHTML() {
   const t = todayK(), d = pd(t), name = (S.settings.name || '').trim();
   const tasks = secOn('tasks') || secOn('cal') ? dayTasks(t) : [], habs = todayHabs(t);
   const total = tasks.length + habs.length, done = tasks.filter(e => e.done).length + habs.filter(h => h.log[t]).length, pct = total ? done / total : 0;
+  // Вариант А (12 октября 2026): приветствие компактнее, без фразы дня, кольцо меньше — на первом экране больше дел
   const hero = `<div class="h2-hero">
     <div class="h2-hi"><div class="h2-date">${DOWF[dowIdx(t)]}, ${d.getDate()} ${MONG[d.getMonth()]}</div>
-      <h2 class="h2-greet">${greet()}${name ? ', ' + esc(name) : ''}</h2><p class="h2-line">${esc(DAY_LINES[dnum(t) % DAY_LINES.length])}</p></div>
-    <div class="h2-ring" title="Задачи и привычки на сегодня">${ringSVG(pct, 72, 'var(--good)', total ? Math.round(pct * 100) + '%' : '—', '')}<small>${withHint(total ? 'дела и привычки' : 'пока пусто', 'ring')}</small></div></div>`;
+      <h2 class="h2-greet">${greet()}${name ? ', ' + esc(name) : ''}</h2></div>
+    <div class="h2-ring" title="Задачи и привычки на сегодня">${ringSVG(pct, 56, 'var(--good)', total ? Math.round(pct * 100) + '%' : '—', '')}<small>${withHint(total ? 'дела и привычки' : 'пока пусто', 'ring')}</small></div></div>`;
   const omni = `<div class="card h2-omni">${omniHTML('om', 'home')}</div>`;
   const blocks = homeOrder().map(x => homeBlock(x, t)).join('');
   return `${hero}<div class="h2-cols"><div class="h2-col">${omni}${secOn('tasks') || secOn('cal') ? missedBar(true) : ''}${blocks}</div><div class="h2-col"></div></div>
