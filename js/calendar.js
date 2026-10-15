@@ -172,7 +172,7 @@ const minOf = y => { for (const s of TA.segs) if (y < s.y + s.h) return s.a + Ma
 const hh2 = m => String(m / 60).padStart(2, '0') + ':00';
 ACT.wgfold = el => { wgOpen.add(Number(el.dataset.h)); render(); };
 
-function gridHTML(days) {
+function gridHTML(days, opt) {
   const today = todayK(), SH = startH(), RH = rowH(), nm = nowMin();
   TA = buildAxis(days);
   const fz = TA.segs.some(s => s.fold);
@@ -180,7 +180,8 @@ function gridHTML(days) {
   // Неделя с панелью дня справа: число выбирает день для панели; дел без времени над сеткой — не больше трёх строк, остальное «ещё N»
   const side = days.length > 1 && wkSide(), dAct = side ? 'pick' : 'goday';
   const head = days.map(k => `<div class="wg-day${isWknd(k)?' wknd':''}"><span class="wg-dow">${days.length === 1 ? DOWF[dowIdx(k)] : dowName(k)}</span><button class="wg-num${k===today?' today':''}${k===sel&&days.length>1?' sel':''}" data-act="${dAct}" data-d="${k}" title="${side ? 'Показать день справа' : 'Открыть день'}">${pd(k).getDate()}</button></div>`).join('');
-  const allrow = days.map(k => { const es = evOn(k).filter(e => !e.time), show = days.length > 1 && es.length > 3 ? es.slice(0, 2) : es;
+  // В «Плане» задачи без времени — отдельным списком с кружками над сеткой (opt.noTasks), над сеткой остаются только события на весь день
+  const allrow = days.map(k => { const es = evOn(k).filter(e => !e.time && !(opt && opt.noTasks && e.task)), show = days.length > 1 && es.length > 3 ? es.slice(0, 2) : es;
     return `<div class="wg-allcol${isWknd(k)?' wknd':''}" data-act="quickadd" data-d="${k}" title="Добавить задачу на весь день">${show.map(e => `<button class="wg-chip${e.done?' done':''}" data-act="edit" data-id="${e.id}" data-d="${k}" style="--c:${cat(e.cat).color}">${e.done?'✓ ':''}${esc(e.title)}</button>`).join('')}${es.length > show.length ? `<button class="wg-more" data-act="${dAct}" data-d="${k}">ещё ${es.length - show.length}</button>` : ''}</div>`; }).join('');
   const hours = TA.segs.map((s, si) => s.fold
     ? `<button class="wg-foldlbl" data-act="wgfold" data-h="${s.a / 60}" style="height:${s.h}px" title="Показать пустые часы">${hh2(s.a).slice(0, 2)}–${hh2(s.b).slice(0, 2)}</button>`
@@ -225,8 +226,13 @@ const nextCard = n => n ? `<button class="nextcard" data-act="edit" data-id="${n
 // Дела без времени — строкой над сеткой. Свайп и стрелки листают дни. Недели по часам на телефоне нет (вид «Неделя» = «День»)
 function phoneDayHTML() {
   const t = todayK(), st = omSt('omc'); st.base = sel !== t ? sel : null; st.ph = st.base ? `Добавить на ${relDay(sel)}…` : null;
-  return `<div class="cd-wrap">${missedBar()}${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div><div class="card cd-grid">${gridHTML([sel])}</div></div>`;
+  const plan = planOn(), tl = plan ? daySort(dayTasks(sel).filter(e => !e.time)) : [], dn = tl.filter(e => e.done).length, show = cdTasksAll ? tl : tl.slice(0, 6);
+  const tasks = tl.length ? `<div class="card t3-list cd-tasks">${t3Head('Задачи', `${dn} из ${tl.length}`)}${show.map(e => t3Row(e, sel, '')).join('')}
+    ${tl.length > 6 ? `<button class="t3-more" data-act="cdtasks">${cdTasksAll ? 'Свернуть' : `Ещё ${tl.length - 6}`}</button>` : ''}</div>` : '';
+  return `<div class="cd-wrap">${missedBar()}${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>${tasks}<div class="card cd-grid">${gridHTML([sel], { noTasks: plan })}</div></div>`;
 }
+let cdTasksAll = false;
+ACT.cdtasks = () => { cdTasksAll = !cdTasksAll; render(); };
 function dayHTML() {
   if (innerWidth < 900) return phoneDayHTML();
   const es = evOn(sel), allDay = es.filter(e => !e.time), timed = es.filter(e => e.time);
@@ -313,7 +319,8 @@ function render(dir) {
   document.body.dataset.nonav = S2.noNav ? '1' : '';    // «Главная», «Профиль», «Настройки»: без стрелок периода
   document.body.dataset.nonew = S2.newLabel && sec !== 'home' && sec !== 'cal' && !(sec === 'tasks' && tView !== 'goals') ? '' : '1';   // на Главной, в Календаре и Задачах добавляют строкой ввода — «+» в шапке не повторяем (12 октября 2026)
   $('#ttl').innerHTML = cal ? titleHTML() : S2.title();
-  $$('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === view));
+  $$('header [data-v]').forEach(b => b.classList.toggle('on', sec === 'tasks' ? b.dataset.v === 'tasks' : b.dataset.v === view));
+  document.body.dataset.plan = planOn() && (cal || sec === 'tasks') ? '1' : '';   // «План» на телефоне: общий переключатель виден и в Задачах
   const bn = $('.btn-new'); if (bn) { bn.innerHTML = I(IC.plus, 17) + (S2.newLabel || ''); bn.setAttribute('aria-label', S2.newLabel || 'Создать'); bn.title = S2.newLabel || 'Создать'; }
   const ha = $('.hdr-ava'); if (ha) { ha.innerHTML = hdrAvaHTML(); ha.classList.toggle('on', sec === 'profile' || sec === 'profedit'); }
   const si = $('#secinfo'); if (si) si.innerHTML = '';   // сводки в шапке убраны 6 октября 2026: они повторяли то, что видно на странице
@@ -347,7 +354,8 @@ function move(n) {
   else { sel = addDays(sel, view === 'week' ? 7 * n : n); syncMini(); }
   render(n);
 }
-function setView(v) { if (sec !== 'cal') { sec = 'cal'; S.settings.sec = 'cal'; save(); view = v; if (v === 'month') { monthAnchor = pd(sel); monthAnchor.setDate(1); } return render(2); } if (v === view) return; view = v; if (v === 'month') { monthAnchor = pd(sel); monthAnchor.setDate(1); } render(2); }
+function setView(v) { if (v === 'tasks') return setSec('tasks');   // «План» на телефоне: кнопка «Задачи» в общем переключателе
+  if (sec !== 'cal') { sec = 'cal'; S.settings.sec = 'cal'; save(); view = v; if (v === 'month') { monthAnchor = pd(sel); monthAnchor.setDate(1); } return render(2); } if (v === view) return; view = v; if (v === 'month') { monthAnchor = pd(sel); monthAnchor.setDate(1); } render(2); }
 function goToday() { sel = todayK(); secYM = ymOf(sel); monthAnchor = pd(sel); monthAnchor.setDate(1); syncMini(); lastGridView = null; render(2); }
 // Кнопка «Создать» и клавиша N: в каждом разделе — своё
 // На Главной, в Календаре и Задачах «Создать» открывает единую строку ввода

@@ -31,10 +31,15 @@ let secYM = ymOf(todayK());   // месяц, открытый в «Привыч�
 
 // Навигация: боковая панель на ПК и вкладки внизу на телефоне
 const navHTML = () => `<nav class="sb-nav">${navSecs().map(s => `<button class="sb-nv${s === sec ? ' on' : ''}" data-act="sec" data-s="${s}">${I(SEC[s].icon, 17)}${SEC[s].name}${SEC[s].beta ? '<em class="beta" title="Экспериментальный раздел">β</em>' : ''}${s === 'timer' ? '<span class="tm-mini"></span>' : ''}</button>`).join('')}</nav>`;
+let planLast = 'cal';
 function tabbarRender() {
   const tb = $('#tabbar'); if (!tb) return;
-  const L = navSecs(); tb.dataset.n = L.length;
-  tb.innerHTML = L.map(s => `<button class="tb-b${s === sec ? ' on' : ''}" data-act="sec" data-s="${s}" aria-label="${SEC[s].name}"${s === sec ? ' aria-current="page"' : ''}>${I(SEC[s].icon, 22)}<span>${SEC[s].name}</span></button>`).join('');
+  // «План» (телефон): одна кнопка на месте первого из Календаря и Задач; открывает тот из них, что был последним
+  const all = navSecs(), plan = planOn(), P = s => plan && (s === 'cal' || s === 'tasks');
+  if (P(sec)) planLast = sec;
+  const L = plan ? all.filter(s => s !== (all.indexOf('cal') < all.indexOf('tasks') ? 'tasks' : 'cal')) : all; tb.dataset.n = L.length;
+  tb.innerHTML = L.map(s => { const p = P(s), on = p ? P(sec) : s === sec, go = p ? planLast : s, nm = p ? 'План' : SEC[s].name;
+    return `<button class="tb-b${on ? ' on' : ''}" data-act="sec" data-s="${go}" aria-label="${nm}"${on ? ' aria-current="page"' : ''}>${I(p ? IC.cal : SEC[s].icon, 22)}<span>${nm}</span></button>`; }).join('');
 }
 
 // ---- «Вы пропустили»: разовые дела прошлых дней без галочки ----

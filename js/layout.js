@@ -35,6 +35,9 @@ onMigrate(() => {
 });
 const secOn = k => !SEC_OPT.includes(k) || (S.settings.secs.find(x => x.k === k) || {}).on !== false;
 const navSecs = () => ['home', ...S.settings.secs.filter(x => x.on && SEC[x.k]).map(x => x.k)];
+// Телефон: Календарь и Задачи — одной вкладкой «План» (проба 15 октября 2026, просьба пользователя «соединить календарь и задачи»).
+// Внутри это по-прежнему два раздела; общий переключатель в шапке — «Месяц · День · Лента · Задачи». Выключается в «Разделах и вкладках»
+const planOn = () => S.settings.plan !== false && innerWidth < 900 && secOn('cal') && secOn('tasks');
 const blockOn = k => { const n = HOME_BL[k].need; return !n || n.some(secOn); };
 const homeOrder = () => S.settings.home.filter(x => x.m !== 'off' && blockOn(x.k));
 // Последний открытый раздел выключили — при запуске открываем Главную
@@ -52,9 +55,13 @@ function openSecs(keep) {
     <div class="lo-row fixed"><span class="lo-ic">${I(IC.home, 18)}</span><span class="lo-t"><b>Главная</b><small>всегда первая</small></span></div>
     ${L.map((x, i) => `<div class="lo-row${x.on ? '' : ' off'}"><span class="lo-ic">${I(SEC[x.k].icon, 18)}</span><span class="lo-t"><b>${SEC[x.k].name}${SEC[x.k].beta ? ' <em class="beta">β</em>' : ''}</b><small>${SEC_DESC[x.k]}</small></span>${mvBtns('secmv', x.k, i, L.length, SEC[x.k].name)}<input class="sw" type="checkbox" data-secon="${x.k}"${x.on ? ' checked' : ''} aria-label="Показывать раздел «${SEC[x.k].name}»"></div>`).join('')}
   </div>
+  ${secOn('cal') && secOn('tasks') ? `<label class="lo-row lo-plan"><span class="lo-ic">${I(IC.cal, 18)}</span><span class="lo-t"><b>«План» на телефоне</b><small>Календарь и Задачи — одной вкладкой внизу экрана</small></span><input class="sw" type="checkbox" data-planon${S.settings.plan !== false ? ' checked' : ''} aria-label="Календарь и Задачи одной вкладкой на телефоне"></label>` : ''}
   <button class="btn pri" style="width:100%;margin-top:14px" data-act="close">Готово</button>`, keep);
 }
 ACT.secscust = () => openSecs();
+document.addEventListener('change', e => { if (!e.target.matches || !e.target.matches('[data-planon]')) return;
+  S.settings.plan = e.target.checked; save(); render(); openSecs(true);
+  toast(e.target.checked ? 'Календарь и Задачи — одной вкладкой «План»' : 'Календарь и Задачи — снова отдельными вкладками'); });
 ACT.secmv = el => { if (moveIn(S.settings.secs, el.dataset.k, +el.dataset.d)) { save(); render(); } openSecs(true); };
 document.addEventListener('change', e => {
   const k = e.target.dataset && e.target.dataset.secon; if (!k) return;

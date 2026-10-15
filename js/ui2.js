@@ -399,8 +399,10 @@ function t4Late() {
 function tasksHTML() {
   const t = todayK(), wide = isWide(), hasAny = S.events.some(e => e.task), demo = S.events.some(e => e.demo);
   const gLate = activeGoals().reduce((n, g) => n + goalStat(g).late.length, 0), lateN = missedList().filter(e => e.task).length;
+  // «План» на телефоне: день по часам и задачи дня — в Календаре, здесь только «Все» и «Цели»
+  if (planOn() && tView === 'main') tView = 'all';
   const views = [['main', wide ? 'Фокус дня' + (lateN ? ` <em class="late">${lateN}</em>` : '') : 'Неделя'], ['all', 'Все'], ['goals', 'Цели' + (gLate ? ` <em class="late">${gLate}</em>` : '')]];
-  const tabs = `<div class="seg2 t2-seg" role="tablist" aria-label="Что показать">${views.map(([v, n]) => `<button class="${tView === v ? 'on' : ''}" data-act="tview" data-v="${v}" role="tab" aria-selected="${tView === v}">${n}</button>`).join('')}</div>`;
+  const tabs = `<div class="seg2 t2-seg" role="tablist" aria-label="Что показать">${views.filter(([v]) => !(planOn() && v === 'main')).map(([v, n]) => `<button class="${tView === v ? 'on' : ''}" data-act="tview" data-v="${v}" role="tab" aria-selected="${tView === v}">${n}</button>`).join('')}</div>`;
   // Вкладка «Цели» — та же страница целей (js/goals.js), что и раньше была отдельным разделом
   if (tView === 'goals') return `${missedBar(true)}${tabs}${goalsHTML()}`;
   // Строка ввода на телефоне добавляет задачу на выбранный день; стоит между полоской дней и списком (правка пользователя 15 октября 2026)
@@ -443,14 +445,14 @@ ACT.tview = el => { tView = el.dataset.v; render(); };
 const tasksGoals = () => sec === 'tasks' && tView === 'goals';
 const useOmni = () => sec === 'home' || sec === 'cal' || (sec === 'tasks' && tView !== 'goals');
 Object.defineProperty(SEC.tasks, 'newLabel', { get: () => tasksGoals() ? 'Цель' : 'Задача', configurable: true });
-Object.defineProperty(SEC.tasks, 'noNav', { get: () => tasksGoals(), configurable: true });
+Object.defineProperty(SEC.tasks, 'noNav', { get: () => tasksGoals() || planOn(), configurable: true });   // в «Плане» задачи не зависят от недели
 { const T = SEC.tasks, title = T.title, create = T.create;
-  T.title = () => tasksGoals() ? SEC.goals.title() : title();
+  T.title = () => tasksGoals() ? SEC.goals.title() : planOn() ? 'Задачи' : title();
   T.create = () => tasksGoals() ? openGoal() : create();
   // «Важные задачи» в боковой панели повторяли бы «Фокус дня» (срочное — карточками, цели — справа)
   const side = T.side; T.side = () => tView === 'main' ? '' : side();
   // Свайп на телефоне в «Неделе» листает дни (стрелки в шапке — недели)
-  T.swipe = n => { if (!isWide() && tView === 'main') { sel = addDays(sel, n); syncMini(); render(); } else move(n); }; }
+  T.swipe = n => { if (planOn()) return; if (!isWide() && tView === 'main') { sel = addDays(sel, n); syncMini(); render(); } else move(n); }; }
 
 // ---- Финансы: крупно — сколько можно потратить, строка записи, последние записи; графики и таблицы — свёрнуты ----
 const f2Row = o => { const c = fcat(o.cat), plus = c.g === 'inc', t = todayK();
