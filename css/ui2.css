@@ -640,6 +640,30 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .t3-day.on .t3-marks i{background:var(--accfg)}
 .t3-day.on .t3-marks{color:var(--accfg)}
 .t3-cols,.t3-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+/* ---- ИИ-помощник (16 октября 2026, js/assistant.js) ---- */
+.om-t.om-ai{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 40%,var(--line));font-weight:650}
+.ai-text{min-height:110px;font-size:15px;line-height:1.45}
+.ai-tip{margin:6px 2px 0;font-size:12.5px;color:var(--mut)}
+.ai-bar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
+.ai-bar .ai-go{margin-left:auto;min-width:130px}
+.ai-mic.rec{color:var(--red);border-color:color-mix(in srgb,var(--red) 50%,var(--line));animation:aiPulse 1.4s ease-in-out infinite}
+@keyframes aiPulse{50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--red) 18%,transparent)}}
+.ai-err{margin:8px 2px;font-size:13.5px;color:var(--dng)}
+.ai-out{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.ai-reply{display:flex;gap:8px;align-items:flex-start;margin:0;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--acc) 10%,transparent);font-size:14px;line-height:1.4}
+.ai-reply svg{flex:none;margin-top:2px;color:var(--acc)}
+.ai-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.ai-row{display:grid;grid-template-columns:22px 92px minmax(0,1fr);gap:8px;align-items:start;padding:10px 12px;border-top:1px solid var(--line);cursor:pointer}
+.ai-row:first-child{border-top:0}
+.ai-row input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--acc)}
+.ai-row.off{opacity:.5}
+.ai-k{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:650;color:var(--tx2);padding-top:1px}
+.ai-b{min-width:0}
+.ai-b b{display:block;font-size:14.5px;font-weight:600;overflow-wrap:anywhere}
+.ai-b small{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:3px;font-size:12.5px;color:var(--tx2)}
+.ai-note{margin:14px 2px 0;font-size:12px;line-height:1.45;color:var(--mut)}
+@media(max-width:899px){.ai-row{grid-template-columns:22px minmax(0,1fr)}.ai-k{grid-column:2}.ai-b{grid-column:2}}
+
 /* ---- Задачи на ПК, вариант В «Фокус дня» (15 октября 2026) ---- */
 .t4-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px 18px;align-items:start}
 .t4-l,.t4-r{display:flex;flex-direction:column;gap:14px;min-width:0}

@@ -536,6 +536,7 @@ const COMMANDS = () => [
   { ic:IC.user, t:'Профиль', run:() => setSec('profile') },
   { ic:IC.key, t:'Горячие клавиши', k:'?', run:openHelp },
   { ic:IC.msg, t:'Написать отзыв', run:() => { fb = null; openFeedback(); } },
+  { ic:IC.spark, t:'Помощник: разложить сообщение по разделам', run:() => openAI() },
   { ic:IC.down, t:'Скачать резервную копию', run:exportData },
   { ic:IC.share, t:'Поделиться всем календарём', run:() => openShare({ kind:'a' }) },
   ...S.cats.map(c => ({ ic:IC.share, t:`Поделиться календарём «${c.name}»`, run:() => openShare({ kind:'c', id:c.id }) })),
