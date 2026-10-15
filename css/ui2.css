@@ -743,7 +743,8 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
   /* «План»: Календарь и Задачи одной вкладкой — общий переключатель «Месяц · День · Лента · Задачи» виден и в Задачах */
   body[data-plan="1"] .bar2,body[data-plan="1"] .bar2 .segc{display:flex!important}
   body[data-plan="1"] .bar2 .segc [data-v=tasks]{display:block}
-  body[data-plan="1"][data-sec=tasks] .bar2 [data-act=today]{display:none}
+  /* служебное пустое место в шапке не должно сжимать переключатель: в Задачах шапка та же, что в Календаре */
+  body[data-plan="1"] .bar2 .secinfo{display:none!important}
   .cd-tasks{padding-top:10px!important;padding-bottom:8px!important}
   /* «День»: сетка во всю ширину без своей прокрутки — страница листается целиком; день уже выбран в полоске, шапку сетки не повторяем */
   .cd-grid{padding:6px 6px 8px!important;overflow:hidden}

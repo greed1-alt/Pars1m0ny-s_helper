@@ -356,7 +356,9 @@ function move(n) {
 }
 function setView(v) { if (v === 'tasks') return setSec('tasks');   // «План» на телефоне: кнопка «Задачи» в общем переключателе
   if (sec !== 'cal') { sec = 'cal'; S.settings.sec = 'cal'; save(); view = v; if (v === 'month') { monthAnchor = pd(sel); monthAnchor.setDate(1); } return render(2); } if (v === view) return; view = v; if (v === 'month') { monthAnchor = pd(sel); monthAnchor.setDate(1); } render(2); }
-function goToday() { sel = todayK(); secYM = ymOf(sel); monthAnchor = pd(sel); monthAnchor.setDate(1); syncMini(); lastGridView = null; render(2); }
+// «Сегодня» в «Задачах» внутри «Плана» (телефон) открывает сегодняшний «День»
+function goToday() { if (sec === 'tasks' && planOn()) { sec = 'cal'; S.settings.sec = 'cal'; view = 'day'; save(); window.scrollTo(0, 0); }
+  sel = todayK(); secYM = ymOf(sel); monthAnchor = pd(sel); monthAnchor.setDate(1); syncMini(); lastGridView = null; render(2); }
 // Кнопка «Создать» и клавиша N: в каждом разделе — своё
 // На Главной, в Календаре и Задачах «Создать» открывает единую строку ввода
 const createNew = () => useOmni() ? openOmni(sec) : sec === 'cal' || !SEC[sec].create ? openEvent() : SEC[sec].create();
