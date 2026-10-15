@@ -738,8 +738,13 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .wg-more{text-align:left;font-size:11px;font-weight:600;line-height:18px;color:var(--tx2);padding:0 6px;border-radius:5px}
 @media(hover:hover){.wg-more:hover{background:var(--hov2);color:var(--tx)}}
 @media(max-width:899px){
-  /* Шапка: на телефоне «Месяц», «Неделя» и «Лента» (вид list); почасовая сетка дня — кнопкой «по часам» у списка дня */
-  .bar2 .segc [data-v=day]{display:none}
+  /* Шапка: на телефоне «Месяц», «День» (почасовая сетка) и «Лента» (вид list) */
+  .bar2 .segc [data-v=week]{display:none}
+  /* «День»: сетка во всю ширину без своей прокрутки — страница листается целиком; день уже выбран в полоске, шапку сетки не повторяем */
+  .cd-grid{padding:6px 6px 8px!important;overflow:hidden}
+  .cd-grid .wgwrap{height:auto!important;max-height:none!important;overflow:visible}
+  .cd-grid .wg-stickytop{position:static}
+  .cd-grid .wg-head{display:none}
   /* Месяц плотнее: под ним — список выбранного дня */
   .v-month .month{gap:2px 0}
   .v-month .mc{aspect-ratio:auto;height:46px;padding:4px 0 3px;gap:3px;border-radius:10px}

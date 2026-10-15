@@ -451,8 +451,6 @@ Object.defineProperty(SEC.tasks, 'noNav', { get: () => tasksGoals(), configurabl
   const side = T.side; T.side = () => tView === 'main' ? '' : side();
   // Свайп на телефоне в «Неделе» листает дни (стрелки в шапке — недели)
   T.swipe = n => { if (!isWide() && tView === 'main') { sel = addDays(sel, n); syncMini(); render(); } else move(n); }; }
-// Календарь на телефоне: в «Неделе» свайп тоже листает дни (стрелки в шапке — недели), в «Месяце» — месяцы
-SEC.cal.swipe = n => { if (!isWide() && view === 'week') { sel = addDays(sel, n); syncMini(); render(); } else move(n); };
 
 // ---- Финансы: крупно — сколько можно потратить, строка записи, последние записи; графики и таблицы — свёрнуты ----
 const f2Row = o => { const c = fcat(o.cat), plus = c.g === 'inc', t = todayK();

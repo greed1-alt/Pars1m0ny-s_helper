@@ -67,8 +67,7 @@ function calDayHTML(k, side) {
     ${timed.length && untimed.length ? t3Head('Без времени') : ''}${untimed.map(e => cdRow(e, k, nx, nm)).join('')}
     ${all.length ? '' : `<p class="t3-empty">${k < t ? 'В этот день ничего не было.' : 'Свободный день — добавьте дело или встречу в строке выше.'}</p>`}</div>`;
 }
-// Телефон, «Неделя»: полоска дней (точки — цвета календарей несделанных дел, галочка — всё сделано) и выбранный день.
-// Свайп листает дни, стрелки в шапке — недели
+// Телефон: полоска дней недели над «Днём» и «Лентой» (точки — цвета календарей несделанных дел, галочка — всё сделано)
 function calWeekStrip() {
   const t = todayK();
   return `<div class="t3-strip cd-strip" role="tablist" aria-label="Дни недели">${taskWeek().map(k => { const l = evOn(k), open = l.filter(e => !e.done), d = pd(k);
@@ -78,7 +77,6 @@ function calWeekStrip() {
 // ПК, «Неделя»: справа — панель выбранного дня (на узком экране её нет). Число в шапке недели выбирает день, «по часам →» открывает его целиком
 const wkSide = () => innerWidth >= 1100;
 function weekHTML() {
-  if (innerWidth < 900) return `<div class="cd-wrap">${missedBar()}${calWeekStrip()}${calDayHTML(sel)}</div>`;
   const g = gridHTML(weekDays());
   return wkSide() ? `<div class="wkview"><div class="wkgrid">${g}</div><aside class="wkside">${calDayHTML(sel, true)}</aside></div>` : g;
 }
@@ -222,7 +220,15 @@ function nextUp(fromDay) {
 }
 const nextCard = n => n ? `<button class="nextcard" data-act="edit" data-id="${n.e.id}" data-d="${n.k}" style="--c:${cat(n.e.cat).color}"><small>${n.label}</small><b>${esc(n.e.title)}</b><span>${timeRange(n.e)}${n.e.loc?' · '+esc(n.e.loc):''}</span></button>` : '';
 
+// Телефон, «День» (15 октября 2026, просьба пользователя: «оставить график в виде дневного календаря с почасовой системой»):
+// полоска дней недели, строка ввода и почасовая сетка выбранного дня во всю ширину — названия не обрезаются, как в семи столбиках.
+// Дела без времени — строкой над сеткой. Свайп и стрелки листают дни. Недели по часам на телефоне нет (вид «Неделя» = «День»)
+function phoneDayHTML() {
+  const t = todayK(), st = omSt('omc'); st.base = sel !== t ? sel : null; st.ph = st.base ? `Добавить на ${relDay(sel)}…` : null;
+  return `<div class="cd-wrap">${missedBar()}${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div><div class="card cd-grid">${gridHTML([sel])}</div></div>`;
+}
 function dayHTML() {
+  if (innerWidth < 900) return phoneDayHTML();
   const es = evOn(sel), allDay = es.filter(e => !e.time), timed = es.filter(e => e.time);
   const done = es.filter(e => e.done).length, pct = es.length ? Math.round(done / es.length * 100) : 0;
   const d = pd(sel), isToday = sel === todayK();
@@ -301,6 +307,7 @@ function render(dir) {
   evCache.clear();
   closeQuick();
   const root = document.documentElement, cal = sec === 'cal', S2 = SEC[sec];
+  if (cal && view === 'week' && innerWidth < 900) view = 'day';   // на телефоне неделя — полоской дней над «Днём»
   applyLook(); hideTip();   // js/look.js, js/help.js
   document.body.dataset.sec = sec;
   document.body.dataset.nonav = S2.noNav ? '1' : '';    // «Главная», «Профиль», «Настройки»: без стрелок периода
