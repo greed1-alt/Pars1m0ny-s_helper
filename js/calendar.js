@@ -60,12 +60,12 @@ function calDayHTML(k, side) {
   if (at === -1) rows.push(line);
   const ttl = `${DOW[dowIdx(k)]}, ${d.getDate()} ${MONG[d.getMonth()]}${k === t ? ' · сегодня' : k === addDays(t, 1) ? ' · завтра' : ''}`;
   const btn = `<button class="t3-gbtn" data-act="goday" data-d="${k}" title="Почасовая сетка этого дня">по часам${side ? ' →' : ''}</button>`;
-  // Строка ввода добавляет на выбранный день, если дата не написана в тексте
+  // Строка ввода добавляет на выбранный день, если дата не написана в тексте. Стоит над списком дня — как в «Задачах» (просьба пользователя 15 октября 2026)
   const st = omSt('omc'); st.base = k !== t ? k : null; st.ph = st.base ? `Добавить на ${relDay(k)}…` : null;
-  return `<div class="card t3-list cd-day">${t3Head(ttl, all.length ? `${dn} из ${all.length}` : '', '', btn)}${rows.join('')}
+  return `<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>
+  <div class="card t3-list cd-day">${t3Head(ttl, all.length ? `${dn} из ${all.length}` : '', '', btn)}${rows.join('')}
     ${timed.length && untimed.length ? t3Head('Без времени') : ''}${untimed.map(e => cdRow(e, k, nx, nm)).join('')}
-    ${all.length ? '' : `<p class="t3-empty">${k < t ? 'В этот день ничего не было.' : 'Свободный день — добавьте дело или встречу в строке ниже.'}</p>`}</div>
-  <div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>`;
+    ${all.length ? '' : `<p class="t3-empty">${k < t ? 'В этот день ничего не было.' : 'Свободный день — добавьте дело или встречу в строке выше.'}</p>`}</div>`;
 }
 // Телефон, «Неделя»: полоска дней (точки — цвета календарей несделанных дел, галочка — всё сделано) и выбранный день.
 // Свайп листает дни, стрелки в шапке — недели
