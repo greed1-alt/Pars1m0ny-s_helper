@@ -436,12 +436,13 @@ function tasksHTML() {
   } else list = wide ? `${omni}<div class="card t3-list">${tasksByDue()}</div>` : `${tasksWeekStrip()}${omni}<div class="card t3-list">${tasksDayList(sel)}</div>`;
   const act = tasksAll().map(e => ({ e, k: isRec(e) ? nextOcc(e) : e.date })).filter(x => !isDone(x.e, x.k)), urg = act.filter(x => prioOf(x.e) === 'urgent').length;
   const wk = taskWeek();
-  // Доска недели на телефоне в «Неделе» не нужна — её заменяет полоска дней.
-  // На ПК доска — на всю ширину под двумя колонками: в узкой правой колонке семи дням тесно (правка пользователя 12 октября 2026)
+  // Доска недели на телефоне в «Неделе» не нужна — её заменяет полоска дней, на ПК в «Фокусе дня» — столбики недели и «Дальше».
+  // На ПК доска — на всю ширину под двумя колонками: в узкой правой колонке семи дням тесно (правка пользователя 12 октября 2026).
+  // В «Фокусе дня» так же на всю ширину — статистика (правка 15 октября: «слишком зажата»)
   const blk = only => pageBlocks('tasks', {   // порядок блоков — js/layout.js
     list:{ skip:true },
-    board:{ fk:'t-board', sum:`неделя ${isoWeek(wk[0])}`, body: () => `<div class="card tw-card">${weekBoard()}</div>`, def:isWide, skip: (!wide && tView === 'main') || only === 'side' },
-    stats:{ fk:'t-stats', sum:`${plural(act.length, ['активная', 'активные', 'активных'])}${urg ? ` · ${urg} срочн.` : ''}`, body: () => `<div class="tk-mid2">${taskSummary()}${taskDynamics()}</div>`, skip: only === 'wide' } }, { noCust:true });
+    board:{ fk:'t-board', sum:`неделя ${isoWeek(wk[0])}`, body: () => `<div class="card tw-card">${weekBoard()}</div>`, def:isWide, skip: tView === 'main' || only === 'side' },
+    stats:{ fk:'t-stats', sum:`${plural(act.length, ['активная', 'активные', 'активных'])}${urg ? ` · ${urg} срочн.` : ''}`, body: () => `<div class="tk-stats"><div class="tk-mid2">${taskSummary()}${taskDynamics()}</div></div>`, skip: only === (tView === 'main' ? 'side' : 'wide') } }, { noCust:true });
   const blocks = blk(wide ? 'side' : '');
   const empty = !hasAny ? emptyCard('tasks', 'Задачи', 'Пишите задачи обычной фразой в строке ввода: «позвонить маме», «отчёт в пятницу #работа !!». Задача с датой видна и в календаре.') : '';
   // На ПК пропущенное — в самом списке («Просрочено»), отдельная плашка не повторяет его
@@ -449,7 +450,7 @@ function tasksHTML() {
   const goalsCard = secOn('tasks') && activeGoals().length ? `<div class="card t3-goals"><div class="h2-h"><b>${I(IC.goal, 18)}Цели</b><small>${gLate ? `<span class="late">просрочено шагов: ${gLate}</span>` : ''}</small></div>${goalsMiniHTML(3)}<div class="hm-foot"><span></span><button data-act="gall">Все цели →</button></div></div>` : '';
   // ПК, «Фокус дня»: доски недели нет — её заменяют столбики недели и «Дальше»
   if (wide && tView === 'main') return `${demoBar('tasks', demo)}${empty}${tabs}
-    <div class="t4-grid"><div class="t4-l">${t4Hero(sel)}${t4Next(sel)}</div><div class="t4-r">${t4Week()}${t4Late()}${goalsCard}${blocks}</div></div>${pageCust('tasks')}`;
+    <div class="t4-grid"><div class="t4-l">${t4Hero(sel)}${t4Next(sel)}</div><div class="t4-r">${t4Week()}${t4Late()}${goalsCard}${blocks}</div></div>${blk('wide')}${pageCust('tasks')}`;
   if (wide) return `${miss}${demoBar('tasks', demo)}${empty}${tabs}
     <div class="t3-cols"><div class="t3-col">${list}</div><div class="t3-col">${goalsCard}${blocks}</div></div>${blk('wide')}${pageCust('tasks')}`;
   return `${miss}${demoBar('tasks', demo)}${empty}${tabs}${list}${blocks}${pageCust('tasks')}`;

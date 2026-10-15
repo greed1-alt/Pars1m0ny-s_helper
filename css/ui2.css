@@ -685,6 +685,9 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .t4-late .h2-h b{color:var(--dng)}
 @media(hover:hover){.t4-card:hover{filter:var(--hovf)}.t4-ck:hover{background:color-mix(in srgb,var(--c) 28%,transparent)}.t4-bar:not(.on):hover{background:var(--hov)}.t4-nh:hover b{color:var(--tx)}}
 
+/* Статистика задач: в узком месте (правая колонка «Все») сводка и динамика идут друг под другом */
+.tk-stats{container-type:inline-size}
+@container (max-width:699px){.tk-mid2{display:flex;flex-direction:column}}
 /* Доска недели подстраивается под ширину своего места: 7 столбиков, на средней ширине 4 + 3, в узком месте дни идут строками (как на телефоне) */
 .tw-card{container-type:inline-size}
 @container (min-width:561px) and (max-width:839px){
