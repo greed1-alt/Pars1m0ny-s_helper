@@ -368,7 +368,7 @@ function tasksHTML() {
   const tabs = `<div class="seg2 t2-seg" role="tablist" aria-label="Что показать">${views.map(([v, n]) => `<button class="${tView === v ? 'on' : ''}" data-act="tview" data-v="${v}" role="tab" aria-selected="${tView === v}">${n}</button>`).join('')}</div>`;
   // Вкладка «Цели» — та же страница целей (js/goals.js), что и раньше была отдельным разделом
   if (tView === 'goals') return `${missedBar(true)}${tabs}${goalsHTML()}`;
-  // Строка ввода на телефоне добавляет задачу на выбранный день
+  // Строка ввода на телефоне добавляет задачу на выбранный день; стоит между полоской дней и списком (правка пользователя 15 октября 2026)
   const st = omSt('omt'); st.base = !wide && tView === 'main' && sel !== t ? sel : null;
   st.ph = st.base ? `Задача на ${relDay(st.base)}…` : null;
   const omni = `<div class="card h2-omni">${omniHTML('omt', 'tasks')}</div>`;
@@ -379,7 +379,7 @@ function tasksHTML() {
       <div class="t2-prios">${PRIO_ORDER.map(p => `<button class="tk-pr${tPrio === p ? ' on' : ''}" data-act="tprio" data-p="${p}" style="--c:${PRIO[p].c}" aria-pressed="${tPrio === p}"><i></i>${PRIO[p].n}</button>`).join('')}</div></div>
       ${rows.slice(0, 80).map(({ e, k, done }) => { const [lt, lc] = leftTxt(k, done); return t3Row(e, k, esc(shortDate(k)) + (lt && !done && lc ? ' · ' + lt : ''), lc); }).join('') || `<p class="t3-empty">${tFilter === 'done' ? 'Выполненных задач пока нет.' : 'Задач нет — напишите первую в строке выше.'}</p>`}
       ${rows.length > 80 ? `<p class="t3-empty">Показаны первые 80 из ${rows.length}</p>` : ''}</div>`;
-  } else list = wide ? `${omni}<div class="card t3-list">${tasksByDue()}</div>` : `${tasksWeekStrip()}<div class="card t3-list">${tasksDayList(sel)}</div>${omni}`;
+  } else list = wide ? `${omni}<div class="card t3-list">${tasksByDue()}</div>` : `${tasksWeekStrip()}${omni}<div class="card t3-list">${tasksDayList(sel)}</div>`;
   const act = tasksAll().map(e => ({ e, k: isRec(e) ? nextOcc(e) : e.date })).filter(x => !isDone(x.e, x.k)), urg = act.filter(x => prioOf(x.e) === 'urgent').length;
   const wk = taskWeek();
   // Доска недели на телефоне в «Неделе» не нужна — её заменяет полоска дней.
