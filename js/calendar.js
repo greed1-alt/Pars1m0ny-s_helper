@@ -63,7 +63,7 @@ function calDayHTML(k, side) {
   // Строка ввода добавляет на выбранный день, если дата не написана в тексте. Стоит над списком дня — как в «Задачах» (просьба пользователя 15 октября 2026)
   const st = omSt('omc'); st.base = k !== t ? k : null; st.ph = st.base ? `Добавить на ${relDay(k)}…` : null;
   return `<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>
-  <div class="card t3-list cd-day">${t3Head(ttl, all.length ? `${dn} из ${all.length}` : '', '', btn)}${rows.join('')}
+  <div class="card t3-list cd-day">${t3Head(withHint(ttl, 'dayList'), all.length ? `${dn} из ${all.length}` : '', '', btn)}${rows.join('')}
     ${timed.length && untimed.length ? t3Head('Без времени') : ''}${untimed.map(e => cdRow(e, k, nx, nm)).join('')}
     ${all.length ? '' : `<p class="t3-empty">${k < t ? 'В этот день ничего не было.' : 'Свободный день — добавьте дело или встречу в строке выше.'}</p>`}</div>`;
 }
@@ -227,7 +227,7 @@ const nextCard = n => n ? `<button class="nextcard" data-act="edit" data-id="${n
 function phoneDayHTML() {
   const t = todayK(), st = omSt('omc'); st.base = sel !== t ? sel : null; st.ph = st.base ? `Добавить на ${relDay(sel)}…` : null;
   const plan = planOn(), tl = plan ? daySort(dayTasks(sel).filter(e => !e.time)) : [], dn = tl.filter(e => e.done).length, show = cdTasksAll ? tl : tl.slice(0, 6);
-  const tasks = tl.length ? `<div class="card t3-list cd-tasks">${t3Head('Задачи', `${dn} из ${tl.length}`)}${show.map(e => t3Row(e, sel, '')).join('')}
+  const tasks = tl.length ? `<div class="card t3-list cd-tasks">${t3Head(withHint('Задачи', 'taskRing'), `${dn} из ${tl.length}`)}${show.map(e => t3Row(e, sel, '')).join('')}
     ${tl.length > 6 ? `<button class="t3-more" data-act="cdtasks">${cdTasksAll ? 'Свернуть' : `Ещё ${tl.length - 6}`}</button>` : ''}</div>` : '';
   return `<div class="cd-wrap">${missedBar()}${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>${tasks}<div class="card cd-grid">${gridHTML([sel], { noTasks: plan })}</div></div>`;
 }

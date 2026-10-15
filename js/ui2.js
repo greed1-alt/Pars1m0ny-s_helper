@@ -214,7 +214,7 @@ const AREAS = [['tasks', IC.tasks, 'Дела и задачи'], ['cal', IC.cal, 
 const pbadge = p => `<span class="pbadge" style="--c:${PRIO[p].c}">${PRIO[p].n}</span>`;
 const habTile = (h, key, act) => { const on = !!h.log[key]; return `<button class="h2-hab${on ? ' on' : ''}" data-act="${act}" data-id="${h.id}" ${act === 'hmark' ? 'data-k' : 'data-key'}="${key}" aria-pressed="${on}"><span class="em">${esc(h.emoji || '•')}</span><span class="nm">${esc(h.name)}</span><i>${on ? I(IC.check, 14) : ''}</i></button>`; };
 // Привычка на Главной — «таблетка»: значок и название, нажатие отмечает. Шесть привычек — две-три строки вместо пол-экрана
-const habChip = (h, key) => { const on = !!h.log[key]; return `<button class="h2-hc${on ? ' on' : ''}" data-act="hmark" data-id="${h.id}" data-k="${key}" aria-pressed="${on}"><span class="em">${esc(h.emoji || '•')}</span><span class="nm">${esc(h.name)}</span>${on ? I(IC.check, 13) : ''}</button>`; };
+const habChip = (h, key, act = 'hmark') => { const on = !!h.log[key]; return `<button class="h2-hc${on ? ' on' : ''}" data-act="${act}" data-id="${h.id}" ${act === 'hmark' ? 'data-k' : 'data-key'}="${key}" aria-pressed="${on}"><span class="em">${esc(h.emoji || '•')}</span><span class="nm">${esc(h.name)}</span>${on ? I(IC.check, 13) : ''}</button>`; };
 const secLink = (s, n) => secOn(s) ? `<button data-act="sec" data-s="${s}">${n} →</button>` : '';
 const todayHabs = t => secOn('habits') ? hByKind('daily').filter(h => t >= hStart(h) && hDow(h, t)) : [];
 
@@ -337,7 +337,7 @@ function tasksWeekStrip() {
 function tasksDayList(k) {
   const t = todayK(), l = daySort(dayTasks(k)), dn = l.filter(e => e.done).length, d = pd(k);
   const ttl = `${DOWF[dowIdx(k)]}, ${d.getDate()} ${MONG[d.getMonth()]}${k === t ? ' · сегодня' : k === addDays(t, 1) ? ' · завтра' : ''}`;
-  return `${t3Head(ttl, l.length ? `${dn} из ${l.length}` : '')}${l.length ? l.map(e => t3Row(e, k, e.time ? esc(e.time) : '')).join('')
+  return `${t3Head(withHint(ttl, 'taskDay'), l.length ? `${dn} из ${l.length}` : '')}${l.length ? l.map(e => t3Row(e, k, e.time ? esc(e.time) : '')).join('')
     : `<p class="t3-empty">${k < t ? 'В этот день задач не было.' : 'Свободный день — задачу можно добавить выше.'}</p>`}`;
 }
 ACT.t3day = el => { sel = el.dataset.d; syncMini(); render(); };
@@ -362,7 +362,7 @@ function t4Hero(k) {
   const rd = relDay(k), when = /^[а-я]+$/.test(rd) ? rd : '';   // вчера, сегодня, завтра, послезавтра
   return `<div class="card t4-hero">
     <div class="t4-head"><h2>${DOWF[dowIdx(k)]}, ${d.getDate()} ${MONG[d.getMonth()]}</h2>${when ? `<span class="t4-when${k === t ? ' today' : ''}">${when}</span>` : ''}${k !== t ? '<button class="lnk t4-back" data-act="today">← к сегодня</button>' : ''}
-      <span class="t4-cnt">${l.length ? `${done.length} из ${l.length} сделано` : ''}</span></div>
+      <span class="t4-cnt">${l.length ? withHint(`${done.length} из ${l.length} сделано`, 'focusDay') : hintK('focusDay')}</span></div>
     ${l.length ? `<div class="ds-bar t4-prog"><i style="width:${Math.round(done.length / l.length * 100)}%"></i></div>` : ''}
     ${omniHTML('omt', 'tasks')}
     ${open.length ? `<div class="t4-cards">${open.map(e => t4Card(e, k)).join('')}</div>`
@@ -375,7 +375,7 @@ function t4Next(from) {
   const t = todayK(), cols = [];
   for (let i = 1; i <= 14 && cols.length < 4; i++) { const k = addDays(from, i), l = daySort(dayTasks(k).filter(e => !e.done)); if (l.length) cols.push([k, l]); }
   const nm = k => { const d = pd(k); return k === addDays(t, 1) ? 'Завтра' : `${DOW[dowIdx(k)]}, ${d.getDate()} ${MONS[d.getMonth()]}`; };
-  return `<div class="card t3-list t4-next"><div class="h2-h"><b>${I(IC.right, 18)}Дальше</b><small></small></div>
+  return `<div class="card t3-list t4-next"><div class="h2-h"><b>${I(IC.right, 18)}${withHint('Дальше', 'nextDays')}</b><small></small></div>
     ${cols.length ? `<div class="t4-ncols">${cols.map(([k, l]) => `<div class="t4-ncol"><button class="t4-nh" data-act="t3day" data-d="${k}" title="Показать этот день крупно"><b>${nm(k)}</b><small>${l.length}</small></button>
       ${l.slice(0, 5).map(e => t3Row(e, k, e.time ? esc(e.time) : '')).join('')}${l.length > 5 ? `<button class="t3-more" data-act="t3day" data-d="${k}">ещё ${l.length - 5}</button>` : ''}</div>`).join('')}</div>`
       : '<p class="t3-empty">В ближайшие две недели задач нет.</p>'}
@@ -385,13 +385,13 @@ function t4Next(from) {
 function t4Week() {
   const t = todayK(), data = taskWeek().map(k => { const l = dayTasks(k); return { k, n: l.length, d: l.filter(e => e.done).length }; });
   const max = Math.max(3, ...data.map(x => x.n)), tot = data.reduce((a, x) => a + x.n, 0), dn = data.reduce((a, x) => a + x.d, 0);
-  return `<div class="card t4-week"><div class="h2-h"><b>${I(IC.cal, 18)}Неделя</b><small>${tot ? `${dn} из ${tot}` : ''}</small></div>
+  return `<div class="card t4-week"><div class="h2-h"><b>${I(IC.cal, 18)}${withHint('Неделя', 'weekBars')}</b><small>${tot ? `${dn} из ${tot}` : ''}</small></div>
     <div class="t4-bars">${data.map(x => { const h = x.n ? Math.max(14, Math.round(x.n / max * 100)) : 6;
       return `<button class="t4-bar${x.k === sel ? ' on' : ''}${x.k === t ? ' today' : ''}${x.k < t ? ' past' : ''}" data-act="t3day" data-d="${x.k}" aria-label="${esc(fmtLong(x.k))}: ${x.n ? `сделано ${x.d} из ${x.n}` : 'задач нет'}"><span class="t4-col"><u style="height:${h}%"></u><i style="height:${x.n ? Math.round(h * x.d / x.n) : 0}%"></i></span><small>${DOW[dowIdx(x.k)].toLowerCase()} ${pd(x.k).getDate()}</small><b>${x.n ? `${x.d}/${x.n}` : '—'}</b></button>`; }).join('')}</div></div>`;
 }
 function t4Late() {
   const l = missedList().filter(e => e.task); if (!l.length) return '';
-  return `<div class="card t3-list t4-late"><div class="h2-h"><b>${I(IC.alert, 18)}Просрочено</b><small>${plural(l.length, ['задача', 'задачи', 'задач'])}</small></div>
+  return `<div class="card t3-list t4-late"><div class="h2-h"><b>${I(IC.alert, 18)}${withHint('Просрочено', 'missed')}</b><small>${plural(l.length, ['задача', 'задачи', 'задач'])}</small></div>
     ${l.slice(0, 6).map(e => t3Row(e, e.date, esc(shortDate(e.date)), 'late')).join('')}${l.length > 6 ? `<button class="t3-more" data-act="tview" data-v="all">ещё ${l.length - 6} → все задачи</button>` : ''}
     <div class="hm-foot"><span></span><button data-act="t3latetoday">Все на сегодня</button></div></div>`;
 }
@@ -414,7 +414,7 @@ function tasksHTML() {
   if (tView === 'all') {
     const rows = taskRows(), fl = [['active', 'Активные'], ['done', 'Выполненные'], ['all', 'Все']];
     list = `${omni}<div class="card t3-list"><div class="t2-flt"><div class="seg2">${fl.map(([v, n]) => `<button class="${tFilter === v ? 'on' : ''}" data-act="tfilter" data-f="${v}">${n}</button>`).join('')}</div>
-      <div class="t2-prios">${PRIO_ORDER.map(p => `<button class="tk-pr${tPrio === p ? ' on' : ''}" data-act="tprio" data-p="${p}" style="--c:${PRIO[p].c}" aria-pressed="${tPrio === p}"><i></i>${PRIO[p].n}</button>`).join('')}</div></div>
+      <div class="t2-prios">${PRIO_ORDER.map(p => `<button class="tk-pr${tPrio === p ? ' on' : ''}" data-act="tprio" data-p="${p}" style="--c:${PRIO[p].c}" aria-pressed="${tPrio === p}"><i></i>${PRIO[p].n}</button>`).join('')}${hintK('taskRing')}</div></div>
       ${rows.slice(0, 80).map(({ e, k, done }) => { const [lt, lc] = leftTxt(k, done); return t3Row(e, k, esc(shortDate(k)) + (lt && !done && lc ? ' · ' + lt : ''), lc); }).join('') || `<p class="t3-empty">${tFilter === 'done' ? 'Выполненных задач пока нет.' : 'Задач нет — напишите первую в строке выше.'}</p>`}
       ${rows.length > 80 ? `<p class="t3-empty">Показаны первые 80 из ${rows.length}</p>` : ''}</div>`;
   } else list = wide ? '' : `${tasksWeekStrip()}${omni}<div class="card t3-list">${tasksDayList(sel)}</div>`;
@@ -485,7 +485,7 @@ function financeHTML() {
 }
 ACT.f2hist = () => foldOpenGo('f-hist');
 
-// ---- Привычки: сегодня — крупными плитками, таблица месяца, прогресс, самочувствие и заметки — блоками ----
+// ---- Привычки: сегодня — плитками (на телефоне «таблетками»), таблица месяца, прогресс, самочувствие и заметки — блоками ----
 function habitsHTML() {
   const ym = secYM, t = todayK(), cur = ymOf(t) === ym, demo = S.habits.some(h => h.demo), none = !S.habits.length, hst = habitStats(ym);
   const ms = monthStat(ym), pm = monthStat(ymAdd(ym, -1)), prevName = MON[Number(ymAdd(ym, -1).slice(5)) - 1].toLowerCase();
@@ -495,8 +495,10 @@ function habitsHTML() {
     const habs = hByKind('daily').filter(h => t >= hStart(h) && hDow(h, t)), dn = habs.filter(h => h.log[t]).length;
     const wkKey = ym + ':w' + (wkOf(t) + 1), per = [...hByKind('weekly').map(h => [h, wkKey]), ...hByKind('monthly').map(h => [h, ym])];
     todaySum = habs.length ? dn + ' из ' + habs.length : '';
-    todayIn = `${habs.length ? `<div class="h2-habs">${habs.map(h => habTile(h, t, 'hmark')).join('')}</div>` : '<p class="h2-empty">На сегодня привычек нет.</p>'}
-      ${per.length ? `<div class="pl-sub">На этой неделе и в этом месяце</div><div class="h2-habs">${per.map(([h, k]) => habTile(h, k, 'hmarkp')).join('')}</div>` : ''}
+    // На телефоне — компактными «таблетками», как на Главной (просьба пользователя 16 октября 2026); на ПК — плитками
+    const wide = isWide(), box = wide ? 'h2-habs' : 'h2-hchips', tile = wide ? habTile : habChip;
+    todayIn = `${habs.length ? `<div class="${box}">${habs.map(h => tile(h, t, 'hmark')).join('')}</div>` : '<p class="h2-empty">На сегодня привычек нет.</p>'}
+      ${per.length ? `<div class="pl-sub">На этой неделе и в этом месяце</div><div class="${box}">${per.map(([h, k]) => tile(h, k, 'hmarkp')).join('')}</div>` : ''}
       <div class="hm-foot"><span>${ms.pct != null ? withHint('За месяц: ' + pctTxt(ms.pct), 'habitPct') : ''}</span><button data-act="hnew" data-k="daily">+ Привычка</button></div>`;
   }
   const dl = ms.pct != null && pm.pct != null ? Math.round((ms.pct - pm.pct) * 100) : null;
