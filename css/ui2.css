@@ -687,7 +687,7 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 
 /* Статистика задач: в узком месте (правая колонка «Все») сводка и динамика идут друг под другом */
 .tk-stats{container-type:inline-size}
-@container (max-width:699px){.tk-mid2{display:flex;flex-direction:column}}
+@container (max-width:699px){.tk-mid2{display:flex;flex-direction:column;align-items:stretch}}
 /* Доска недели подстраивается под ширину своего места: 7 столбиков, на средней ширине 4 + 3, в узком месте дни идут строками (как на телефоне) */
 .tw-card{container-type:inline-size}
 @container (min-width:561px) and (max-width:839px){
@@ -707,6 +707,9 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .t3-goals .late{color:var(--dng)}
 @media(min-width:900px){
   .t3-cols{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px 18px;align-items:start}
+  .t3-cols.one{grid-template-columns:minmax(0,1fr)}
+  /* «Все»: список длинный, цели справа едут вместе с прокруткой, чтобы колонка не пустела */
+  .t3-cols>.t3-col:nth-child(2){position:sticky;top:calc(var(--hh) + 16px)}
   .t3-row{min-height:40px}
   .t3-main{font-size:14.5px;padding:8px 0}
 }
