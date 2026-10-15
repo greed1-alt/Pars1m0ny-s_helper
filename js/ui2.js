@@ -361,15 +361,69 @@ function tasksDayList(k) {
 }
 ACT.t3day = el => { sel = el.dataset.d; syncMini(); render(); };
 
+// ---- ПК, вариант В «Фокус дня» (15 октября 2026; пользователь: «на компьютере интерфейс задач неудобный и не привлекает глаз»).
+// Слева — выбранный день (по умолчанию сегодня) крупно: прогресс, строка ввода, несделанное цветными карточками, сделанное строками;
+// под ним «Дальше» — ближайшие дни с задачами. Справа — неделя столбиками (нажатие выбирает день), просроченное, цели, статистика.
+// Список «по срокам» (tasksByDue, вариант А от 12 октября) пока не показывается — оставлен до выбора варианта ----
+function t4Card(e, k) {
+  const c = cat(e.cat), pr = prioOf(e), hot = pr === 'urgent' || pr === 'high';
+  return `<div class="t4-card" style="--c:${c.color}">
+    <button class="t4-ck" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено: ${esc(e.title)}"></button>
+    <button class="t4-main" data-act="edit" data-id="${e.id}" data-d="${k}">
+      <span class="t4-top">${hot ? `<em class="t4-pr" style="--pc:${PRIO[pr].c}">${PRIO[pr].n.toLowerCase()}</em>` : ''}${e.time ? `<span>${timeRange(e)}</span>` : ''}${isRec(e) ? '<span title="Повторяется">↻</span>' : ''}</span>
+      <b class="t4-t">${esc(e.title)}</b>
+      <span class="t4-sub"><i></i>${esc(c.name)}${goalTag(e)}</span>
+    </button></div>`;
+}
+function t4Hero(k) {
+  const t = todayK(), l = dayTasks(k), open = daySort(l.filter(e => !e.done)), done = l.filter(e => e.done), d = pd(k);
+  const rd = relDay(k), when = /^[а-я]+$/.test(rd) ? rd : '';   // вчера, сегодня, завтра, послезавтра
+  return `<div class="card t4-hero">
+    <div class="t4-head"><h2>${DOWF[dowIdx(k)]}, ${d.getDate()} ${MONG[d.getMonth()]}</h2>${when ? `<span class="t4-when${k === t ? ' today' : ''}">${when}</span>` : ''}${k !== t ? '<button class="lnk t4-back" data-act="today">← к сегодня</button>' : ''}
+      <span class="t4-cnt">${l.length ? `${done.length} из ${l.length} сделано` : ''}</span></div>
+    ${l.length ? `<div class="ds-bar t4-prog"><i style="width:${Math.round(done.length / l.length * 100)}%"></i></div>` : ''}
+    ${omniHTML('omt', 'tasks')}
+    ${open.length ? `<div class="t4-cards">${open.map(e => t4Card(e, k)).join('')}</div>`
+      : `<p class="t4-empty">${l.length ? 'Всё на этот день сделано. Можно взять что-нибудь из «Дальше».' : k < t ? 'В этот день задач не было.' : 'На этот день задач нет — напишите в строке выше.'}</p>`}
+    ${done.length ? `${t3Head('Сделано', String(done.length))}${done.map(e => t3Row(e, k, e.time ? esc(e.time) : '')).join('')}` : ''}
+  </div>`;
+}
+// Ближайшие дни после выбранного, в которых есть несделанные задачи (до четырёх дней за две недели)
+function t4Next(from) {
+  const t = todayK(), cols = [];
+  for (let i = 1; i <= 14 && cols.length < 4; i++) { const k = addDays(from, i), l = daySort(dayTasks(k).filter(e => !e.done)); if (l.length) cols.push([k, l]); }
+  const nm = k => { const d = pd(k); return k === addDays(t, 1) ? 'Завтра' : `${DOW[dowIdx(k)]}, ${d.getDate()} ${MONS[d.getMonth()]}`; };
+  return `<div class="card t3-list t4-next"><div class="h2-h"><b>${I(IC.right, 18)}Дальше</b><small></small></div>
+    ${cols.length ? `<div class="t4-ncols">${cols.map(([k, l]) => `<div class="t4-ncol"><button class="t4-nh" data-act="t3day" data-d="${k}" title="Показать этот день крупно"><b>${nm(k)}</b><small>${l.length}</small></button>
+      ${l.slice(0, 5).map(e => t3Row(e, k, e.time ? esc(e.time) : '')).join('')}${l.length > 5 ? `<button class="t3-more" data-act="t3day" data-d="${k}">ещё ${l.length - 5}</button>` : ''}</div>`).join('')}</div>`
+      : '<p class="t3-empty">В ближайшие две недели задач нет.</p>'}
+    <div class="hm-foot"><span></span><button data-act="tview" data-v="all">Все задачи →</button></div></div>`;
+}
+// Неделя столбиками: высота — сколько задач, зелёное — сколько сделано; нажатие показывает день слева
+function t4Week() {
+  const t = todayK(), data = taskWeek().map(k => { const l = dayTasks(k); return { k, n: l.length, d: l.filter(e => e.done).length }; });
+  const max = Math.max(3, ...data.map(x => x.n)), tot = data.reduce((a, x) => a + x.n, 0), dn = data.reduce((a, x) => a + x.d, 0);
+  return `<div class="card t4-week"><div class="h2-h"><b>${I(IC.cal, 18)}Неделя</b><small>${tot ? `${dn} из ${tot}` : ''}</small></div>
+    <div class="t4-bars">${data.map(x => { const h = x.n ? Math.max(14, Math.round(x.n / max * 100)) : 6;
+      return `<button class="t4-bar${x.k === sel ? ' on' : ''}${x.k === t ? ' today' : ''}${x.k < t ? ' past' : ''}" data-act="t3day" data-d="${x.k}" aria-label="${esc(fmtLong(x.k))}: ${x.n ? `сделано ${x.d} из ${x.n}` : 'задач нет'}"><span class="t4-col"><u style="height:${h}%"></u><i style="height:${x.n ? Math.round(h * x.d / x.n) : 0}%"></i></span><small>${DOW[dowIdx(x.k)].toLowerCase()} ${pd(x.k).getDate()}</small><b>${x.n ? `${x.d}/${x.n}` : '—'}</b></button>`; }).join('')}</div></div>`;
+}
+function t4Late() {
+  const l = missedList().filter(e => e.task); if (!l.length) return '';
+  return `<div class="card t3-list t4-late"><div class="h2-h"><b>${I(IC.alert, 18)}Просрочено</b><small>${plural(l.length, ['задача', 'задачи', 'задач'])}</small></div>
+    ${l.slice(0, 6).map(e => t3Row(e, e.date, esc(shortDate(e.date)), 'late')).join('')}${l.length > 6 ? `<button class="t3-more" data-act="tview" data-v="all">ещё ${l.length - 6} → все задачи</button>` : ''}
+    <div class="hm-foot"><span></span><button data-act="t3latetoday">Все на сегодня</button></div></div>`;
+}
+
 function tasksHTML() {
   const t = todayK(), wide = isWide(), hasAny = S.events.some(e => e.task), demo = S.events.some(e => e.demo);
   const gLate = activeGoals().reduce((n, g) => n + goalStat(g).late.length, 0), lateN = missedList().filter(e => e.task).length;
-  const views = [['main', wide ? 'По срокам' + (lateN ? ` <em class="late">${lateN}</em>` : '') : 'Неделя'], ['all', 'Все'], ['goals', 'Цели' + (gLate ? ` <em class="late">${gLate}</em>` : '')]];
+  const views = [['main', wide ? 'Фокус дня' + (lateN ? ` <em class="late">${lateN}</em>` : '') : 'Неделя'], ['all', 'Все'], ['goals', 'Цели' + (gLate ? ` <em class="late">${gLate}</em>` : '')]];
   const tabs = `<div class="seg2 t2-seg" role="tablist" aria-label="Что показать">${views.map(([v, n]) => `<button class="${tView === v ? 'on' : ''}" data-act="tview" data-v="${v}" role="tab" aria-selected="${tView === v}">${n}</button>`).join('')}</div>`;
   // Вкладка «Цели» — та же страница целей (js/goals.js), что и раньше была отдельным разделом
   if (tView === 'goals') return `${missedBar(true)}${tabs}${goalsHTML()}`;
   // Строка ввода на телефоне добавляет задачу на выбранный день; стоит между полоской дней и списком (правка пользователя 15 октября 2026)
-  const st = omSt('omt'); st.base = !wide && tView === 'main' && sel !== t ? sel : null;
+  // На ПК («Фокус дня») — на день, который показан крупно
+  const st = omSt('omt'); st.base = tView === 'main' && sel !== t ? sel : null;
   st.ph = st.base ? `Задача на ${relDay(st.base)}…` : null;
   const omni = `<div class="card h2-omni">${omniHTML('omt', 'tasks')}</div>`;
   let list;
@@ -392,8 +446,12 @@ function tasksHTML() {
   const empty = !hasAny ? emptyCard('tasks', 'Задачи', 'Пишите задачи обычной фразой в строке ввода: «позвонить маме», «отчёт в пятницу #работа !!». Задача с датой видна и в календаре.') : '';
   // На ПК пропущенное — в самом списке («Просрочено»), отдельная плашка не повторяет его
   const miss = wide && tView === 'main' ? '' : missedBar(true);
+  const goalsCard = secOn('tasks') && activeGoals().length ? `<div class="card t3-goals"><div class="h2-h"><b>${I(IC.goal, 18)}Цели</b><small>${gLate ? `<span class="late">просрочено шагов: ${gLate}</span>` : ''}</small></div>${goalsMiniHTML(3)}<div class="hm-foot"><span></span><button data-act="gall">Все цели →</button></div></div>` : '';
+  // ПК, «Фокус дня»: доски недели нет — её заменяют столбики недели и «Дальше»
+  if (wide && tView === 'main') return `${demoBar('tasks', demo)}${empty}${tabs}
+    <div class="t4-grid"><div class="t4-l">${t4Hero(sel)}${t4Next(sel)}</div><div class="t4-r">${t4Week()}${t4Late()}${goalsCard}${blocks}</div></div>${pageCust('tasks')}`;
   if (wide) return `${miss}${demoBar('tasks', demo)}${empty}${tabs}
-    <div class="t3-cols"><div class="t3-col">${list}</div><div class="t3-col">${secOn('tasks') && activeGoals().length ? `<div class="card t3-goals"><div class="h2-h"><b>${I(IC.goal, 18)}Цели</b><small>${gLate ? `<span class="late">просрочено шагов: ${gLate}</span>` : ''}</small></div>${goalsMiniHTML(3)}<div class="hm-foot"><span></span><button data-act="gall">Все цели →</button></div></div>` : ''}${blocks}</div></div>${blk('wide')}${pageCust('tasks')}`;
+    <div class="t3-cols"><div class="t3-col">${list}</div><div class="t3-col">${goalsCard}${blocks}</div></div>${blk('wide')}${pageCust('tasks')}`;
   return `${miss}${demoBar('tasks', demo)}${empty}${tabs}${list}${blocks}${pageCust('tasks')}`;
 }
 ACT.tview = el => { tView = el.dataset.v; render(); };
@@ -405,6 +463,8 @@ Object.defineProperty(SEC.tasks, 'noNav', { get: () => tasksGoals(), configurabl
 { const T = SEC.tasks, title = T.title, create = T.create;
   T.title = () => tasksGoals() ? SEC.goals.title() : title();
   T.create = () => tasksGoals() ? openGoal() : create();
+  // «Важные задачи» в боковой панели повторяли бы «Фокус дня» (срочное — карточками, цели — справа)
+  const side = T.side; T.side = () => tView === 'main' ? '' : side();
   // Свайп на телефоне в «Неделе» листает дни (стрелки в шапке — недели)
   T.swipe = n => { if (!isWide() && tView === 'main') { sel = addDays(sel, n); syncMini(); render(); } else move(n); }; }
 // Календарь на телефоне: в «Неделе» свайп тоже листает дни (стрелки в шапке — недели), в «Месяце» — месяцы
