@@ -12,8 +12,6 @@
 // Нейросеть отвечает в чате, раскладывает сообщение на записи и может дать кнопки перехода по приложению;
 // функция всё проверяет и возвращает приложению. Без подтверждения человека приложение ничего не добавляет.
 // mode «hello» — приветствие при первом открытии чата за день: подначка или похвала по сводке.
-// mode «tts» — живой голос ответа (SaluteSpeech Сбера или Яндекс SpeechKit — какой ключ задан): озвучивается только ответ
-// самого помощника — у него подпись say (HMAC от служебного ключа), чужой текст функция не озвучит.
 // С 17 октября 2026 записи приложение добавляет сразу, без подтверждения; у каждой в ответе — «Отменить».
 // Тексты сообщений и сводки нигде не сохраняются и в журнал не пишутся.
 //
@@ -111,7 +109,7 @@ nav — до 2 кнопок перехода в нужное место прил
 
 Справка по приложению (для вопросов «где» и «как»):
 - Главная: приветствие, кольцо «день выполнен на N%», строка ввода, «План на сегодня», привычки, деньги, самочувствие, цели, мысли дня. Порядок блоков — «Настроить Главную» внизу страницы.
-- Строка ввода (на Главной, в Календаре и Задачах) понимает фразы: «завтра в 15 встреча», «кофе 350», «+ зарплата 60000», «каждый день вода», «заметка: …», «цель: … до лета». «!» — важно, «!!» — срочно, #тег — календарь. Этот чат открывается кнопкой «Помощник» в шапке и в строке ввода; на сообщение можно ответить голосом (микрофон), а ответ — прослушать.
+- Строка ввода (на Главной, в Календаре и Задачах) понимает фразы: «завтра в 15 встреча», «кофе 350», «+ зарплата 60000», «каждый день вода», «заметка: …», «цель: … до лета». «!» — важно, «!!» — срочно, #тег — календарь. Этот чат открывается кнопкой «Помощник» в шапке и в строке ввода; сообщение можно надиктовать (микрофон).
 - Календарь: Месяц, Неделя (на телефоне — День по часам), Лента. На телефоне Календарь и Задачи — одна вкладка «План»; вернуть две вкладки — Настройки → Расположение → Разделы и вкладки. Событие можно перетащить и растянуть. В карточке события — повтор, календарь, напоминания, место, заметка, «Поделиться».
 - Задачи: на ПК «Фокус дня», вкладки «Все» и «Цели». Важность: срочно, высокая, средняя, низкая.
 - Цели: срок, шаги (шаг со сроком — задача в календаре), темп, подначки и похвалы; свои фразы и выключатели подначек — внизу вкладки «Цели».
@@ -233,57 +231,6 @@ async function gcToken(key, fresh) {
   gcTok = j.access_token || ''; gcExp = e > 1e12 ? e : e > 0 ? e * 1000 : Date.now() + 25 * 60000;   // срок приходит то в мс, то в секундах
   return gcTok ? { token: gcTok } : { error: 'model', code: 0 };
 }
-// ---- Живой голос ответа. Первым — SaluteSpeech Сбера (ключ авторизации SALUTE_AUTH_KEY из проекта «SaluteSpeech API» в Studio;
-// голос SALUTE_VOICE, по умолчанию Nec_24000 — «Наталья»), иначе Яндекс SpeechKit, API v3 (ключ сервисного аккаунта YANDEX_TTS_KEY;
-// по желанию TTS_VOICE, TTS_ROLE, TTS_SPEED, YANDEX_FOLDER_ID). Нет ни одного ключа — приложение говорит голосом устройства ----
-const TTS_ON = () => !!(env('SALUTE_AUTH_KEY') || env('YANDEX_TTS_KEY'));
-let ssTok = '', ssExp = 0;
-async function ttsSalute(text) {
-  const key = env('SALUTE_AUTH_KEY').replace(/^Basic\s+/i, '');
-  for (let i = 0; i < 2; i++) {   // токен мог истечь раньше срока — один повтор с новым
-    if (i || !ssTok || Date.now() > ssExp - 60000) {   // токен — тем же способом, что у GigaChat, но со своим ключом и scope
-      const t = await gcFetch('https://ngw.devices.sberbank.ru:9443/api/v2/oauth', { method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json', RqUID: crypto.randomUUID(), Authorization: 'Basic ' + key },
-        body: 'scope=' + encodeURIComponent(env('SALUTE_SCOPE') || 'SALUTE_SPEECH_PERS') });
-      if (!t.ok) { console.error('salute oauth', t.status, (await t.text()).slice(0, 300)); return null; }
-      const j = await t.json(), e = Number(j.expires_at) || 0;
-      ssTok = j.access_token || ''; ssExp = e > 1e12 ? e : e > 0 ? e * 1000 : Date.now() + 25 * 60000;
-    }
-    const r = await gcFetch('https://smartspeech.sber.ru/rest/v1/text:synthesize?format=wav16&voice=' + encodeURIComponent(env('SALUTE_VOICE') || 'Nec_24000'),
-      { method: 'POST', headers: { Authorization: 'Bearer ' + ssTok, 'Content-Type': 'application/text' }, body: text });
-    if (r.status === 401 && !i) continue;
-    if (!r.ok) { console.error('salute', r.status, (await r.text()).slice(0, 300)); return null; }
-    const a = new Uint8Array(await r.arrayBuffer());
-    return a.length > 200 ? { audio: a, type: 'audio/wav' } : null;
-  }
-  return null;
-}
-async function ttsAny(text) {   // SaluteSpeech, а если его нет или он не ответил — Яндекс
-  if (env('SALUTE_AUTH_KEY')) { const s = await ttsSalute(text).catch(e => { console.error('salute net', e && e.message); return null; }); if (s) return s; }
-  if (env('YANDEX_TTS_KEY')) { const y = await ttsYandex(text); if (y) return { audio: y, type: 'audio/mpeg' }; }
-  return null;
-}
-const b64url = u8 => btoa(String.fromCharCode(...u8)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-let hmacK = null;
-async function sigOf(uid, text) {   // подпись ответа: озвучить можно только то, что ответил сам помощник этому человеку
-  hmacK = hmacK || await crypto.subtle.importKey('raw', new TextEncoder().encode('parsimony-tts:' + env('SUPABASE_SERVICE_ROLE_KEY')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  return b64url(new Uint8Array(await crypto.subtle.sign('HMAC', hmacK, new TextEncoder().encode(uid + '\n' + text))));
-}
-async function ttsYandex(text) {
-  const folder = env('YANDEX_FOLDER_ID'), role = env('TTS_ROLE');
-  const r = await fetch('https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis', { method: 'POST', signal: AbortSignal.timeout(30000),
-    headers: { Authorization: 'Api-Key ' + env('YANDEX_TTS_KEY'), 'Content-Type': 'application/json', ...(folder ? { 'x-folder-id': folder } : {}) },
-    body: JSON.stringify({ text, hints: [{ voice: env('TTS_VOICE') || 'alena' }, ...(role ? [{ role }] : []), { speed: Number(env('TTS_SPEED')) || 1.05 }],
-      outputAudioSpec: { containerAudio: { containerAudioType: 'MP3' } }, loudnessNormalizationType: 'LUFS', unsafeMode: true }) });
-  if (!r.ok) { console.error('tts', r.status, (await r.text()).slice(0, 300)); return null; }
-  // Ответ — поток JSON-объектов с кусками звука в base64 (result.audioChunk.data)
-  const chunks = [...(await r.text()).matchAll(/"data"\s*:\s*"([A-Za-z0-9+/=]+)"/g)].map(x => Uint8Array.from(atob(x[1]), c => c.charCodeAt(0)));
-  if (!chunks.length) { console.error('tts: пустой ответ'); return null; }
-  const out = new Uint8Array(chunks.reduce((a, c) => a + c.length, 0)); let o = 0;
-  for (const c of chunks) { out.set(c, o); o += c.length; }
-  return out;
-}
-
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function askGiga(system, user, o) {
   const key = env('GIGACHAT_AUTH_KEY').replace(/^Basic\s+/i, ''); if (!key) return { error: 'off' };
@@ -338,12 +285,6 @@ Deno.serve(async req => {
     const body = await req.json().catch(() => null);
     const text = body && typeof body.text === 'string' ? body.text.trim().slice(0, MAX_TEXT) : '';
     if (!text) return json({ error: 'empty' }, 400);
-    if (body.mode === 'tts') {   // голос ответа — не считается в дневной лимит: озвучить можно только подписанный ответ помощника
-      if (!TTS_ON()) return json({ error: 'off' }, 503);
-      if (typeof body.sig !== 'string' || body.sig !== await sigOf(u.user.id, text)) return json({ error: 'forbidden' }, 403);
-      const v = await ttsAny(text.replace(/^\s*•\s*/gm, '').replace(/[«»"„“*]/g, '').slice(0, 1500));
-      return v ? new Response(v.audio, { headers: { ...CORS, 'Content-Type': v.type, 'Cache-Control': 'no-store' } }) : json({ error: 'model' }, 502);
-    }
     const ctx = body.ctx && typeof body.ctx === 'object' ? body.ctx : {};
     const hello = body.mode === 'hello';
     // Лимит на человека в сутки (по UTC); счётчик — в ai_usage (supabase/sql/assistant.sql)
@@ -360,10 +301,10 @@ Deno.serve(async req => {
     const out = j0 && typeof j0 === 'object' && !Array.isArray(j0) ? j0 : plain && !/[{}]/.test(plain) ? { reply: plain } : null;
     if (!out) { console.error('parse', PROVIDER, 'длина ответа', String(m.text || '').length); return json({ error: 'parse', p: PROVIDER }, 502); }   // сам текст в журнал не пишем
     const left = Math.max(0, DAILY - n);
-    const reply = block(out.reply, hello ? 500 : 1500), say = TTS_ON() && reply ? await sigOf(u.user.id, reply) : undefined;
-    if (hello) return json({ reply, items: [], nav: [], left, say });
+    const reply = block(out.reply, hello ? 500 : 1500);
+    if (hello) return json({ reply, items: [], nav: [], left });
     const items = (Array.isArray(out.items) ? out.items : []).slice(0, MAX_ITEMS).map(cleanItem).filter(Boolean);
-    return json({ reply, items, nav: cleanNav(out.nav), fix: out.fix === true && items.length > 0, left, say });
+    return json({ reply, items, nav: cleanNav(out.nav), fix: out.fix === true && items.length > 0, left });
   } catch (e) {
     console.error(e && e.message ? e.message : e);
     return json({ error: 'server' }, 500);

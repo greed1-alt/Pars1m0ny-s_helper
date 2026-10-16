@@ -10,7 +10,7 @@
 let ai = null;   // { msgs:[{ r:'u'|'a', t, day, items, added, nav, ask, hi }], hello, draft, busy, err, left }
 const AI_MAX = 2000, AI_LS = 'remapp_chat', AI_KEEP = 40, AI_HIST = 8;
 const AI_SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let aiRec = null, aiClearAsk = 0, aiVoiceIn = false;
+let aiRec = null, aiClearAsk = 0;
 
 const AI_T = { check:[IC.check, 'Отметить'], task:[IC.tasks, 'Задача'], event:[IC.cal, 'Событие'], habit:[IC.habit, 'Привычка'], expense:[IC.wallet, 'Расход'], income:[IC.wallet, 'Доход'], saving:[IC.wallet, 'Накопление'], goal:[IC.goal, 'Цель'], note:[IC.note, 'Заметка'] };
 const aiRep = r => !r ? '' : r.type === 'daily' ? 'каждый день' : r.type === 'weekdays' ? 'по будням' : r.type === 'monthly' ? 'каждый месяц' : r.type === 'yearly' ? 'каждый год'
@@ -143,8 +143,7 @@ function aiMsg(m, i) {
     ${added ? `<p class="ai-ok">${I(IC.check, 14)} ${m.added ? 'Готово: ' + plural(m.added, ['запись', 'записи', 'записей']) : 'Ничего не изменилось — это уже было'}</p>`
       : `<button class="btn pri ai-add" data-act="aiapply" data-i="${i}"${on ? '' : ' disabled'}>${on ? (it.every(x => !x.on || x.type === 'check') ? 'Отметить' : `Добавить ${plural(on, ['запись', 'записи', 'записей'])}`) : 'Выберите, что добавить'}</button>`}` : '';
   const nav = (m.nav || []).filter(n => AI_NAV[n.to]).map(n => `<button class="ai-nav" data-act="ainav" data-to="${n.to}">${esc(n.label || AI_NAV[n.to][0])}${I(IC.right, 14)}</button>`).join('');
-  const say = m.t && (AI_TTS || m.sig) ? `<button class="ai-say${aiSpeak === i ? ' on' : ''}" data-act="aisay" data-i="${i}" aria-label="${aiSpeak === i ? 'Остановить' : 'Прочитать вслух'}" title="${aiSpeak === i ? 'Остановить' : 'Прочитать вслух'}">${I(aiSpeak === i ? IC.stop : IC.vol, 16)}</button>` : '';
-  return `<div class="ai-m a"><span class="ai-av">${I(IC.spark, 14)}</span><div class="ai-mb">${m.t ? `<p>${say}${aiTxt(m.t)}</p>` : ''}${list}${nav ? `<div class="ai-navs">${nav}</div>` : ''}</div></div>`;
+  return `<div class="ai-m a"><span class="ai-av">${I(IC.spark, 14)}</span><div class="ai-mb">${m.t ? `<p>${aiTxt(m.t)}</p>` : ''}${list}${nav ? `<div class="ai-navs">${nav}</div>` : ''}</div></div>`;
 }
 const AI_EX = ['Что у меня завтра?', 'Сколько я потратил в этом месяце?', 'Как дела с моими целями?', 'Как поменять цвета приложения?', 'Завтра в 10 врач, кофе 350, каждый день пить воду'];
 function aiLogHTML() {
@@ -183,7 +182,7 @@ function aiRefresh() {
 }
 const aiScroll = () => { const l = $('#ai_log'); if (l) l.scrollTop = l.scrollHeight; };
 const aiGrow = () => { const t = $('#ai_text'); if (!t) return; t.style.height = 'auto'; const h = t.scrollHeight; t.style.height = Math.min(h, 140) + 'px'; t.style.overflowY = h > 140 ? 'auto' : 'hidden'; };
-document.addEventListener('input', e => { if (e.target.id === 'ai_text' && ai) { ai.draft = e.target.value; aiVoiceIn = false; aiGrow(); } });
+document.addEventListener('input', e => { if (e.target.id === 'ai_text' && ai) { ai.draft = e.target.value; aiGrow(); } });
 document.addEventListener('change', e => { const k = e.target.dataset && e.target.dataset.aion; if (k == null || !ai) return;
   const [i, j] = k.split(':').map(Number), m = ai.msgs[i]; if (!m || !m.items || !m.items[j] || m.added != null) return;
   m.items[j].on = e.target.checked; aiStore(); aiRefresh(); });
@@ -196,7 +195,6 @@ function aiVV() {
   // Класс меняем, только если он другой: сама смена класса снова вызывает aiVV (MutationObserver ниже) — иначе бесконечный круг
   if (sheetOpen() && $('.ai-chat') && innerWidth < 900) { ov.style.top = vv.offsetTop + 'px'; ov.style.height = vv.height + 'px'; ov.style.bottom = 'auto'; if (!ov.classList.contains('ov-vv')) ov.classList.add('ov-vv'); aiScroll(); }
   else if (ov.classList.contains('ov-vv')) { ov.style.top = ov.style.height = ov.style.bottom = ''; ov.classList.remove('ov-vv'); }
-  if (aiSpeak >= 0 && !(sheetOpen() && $('.ai-chat'))) aiHush();   // окно помощника закрыли — замолчать
 }
 if (window.visualViewport) { visualViewport.addEventListener('resize', aiVV); visualViewport.addEventListener('scroll', aiVV); }
 { const ov = $('#ov'), sh = $('#sh'); if (ov && sh && window.MutationObserver) { const mo = new MutationObserver(aiVV); mo.observe(ov, { attributes: true, attributeFilter: ['class'] }); mo.observe(sh, { childList: true }); } }
@@ -211,7 +209,7 @@ ACT.aimic = () => {
   const arm = () => { clearTimeout(quiet); quiet = setTimeout(() => { try { r.stop(); } catch (e) {} }, 5000); };
   r.lang = 'ru-RU'; r.interimResults = true; r.continuous = true;
   r.onresult = ev => { arm(); let tmp = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) { const t = ev.results[i][0].transcript; if (ev.results[i].isFinal) said += t + ' '; else tmp += t; }
-    ai.draft = (base + said + tmp).slice(0, AI_MAX); aiVoiceIn = true; const t = $('#ai_text'); if (t) { t.value = ai.draft; aiGrow(); } };
+    ai.draft = (base + said + tmp).slice(0, AI_MAX); const t = $('#ai_text'); if (t) { t.value = ai.draft; aiGrow(); } };
   r.onerror = ev => { if (ev.error !== 'aborted' && ev.error !== 'no-speech') toast(ev.error === 'not-allowed' || ev.error === 'service-not-allowed' ? 'Нет доступа к микрофону — разрешите его в настройках браузера или нажмите микрофон на клавиатуре' : 'Не получилось распознать речь — попробуйте ещё раз'); };
   r.onend = () => { clearTimeout(quiet); aiRec = null; aiRefresh(); };
   try { r.start(); aiRec = r; arm(); aiRefresh(); } catch (e) { aiRec = null; toast('Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре'); }
@@ -247,8 +245,7 @@ async function aiSend(text) {
   if (!navigator.onLine) { ai.err = 'Нет интернета — помощнику нужен сервер.'; return aiRefresh(); }
   // Вопрос — со сводкой записей; короткое уточнение после ответа по сводке («а послезавтра», «и в пятницу») — тоже
   const prev = [...ai.msgs].reverse().find(m => m.r === 'a'), ask = aiAsks(text) || !!(prev && prev.ask && !prev.hi && text.length < 60 && /^\s*(?:а|и|ещё|еще)(?=[\s,])/i.test(text));
-  const history = aiHist(), speak = aiVoiceIn; aiVoiceIn = false;
-  if (speak) aiUnlock();   // iPhone разрешает говорить только после нажатия — «будим» голос сейчас, ответ придёт позже
+  const history = aiHist();
   ai.msgs.push({ r:'u', t:text, day: todayK() }); ai.draft = ''; ai.err = ''; ai.busy = true; aiClearAsk = 0; aiStore();
   if (ta && text === ta.value.trim()) { ta.value = ''; aiGrow(); }
   aiRefresh();
@@ -259,64 +256,11 @@ async function aiSend(text) {
     // Записи — сразу, без подтверждения; «нет, в 11» (fix) — исправленные прошлые записи отменяются, новые встают вместо них
     if (items.length && j.fix) aiFixPrev(items);
     items.forEach(aiDo);
-    ai.msgs.push({ r:'a', t: String(j.reply || (items.length ? '' : 'Не понял, что сделать. Напишите подробнее.')), day: todayK(), ...(items.length ? { items, auto: 1 } : {}), ...(nav.length ? { nav } : {}), ...(ask ? { ask: 1 } : {}), ...(typeof j.say === 'string' ? { sig: j.say } : {}) });
+    ai.msgs.push({ r:'a', t: String(j.reply || (items.length ? '' : 'Не понял, что сделать. Напишите подробнее.')), day: todayK(), ...(items.length ? { items, auto: 1 } : {}), ...(nav.length ? { nav } : {}), ...(ask ? { ask: 1 } : {}) });
     if (items.length) { save(); render(); } }
   aiStore(); aiRefresh();
-  if (speak && !j.err && $('#ai_log')) aiSay(ai.msgs.length - 1);   // спросили голосом — отвечаем голосом
 }
 
-// ---- Ответ вслух: кнопка у ответа; если спросили голосом — сам. Живой голос — облачный (Яндекс SpeechKit через функцию
-// assistant, mode «tts»; у ответа есть подпись sig — сервер озвучивает только свои ответы), если он не подключён или не
-// ответил — голос самого устройства (Web Speech API) ----
-const AI_TTS = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
-let aiSpeak = -1, aiVoice = null, aiCloudOff = false;
-const aiAudio = new Audio(), aiUrls = new WeakMap();   // озвученные ответы — чтобы повтор не грузить заново
-// 0,1 с тишины: проиграть её по нажатию — и iPhone разрешит потом включить голос, который ещё грузится
-const aiSilent = (() => { const n = 800, b = new Uint8Array(44 + n * 2), v = new DataView(b.buffer), w = (o, s) => [...s].forEach((c, k) => { b[o + k] = c.charCodeAt(0); });
-  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
-  v.setUint32(24, 8000, true); v.setUint32(28, 16000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
-  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' })); })();
-// Самый живой русский голос из тех, что есть на устройстве
-const aiPickVoice = () => { const v = speechSynthesis.getVoices().filter(x => /^ru/i.test(x.lang));
-  return v.find(x => /natural|online|neural|enhanced|premium|улучш/i.test(x.name)) || v.find(x => /milena|милена|google|svetlana|dariya|katya/i.test(x.name)) || v[0] || null; };
-if (AI_TTS && speechSynthesis.addEventListener) speechSynthesis.addEventListener('voiceschanged', () => { aiVoice = null; });
-const aiUnlock = () => {
-  try { aiAudio.onended = aiAudio.onerror = null; aiAudio.src = aiSilent; const p = aiAudio.play(); if (p) p.catch(() => {}); } catch (e) {}
-  if (AI_TTS) try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {} };
-function aiHush(quiet) { try { aiAudio.pause(); } catch (e) {} if (AI_TTS) try { speechSynthesis.cancel(); } catch (e) {} aiSpeak = -1; if (!quiet) aiRefresh(); }
-const aiClean = s => s.replace(/^\s*•\s*/gm, '').replace(/\*\*/g, '').replace(/[«»"„“]/g, '');
-async function aiTTS(m) {
-  try {
-    const r = await fetch(SUPABASE_URL + '/functions/v1/assistant', { method:'POST', cache:'no-store',
-      headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body: JSON.stringify({ mode:'tts', text: m.t, sig: m.sig }) });
-    if (!r.ok) { if (r.status === 503) aiCloudOff = true; return null; }
-    const b = await r.blob(); return b.size > 200 ? URL.createObjectURL(b) : null;
-  } catch (e) { return null; }
-}
-async function aiSay(i) {
-  const m = ai && ai.msgs[i]; if (!m || !m.t) return;
-  if (aiSpeak === i) return aiHush();
-  aiHush(true); aiSpeak = i; aiRefresh(); aiUnlock();
-  if (m.sig && !aiCloudOff) {
-    let url = aiUrls.get(m);
-    if (!url) { url = await aiTTS(m); if (url) aiUrls.set(m, url); }
-    if (aiSpeak !== i) return;   // пока грузилось — остановили или включили другой ответ
-    if (url) { aiAudio.onended = aiAudio.onerror = () => { if (aiSpeak === i) { aiSpeak = -1; aiRefresh(); } }; aiAudio.src = url;
-      try { await aiAudio.play(); return; } catch (e) {} }
-  }
-  aiDevSay(m, i);
-}
-function aiDevSay(m, i) {
-  if (!AI_TTS) { aiSpeak = -1; aiRefresh(); return toast('Озвучка на этом устройстве недоступна'); }
-  try { speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(aiClean(m.t));
-    u.lang = 'ru-RU'; aiVoice = aiVoice || aiPickVoice(); if (aiVoice) u.voice = aiVoice; u.rate = 1.05;
-    u.onend = u.onerror = () => { if (aiSpeak === i) { aiSpeak = -1; aiRefresh(); } };
-    aiSpeak = i; speechSynthesis.speak(u);
-  } catch (e) { aiSpeak = -1; toast('Озвучка на этом устройстве недоступна'); }
-  aiRefresh();
-}
-ACT.aisay = el => aiSay(+el.dataset.i);
 ACT.aigo = () => aiSend();
 ACT.aiex = el => aiSend(el.dataset.t);
 ACT.airetry = () => { const m = ai && ai.msgs[ai.msgs.length - 1]; if (!m || m.r !== 'u') return; ai.msgs.pop(); ai.err = ''; aiSend(m.t); };
@@ -331,7 +275,7 @@ async function aiHello() {
   ai.hello = todayK(); ai.busy = true; aiStore(); aiRefresh();
   const j = await aiCall({ mode:'hello', text:'привет', ctx: aiCtx(true) });
   ai.busy = false;
-  if (!j.err && j.reply) ai.msgs.push({ r:'a', t: String(j.reply), day: todayK(), hi: 1, ask: 1, ...(typeof j.say === 'string' ? { sig: j.say } : {}) });   // ошибку приветствия не показываем
+  if (!j.err && j.reply) ai.msgs.push({ r:'a', t: String(j.reply), day: todayK(), hi: 1, ask: 1 });   // ошибку приветствия не показываем
   aiStore(); aiRefresh();
 }
 
