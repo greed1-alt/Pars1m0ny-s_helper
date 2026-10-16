@@ -166,17 +166,23 @@ async function gcToken(key, fresh) {
 }
 async function askGiga(system, user) {
   const key = env('GIGACHAT_AUTH_KEY').replace(/^Basic\s+/i, ''); if (!key) return { error: 'off' };
-  for (let i = 0; i < 2; i++) {   // токен мог истечь раньше срока — один повтор с новым
-    const t = await gcToken(key, i > 0); if (t.error) return t;
-    const r = await gcFetch('https://api.giga.chat/v1/chat/completions', { method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + t.token },
-      body: JSON.stringify({ model: MODEL, temperature: 0.2, max_tokens: 3000, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
-    if (r.status === 401 && i === 0) continue;
-    if (!r.ok) { console.error('gigachat', r.status, (await r.text()).slice(0, 300)); return { error: 'model', code: r.status }; }
-    const j = await r.json();
-    return { text: j && j.choices && j.choices[0] && j.choices[0].message ? j.choices[0].message.content : '' };
+  // 402 — кончились бесплатные токены этой модели: тогда пробуем Lite, у неё бесплатный запас больше всех (250 млн в год, у Pro — 40 млн)
+  const models = [MODEL]; if (!/^GigaChat(-2)?$/i.test(MODEL)) models.push('GigaChat-2');
+  let last = { error: 'model', code: 0 };
+  for (const model of models) {
+    for (let i = 0; i < 2; i++) {   // токен мог истечь раньше срока — один повтор с новым
+      const t = await gcToken(key, i > 0); if (t.error) return t;
+      const r = await gcFetch('https://api.giga.chat/v1/chat/completions', { method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + t.token },
+        body: JSON.stringify({ model, temperature: 0.2, max_tokens: 3000, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
+      if (r.status === 401 && i === 0) continue;
+      if (!r.ok) { console.error('gigachat', model, r.status, (await r.text()).slice(0, 300)); last = { error: 'model', code: r.status }; break; }
+      const j = await r.json();
+      return { text: j && j.choices && j.choices[0] && j.choices[0].message ? j.choices[0].message.content : '' };
+    }
+    if (last.code !== 402) return last;
   }
-  return { error: 'model', code: 401 };
+  return last;
 }
 async function askDeepseek(system, user) {
   const key = env('DEEPSEEK_API_KEY'); if (!key) return { error: 'off' };
@@ -217,9 +223,9 @@ Deno.serve(async req => {
     if (n > DAILY) return json({ error: 'limit', limit: DAILY }, 429);
     if (n === 1) await sb.from('ai_usage').delete().lt('day', new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10));
     const m = await askModel(SYSTEM, userMessage(text, ctx));
-    if (m.error) return json({ error: m.error, code: m.code || 0 }, m.error === 'off' ? 503 : 502);
+    if (m.error) return json({ error: m.error, code: m.code || 0, p: PROVIDER }, m.error === 'off' ? 503 : 502);   // p — какая нейросеть ответила (видно в окне помощника)
     const out = jsonOf(m.text);
-    if (!out) { console.error('parse', PROVIDER, 'длина ответа', String(m.text || '').length); return json({ error: 'parse' }, 502); }   // сам текст в журнал не пишем
+    if (!out) { console.error('parse', PROVIDER, 'длина ответа', String(m.text || '').length); return json({ error: 'parse', p: PROVIDER }, 502); }   // сам текст в журнал не пишем
     const items = (Array.isArray(out && out.items) ? out.items : []).slice(0, MAX_ITEMS).map(cleanItem).filter(Boolean);
     return json({ reply: str(out && out.reply, 400), items, left: Math.max(0, DAILY - n) });
   } catch (e) {
