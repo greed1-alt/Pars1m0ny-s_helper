@@ -204,14 +204,15 @@ ACT.aimic = () => {
   if (!AI_SR || !ai) return;
   if (aiRec) { aiRec.stop(); return; }
   const ta = $('#ai_text'), r = new AI_SR(), base = ta && ta.value.trim() ? ta.value.trim() + ' ' : '';
-  let said = '', quiet = 0;
+  let said = '', tmp = '', quiet = 0;
   // 5 секунд тишины (ничего не распознано) — микрофон выключается сам (просьба пользователя 17 октября 2026)
   const arm = () => { clearTimeout(quiet); quiet = setTimeout(() => { try { r.stop(); } catch (e) {} }, 5000); };
   r.lang = 'ru-RU'; r.interimResults = true; r.continuous = true;
-  r.onresult = ev => { arm(); let tmp = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) { const t = ev.results[i][0].transcript; if (ev.results[i].isFinal) said += t + ' '; else tmp += t; }
+  r.onresult = ev => { arm(); tmp = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) { const t = ev.results[i][0].transcript; if (ev.results[i].isFinal) said += t + ' '; else tmp += t; }
     ai.draft = (base + said + tmp).slice(0, AI_MAX); const t = $('#ai_text'); if (t) { t.value = ai.draft; aiGrow(); } };
   r.onerror = ev => { if (ev.error !== 'aborted' && ev.error !== 'no-speech') toast(ev.error === 'not-allowed' || ev.error === 'service-not-allowed' ? 'Нет доступа к микрофону — разрешите его в настройках браузера или нажмите микрофон на клавиатуре' : 'Не получилось распознать речь — попробуйте ещё раз'); };
-  r.onend = () => { clearTimeout(quiet); aiRec = null; aiRefresh(); };
+  // Запись кончилась (тишина или нажали на микрофон) и что-то распознано — сразу отправить (просьба пользователя 17 октября 2026)
+  r.onend = () => { clearTimeout(quiet); aiRec = null; aiRefresh(); if ((said + tmp).trim()) aiSendWhenFree(); };
   try { r.start(); aiRec = r; arm(); aiRefresh(); } catch (e) { aiRec = null; toast('Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре'); }
 };
 
@@ -261,6 +262,12 @@ async function aiSend(text) {
   aiStore(); aiRefresh();
 }
 
+// Отправить надиктованное: если помощник ещё отвечает (например, на приветствие) — дождаться, но не дольше 30 с
+function aiSendWhenFree(n = 0) {
+  const ta = $('#ai_text'); if (!ai || !ta || !ta.value.trim()) return;   // окно закрыли или текст стёрли
+  if (!ai.busy) return aiSend();
+  if (n < 100) setTimeout(() => aiSendWhenFree(n + 1), 300);
+}
 ACT.aigo = () => aiSend();
 ACT.aiex = el => aiSend(el.dataset.t);
 ACT.airetry = () => { const m = ai && ai.msgs[ai.msgs.length - 1]; if (!m || m.r !== 'u') return; ai.msgs.pop(); ai.err = ''; aiSend(m.t); };
