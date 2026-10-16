@@ -12,6 +12,9 @@
 // Нейросеть отвечает в чате, раскладывает сообщение на записи и может дать кнопки перехода по приложению;
 // функция всё проверяет и возвращает приложению. Без подтверждения человека приложение ничего не добавляет.
 // mode «hello» — приветствие при первом открытии чата за день: подначка или похвала по сводке.
+// mode «tts» — живой голос ответа (Яндекс SpeechKit, если задан ключ YANDEX_TTS_KEY): озвучивается только ответ
+// самого помощника — у него подпись say (HMAC от служебного ключа), чужой текст функция не озвучит.
+// С 17 октября 2026 записи приложение добавляет сразу, без подтверждения; у каждой в ответе — «Отменить».
 // Тексты сообщений и сводки нигде не сохраняются и в журнал не пишутся.
 //
 // В настройках функции «Verify JWT» выключен (как у reminders): токены входа проекта — ES256, доступ проверяется здесь через auth.getUser.
@@ -66,10 +69,11 @@ function cleanItem(it) {
 // ---- Что знает нейросеть ----
 const SYSTEM = `Ты — Parsimony, помощник в приложении-планере Parsimony, и общаешься с пользователем в чате. Пиши по-русски, на «вы», коротко и по делу, дружелюбно и с лёгкой иронией. Пользователь часто пишет голосом, без знаков препинания.
 Верни ТОЛЬКО JSON-объект вида:
-{"reply": "...", "items": [...], "nav": [...]}
+{"reply": "...", "items": [...], "nav": [...], "fix": false}
 
 reply — твой ответ в чате: до 5 коротких предложений; перечисления — отдельными строками, каждая начинается с «• ». Без markdown: никаких **, #, таблиц.
-items — записи для приложения, если пользователь рассказывает о делах, встречах, привычках, целях, тратах или мыслях. Он сам проверит список и нажмёт «Добавить», поэтому в reply коротко скажи, что предлагаешь. Если пользователь только спрашивает или болтает — items пустой. Если что-то важное непонятно — спроси в reply.
+items — записи для приложения, если пользователь рассказывает о делах, встречах, привычках, целях, тратах или мыслях. Приложение добавляет их сразу, а пользователь может отменить любую, поэтому в reply коротко скажи, что сделал: «Добавил врача на завтра в 10:00 и трату 350 ₽», «Отметил зарядку». Если пользователь только спрашивает или болтает — items пустой. Если что-то важное непонятно — не добавляй, а спроси в reply.
+fix — true, только если пользователь исправляет записи из твоего предыдущего ответа («нет, в 11», «не врач, а стоматолог», «не 350, а 450»): тогда в items верни только исправленные записи целиком, со всеми полями, — они заменят прошлые такие же (остальные прошлые записи останутся). Если пользователь просто добавляет ещё что-то — fix не ставь.
 nav — до 2 кнопок перехода в нужное место приложения: [{"to":"ключ","label":"короткая подпись"}]. Ставь, когда спрашивают, где или как что-то сделать, или когда кнопка явно поможет. Ключи — только из списка «Места» ниже; иначе nav пустой.
 
 Виды записей (поле type):
@@ -95,7 +99,7 @@ nav — до 2 кнопок перехода в нужное место прил
 - Цель «до лета» — due 1 июня, «до конца года» — 31 декабря; шаги цели — только если пользователь их назвал.
 - Если такая привычка уже есть в списке привычек — не добавляй её повторно; если пользователь говорит, что выполнил её, — это "check". Привычки, которой нет в списке, не отмечай: предложи создать её ("habit").
 - Не выдумывай того, чего нет в сообщении. Одно дело — одна запись. Названия короткие, с большой буквы, без даты и времени внутри.
-- Если пользователь поправляет то, что ты предложил раньше и он ещё не добавил («нет, в 11», «врача на пятницу»), — верни исправленный список целиком.
+- Что было сделано в разговоре и что пользователь отменил, видно в «Недавнем разговоре» в квадратных скобках. Отменённое не добавляй снова, если об этом не просят.
 - Менять, переносить, отмечать и удалять уже добавленные записи ты пока не умеешь: так и скажи и дай кнопку туда, где это сделать.
 
 Вопросы о делах, деньгах, целях и привычках:
@@ -228,6 +232,30 @@ async function gcToken(key, fresh) {
   gcTok = j.access_token || ''; gcExp = e > 1e12 ? e : e > 0 ? e * 1000 : Date.now() + 25 * 60000;   // срок приходит то в мс, то в секундах
   return gcTok ? { token: gcTok } : { error: 'model', code: 0 };
 }
+// ---- Живой голос ответа: Яндекс SpeechKit, API v3 (ключ сервисного аккаунта YANDEX_TTS_KEY; по желанию TTS_VOICE, TTS_ROLE,
+// TTS_SPEED, YANDEX_FOLDER_ID). Нет ключа — приложение говорит голосом устройства ----
+const TTS_ON = () => !!env('YANDEX_TTS_KEY');
+const b64url = u8 => btoa(String.fromCharCode(...u8)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+let hmacK = null;
+async function sigOf(uid, text) {   // подпись ответа: озвучить можно только то, что ответил сам помощник этому человеку
+  hmacK = hmacK || await crypto.subtle.importKey('raw', new TextEncoder().encode('parsimony-tts:' + env('SUPABASE_SERVICE_ROLE_KEY')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return b64url(new Uint8Array(await crypto.subtle.sign('HMAC', hmacK, new TextEncoder().encode(uid + '\n' + text))));
+}
+async function ttsYandex(text) {
+  const folder = env('YANDEX_FOLDER_ID'), role = env('TTS_ROLE');
+  const r = await fetch('https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis', { method: 'POST', signal: AbortSignal.timeout(30000),
+    headers: { Authorization: 'Api-Key ' + env('YANDEX_TTS_KEY'), 'Content-Type': 'application/json', ...(folder ? { 'x-folder-id': folder } : {}) },
+    body: JSON.stringify({ text, hints: [{ voice: env('TTS_VOICE') || 'alena' }, ...(role ? [{ role }] : []), { speed: Number(env('TTS_SPEED')) || 1.05 }],
+      outputAudioSpec: { containerAudio: { containerAudioType: 'MP3' } }, loudnessNormalizationType: 'LUFS', unsafeMode: true }) });
+  if (!r.ok) { console.error('tts', r.status, (await r.text()).slice(0, 300)); return null; }
+  // Ответ — поток JSON-объектов с кусками звука в base64 (result.audioChunk.data)
+  const chunks = [...(await r.text()).matchAll(/"data"\s*:\s*"([A-Za-z0-9+/=]+)"/g)].map(x => Uint8Array.from(atob(x[1]), c => c.charCodeAt(0)));
+  if (!chunks.length) { console.error('tts: пустой ответ'); return null; }
+  const out = new Uint8Array(chunks.reduce((a, c) => a + c.length, 0)); let o = 0;
+  for (const c of chunks) { out.set(c, o); o += c.length; }
+  return out;
+}
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function askGiga(system, user, o) {
   const key = env('GIGACHAT_AUTH_KEY').replace(/^Basic\s+/i, ''); if (!key) return { error: 'off' };
@@ -282,6 +310,12 @@ Deno.serve(async req => {
     const body = await req.json().catch(() => null);
     const text = body && typeof body.text === 'string' ? body.text.trim().slice(0, MAX_TEXT) : '';
     if (!text) return json({ error: 'empty' }, 400);
+    if (body.mode === 'tts') {   // голос ответа — не считается в дневной лимит: озвучить можно только подписанный ответ помощника
+      if (!TTS_ON()) return json({ error: 'off' }, 503);
+      if (typeof body.sig !== 'string' || body.sig !== await sigOf(u.user.id, text)) return json({ error: 'forbidden' }, 403);
+      const audio = await ttsYandex(text.replace(/^\s*•\s*/gm, '').replace(/[«»"„“*]/g, '').slice(0, 1500));
+      return audio ? new Response(audio, { headers: { ...CORS, 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' } }) : json({ error: 'model' }, 502);
+    }
     const ctx = body.ctx && typeof body.ctx === 'object' ? body.ctx : {};
     const hello = body.mode === 'hello';
     // Лимит на человека в сутки (по UTC); счётчик — в ai_usage (supabase/sql/assistant.sql)
@@ -298,9 +332,10 @@ Deno.serve(async req => {
     const out = j0 && typeof j0 === 'object' && !Array.isArray(j0) ? j0 : plain && !/[{}]/.test(plain) ? { reply: plain } : null;
     if (!out) { console.error('parse', PROVIDER, 'длина ответа', String(m.text || '').length); return json({ error: 'parse', p: PROVIDER }, 502); }   // сам текст в журнал не пишем
     const left = Math.max(0, DAILY - n);
-    if (hello) return json({ reply: block(out.reply, 500), items: [], nav: [], left });
+    const reply = block(out.reply, hello ? 500 : 1500), say = TTS_ON() && reply ? await sigOf(u.user.id, reply) : undefined;
+    if (hello) return json({ reply, items: [], nav: [], left, say });
     const items = (Array.isArray(out.items) ? out.items : []).slice(0, MAX_ITEMS).map(cleanItem).filter(Boolean);
-    return json({ reply: block(out.reply, 1500), items, nav: cleanNav(out.nav), left });
+    return json({ reply, items, nav: cleanNav(out.nav), fix: out.fix === true && items.length > 0, left, say });
   } catch (e) {
     console.error(e && e.message ? e.message : e);
     return json({ error: 'server' }, 500);

@@ -1,8 +1,8 @@
 // ---- ИИ-помощник: чат (16 октября 2026 — проба, с 17 октября — чат по просьбе пользователя). Разбирает нейросеть на сервере
 // (Edge Function assistant; GigaChat от Сбера, бесплатный режим для физлиц: DeepSeek требовал иностранную карту).
 // В интерфейсе — «Помощник Parsimony», без названия нейросети (просьба пользователя); кто обрабатывает данные — в памятке beta.html.
-// Помощник раскладывает сообщения на задачи, события, привычки, цели, траты и заметки (список «что добавлю» с галочками
-// прямо в чате, «Добавить» — одним «Отменить»), отвечает на вопросы о делах, деньгах, целях и привычках, подсказывает,
+// Помощник раскладывает сообщения на задачи, события, привычки, цели, траты и заметки и отмечает привычки — сразу, без
+// подтверждения (с 17 октября 2026, просьба пользователя), у каждой записи в ответе — «Отменить» / «Вернуть» (aiDo / aiUndo); отвечает на вопросы о делах, деньгах, целях и привычках, подсказывает,
 // где что в приложении (кнопки перехода — AI_NAV), подначивает и хвалит (приветствие раз в день — aiHello).
 // Нейросети уходят текст сообщения, несколько последних реплик и названия календарей, категорий, привычек и целей;
 // когда человек спрашивает — ещё короткая сводка записей (aiData): без заметок, мест и самочувствия (решение пользователя).
@@ -75,7 +75,9 @@ const aiLoad = () => { try { const j = JSON.parse(localStorage.getItem(AI_LS) ||
 const aiStore = () => { if (!ai) return; ai.msgs = ai.msgs.slice(-AI_KEEP); try { localStorage.setItem(AI_LS, JSON.stringify({ msgs: ai.msgs, hello: ai.hello })); } catch (e) {} };
 // Что было в разговоре — коротко, вместе с предложенными записями: так нейросеть понимает «нет, в 11» и «а послезавтра?»
 const aiBrief = it => (AI_T[it.type] || [0, 'Запись'])[1] + ' «' + (it.title || it.habit || it.text || it.note || '') + '»' + (it.date ? ' ' + it.date : '') + (it.time ? ' ' + it.time : '') + (it.amount ? ' ' + it.amount + ' ₽' : '');
-const aiHist = () => ai.msgs.slice(-AI_HIST).map(m => ({ r: m.r, t: ((m.t || '') + (m.items && m.items.length ? ` [предложено: ${m.items.map(aiBrief).join('; ')} — ${m.added != null ? 'добавлено' : 'пока не добавлено'}]` : '')).slice(0, 700) }));
+const aiSt = x => x.st === 'ok' ? 'сделано' : x.st === 'undone' ? 'пользователь отменил' : 'не получилось' + (x.why ? ' — ' + x.why : '');
+const aiHist = () => ai.msgs.slice(-AI_HIST).map(m => ({ r: m.r, t: ((m.t || '') + (!m.items || !m.items.length ? '' : m.auto ? ` [${m.items.map(x => aiBrief(x) + ' — ' + aiSt(x)).join('; ')}]`
+  : ` [предложено: ${m.items.map(aiBrief).join('; ')} — ${m.added != null ? 'добавлено' : 'пока не добавлено'}]`)).slice(0, 700) }));
 
 // ---- Куда помощник может отправить кнопкой (ключи — те же, что в функции assistant → NAV) ----
 const aiSec = s => () => { if (!secOn(s)) { toast('Этот раздел выключен — его можно включить здесь'); return aiSet('secs')(); } if (s === 'tasks' && tView === 'goals') tView = 'main'; setSec(s); };
@@ -99,9 +101,12 @@ function openAI(text) {
 }
 ACT.aiopen = el => { const i = el.dataset.om && $('#' + el.dataset.om), t = i ? i.value : ''; if (i) { i.value = ''; omUpdate(i.id); } openAI(t); };
 
-// Строка записи в списке «что добавлю»; locked — уже добавлено
-function aiRow(it, key, locked) {
-  const [ic, kind] = AI_T[it.type] || [IC.note, 'Запись'], bits = [];
+// Строка записи. mode: 'auto' — уже сделано (с «Отменить» / «Вернуть»); 'pick' — с галочкой и 'done' — добавлено:
+// так выглядят сообщения до 17 октября 2026, когда записи ещё подтверждали кнопкой «Добавить»
+function aiRow(it, key, mode) {
+  const locked = mode === 'done', auto = mode === 'auto', bits = [];
+  let [ic, kind] = AI_T[it.type] || [IC.note, 'Запись'];
+  if (auto && it.type === 'check' && it.st === 'ok') kind = 'Отмечено';
   if (it.type === 'task' || it.type === 'event') {
     bits.push(it.repeat ? aiRep(it.repeat) + (it.date && it.date !== todayK() ? ', с ' + relDay(it.date) : '') : relDay(it.date || todayK()));
     if (it.time) bits.push(it.time + (it.time2 ? '–' + it.time2 : ''));
@@ -111,12 +116,19 @@ function aiRow(it, key, locked) {
     if (it.loc) bits.push(esc(it.loc));
   } else if (it.type === 'check') { const h = aiHab(it.habit), d = it.date || todayK();
     bits.push(h ? (h.kind === 'weekly' ? 'за эту неделю' : h.kind === 'monthly' ? 'за этот месяц' : relDay(d)) : 'такой привычки нет');
-    if (locked) {} else if (h && aiMarked(h, d)) bits.push('уже отмечена'); else if (h && h.kind === 'daily' && d < todayK() && !S.settings.habitPast) bits.push('задним числом выключено в настройках'); }
+    if (mode !== 'pick') {} else if (h && aiMarked(h, d)) bits.push('уже отмечена'); else if (h && h.kind === 'daily' && d < todayK() && !S.settings.habitPast) bits.push('задним числом выключено в настройках'); }
   else if (it.type === 'habit') bits.push(it.kind === 'weekly' ? 'раз в неделю' : it.kind === 'monthly' ? 'раз в месяц' : it.days.length ? 'по ' + it.days.map(d => DOW[d].toLowerCase()).join(', ') : 'каждый день');
   else if (AI_KIND[it.type]) { const c = aiFin(it.category, AI_KIND[it.type], it.note, it.amount); bits.push(`<b>${it.type === 'income' ? '+' : it.type === 'expense' ? '−' : ''}${rub(it.amount)}</b>`, esc((c.emoji || '') + ' ' + c.name)); if (it.date && it.date !== todayK()) bits.push(relDay(it.date)); }
   else if (it.type === 'goal') { bits.push('до ' + shortDate(it.due || todayK().slice(0, 4) + '-12-31')); if (it.steps.length) bits.push(plural(it.steps.length, ['шаг', 'шага', 'шагов'])); }
   const hb = it.type === 'check' && aiHab(it.habit);
   const title = it.type === 'note' ? it.text : it.type === 'check' ? (hb ? (hb.emoji ? hb.emoji + ' ' : '') + hb.name : it.habit) : AI_KIND[it.type] ? (it.note || kind) : (it.type === 'habit' || it.type === 'goal') && it.emoji ? it.emoji + ' ' + it.title : it.title;
+  if (auto) {
+    const st = it.st || 'skip', ico = st === 'ok' ? IC.check : st === 'undone' ? IC.undo : IC.alert;
+    if (it.why) bits.push(esc(it.why));
+    const btn = st === 'ok' || st === 'undone' ? `<button class="ai-undo" data-act="aiundo" data-i="${key}">${st === 'ok' ? 'Отменить' : 'Вернуть'}</button>` : '';
+    return `<div class="ai-row ai-auto st-${st}"><span class="ai-chk">${I(ico, 14)}</span><span class="ai-k">${I(ic, 15)}${kind}</span>
+      <span class="ai-b"><b>${esc(title)}</b>${bits.length ? `<small>${bits.join(' · ')}</small>` : ''}</span>${btn}</div>`;
+  }
   const tag = locked ? 'div' : 'label', box = locked ? `<span class="ai-chk">${I(IC.check, 14)}</span>` : `<input type="checkbox" data-aion="${key}"${it.on ? ' checked' : ''}>`;
   return `<${tag} class="ai-row${it.on || locked ? '' : ' off'}">${box}<span class="ai-k">${I(ic, 15)}${kind}</span>
     <span class="ai-b"><b>${esc(title)}</b>${bits.length ? `<small>${bits.join(' · ')}</small>` : ''}</span></${tag}>`;
@@ -125,12 +137,13 @@ function aiRow(it, key, locked) {
 const aiTxt = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
 function aiMsg(m, i) {
   if (m.r === 'u') return `<div class="ai-m u"><div class="ai-mb">${aiTxt(m.t)}</div></div>`;
-  const it = m.items || [], on = it.filter(x => x.on).length, added = m.added != null;
-  const list = it.length ? `<div class="ai-list">${(added ? it.filter(x => x.on) : it).map((x, j) => aiRow(x, i + ':' + j, added)).join('')}</div>
+  const it = m.items || [], on = it.filter(x => x.on).length, added = m.added != null, okN = it.filter(x => x.st === 'ok').length;
+  const list = m.auto && it.length ? `<div class="ai-list">${it.map((x, j) => aiRow(x, i + ':' + j, 'auto')).join('')}</div>
+    ${okN > 1 ? `<button class="ai-undoall" data-act="aiundoall" data-i="${i}">${I(IC.undo, 14)} Отменить всё</button>` : ''}` : it.length ? `<div class="ai-list">${(added ? it.filter(x => x.on) : it).map((x, j) => aiRow(x, i + ':' + j, added ? 'done' : 'pick')).join('')}</div>
     ${added ? `<p class="ai-ok">${I(IC.check, 14)} ${m.added ? 'Готово: ' + plural(m.added, ['запись', 'записи', 'записей']) : 'Ничего не изменилось — это уже было'}</p>`
       : `<button class="btn pri ai-add" data-act="aiapply" data-i="${i}"${on ? '' : ' disabled'}>${on ? (it.every(x => !x.on || x.type === 'check') ? 'Отметить' : `Добавить ${plural(on, ['запись', 'записи', 'записей'])}`) : 'Выберите, что добавить'}</button>`}` : '';
   const nav = (m.nav || []).filter(n => AI_NAV[n.to]).map(n => `<button class="ai-nav" data-act="ainav" data-to="${n.to}">${esc(n.label || AI_NAV[n.to][0])}${I(IC.right, 14)}</button>`).join('');
-  const say = AI_TTS && m.t ? `<button class="ai-say${aiSpeak === i ? ' on' : ''}" data-act="aisay" data-i="${i}" aria-label="${aiSpeak === i ? 'Остановить' : 'Прочитать вслух'}" title="${aiSpeak === i ? 'Остановить' : 'Прочитать вслух'}">${I(aiSpeak === i ? IC.stop : IC.vol, 16)}</button>` : '';
+  const say = m.t && (AI_TTS || m.sig) ? `<button class="ai-say${aiSpeak === i ? ' on' : ''}" data-act="aisay" data-i="${i}" aria-label="${aiSpeak === i ? 'Остановить' : 'Прочитать вслух'}" title="${aiSpeak === i ? 'Остановить' : 'Прочитать вслух'}">${I(aiSpeak === i ? IC.stop : IC.vol, 16)}</button>` : '';
   return `<div class="ai-m a"><span class="ai-av">${I(IC.spark, 14)}</span><div class="ai-mb">${m.t ? `<p>${say}${aiTxt(m.t)}</p>` : ''}${list}${nav ? `<div class="ai-navs">${nav}</div>` : ''}</div></div>`;
 }
 const AI_EX = ['Что у меня завтра?', 'Сколько я потратил в этом месяце?', 'Как дела с моими целями?', 'Как поменять цвета приложения?', 'Завтра в 10 врач, кофе 350, каждый день пить воду'];
@@ -193,13 +206,15 @@ ACT.aimic = () => {
   if (!AI_SR || !ai) return;
   if (aiRec) { aiRec.stop(); return; }
   const ta = $('#ai_text'), r = new AI_SR(), base = ta && ta.value.trim() ? ta.value.trim() + ' ' : '';
-  let said = '';
+  let said = '', quiet = 0;
+  // 5 секунд тишины (ничего не распознано) — микрофон выключается сам (просьба пользователя 17 октября 2026)
+  const arm = () => { clearTimeout(quiet); quiet = setTimeout(() => { try { r.stop(); } catch (e) {} }, 5000); };
   r.lang = 'ru-RU'; r.interimResults = true; r.continuous = true;
-  r.onresult = ev => { let tmp = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) { const t = ev.results[i][0].transcript; if (ev.results[i].isFinal) said += t + ' '; else tmp += t; }
+  r.onresult = ev => { arm(); let tmp = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) { const t = ev.results[i][0].transcript; if (ev.results[i].isFinal) said += t + ' '; else tmp += t; }
     ai.draft = (base + said + tmp).slice(0, AI_MAX); aiVoiceIn = true; const t = $('#ai_text'); if (t) { t.value = ai.draft; aiGrow(); } };
   r.onerror = ev => { if (ev.error !== 'aborted' && ev.error !== 'no-speech') toast(ev.error === 'not-allowed' || ev.error === 'service-not-allowed' ? 'Нет доступа к микрофону — разрешите его в настройках браузера или нажмите микрофон на клавиатуре' : 'Не получилось распознать речь — попробуйте ещё раз'); };
-  r.onend = () => { aiRec = null; aiRefresh(); };
-  try { r.start(); aiRec = r; aiRefresh(); } catch (e) { aiRec = null; toast('Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре'); }
+  r.onend = () => { clearTimeout(quiet); aiRec = null; aiRefresh(); };
+  try { r.start(); aiRec = r; arm(); aiRefresh(); } catch (e) { aiRec = null; toast('Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре'); }
 };
 
 // ---- Сервер ----
@@ -231,8 +246,8 @@ async function aiSend(text) {
   if (!text) { if (ta) ta.focus(); return; }
   if (!navigator.onLine) { ai.err = 'Нет интернета — помощнику нужен сервер.'; return aiRefresh(); }
   // Вопрос — со сводкой записей; короткое уточнение после ответа по сводке («а послезавтра», «и в пятницу») — тоже
-  const prev = [...ai.msgs].reverse().find(m => m.r === 'a'), ask = aiAsks(text) || !!(prev && prev.ask && !prev.hi && text.length < 60 && /^s*(?:а|и|ещё|еще)(?=[s,])/i.test(text));
-  const history = aiHist(), speak = aiVoiceIn && AI_TTS; aiVoiceIn = false;
+  const prev = [...ai.msgs].reverse().find(m => m.r === 'a'), ask = aiAsks(text) || !!(prev && prev.ask && !prev.hi && text.length < 60 && /^\s*(?:а|и|ещё|еще)(?=[\s,])/i.test(text));
+  const history = aiHist(), speak = aiVoiceIn; aiVoiceIn = false;
   if (speak) aiUnlock();   // iPhone разрешает говорить только после нажатия — «будим» голос сейчас, ответ придёт позже
   ai.msgs.push({ r:'u', t:text, day: todayK() }); ai.draft = ''; ai.err = ''; ai.busy = true; aiClearAsk = 0; aiStore();
   if (ta && text === ta.value.trim()) { ta.value = ''; aiGrow(); }
@@ -240,26 +255,61 @@ async function aiSend(text) {
   const j = await aiCall({ mode:'chat', text, ask, history, ctx: aiCtx(ask) });
   ai.busy = false;
   if (j.err) ai.err = j.err;
-  else { const items = (Array.isArray(j.items) ? j.items : []).map(x => Object.assign(x, { on: x.type !== 'check' || aiCanMark(x) })), nav = Array.isArray(j.nav) ? j.nav.filter(n => n && AI_NAV[n.to]) : [];
-    ai.msgs.push({ r:'a', t: String(j.reply || (items.length ? '' : 'Не понял, что сделать. Напишите подробнее.')), day: todayK(), ...(items.length ? { items } : {}), ...(nav.length ? { nav } : {}), ...(ask ? { ask: 1 } : {}) }); }
+  else { const items = Array.isArray(j.items) ? j.items.filter(x => x && AI_T[x.type]) : [], nav = Array.isArray(j.nav) ? j.nav.filter(n => n && AI_NAV[n.to]) : [];
+    // Записи — сразу, без подтверждения; «нет, в 11» (fix) — исправленные прошлые записи отменяются, новые встают вместо них
+    if (items.length && j.fix) aiFixPrev(items);
+    items.forEach(aiDo);
+    ai.msgs.push({ r:'a', t: String(j.reply || (items.length ? '' : 'Не понял, что сделать. Напишите подробнее.')), day: todayK(), ...(items.length ? { items, auto: 1 } : {}), ...(nav.length ? { nav } : {}), ...(ask ? { ask: 1 } : {}), ...(typeof j.say === 'string' ? { sig: j.say } : {}) });
+    if (items.length) { save(); render(); } }
   aiStore(); aiRefresh();
   if (speak && !j.err && $('#ai_log')) aiSay(ai.msgs.length - 1);   // спросили голосом — отвечаем голосом
 }
 
-// ---- Ответ вслух (озвучка в самом устройстве, Web Speech API): кнопка у ответа; если спросили голосом — сам ----
+// ---- Ответ вслух: кнопка у ответа; если спросили голосом — сам. Живой голос — облачный (Яндекс SpeechKit через функцию
+// assistant, mode «tts»; у ответа есть подпись sig — сервер озвучивает только свои ответы), если он не подключён или не
+// ответил — голос самого устройства (Web Speech API) ----
 const AI_TTS = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
-let aiSpeak = -1, aiVoice = null;
+let aiSpeak = -1, aiVoice = null, aiCloudOff = false;
+const aiAudio = new Audio(), aiUrls = new WeakMap();   // озвученные ответы — чтобы повтор не грузить заново
+// 0,1 с тишины: проиграть её по нажатию — и iPhone разрешит потом включить голос, который ещё грузится
+const aiSilent = (() => { const n = 800, b = new Uint8Array(44 + n * 2), v = new DataView(b.buffer), w = (o, s) => [...s].forEach((c, k) => { b[o + k] = c.charCodeAt(0); });
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 16000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' })); })();
 // Самый живой русский голос из тех, что есть на устройстве
 const aiPickVoice = () => { const v = speechSynthesis.getVoices().filter(x => /^ru/i.test(x.lang));
   return v.find(x => /natural|online|neural|enhanced|premium|улучш/i.test(x.name)) || v.find(x => /milena|милена|google|svetlana|dariya|katya/i.test(x.name)) || v[0] || null; };
 if (AI_TTS && speechSynthesis.addEventListener) speechSynthesis.addEventListener('voiceschanged', () => { aiVoice = null; });
-const aiUnlock = () => { try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {} };
-function aiHush() { try { speechSynthesis.cancel(); } catch (e) {} aiSpeak = -1; aiRefresh(); }
-function aiSay(i) {
-  const m = ai && ai.msgs[i]; if (!AI_TTS || !m || !m.t) return;
+const aiUnlock = () => {
+  try { aiAudio.onended = aiAudio.onerror = null; aiAudio.src = aiSilent; const p = aiAudio.play(); if (p) p.catch(() => {}); } catch (e) {}
+  if (AI_TTS) try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {} };
+function aiHush(quiet) { try { aiAudio.pause(); } catch (e) {} if (AI_TTS) try { speechSynthesis.cancel(); } catch (e) {} aiSpeak = -1; if (!quiet) aiRefresh(); }
+const aiClean = s => s.replace(/^\s*•\s*/gm, '').replace(/\*\*/g, '').replace(/[«»"„“]/g, '');
+async function aiTTS(m) {
+  try {
+    const r = await fetch(SUPABASE_URL + '/functions/v1/assistant', { method:'POST', cache:'no-store',
+      headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body: JSON.stringify({ mode:'tts', text: m.t, sig: m.sig }) });
+    if (!r.ok) { if (r.status === 503) aiCloudOff = true; return null; }
+    const b = await r.blob(); return b.size > 200 ? URL.createObjectURL(b) : null;
+  } catch (e) { return null; }
+}
+async function aiSay(i) {
+  const m = ai && ai.msgs[i]; if (!m || !m.t) return;
   if (aiSpeak === i) return aiHush();
+  aiHush(true); aiSpeak = i; aiRefresh(); aiUnlock();
+  if (m.sig && !aiCloudOff) {
+    let url = aiUrls.get(m);
+    if (!url) { url = await aiTTS(m); if (url) aiUrls.set(m, url); }
+    if (aiSpeak !== i) return;   // пока грузилось — остановили или включили другой ответ
+    if (url) { aiAudio.onended = aiAudio.onerror = () => { if (aiSpeak === i) { aiSpeak = -1; aiRefresh(); } }; aiAudio.src = url;
+      try { await aiAudio.play(); return; } catch (e) {} }
+  }
+  aiDevSay(m, i);
+}
+function aiDevSay(m, i) {
+  if (!AI_TTS) { aiSpeak = -1; aiRefresh(); return toast('Озвучка на этом устройстве недоступна'); }
   try { speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(m.t.replace(/^\s*•\s*/gm, '').replace(/\*\*/g, '').replace(/[«»"„“]/g, ''));
+    const u = new SpeechSynthesisUtterance(aiClean(m.t));
     u.lang = 'ru-RU'; aiVoice = aiVoice || aiPickVoice(); if (aiVoice) u.voice = aiVoice; u.rate = 1.05;
     u.onend = u.onerror = () => { if (aiSpeak === i) { aiSpeak = -1; aiRefresh(); } };
     aiSpeak = i; speechSynthesis.speak(u);
@@ -281,7 +331,7 @@ async function aiHello() {
   ai.hello = todayK(); ai.busy = true; aiStore(); aiRefresh();
   const j = await aiCall({ mode:'hello', text:'привет', ctx: aiCtx(true) });
   ai.busy = false;
-  if (!j.err && j.reply) ai.msgs.push({ r:'a', t: String(j.reply), day: todayK(), hi: 1, ask: 1 });   // ошибку приветствия не показываем
+  if (!j.err && j.reply) ai.msgs.push({ r:'a', t: String(j.reply), day: todayK(), hi: 1, ask: 1, ...(typeof j.say === 'string' ? { sig: j.say } : {}) });   // ошибку приветствия не показываем
   aiStore(); aiRefresh();
 }
 
@@ -293,7 +343,63 @@ const aiMarked = (h, d) => !!h.log[aiHabKey(h, d)];
 // Привычку можно отметить: она есть, ещё не отмечена и день не в будущем (задним числом — если это включено в настройках)
 const aiCanMark = it => { const h = aiHab(it.habit), d = it.date && it.date <= todayK() ? it.date : todayK(); return !!h && !aiMarked(h, d) && !(h.kind === 'daily' && d < todayK() && !S.settings.habitPast); };
 
-// ---- Добавить отмеченное — теми же записями, что создаёт приложение. Одно «Отменить» на всё ----
+// ---- Сделать одну запись сразу (теми же записями, что создаёт приложение) и запомнить, что сделано, — чтобы отменить ----
+// it.st: 'ok' — сделано (it.res — что именно), 'undone' — отменено, 'skip' — не получилось (it.why — почему)
+function aiDo(it) {
+  delete it.why; it.res = null;
+  const t = it.type;
+  if (t === 'check') {
+    const h = aiHab(it.habit), d = it.date && it.date <= todayK() ? it.date : todayK();
+    if (!aiCanMark(it)) { it.st = 'skip'; it.why = !h ? 'такой привычки нет' : aiMarked(h, d) ? 'уже отмечена' : 'задним числом — выключено в настройках'; return; }
+    const k = aiHabKey(h, d); h.log[k] = 1; it.res = { mark: [h.id, k] };
+  } else if (t === 'task' || t === 'event') { const e = aiEvent(it); S.events.push(e); it.res = { ev: [e.id] }; }
+  else if (t === 'habit') {
+    if (S.habits.some(h => h.name.toLowerCase() === it.title.toLowerCase())) { it.st = 'skip'; it.why = 'такая привычка уже есть'; return; }
+    const h = { id: 'h' + uid(), name: it.title, emoji: aiEmoji(it.emoji, it.title), kind: it.kind, days: it.kind === 'daily' ? it.days : [], from: todayK(), log: {} };
+    S.habits.push(h); it.res = { hb: h.id };
+  } else if (AI_KIND[t]) {
+    const o = { id: 'o' + uid(), amt: it.amount, cat: aiFin(it.category, AI_KIND[t], it.note, it.amount).id, note: it.note || '', date: it.date && it.date <= todayK() ? it.date : todayK() };
+    S.fin.ops.push(o); it.res = { op: o.id };
+  } else if (t === 'goal') {
+    const g = { id: 'g' + uid(), title: it.title, emoji: aiEmoji(it.emoji, it.title), due: it.due && it.due >= todayK() ? it.due : todayK().slice(0, 4) + '-12-31', created: todayK(), why: '', done: false, steps: [] }, ev = [];
+    it.steps.forEach(s => { if (s.date) { const e = aiEvent({ type: 'task', title: s.title, date: s.date, prio: 'mid' }, { goal: g.id }); S.events.push(e); ev.push(e.id); } else g.steps.push({ id: 's' + uid(), t: s.title, done: false }); });
+    S.goals.push(g); it.res = { goal: g.id, ev };
+  } else if (t === 'note') { const n = { id: 'n' + uid(), date: todayK(), text: it.text }; S.notes.push(n); it.res = { note: n.id }; }
+  else { it.st = 'skip'; it.why = 'не умею такое'; return; }
+  it.st = 'ok';
+}
+// Исправление прошлого ответа: для каждой новой записи отменяется прошлая того же вида с тем же (или похожим) названием,
+// а если такая запись была одна — она. Остальное из прошлого ответа не трогаем
+const aiGrp = t => t === 'task' || t === 'event' ? 'ev' : t;
+const aiName = x => String(x.title || x.habit || x.note || x.text || '').toLowerCase().trim();
+function aiFixPrev(items) {
+  const pm = [...ai.msgs].reverse().find(m => m.r === 'a' && m.auto); if (!pm) return;
+  const pool = pm.items.filter(x => x.st === 'ok');
+  items.forEach(n => {
+    const same = pool.filter(x => aiGrp(x.type) === aiGrp(n.type)), nn = aiName(n);
+    const hit = same.find(x => { const a = aiName(x); return a && nn && (a === nn || a.includes(nn) || nn.includes(a)); }) || (same.length === 1 ? same[0] : null);
+    if (hit) { aiUndo(hit); hit.why = 'исправлено ниже'; pool.splice(pool.indexOf(hit), 1); }
+  });
+}
+function aiUndo(it) {
+  const r = it.res || {};
+  if (r.ev && r.ev.length) S.events = S.events.filter(e => !r.ev.includes(e.id));
+  if (r.hb) S.habits = S.habits.filter(h => h.id !== r.hb);
+  if (r.op) S.fin.ops = S.fin.ops.filter(o => o.id !== r.op);
+  if (r.goal) S.goals = S.goals.filter(g => g.id !== r.goal);
+  if (r.note) S.notes = S.notes.filter(n => n.id !== r.note);
+  if (r.mark) { const h = S.habits.find(x => x.id === r.mark[0]); if (h) delete h.log[r.mark[1]]; }
+  it.res = null; it.st = 'undone'; delete it.why;
+}
+ACT.aiundo = el => {
+  const [i, j] = String(el.dataset.i).split(':').map(Number), m = ai && ai.msgs[i], it = m && m.items && m.items[j]; if (!it) return;
+  if (it.st === 'ok') aiUndo(it); else if (it.st === 'undone') aiDo(it); else return;
+  save(); aiStore(); render(); aiRefresh();
+};
+ACT.aiundoall = el => { const m = ai && ai.msgs[+el.dataset.i]; if (!m || !m.items) return;
+  m.items.forEach(x => { if (x.st === 'ok') aiUndo(x); }); save(); aiStore(); render(); aiRefresh(); };
+
+// ---- Старые сообщения (до 17 октября 2026): добавить отмеченное кнопкой. Одно «Отменить» на всё ----
 const aiEmoji = (e, name) => e && /\p{Extended_Pictographic}/u.test(e) && e.length <= 8 ? e : ((HB_GUESS.find(([re]) => re.test(name.toLowerCase())) || [0, '🎯'])[1]);
 function aiEvent(it, extra) {
   const date = it.date || todayK(), r = it.repeat;
