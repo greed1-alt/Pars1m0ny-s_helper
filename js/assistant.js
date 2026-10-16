@@ -1,11 +1,15 @@
-// ---- ИИ-помощник (16 октября 2026, проба). Одно сообщение — текстом или голосом — раскладывается на задачи, события,
-// привычки, цели, траты и заметки. Разбирает нейросеть на сервере (Edge Function assistant; с 17 октября 2026 — GigaChat от Сбера, бесплатный режим для физлиц: DeepSeek требовал иностранную карту);
-// приложение показывает список «что добавлю», человек снимает лишние галочки и нажимает «Добавить» (одним «Отменить»).
-// Нейросети уходит только текст сообщения и названия календарей, категорий трат, привычек и целей — не сами записи ----
-let ai = null;   // { text, busy, reply, items:[{...it, on}], err, left }
-const AI_MAX = 2000;
+// ---- ИИ-помощник: чат (16 октября 2026 — проба, с 17 октября — чат по просьбе пользователя). Разбирает нейросеть на сервере
+// (Edge Function assistant; GigaChat от Сбера, бесплатный режим для физлиц: DeepSeek требовал иностранную карту).
+// Помощник раскладывает сообщения на задачи, события, привычки, цели, траты и заметки (список «что добавлю» с галочками
+// прямо в чате, «Добавить» — одним «Отменить»), отвечает на вопросы о делах, деньгах, целях и привычках, подсказывает,
+// где что в приложении (кнопки перехода — AI_NAV), подначивает и хвалит (приветствие раз в день — aiHello).
+// Нейросети уходят текст сообщения, несколько последних реплик и названия календарей, категорий, привычек и целей;
+// когда человек спрашивает — ещё короткая сводка записей (aiData): без заметок, мест и самочувствия (решение пользователя).
+// История чата — только на этом устройстве (remapp_chat), при выходе из аккаунта стирается (cloud.js → wipeDevice) ----
+let ai = null;   // { msgs:[{ r:'u'|'a', t, day, items, added, nav, ask, hi }], hello, draft, busy, err, left }
+const AI_MAX = 2000, AI_LS = 'remapp_chat', AI_KEEP = 40, AI_HIST = 8;
 const AI_SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let aiRec = null;
+let aiRec = null, aiClearAsk = 0;
 
 const AI_T = { task:[IC.tasks, 'Задача'], event:[IC.cal, 'Событие'], habit:[IC.habit, 'Привычка'], expense:[IC.wallet, 'Расход'], income:[IC.wallet, 'Доход'], saving:[IC.wallet, 'Накопление'], goal:[IC.goal, 'Цель'], note:[IC.note, 'Заметка'] };
 const aiRep = r => !r ? '' : r.type === 'daily' ? 'каждый день' : r.type === 'weekdays' ? 'по будням' : r.type === 'monthly' ? 'каждый месяц' : r.type === 'yearly' ? 'каждый год'
@@ -17,20 +21,85 @@ const aiFin = (name, kind, note, amt) => { const n = String(name || '').toLowerC
   const p = note ? parseMoney(note + ' ' + Math.round(amt || 1), kind) : null; return p && p.ok ? fcat(p.cat) : kindDefaultCat(kind); };
 const AI_KIND = { expense:'out', income:'inc', saving:'sav' };
 
-// Что нейросеть знает о человеке: дата, часовой пояс и названия — без самих записей
-const aiCtx = () => ({ today: todayK(), now: fmtMin(nowMin()), tz: S.settings.tz || '', cats: S.cats.map(c => c.name),
-  fin: S.fin.cats.map(c => ({ n: c.name, g: c.g })), habits: S.habits.map(h => h.name), goals: activeGoals().map(g => g.title) });
+// ---- Что нейросеть знает о человеке ----
+const aiCtx = data => { const P = S.settings.phr || {};
+  return { today: todayK(), now: fmtMin(nowMin()), tz: S.settings.tz || '', cats: S.cats.map(c => c.name),
+    fin: S.fin.cats.map(c => ({ n: c.name, g: c.g })), habits: S.habits.map(h => h.name), goals: activeGoals().map(g => g.title),
+    taunts: !!P.taunts, praise: !!P.praise, style: (P.custom || []).slice(0, 8).map(p => ({ k: p.kind, t: p.t })), ...(data ? { data: aiData() } : {}) }; };
+// Сводка записей — только когда человек о чём-то спрашивает (и для приветствия): дела на 2 недели, пропущенное,
+// деньги месяца по категориям, цели, привычки. Заметки, места, самочувствие и профиль не отправляются
+const AI_DW = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+const aiD = k => k.slice(8) + '.' + k.slice(5, 7) + (k.slice(0, 4) !== todayK().slice(0, 4) ? '.' + k.slice(0, 4) : '');
+function aiData() {
+  const t = todayK(), ym = ymOf(t), L = [];
+  const evTxt = (e, k) => { const c = S.cats.find(x => x.id === e.cat);
+    return (isDone(e, k) ? '✓ ' : '') + (e.time ? e.time + (e.time2 ? '–' + e.time2 : '') + ' ' : '') + e.title
+      + (e.task && e.prio === 'urgent' ? ' (срочно)' : e.task && e.prio === 'high' ? ' (важно)' : '') + (c ? ` [${c.name}]` : '') + (isRec(e) ? ' ↻' : ''); };
+  const days = [];
+  for (let i = 0; i < 14; i++) {
+    const k = addDays(t, i), l = S.events.filter(e => occurs(e, k)).sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
+    if (l.length) days.push(`${AI_DW[dowIdx(k)]} ${aiD(k)}${i === 0 ? ' (сегодня)' : i === 1 ? ' (завтра)' : ''}: ${l.slice(0, 12).map(e => evTxt(e, k)).join('; ')}${l.length > 12 ? `; и ещё ${l.length - 12}` : ''}`);
+  }
+  L.push('Дела и события на 14 дней (✓ — сделано, ↻ — повторяется; дней без дел нет в списке):', ...(days.length ? days : ['ничего не запланировано']));
+  const ms = missedList();
+  if (ms.length) L.push(`Пропущено — прошлые дела без отметки (${ms.length}): ` + ms.slice(0, 15).map(e => `${aiD(e.date)} ${e.title}`).join('; '));
+  const st = finStat(ym), prev = finStat(ymAdd(ym, -1)), dl = dailyLimit(st, ym);
+  if (st.ops.length || st.spentPlan || prev.ops.length) {
+    L.push(`Деньги, ${ymTitle(ym).toLowerCase()}: потрачено ${rub(st.spent)}${st.spentPlan ? ' из бюджета ' + rub(st.spentPlan) : ' (бюджет не задан)'}; доходы ${rub(st.g.inc.fact)}; отложено ${rub(st.g.sav.fact)}`
+      + (dl ? (dl.left >= 0 ? `; можно потратить сегодня ещё ${rub(dl.left)}` : `; дневной лимит превышен на ${rub(-dl.left)}`) : '') + `. В прошлом месяце потрачено ${rub(prev.spent)}.`);
+    const cats = S.fin.cats.filter(c => FG_OUT.includes(c.g) && (st.fact[c.id] || c.plan)).sort((a, b) => (st.fact[b.id] || 0) - (st.fact[a.id] || 0)).slice(0, 15);
+    if (cats.length) L.push('Расходы месяца по категориям: ' + cats.map(c => `${c.name} ${rub(st.fact[c.id] || 0)}${c.plan ? ' (бюджет ' + rub(c.plan) + ')' : ''}`).join('; ') + '.');
+    const op = o => { const c = fcat(o.cat); return `${aiD(o.date)} ${c.g === 'inc' ? '+' : c.g === 'sav' ? 'в накопления ' : ''}${rub(o.amt)} ${o.note || c.name}${o.note ? ' (' + c.name + ')' : ''}`; };
+    const last = [...S.fin.ops].sort((a, b) => b.date.localeCompare(a.date)).filter(o => o.date <= t).slice(0, 12);
+    if (last.length) L.push('Последние записи денег: ' + last.map(op).join('; ') + '.');
+  }
+  const gl = activeGoals().slice(0, 8);
+  if (gl.length) L.push('Цели:', ...gl.map(g => { const s = goalStat(g);
+    return `• ${g.title} — срок ${aiD(g.due)} (${s.left >= 0 ? 'осталось ' + plural(s.left, NDAY) : 'срок прошёл'}); шагов сделано ${s.d} из ${s.n}${s.pace ? '; темп: ' + PACE[s.pace] : ''}`
+      + (s.late.length ? '; просрочены шаги: ' + s.late.slice(0, 3).map(x => `«${x.t}» (${aiD(x.date)})`).join(', ') : '') + (s.next ? `; следующий шаг: «${s.next.t}»` : ''); }));
+  if (S.habits.length) { const md = ymDays(ym), wk = ym + ':w' + (wkOf(t) + 1);
+    L.push('Привычки (процент — за этот месяц):', ...S.habits.slice(0, 20).map(h => {
+      if (h.kind === 'weekly') return `• ${h.name} (раз в неделю): на этой неделе ${h.log[wk] ? '✓ сделано' : 'ещё нет'}`;
+      if (h.kind === 'monthly') return `• ${h.name} (раз в месяц): в этом месяце ${h.log[ym] ? '✓ сделано' : 'ещё нет'}`;
+      const s = hStat(h, md); return `• ${h.name}: ${s.pct == null ? 'пока без отметок' : Math.round(s.pct * 100) + '%'}${hDow(h, t) ? (h.log[t] ? ', сегодня ✓' : ', сегодня ещё нет') : ', сегодня не по плану'}`; })); }
+  return L.join('\n').slice(0, 6000);
+}
+// Похоже на вопрос — нужна сводка (и хватит модели попроще): «что у меня завтра?», «сколько потратил на кафе», «как дела с целью»
+const AI_ASK = /^\s*(?:(?:а|и|ну|так|слушай|скажи)[\s,]+)*(?:что|чем|сколько|когда|какие|какой|какая|какое|каких|где|как|почему|зачем|покажи|расскажи|подскажи|есть ли|успеваю|успею)(?=$|[\s,.!?])/i;
+const AI_ASK2 = /(?:^|[\s,.!?])(?:просроч\S*|прогресс\S*|сводк\S*|статистик\S*|итог\S*|план на)(?=$|[\s,.!?])/i;
+const aiAsks = t => t.includes('?') || AI_ASK.test(t) || AI_ASK2.test(t);
 
+// ---- История чата: только на этом устройстве ----
+const aiLoad = () => { try { const j = JSON.parse(localStorage.getItem(AI_LS) || 'null'); if (j && Array.isArray(j.msgs)) return j; } catch (e) {} return { msgs: [], hello: '' }; };
+const aiStore = () => { if (!ai) return; ai.msgs = ai.msgs.slice(-AI_KEEP); try { localStorage.setItem(AI_LS, JSON.stringify({ msgs: ai.msgs, hello: ai.hello })); } catch (e) {} };
+// Что было в разговоре — коротко, вместе с предложенными записями: так нейросеть понимает «нет, в 11» и «а послезавтра?»
+const aiBrief = it => (AI_T[it.type] || [0, 'Запись'])[1] + ' «' + (it.title || it.text || it.note || '') + '»' + (it.date ? ' ' + it.date : '') + (it.time ? ' ' + it.time : '') + (it.amount ? ' ' + it.amount + ' ₽' : '');
+const aiHist = () => ai.msgs.slice(-AI_HIST).map(m => ({ r: m.r, t: ((m.t || '') + (m.items && m.items.length ? ` [предложено: ${m.items.map(aiBrief).join('; ')} — ${m.added != null ? 'добавлено' : 'пока не добавлено'}]` : '')).slice(0, 700) }));
+
+// ---- Куда помощник может отправить кнопкой (ключи — те же, что в функции assistant → NAV) ----
+const aiSec = s => () => { if (!secOn(s)) { toast('Этот раздел выключен — его можно включить здесь'); return aiSet('secs')(); } if (s === 'tasks' && tView === 'goals') tView = 'main'; setSec(s); };
+const aiSet = k => () => { if (sec !== 'settings') setSec('settings');
+  requestAnimationFrame(() => { const c = $('#st-' + k); if (!c) return; c.scrollIntoView({ block: 'start', behavior: 'smooth' }); c.classList.add('ai-flash'); setTimeout(() => c.classList.remove('ai-flash'), 1800); }); };
+const AI_NAV = { home:['Главная', aiSec('home')], cal:['Календарь', aiSec('cal')], tasks:['Задачи', aiSec('tasks')], goals:['Цели', () => goGoals()], habits:['Привычки', aiSec('habits')], fin:['Финансы', aiSec('fin')],
+  budget:['Бюджет на месяц', () => openBudget()], missed:['Вы пропустили', () => ACT.missopen()], profile:['Профиль', () => setSec('profile')], settings:['Настройки', aiSet('look')],
+  set_look:['Оформление', aiSet('look')], set_cal:['Настройки календаря', aiSet('cal')], set_cats:['Календари', aiSet('cats')], set_layout:['Расположение', aiSet('secs')], sections:['Разделы и вкладки', () => openSecs()],
+  set_notif:['Напоминания', aiSet('notif')], set_data:['Аккаунт и данные', aiSet('data')], tour:['Знакомство с приложением', () => openTourMenu()], feedback:['Отзыв', () => ACT.feedback()] };
+ACT.ainav = el => { const n = AI_NAV[el.dataset.to]; if (!n) return; closeSheet(); n[1](); };
+
+// ---- Окно ----
 function openAI(text) {
   if (aiRec) aiRec.stop();
-  ai = { text: String(text || '').slice(0, AI_MAX), busy: false, reply: '', items: null, err: '', left: null };
+  if (!ai) { const st = aiLoad(); ai = { msgs: st.msgs, hello: st.hello || '', draft: '', busy: false, err: '', left: null }; }
+  if (text) ai.draft = String(text).slice(0, AI_MAX);
+  ai.err = ''; aiClearAsk = 0;
   aiDraw();
-  setTimeout(() => { const t = $('#ai_text'); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30);
+  if (text || matchMedia('(pointer:fine)').matches) setTimeout(() => { const t = $('#ai_text'); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30);
+  if (!text) aiHello();
 }
 ACT.aiopen = el => { const i = el.dataset.om && $('#' + el.dataset.om), t = i ? i.value : ''; if (i) { i.value = ''; omUpdate(i.id); } openAI(t); };
 
-// Строка одной записи в списке «что добавлю»
-function aiRow(it, i) {
+// Строка записи в списке «что добавлю»; locked — уже добавлено
+function aiRow(it, key, locked) {
   const [ic, kind] = AI_T[it.type] || [IC.note, 'Запись'], bits = [];
   if (it.type === 'task' || it.type === 'event') {
     bits.push(it.repeat ? aiRep(it.repeat) + (it.date && it.date !== todayK() ? ', с ' + relDay(it.date) : '') : relDay(it.date || todayK()));
@@ -42,47 +111,91 @@ function aiRow(it, i) {
   } else if (it.type === 'habit') bits.push(it.kind === 'weekly' ? 'раз в неделю' : it.kind === 'monthly' ? 'раз в месяц' : it.days.length ? 'по ' + it.days.map(d => DOW[d].toLowerCase()).join(', ') : 'каждый день');
   else if (AI_KIND[it.type]) { const c = aiFin(it.category, AI_KIND[it.type], it.note, it.amount); bits.push(`<b>${it.type === 'income' ? '+' : it.type === 'expense' ? '−' : ''}${rub(it.amount)}</b>`, esc((c.emoji || '') + ' ' + c.name)); if (it.date && it.date !== todayK()) bits.push(relDay(it.date)); }
   else if (it.type === 'goal') { bits.push('до ' + shortDate(it.due || todayK().slice(0, 4) + '-12-31')); if (it.steps.length) bits.push(plural(it.steps.length, ['шаг', 'шага', 'шагов'])); }
-  const title = it.type === 'note' ? it.text : it.type === 'expense' || it.type === 'income' || it.type === 'saving' ? (it.note || kind) : (it.type === 'habit' || it.type === 'goal') && it.emoji ? it.emoji + ' ' + it.title : it.title;
-  return `<label class="ai-row${it.on ? '' : ' off'}"><input type="checkbox" data-aion="${i}"${it.on ? ' checked' : ''}><span class="ai-k">${I(ic, 15)}${kind}</span>
-    <span class="ai-b"><b>${esc(title)}</b>${bits.length ? `<small>${bits.join(' · ')}</small>` : ''}</span></label>`;
+  const title = it.type === 'note' ? it.text : AI_KIND[it.type] ? (it.note || kind) : (it.type === 'habit' || it.type === 'goal') && it.emoji ? it.emoji + ' ' + it.title : it.title;
+  const tag = locked ? 'div' : 'label', box = locked ? `<span class="ai-chk">${I(IC.check, 14)}</span>` : `<input type="checkbox" data-aion="${key}"${it.on ? ' checked' : ''}>`;
+  return `<${tag} class="ai-row${it.on || locked ? '' : ' off'}">${box}<span class="ai-k">${I(ic, 15)}${kind}</span>
+    <span class="ai-b"><b>${esc(title)}</b>${bits.length ? `<small>${bits.join(' · ')}</small>` : ''}</span></${tag}>`;
 }
-
+// Текст ответа: экранируется; **жирный** и переводы строк — как в чате
+const aiTxt = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+function aiMsg(m, i) {
+  if (m.r === 'u') return `<div class="ai-m u"><div class="ai-mb">${aiTxt(m.t)}</div></div>`;
+  const it = m.items || [], on = it.filter(x => x.on).length, added = m.added != null;
+  const list = it.length ? `<div class="ai-list">${(added ? it.filter(x => x.on) : it).map((x, j) => aiRow(x, i + ':' + j, added)).join('')}</div>
+    ${added ? `<p class="ai-ok">${I(IC.check, 14)} ${m.added ? 'Добавлено: ' + plural(m.added, ['запись', 'записи', 'записей']) : 'Такие привычки уже есть'}</p>`
+      : `<button class="btn pri ai-add" data-act="aiapply" data-i="${i}"${on ? '' : ' disabled'}>${on ? `Добавить ${plural(on, ['запись', 'записи', 'записей'])}` : 'Отметьте, что добавить'}</button>`}` : '';
+  const nav = (m.nav || []).filter(n => AI_NAV[n.to]).map(n => `<button class="ai-nav" data-act="ainav" data-to="${n.to}">${esc(n.label || AI_NAV[n.to][0])}${I(IC.right, 14)}</button>`).join('');
+  return `<div class="ai-m a"><span class="ai-av">${I(IC.spark, 14)}</span><div class="ai-mb">${m.t ? `<p>${aiTxt(m.t)}</p>` : ''}${list}${nav ? `<div class="ai-navs">${nav}</div>` : ''}</div></div>`;
+}
+const AI_EX = ['Что у меня завтра?', 'Сколько я потратил в этом месяце?', 'Как дела с моими целями?', 'Как поменять цвета приложения?', 'Завтра в 10 врач, кофе 350, каждый день пить воду'];
+function aiLogHTML() {
+  let out = '', day = '';
+  if (!ai.msgs.length && !ai.busy) out = `<div class="ai-hi"><span class="ai-av big">${I(IC.spark, 20)}</span><b>Чем помочь?</b>
+    <p>Расскажите о планах и тратах — разложу по разделам. Или спросите о делах, деньгах и целях, о том, где что в приложении.</p>
+    <div class="ai-ex">${AI_EX.map(x => `<button data-act="aiex" data-t="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>`;
+  ai.msgs.forEach((m, i) => { if (m.day && m.day !== day) { day = m.day; const d = relDay(day); out += `<div class="ai-day">${d[0].toUpperCase() + d.slice(1)}</div>`; } out += aiMsg(m, i); });
+  if (ai.busy) out += `<div class="ai-m a"><span class="ai-av">${I(IC.spark, 14)}</span><div class="ai-mb ai-typing" aria-label="Помощник печатает"><i></i><i></i><i></i></div></div>`;
+  if (ai.err) out += `<div class="ai-err"><span>${esc(ai.err)}</span><button class="btn" data-act="airetry">${I(IC.rep, 15)} Повторить</button></div>`;
+  return out;
+}
 function aiDraw() {
   if (!ai) return;
-  const on = ai.items ? ai.items.filter(x => x.on).length : 0;
-  const mic = AI_SR ? `<button class="btn ai-mic${aiRec ? ' rec' : ''}" data-act="aimic" aria-pressed="${!!aiRec}">${I(IC.mic, 16)} ${aiRec ? 'Слушаю… нажмите, чтобы остановить' : 'Сказать голосом'}</button>` : '';
-  const body = !signedIn()
-    ? `<p class="set-note">Помощник работает через сервер, поэтому нужен вход в аккаунт.</p><button class="btn pri" style="width:100%" data-act="login">Войти по почте</button>`
-    : `<textarea id="ai_text" class="fin ai-text" rows="4" maxlength="${AI_MAX}" placeholder="Например: завтра в 10 врач, до пятницы купить подарок маме !!, каждый день пить 2 литра воды, кофе 350, цель — выучить английский до лета" aria-label="Сообщение помощнику">${esc(ai.text)}</textarea>
-    ${AI_SR ? '' : '<p class="ai-tip">Чтобы надиктовать, нажмите микрофон на клавиатуре телефона.</p>'}
-    <div class="ai-bar">${mic}<button class="btn pri ai-go" data-act="aigo"${ai.busy ? ' disabled' : ''}>${ai.busy ? 'Разбираю…' : ai.items ? 'Разобрать заново' : 'Разобрать'}</button></div>
-    ${ai.err ? `<p class="ai-err">${esc(ai.err)}</p>` : ''}
-    ${ai.items ? `<div class="ai-out">${ai.reply ? `<p class="ai-reply">${I(IC.spark, 15)}<span>${esc(ai.reply)}</span></p>` : ''}
-      ${ai.items.length ? `<div class="ai-list">${ai.items.map(aiRow).join('')}</div>
-      <button class="btn pri" style="width:100%" data-act="aiapply"${on ? '' : ' disabled'}>${on ? `Добавить ${plural(on, ['запись', 'записи', 'записей'])}` : 'Отметьте, что добавить'}</button>` : ''}</div>` : ''}
-    <p class="ai-note">Сообщение разбирает нейросеть GigaChat (Сбер, серверы в России). Ей уходит только текст сообщения и названия ваших календарей, категорий, привычек и целей — сами записи не отправляются. Не пишите пароли и номера карт.${ai.left != null ? ` Сегодня осталось запросов: ${ai.left}.` : ''}</p>`;
-  sheet(`<div class="sh-head"><h3>${I(IC.spark, 18)} Помощник <em class="beta">β</em></h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
-    <p class="set-note" style="margin-top:0">Напишите или надиктуйте всё сразу — дела, встречи, привычки, цели, траты. Помощник разложит по разделам, вы проверите и добавите.</p>${body}`, true);
+  const head = `<div class="sh-head"><h3>${I(IC.spark, 18)} Помощник <em class="beta">β</em></h3>`;
+  if (!signedIn()) return sheet(`${head}<button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+    <p class="set-note">Помощник работает через сервер, поэтому нужен вход в аккаунт.</p><button class="btn pri" style="width:100%" data-act="login">Войти по почте</button>`);
+  sheet(`<div class="ai-chat">${head}<button class="ai-clear" id="ai_clear" data-act="aiclear"${ai.msgs.length ? '' : ' hidden'} title="Очистить чат">${I(IC.trash, 16)}<span>Очистить?</span></button><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+    <div class="ai-log" id="ai_log" aria-live="polite">${aiLogHTML()}</div>
+    <div class="ai-in">
+      <textarea id="ai_text" rows="1" maxlength="${AI_MAX}" placeholder="${AI_SR ? 'Напишите или скажите…' : 'Напишите или нажмите микрофон на клавиатуре…'}" aria-label="Сообщение помощнику">${esc(ai.draft)}</textarea>
+      ${AI_SR ? `<button class="ai-ib ai-mic${aiRec ? ' rec' : ''}" id="ai_mic" data-act="aimic" aria-pressed="${!!aiRec}" title="${aiRec ? 'Остановить запись' : 'Сказать голосом'}" aria-label="Сказать голосом">${I(IC.mic, 18)}</button>` : ''}
+      <button class="ai-ib ai-send" id="ai_send" data-act="aigo" title="Отправить" aria-label="Отправить"${ai.busy ? ' disabled' : ''}>${I(IC.send, 18)}</button>
+    </div>
+    <p class="ai-note">GigaChat · Сбер, серверы в России${hintK('aiData')}<span id="ai_left">${ai.left != null ? ' · осталось сегодня: ' + ai.left : ''}</span></p></div>`);
+  aiGrow(); aiScroll();
 }
-document.addEventListener('input', e => { if (e.target.id === 'ai_text' && ai) ai.text = e.target.value; });
-document.addEventListener('change', e => { const i = e.target.dataset && e.target.dataset.aion; if (i == null || !ai || !ai.items) return;
-  ai.items[+i].on = e.target.checked; aiDraw(); });
-document.addEventListener('keydown', e => { if (e.target.id === 'ai_text' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); aiGo(); } });
+// Перерисовка только ленты и кнопок — поле ввода и клавиатура телефона не сбрасываются
+function aiRefresh() {
+  const log = $('#ai_log'); if (!ai || !log) return;   // окно помощника закрыто или сменилось другим
+  log.innerHTML = aiLogHTML(); aiScroll();
+  const s = $('#ai_send'); if (s) s.disabled = ai.busy;
+  const m = $('#ai_mic'); if (m) { m.classList.toggle('rec', !!aiRec); m.setAttribute('aria-pressed', String(!!aiRec)); m.title = aiRec ? 'Остановить запись' : 'Сказать голосом'; }
+  const n = $('#ai_left'); if (n) n.textContent = ai.left != null ? ' · осталось сегодня: ' + ai.left : '';
+  const c = $('#ai_clear'); if (c) { c.hidden = !ai.msgs.length; c.classList.toggle('ask', !!aiClearAsk); }
+}
+const aiScroll = () => { const l = $('#ai_log'); if (l) l.scrollTop = l.scrollHeight; };
+const aiGrow = () => { const t = $('#ai_text'); if (!t) return; t.style.height = 'auto'; const h = t.scrollHeight; t.style.height = Math.min(h, 140) + 'px'; t.style.overflowY = h > 140 ? 'auto' : 'hidden'; };
+document.addEventListener('input', e => { if (e.target.id === 'ai_text' && ai) { ai.draft = e.target.value; aiGrow(); } });
+document.addEventListener('change', e => { const k = e.target.dataset && e.target.dataset.aion; if (k == null || !ai) return;
+  const [i, j] = k.split(':').map(Number), m = ai.msgs[i]; if (!m || !m.items || !m.items[j] || m.added != null) return;
+  m.items[j].on = e.target.checked; aiStore(); aiRefresh(); });
+// Enter — отправить (на ПК; на телефоне Enter — новая строка, отправка кнопкой), Ctrl+Enter — всегда
+document.addEventListener('keydown', e => { if (e.target.id !== 'ai_text' || e.key !== 'Enter' || e.isComposing) return;
+  if (e.ctrlKey || e.metaKey || (!e.shiftKey && matchMedia('(pointer:fine)').matches)) { e.preventDefault(); aiSend(); } });
+// iPhone: пока открыта клавиатура, окно чата ужимается до видимой части экрана — поле ввода и последние сообщения видны
+function aiVV() {
+  const vv = window.visualViewport, ov = $('#ov'); if (!vv || !ov) return;
+  // Класс меняем, только если он другой: сама смена класса снова вызывает aiVV (MutationObserver ниже) — иначе бесконечный круг
+  if (sheetOpen() && $('.ai-chat') && innerWidth < 900) { ov.style.top = vv.offsetTop + 'px'; ov.style.height = vv.height + 'px'; ov.style.bottom = 'auto'; if (!ov.classList.contains('ov-vv')) ov.classList.add('ov-vv'); aiScroll(); }
+  else if (ov.classList.contains('ov-vv')) { ov.style.top = ov.style.height = ov.style.bottom = ''; ov.classList.remove('ov-vv'); }
+}
+if (window.visualViewport) { visualViewport.addEventListener('resize', aiVV); visualViewport.addEventListener('scroll', aiVV); }
+{ const ov = $('#ov'), sh = $('#sh'); if (ov && sh && window.MutationObserver) { const mo = new MutationObserver(aiVV); mo.observe(ov, { attributes: true, attributeFilter: ['class'] }); mo.observe(sh, { childList: true }); } }
 
-// Голосовой ввод (Web Speech API): где браузер умеет — кнопка «Сказать голосом», иначе — микрофон клавиатуры
+// Голосовой ввод (Web Speech API): где браузер умеет — кнопка с микрофоном, иначе — микрофон клавиатуры
 ACT.aimic = () => {
   if (!AI_SR || !ai) return;
   if (aiRec) { aiRec.stop(); return; }
-  const r = new AI_SR(), base = ai.text.trim() ? ai.text.trim() + ' ' : '';
+  const ta = $('#ai_text'), r = new AI_SR(), base = ta && ta.value.trim() ? ta.value.trim() + ' ' : '';
   let said = '';
   r.lang = 'ru-RU'; r.interimResults = true; r.continuous = true;
   r.onresult = ev => { let tmp = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) { const t = ev.results[i][0].transcript; if (ev.results[i].isFinal) said += t + ' '; else tmp += t; }
-    ai.text = (base + said + tmp).slice(0, AI_MAX); const ta = $('#ai_text'); if (ta) ta.value = ai.text; };
+    ai.draft = (base + said + tmp).slice(0, AI_MAX); const t = $('#ai_text'); if (t) { t.value = ai.draft; aiGrow(); } };
   r.onerror = ev => { if (ev.error !== 'aborted' && ev.error !== 'no-speech') toast(ev.error === 'not-allowed' || ev.error === 'service-not-allowed' ? 'Нет доступа к микрофону — разрешите его в настройках браузера или нажмите микрофон на клавиатуре' : 'Не получилось распознать речь — попробуйте ещё раз'); };
-  r.onend = () => { aiRec = null; if (ai && $('#ai_text')) aiDraw(); };   // окно помощника всё ещё открыто
-  try { r.start(); aiRec = r; aiDraw(); } catch { aiRec = null; toast('Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре'); }
+  r.onend = () => { aiRec = null; aiRefresh(); };
+  try { r.start(); aiRec = r; aiRefresh(); } catch (e) { aiRec = null; toast('Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре'); }
 };
 
+// ---- Сервер ----
 // Понятная причина ошибки; в скобках — служебный код, по нему видно, где сбой (ответ сервера · что случилось · код нейросети · какая нейросеть)
 function aiErr(st, j) {
   const e = j.error, c = Number(j.code) || 0, p = String(j.p || '').replace(/[^a-z]/g, ''), tag = ` (${st}${e ? ' · ' + e : ''}${c ? ' ' + c : ''}${p ? ' · ' + p : ''})`;
@@ -95,26 +208,51 @@ function aiErr(st, j) {
   if (e === 'parse') return 'Нейросеть ответила непонятно — попробуйте ещё раз или напишите проще.' + tag;
   return 'Ошибка на сервере помощника — попробуйте позже.' + tag;
 }
-async function aiGo() {
-  if (!ai || ai.busy) return;
-  if (aiRec) aiRec.stop();
-  const ta = $('#ai_text'); if (ta) ai.text = ta.value;
-  const text = ai.text.trim(); if (!text) { if (ta) ta.focus(); return toast('Напишите, что добавить'); }
-  if (!navigator.onLine) { ai.err = 'Нет интернета — помощнику нужен сервер.'; return aiDraw(); }
-  ai.busy = true; ai.err = ''; aiDraw();
+async function aiCall(body) {
   try {
     const r = await fetch(SUPABASE_URL + '/functions/v1/assistant', { method:'POST', cache:'no-store',
-      headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() },
-      body: JSON.stringify({ text, ctx: aiCtx() }) });
+      headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) ai.err = aiErr(r.status, j);
-    else { ai.reply = String(j.reply || ''); ai.items = (Array.isArray(j.items) ? j.items : []).map(x => Object.assign(x, { on: true })); ai.left = Number.isFinite(j.left) ? j.left : null;
-      if (!ai.items.length && !ai.reply) ai.reply = 'Не нашёл, что добавить. Попробуйте написать подробнее.'; }
-  } catch { ai.err = 'Не удалось связаться с сервером. Проверьте интернет.'; }
-  ai.busy = false;
-  if (ai && $('#ai_text')) aiDraw();   // рисуем, только если окно помощника не закрыли и не сменили другим
+    if (Number.isFinite(j.left)) ai.left = j.left;
+    return r.ok ? j : { err: aiErr(r.status, j) };
+  } catch (e) { return { err: 'Не удалось связаться с сервером. Проверьте интернет.' }; }
 }
-ACT.aigo = () => aiGo();
+async function aiSend(text) {
+  if (!ai || ai.busy) return;
+  if (aiRec) aiRec.stop();
+  const ta = $('#ai_text'); text = String(text != null ? text : ta ? ta.value : ai.draft).trim().slice(0, AI_MAX);
+  if (!text) { if (ta) ta.focus(); return; }
+  if (!navigator.onLine) { ai.err = 'Нет интернета — помощнику нужен сервер.'; return aiRefresh(); }
+  // Вопрос — со сводкой записей; короткое уточнение после ответа по сводке («а послезавтра», «и в пятницу») — тоже
+  const prev = [...ai.msgs].reverse().find(m => m.r === 'a'), ask = aiAsks(text) || !!(prev && prev.ask && !prev.hi && text.length < 60 && /^s*(?:а|и|ещё|еще)(?=[s,])/i.test(text));
+  const history = aiHist();
+  ai.msgs.push({ r:'u', t:text, day: todayK() }); ai.draft = ''; ai.err = ''; ai.busy = true; aiClearAsk = 0; aiStore();
+  if (ta && text === ta.value.trim()) { ta.value = ''; aiGrow(); }
+  aiRefresh();
+  const j = await aiCall({ mode:'chat', text, ask, history, ctx: aiCtx(ask) });
+  ai.busy = false;
+  if (j.err) ai.err = j.err;
+  else { const items = (Array.isArray(j.items) ? j.items : []).map(x => Object.assign(x, { on: true })), nav = Array.isArray(j.nav) ? j.nav.filter(n => n && AI_NAV[n.to]) : [];
+    ai.msgs.push({ r:'a', t: String(j.reply || (items.length ? '' : 'Не понял, что сделать. Напишите подробнее.')), day: todayK(), ...(items.length ? { items } : {}), ...(nav.length ? { nav } : {}), ...(ask ? { ask: 1 } : {}) }); }
+  aiStore(); aiRefresh();
+}
+ACT.aigo = () => aiSend();
+ACT.aiex = el => aiSend(el.dataset.t);
+ACT.airetry = () => { const m = ai && ai.msgs[ai.msgs.length - 1]; if (!m || m.r !== 'u') return; ai.msgs.pop(); ai.err = ''; aiSend(m.t); };
+ACT.aiclear = () => {
+  if (!ai) return;
+  if (!aiClearAsk) { aiClearAsk = setTimeout(() => { aiClearAsk = 0; aiRefresh(); }, 3000); return aiRefresh(); }
+  clearTimeout(aiClearAsk); aiClearAsk = 0; ai.msgs = []; ai.err = ''; aiStore(); aiRefresh(); };
+// Приветствие при первом открытии за день: подначка за просроченное или похвала за сделанное (если они включены у целей)
+async function aiHello() {
+  const P = S.settings.phr || {};
+  if (!ai || ai.busy || !signedIn() || !navigator.onLine || ai.hello === todayK() || !(P.taunts || P.praise)) return;
+  ai.hello = todayK(); ai.busy = true; aiStore(); aiRefresh();
+  const j = await aiCall({ mode:'hello', text:'привет', ctx: aiCtx(true) });
+  ai.busy = false;
+  if (!j.err && j.reply) ai.msgs.push({ r:'a', t: String(j.reply), day: todayK(), hi: 1, ask: 1 });   // ошибку приветствия не показываем
+  aiStore(); aiRefresh();
+}
 
 // ---- Добавить отмеченное — теми же записями, что создаёт приложение. Одно «Отменить» на всё ----
 const aiEmoji = (e, name) => e && /\p{Extended_Pictographic}/u.test(e) && e.length <= 8 ? e : ((HB_GUESS.find(([re]) => re.test(name.toLowerCase())) || [0, '🎯'])[1]);
@@ -127,9 +265,9 @@ function aiEvent(it, extra) {
     note: '', loc: it.loc || '', repeat, reminder: offs.length ? { enabled: true, offsets: offs, offset: Math.min(...offs), repeat: 'none', days: [] } : { enabled: false, offset: 15, repeat: 'none', days: [] },
     task: it.type === 'task' || (it.type === 'event' && !it.time), prio: it.prio || 'mid' }, extra || {});
 }
-ACT.aiapply = () => {
-  if (!ai || !ai.items) return;
-  const L = ai.items.filter(x => x.on); if (!L.length) return;
+ACT.aiapply = el => {
+  const m = ai && ai.msgs[+el.dataset.i]; if (!m || !m.items || m.added != null) return;
+  const L = m.items.filter(x => x.on); if (!L.length) return;
   snap();
   let n = 0, skipped = 0;
   for (const it of L) {
@@ -146,6 +284,6 @@ ACT.aiapply = () => {
       S.goals.push(g); n++;
     } else if (it.type === 'note') { S.notes.push({ id: 'n' + uid(), date: todayK(), text: it.text }); n++; }
   }
-  save(); ai = null; closeSheet(); render();
+  m.added = n; save(); aiStore(); render(); aiRefresh();
   toast(`Добавлено: ${plural(n, ['запись', 'записи', 'записей'])}${skipped ? ` · ${plural(skipped, ['привычка уже была', 'привычки уже были', 'привычек уже были'])}` : ''}`, true);
 };

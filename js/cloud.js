@@ -186,7 +186,7 @@ ACT.creplace = () => cloudResolve(false);
 // После выхода на устройстве остаются только оформление и «знакомство пройдено»
 const lookOnly = () => { const s = S.settings, o = { onboarded: 1 }; ['theme', 'pal', 'contrast', 'card', 'round', 'evc', 'density', 'dev'].forEach(k => { if (s[k] !== undefined) o[k] = s[k]; }); return o; };
 function wipeDevice() {
-  lsSet(BASE_LS, null); lsSet(SYNC_LS, null); lsSet(LS, { settings: lookOnly() });
+  lsSet(BASE_LS, null); lsSet(SYNC_LS, null); lsSet(LS, { settings: lookOnly() }); lsSet('remapp_chat', null);   // и история чата помощника (assistant.js)
   location.reload();
 }
 async function cloudLogout(force) {

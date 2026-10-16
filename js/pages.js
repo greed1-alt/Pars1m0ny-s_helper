@@ -368,7 +368,7 @@ function settingsHTML() {
     <button class="btn" style="width:100%;margin-top:8px" data-act="feedback">${I(IC.msg, 16)} Написать отзыв</button>
     <a class="btn" style="width:100%;margin-top:8px" href="beta.html" target="_blank" rel="noopener">${I(IC.note, 16)} Памятка бета-тестера</a>`;
   return `<button class="card st-prof" data-act="pe" data-tab="main">${avatarHTML(48)}<span><b>${esc(name || 'Ваш профиль')}</b><small>${name ? 'Личные данные, аватар и обложка' : 'Укажите имя, выберите аватар и обложку'}</small></span>${I(IC.right, 18)}</button>
-  <div class="st-grid"><div class="card">${b.look}</div><div class="card">${b.cal}</div><div class="card">${b.cats}</div><div class="card">${secs}</div><div class="card">${b.notif}</div><div class="card">${b.data}</div><div class="card">${about}</div></div>`;
+  <div class="st-grid"><div class="card" id="st-look">${b.look}</div><div class="card" id="st-cal">${b.cal}</div><div class="card" id="st-cats">${b.cats}</div><div class="card" id="st-secs">${secs}</div><div class="card" id="st-notif">${b.notif}</div><div class="card" id="st-data">${b.data}</div><div class="card" id="st-about">${about}</div></div>`;   // id — для кнопок помощника «Открыть…» (assistant.js → aiSet)
 }
 ACT.ststart = el => { S.settings.startSec = el.dataset.v === 'last' ? 'last' : 'home'; save(); render(); };
 SEC.settings = { name:'Настройки', icon:IC.gear, noNav:true, title: () => 'Настройки', html: settingsHTML, move: () => {} };
