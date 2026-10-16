@@ -550,6 +550,22 @@ button.sbl:hover{background:var(--hov)}
 .emb.on{border-color:var(--acc);background:var(--hov)}
 @media(hover:hover){.emb:hover{background:var(--hov)}}
 .bm-row{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 10px;border-top:1px solid var(--line);flex-wrap:wrap}
+/* Самочувствие: список показателей и окно одного показателя */
+.bm-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border-top:1px solid var(--line);text-align:left;color:var(--tx)}
+.catlist>.bm-item:first-child{border-top:0}
+.bm-item .em{font-size:19px;width:26px;text-align:center;flex:none}
+.bm-item .bm-t{flex:1;min-width:0}
+.bm-item .bm-t b{display:block;font-size:15px;font-weight:600}
+.bm-item .bm-t small{display:block;font-size:12.5px;color:var(--mut);margin-top:1px}
+.bm-item>svg{color:var(--mut);flex:none}
+@media(hover:hover){.bm-item:hover{background:var(--hov)}}
+.bm-name{display:flex;gap:8px;margin:4px 0 8px}
+.bm-name .bm-em{height:44px;width:48px;font-size:20px}
+.bm-name .fin{flex:1;min-width:0;height:44px;font-size:16px}
+.bm-pl{width:80px;text-align:center}
+.bp-own{align-items:center}
+.bp-own label{font-size:13px;color:var(--tx2);white-space:nowrap}
+.hm-sc .hm-own{min-width:28px;width:auto;padding:0 7px}
 .catlist>.bm-row:first-child{border-top:0}
 .bm-row .cname{flex:1 1 120px;font-size:14.5px}
 .bm-em{width:38px;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--bg);text-align:center;font-size:17px}

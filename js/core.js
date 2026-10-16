@@ -44,6 +44,8 @@ function migrate() {
     // Без даты событие не открыть — испорченная дата (например, из чужого файла) становится сегодняшней
     if (typeof e.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) { const d = new Date(); e.date = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
     if (typeof e.title !== 'string') e.title = '';
+    // Точка на карте (js/map.js) — только [широта, долгота] числами
+    if (e.geo !== undefined && !(Array.isArray(e.geo) && e.geo.length === 2 && e.geo.every(Number.isFinite) && Math.abs(e.geo[0]) <= 90 && Math.abs(e.geo[1]) <= 180)) delete e.geo;
     ['time', 'time2'].forEach(k => { if (e[k] && !/^\d{1,2}:\d{2}$/.test(e[k])) e[k] = ''; });
     if (!Array.isArray(e.skip)) e.skip = [];
   });

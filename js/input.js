@@ -142,8 +142,9 @@ function saveEvent() {
   const offs = [...fe.rems].sort((a, b) => b - a);
   const data = { title: titleFromForm(raw), date, time:t1, time2:t2, cat:fe.cat, note:$('#f_n').value.trim(), loc:$('#f_loc').value.trim(), repeat,
     reminder:{ enabled: offs.length > 0, offsets: offs, offset: offs.length ? offs[offs.length - 1] : 15, repeat:'none', days:[] }, task: $('#f_task').checked, prio: fe.prio };
+  if (fe.geo) data.geo = [fe.geo[0], fe.geo[1]];   // точка на карте (js/map.js)
   snap();
-  if (src) Object.assign(src, data);
+  if (src) { Object.assign(src, data); if (!fe.geo) delete src.geo; }
   else S.events.push(Object.assign({ id:uid(), done:false, doneDates:[], skip:[] }, data));
   if (rt === 'none' || !src) { sel = date; syncMini(); if (view === 'month') { monthAnchor = pd(date); monthAnchor.setDate(1); } }
   save(); closeSheet(); render();
@@ -167,7 +168,7 @@ document.addEventListener('input', e => {
     nlHint(p, '#q_hint');
   }
   else if (t.id === 'f_t' && !window._fe.nlOff) {
-    const p = parseNL(t.value, sel); window._fe.nl = p;
+    const p = parseNL(t.value, window._fe.base || sel); window._fe.nl = p;   // от даты, на которую открыли событие
     if (p.date) { $('#f_d').value = p.date; syncRepDays(); }
     if (p.time) { $('#f_all').checked = false; $('.ftime').classList.remove('off'); $('#f_tm').value = p.time; $('#f_tm2').value = p.time2 || fmtMin(Math.min(1439, timeMin(p.time) + 60)); }
     if (p.cat) { window._fe.cat = p.cat; $$('#f_cats .ccat').forEach(b => b.classList.toggle('on', b.dataset.id === p.cat)); }

@@ -415,19 +415,20 @@ function nlHint(p, id) {
 }
 
 function openEvent(id, preset, instDate) {
-  closeQuick();
+  closeQuick(); mapDrop();
   const p = preset || {};
   const src = id ? S.events.find(x => x.id === id) : null;
   if (id && !src) return;
   const e = src || { title:p.title||'', date:p.date||sel, time:p.time||'', time2:p.time2||'', cat:validCat(p.cat), note:'', loc:'', repeat:{type:'none'}, reminder:{enabled:false, offset:15, repeat:'none', days:[]}, task: !!p.task, prio: p.prio || 'mid' };
   const rep = e.repeat || {type:'none'};
-  window._fe = { rems: new Set(remOffs(e)), id, cat: validCat(e.cat), days: new Set(rep.days && rep.days.length ? rep.days : [dowIdx(e.date)]), inst: instDate || e.date, nl:null, nlOff: !!id, daysTouched: !!(rep.days && rep.days.length), prio: PRIO[e.prio] ? e.prio : 'mid' };
+  window._fe = { rems: new Set(remOffs(e)), id, cat: validCat(e.cat), days: new Set(rep.days && rep.days.length ? rep.days : [dowIdx(e.date)]), inst: instDate || e.date, nl:null, nlOff: !!id, daysTouched: !!(rep.days && rep.days.length), prio: PRIO[e.prio] ? e.prio : 'mid', geo: geoOk(e.geo) ? [e.geo[0], e.geo[1]] : null, memUsed: '', base: e.date };
   const rec = isRec(e);
   sheet(`<div class="sh-head"><h3>${id ? 'Событие' : 'Новое событие'}</h3>
     ${id ? `<button class="ic" data-act="shareev" title="Поделиться" aria-label="Поделиться">${I(IC.share,17)}</button><button class="ic" data-act="dup" title="Дублировать" aria-label="Дублировать">${I(IC.copy,17)}</button><button class="ic" data-act="del" title="Удалить" aria-label="Удалить" style="color:var(--dng)">${I(IC.trash,17)}</button>` : ''}
     <button class="ic" data-act="close" title="Закрыть (Esc)" aria-label="Закрыть">${I(IC.x,18)}</button></div>
   <input id="f_t" class="f-title" placeholder="Название" value="${esc(e.title)}" autocomplete="off">
   <div id="f_hint" class="nlhint" style="margin:-2px 0 8px"></div>
+  ${id ? '' : '<div id="f_mem" class="f-mem" hidden></div>'}
   ${rec ? `<div class="f-rec">${I(IC.rep,14)} ${esc(repText(e))} · изменения применятся ко всем повторениям</div>` : ''}
   <div class="frow"><span class="fl">Дата</span><input id="f_d" class="fin" type="date" value="${e.date}"></div>
   <div class="frow"><span class="fl">Время</span><div><div class="ftime${e.time?'':' off'}"><input id="f_tm" class="fin" type="time" value="${e.time||''}" aria-label="Начало"><span class="dash">–</span><input id="f_tm2" class="fin" type="time" value="${e.time2||''}" aria-label="Конец"></div>
@@ -441,12 +442,53 @@ function openEvent(id, preset, instDate) {
     <div id="f_prio" class="chips" style="display:${e.task?'flex':'none'}">${PRIO_ORDER.map(k => `<button type="button" class="chip prio${window._fe.prio===k?' on':''}" data-act="fprio" data-p="${k}" style="--c:${PRIO[k].c}">${PRIO[k].n}</button>`).join('')}</div></div></div>
   <div class="frow"><span class="fl">Напомнить</span><div><div class="f-hrow f-remh"><span id="f_remsum" class="f-remsum">${remSum(window._fe.rems)}</span>${hintK('remind')}</div>
     <div id="f_rems" class="chips">${remChips(window._fe.rems)}</div></div></div>
-  <div class="frow"><span class="fl">Место</span><input id="f_loc" class="fin" type="text" value="${esc(e.loc||'')}" placeholder="Адрес или ссылка" autocomplete="off"></div>
+  <div class="frow"><span class="fl">Место</span><div><div class="f-locrow"><input id="f_loc" class="fin" type="text" value="${esc(e.loc||'')}" placeholder="Адрес или ссылка" autocomplete="off"><button type="button" id="f_mapb" class="f-mapb${window._fe.geo ? ' on' : ''}" data-act="fmap" title="Точка на карте" aria-label="Точка на карте" aria-expanded="false">${I(IC.pin, 18)}</button></div>
+    <div id="f_map" class="f-map" hidden></div><div id="f_mapbar" class="f-mapbar" hidden></div></div></div>
   <div class="frow"><span class="fl">Заметка</span><textarea id="f_n" class="fin" placeholder="Подробности">${esc(e.note||'')}</textarea></div>
   <div class="sh-foot"><button class="btn pri grow" data-act="save">Сохранить</button><button class="btn" data-act="savetpl" title="Сохранить как шаблон">${I(IC.tpl,16)} В шаблоны</button></div>
   <div id="f_ask"></div>`);
+  mapBar();
   if (!id) setTimeout(() => $('#f_t') && $('#f_t').focus(), 60);
 }
+
+// ---- Память событий (правка бета-тестеров 17 октября 2026): в новом событии под названием — прошлые события с тем же началом
+// названия и их сводка; нажатие подставляет время и длительность, календарь, задачу и важность, напоминания, место с точкой на карте
+// и заметку. Дата и повтор остаются свои; время, написанное в самом названии («…завтра в 10»), важнее прошлого раза ----
+const memKey = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+function evMemList(q) {
+  const k = memKey(q); if (k.length < 2) return [];
+  const t = todayK(), seen = new Set(), out = [];
+  // Сначала последнее прошедшее, потом ближайшее будущее; одно название — одна строка, не больше трёх
+  const L = S.events.filter(e => e.title && memKey(e.title).startsWith(k))
+    .sort((a, b) => (a.date <= t) !== (b.date <= t) ? (a.date <= t ? -1 : 1) : a.date <= t ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date));
+  for (const e of L) { const n = memKey(e.title); if (seen.has(n)) continue; seen.add(n); out.push(e); if (out.length === 3) break; }
+  return out;
+}
+const memSum = e => { const c = S.cats.find(x => x.id === e.cat), r = remOffs(e);
+  return [shortDate(e.date) + (e.time ? ', ' + e.time + (e.time2 ? '–' + e.time2 : '') : ''), e.loc ? '📍 ' + e.loc : geoOk(e.geo) ? '📍 точка на карте' : '', c ? c.name : '', r.length ? '🔔 ' + r.map(remShort).join(', ') : '']
+    .filter(Boolean).map(esc).join(' · '); };
+function evMemShow() {
+  const box = $('#f_mem'), fe = window._fe; if (!box || !fe || fe.id) return;
+  const raw = $('#f_t').value, p = parseNL(raw, fe.base || sel), q = p.found && p.title ? p.title : raw, L = evMemList(q);
+  box.hidden = !L.length || fe.memUsed === memKey(q);   // уже подставили это название — не мешаем
+  box.innerHTML = L.length ? `<small class="f-memh">Было раньше — нажмите, чтобы взять всё оттуда</small>` + L.map(e => `<button type="button" class="f-memi" data-act="fmem" data-id="${e.id}">${I(IC.rep, 15)}<span><b>${esc(e.title)}</b><small>${memSum(e)}</small></span></button>`).join('') : '';
+}
+document.addEventListener('input', e => { if (e.target.id === 'f_t') evMemShow(); });
+ACT.fmem = el => {
+  const s = S.events.find(x => x.id === el.dataset.id), fe = window._fe; if (!s || !fe || !$('#f_t')) return;
+  const typed = fe.nl && fe.nl.found && fe.nl.time;
+  $('#f_t').value = s.title; fe.nl = null; fe.memUsed = memKey(s.title); nlHint(null, '#f_hint');
+  if (!typed) { const all = !s.time; $('#f_all').checked = all; $('.ftime').classList.toggle('off', all);
+    $('#f_tm').value = s.time || ''; $('#f_tm2').value = s.time ? (s.time2 || fmtMin(Math.min(1439, timeMin(s.time) + 60))) : ''; }
+  fe.cat = validCat(s.cat); $$('#f_cats .ccat').forEach(b => b.classList.toggle('on', b.dataset.id === fe.cat));
+  $('#f_task').checked = !!s.task; $('#f_prio').style.display = s.task ? 'flex' : 'none';
+  fe.prio = PRIO[s.prio] ? s.prio : 'mid'; $$('#f_prio .chip').forEach(b => b.classList.toggle('on', b.dataset.p === fe.prio));
+  fe.rems = new Set(remOffs(s)); $('#f_rems').innerHTML = remChips(fe.rems); $('#f_remsum').textContent = remSum(fe.rems);
+  $('#f_loc').value = s.loc || ''; $('#f_n').value = s.note || '';
+  fe.geo = geoOk(s.geo) ? [s.geo[0], s.geo[1]] : null; mapSync();
+  $('#f_mem').hidden = true;
+  toast('Взято из события ' + shortDate(s.date) + (typed ? ' — время оставил ваше' : ''));
+};
 
 // ---- Напоминания в карточке события: можно выбрать несколько («за 1 день», «за 1 час», «за 15 минут») ----
 const REM_OPT = [0, 5, 10, 15, 30, 60, 120, 1440, 10080];

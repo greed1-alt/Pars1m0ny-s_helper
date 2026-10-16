@@ -38,14 +38,18 @@ const hintK = k => HINTS[k] ? hint(HINTS[k]) : '';
 const withHint = (text, k) => { const s = String(text), i = s.lastIndexOf(' '), tail = s.slice(i + 1);
   return i < 0 || /[<>]/.test(tail) ? `<span class="hint-nw">${s}${hintK(k)}</span>` : `${s.slice(0, i + 1)}<span class="hint-nw">${tail}${hintK(k)}</span>`; };
 
-let tipFor = null, tipPinned = false;
+let tipFor = null, tipPinned = false, hintAt = 0, hintW = 0;
 function showTip(el, pin) {
   let t = $('#tip');
   if (!t) { t = document.createElement('div'); t.id = 'tip'; t.setAttribute('role', 'tooltip'); document.body.appendChild(t); }
   if (tipFor && tipFor !== el) tipFor.setAttribute('aria-expanded', 'false');
-  tipFor = el; tipPinned = !!pin; el.setAttribute('aria-expanded', 'true');
+  tipFor = el; tipPinned = !!pin; hintAt = Date.now(); hintW = innerWidth; el.setAttribute('aria-expanded', 'true');
   t.textContent = el.dataset.tip; t.classList.add('show');
-  // Под значком, а если внизу мало места — над ним; по ширине не выходит за край экрана
+  hintPlace();
+}
+// Под значком, а если внизу мало места — над ним; по ширине не выходит за край экрана
+function hintPlace() {
+  const t = $('#tip'), el = tipFor; if (!t || !el) return;
   const r = el.getBoundingClientRect(), w = Math.min(300, innerWidth - 24); t.style.maxWidth = w + 'px';
   const tw = t.offsetWidth, th = t.offsetHeight, below = r.bottom + 8 + th < innerHeight - 8 || r.top - 8 - th < 8;
   t.style.left = Math.max(12, Math.min(r.left + r.width / 2 - tw / 2, innerWidth - tw - 12)) + 'px';
@@ -62,5 +66,12 @@ document.addEventListener('mouseover', e => { const h = canHover.matches && e.ta
 document.addEventListener('mouseout', e => { const h = e.target.closest && e.target.closest('.hint'); if (h && h === tipFor && !tipPinned && !h.contains(e.relatedTarget)) hideTip(); });
 document.addEventListener('pointerdown', e => { if (tipFor && !(e.target.closest && e.target.closest('.hint, #tip'))) hideTip(); }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && tipFor) { e.stopImmediatePropagation(); e.preventDefault(); hideTip(); } }, true);
-addEventListener('scroll', () => { if (tipFor) hideTip(); }, true);
-addEventListener('resize', () => { if (tipFor) hideTip(); });
+// Прокрутка и изменение высоты экрана (на iPhone — от малейшего движения пальцем и адресной строки) подсказку не прячут:
+// она едет за значком и пропадает, только когда значок ушёл с экрана или его больше нет. Первые 3 с — не пропадает совсем
+// (правка бета-тестеров 17 октября 2026: «на телефоне „?“ слишком быстро пропадает»). Закрыть — нажать мимо, Esc или на «?»
+addEventListener('scroll', () => {
+  if (!tipFor) return;
+  const r = tipFor.getBoundingClientRect(), gone = !tipFor.isConnected || r.bottom < 0 || r.top > innerHeight;
+  if (gone && Date.now() - hintAt > 3000) hideTip(); else if (!gone) hintPlace();
+}, true);
+addEventListener('resize', () => { if (!tipFor) return; if (innerWidth !== hintW && Date.now() - hintAt > 3000) hideTip(); else hintPlace(); });
