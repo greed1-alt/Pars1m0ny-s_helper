@@ -69,5 +69,21 @@ export { sigOf, ttsYandex, TTS_ON };`;
   const a = await t.ttsYandex('Привет'); ok(a && new TextDecoder().decode(a) === 'ID3abc', 'tts chunks', a && [...a]);
   const req = JSON.parse(t.sent[0].o.body); ok(t.sent[0].u.includes('tts/v3/utteranceSynthesis') && t.sent[0].o.headers.Authorization === 'Api-Key yk' && req.hints[0].voice === 'alena' && req.unsafeMode === true && req.outputAudioSpec.containerAudio.containerAudioType === 'MP3', 'tts request', req);
   ok(t.TTS_ON() === true, 'tts on');
+  // SaluteSpeech: токен по ключу (scope SALUTE_SPEECH_PERS), синтез wav16, повтор при 401; при сбое — Яндекс
+  const mod2 = `const env = k => ({ SUPABASE_SERVICE_ROLE_KEY: 'srv', SALUTE_AUTH_KEY: 'Basic sk', YANDEX_TTS_KEY: 'yk' })[k] || ''; export const calls = []; export const plan = { synth: [200] };
+  const fetch = async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ result: { audioChunk: { data: btoa('YA') } } }) });
+  const gcFetch = async (u, o) => { calls.push({ u, o }); if (u.includes('oauth')) return { ok: true, status: 200, json: async () => ({ access_token: 'T' + calls.length, expires_at: Date.now() + 1800000 }), text: async () => '' };
+    const st = plan.synth.length ? plan.synth.shift() : 200; return { ok: st === 200, status: st, text: async () => 'x', arrayBuffer: async () => new Uint8Array(300).fill(7).buffer }; };
+  ${tts}\nexport { ttsAny, TTS_ON };`;
+  const p2 = join(TMP, 'tts2.mjs'); writeFileSync(p2, mod2); const t2 = await import(pathToFileURL(p2).href);
+  let v = await t2.ttsAny('Привет');
+  const oa = t2.calls[0], sy = t2.calls[1];
+  ok(v && v.type === 'audio/wav' && v.audio.length === 300, 'salute audio', v && v.type);
+  ok(oa.o.headers.Authorization === 'Basic sk' && oa.o.body === 'scope=SALUTE_SPEECH_PERS', 'salute oauth', oa.o);
+  ok(sy.u.includes('smartspeech.sber.ru/rest/v1/text:synthesize?format=wav16&voice=Nec_24000') && sy.o.headers.Authorization === 'Bearer T1' && sy.o.headers['Content-Type'] === 'application/text' && sy.o.body === 'Привет', 'salute synth', sy);
+  t2.plan.synth.push(401, 200); t2.calls.length = 0; v = await t2.ttsAny('Ещё');
+  ok(v && v.type === 'audio/wav' && t2.calls.filter(c => c.u.includes('oauth')).length === 1 && t2.calls.length === 3, 'salute 401 → new token', t2.calls.map(c => c.u.slice(0, 40)));
+  t2.plan.synth.push(500); v = await t2.ttsAny('Сбой');
+  ok(v && v.type === 'audio/mpeg' && new TextDecoder().decode(v.audio) === 'YA', 'salute fail → yandex', v && v.type);
 }
 console.log(process.exitCode ? 'есть ошибки' : 'чат на сервере: всё прошло');

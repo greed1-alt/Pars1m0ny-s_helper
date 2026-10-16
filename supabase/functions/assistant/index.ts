@@ -12,7 +12,7 @@
 // Нейросеть отвечает в чате, раскладывает сообщение на записи и может дать кнопки перехода по приложению;
 // функция всё проверяет и возвращает приложению. Без подтверждения человека приложение ничего не добавляет.
 // mode «hello» — приветствие при первом открытии чата за день: подначка или похвала по сводке.
-// mode «tts» — живой голос ответа (Яндекс SpeechKit, если задан ключ YANDEX_TTS_KEY): озвучивается только ответ
+// mode «tts» — живой голос ответа (SaluteSpeech Сбера или Яндекс SpeechKit — какой ключ задан): озвучивается только ответ
 // самого помощника — у него подпись say (HMAC от служебного ключа), чужой текст функция не озвучит.
 // С 17 октября 2026 записи приложение добавляет сразу, без подтверждения; у каждой в ответе — «Отменить».
 // Тексты сообщений и сводки нигде не сохраняются и в журнал не пишутся.
@@ -213,8 +213,9 @@ async function nodeFetch(url, o) {
   const https = await import('node:https');
   return await new Promise((res, rej) => {
     const rq = https.request(url, { method: o.method, headers: o.headers, ca: RU_ROOT_CA, timeout: 45000 }, rs => {
-      let d = ''; rs.setEncoding('utf8'); rs.on('data', c => { d += c; });
-      rs.on('end', () => res({ ok: rs.statusCode >= 200 && rs.statusCode < 300, status: rs.statusCode, text: async () => d, json: async () => JSON.parse(d) })); });
+      const ch = []; rs.on('data', c => { ch.push(c); });
+      rs.on('end', () => { const b = Buffer.concat(ch), d = b.toString('utf8');   // звук приходит двоичным — не склеиваем как текст
+        res({ ok: rs.statusCode >= 200 && rs.statusCode < 300, status: rs.statusCode, text: async () => d, json: async () => JSON.parse(d), arrayBuffer: async () => b.buffer.slice(b.byteOffset, b.byteOffset + b.length) }); }); });
     rq.on('error', rej); rq.on('timeout', () => rq.destroy(new Error('timeout')));
     if (o.body) rq.write(o.body); rq.end(); });
 }
@@ -232,9 +233,36 @@ async function gcToken(key, fresh) {
   gcTok = j.access_token || ''; gcExp = e > 1e12 ? e : e > 0 ? e * 1000 : Date.now() + 25 * 60000;   // срок приходит то в мс, то в секундах
   return gcTok ? { token: gcTok } : { error: 'model', code: 0 };
 }
-// ---- Живой голос ответа: Яндекс SpeechKit, API v3 (ключ сервисного аккаунта YANDEX_TTS_KEY; по желанию TTS_VOICE, TTS_ROLE,
-// TTS_SPEED, YANDEX_FOLDER_ID). Нет ключа — приложение говорит голосом устройства ----
-const TTS_ON = () => !!env('YANDEX_TTS_KEY');
+// ---- Живой голос ответа. Первым — SaluteSpeech Сбера (ключ авторизации SALUTE_AUTH_KEY из проекта «SaluteSpeech API» в Studio;
+// голос SALUTE_VOICE, по умолчанию Nec_24000 — «Наталья»), иначе Яндекс SpeechKit, API v3 (ключ сервисного аккаунта YANDEX_TTS_KEY;
+// по желанию TTS_VOICE, TTS_ROLE, TTS_SPEED, YANDEX_FOLDER_ID). Нет ни одного ключа — приложение говорит голосом устройства ----
+const TTS_ON = () => !!(env('SALUTE_AUTH_KEY') || env('YANDEX_TTS_KEY'));
+let ssTok = '', ssExp = 0;
+async function ttsSalute(text) {
+  const key = env('SALUTE_AUTH_KEY').replace(/^Basic\s+/i, '');
+  for (let i = 0; i < 2; i++) {   // токен мог истечь раньше срока — один повтор с новым
+    if (i || !ssTok || Date.now() > ssExp - 60000) {   // токен — тем же способом, что у GigaChat, но со своим ключом и scope
+      const t = await gcFetch('https://ngw.devices.sberbank.ru:9443/api/v2/oauth', { method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json', RqUID: crypto.randomUUID(), Authorization: 'Basic ' + key },
+        body: 'scope=' + encodeURIComponent(env('SALUTE_SCOPE') || 'SALUTE_SPEECH_PERS') });
+      if (!t.ok) { console.error('salute oauth', t.status, (await t.text()).slice(0, 300)); return null; }
+      const j = await t.json(), e = Number(j.expires_at) || 0;
+      ssTok = j.access_token || ''; ssExp = e > 1e12 ? e : e > 0 ? e * 1000 : Date.now() + 25 * 60000;
+    }
+    const r = await gcFetch('https://smartspeech.sber.ru/rest/v1/text:synthesize?format=wav16&voice=' + encodeURIComponent(env('SALUTE_VOICE') || 'Nec_24000'),
+      { method: 'POST', headers: { Authorization: 'Bearer ' + ssTok, 'Content-Type': 'application/text' }, body: text });
+    if (r.status === 401 && !i) continue;
+    if (!r.ok) { console.error('salute', r.status, (await r.text()).slice(0, 300)); return null; }
+    const a = new Uint8Array(await r.arrayBuffer());
+    return a.length > 200 ? { audio: a, type: 'audio/wav' } : null;
+  }
+  return null;
+}
+async function ttsAny(text) {   // SaluteSpeech, а если его нет или он не ответил — Яндекс
+  if (env('SALUTE_AUTH_KEY')) { const s = await ttsSalute(text).catch(e => { console.error('salute net', e && e.message); return null; }); if (s) return s; }
+  if (env('YANDEX_TTS_KEY')) { const y = await ttsYandex(text); if (y) return { audio: y, type: 'audio/mpeg' }; }
+  return null;
+}
 const b64url = u8 => btoa(String.fromCharCode(...u8)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 let hmacK = null;
 async function sigOf(uid, text) {   // подпись ответа: озвучить можно только то, что ответил сам помощник этому человеку
@@ -313,8 +341,8 @@ Deno.serve(async req => {
     if (body.mode === 'tts') {   // голос ответа — не считается в дневной лимит: озвучить можно только подписанный ответ помощника
       if (!TTS_ON()) return json({ error: 'off' }, 503);
       if (typeof body.sig !== 'string' || body.sig !== await sigOf(u.user.id, text)) return json({ error: 'forbidden' }, 403);
-      const audio = await ttsYandex(text.replace(/^\s*•\s*/gm, '').replace(/[«»"„“*]/g, '').slice(0, 1500));
-      return audio ? new Response(audio, { headers: { ...CORS, 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' } }) : json({ error: 'model' }, 502);
+      const v = await ttsAny(text.replace(/^\s*•\s*/gm, '').replace(/[«»"„“*]/g, '').slice(0, 1500));
+      return v ? new Response(v.audio, { headers: { ...CORS, 'Content-Type': v.type, 'Cache-Control': 'no-store' } }) : json({ error: 'model' }, 502);
     }
     const ctx = body.ctx && typeof body.ctx === 'object' ? body.ctx : {};
     const hello = body.mode === 'hello';
