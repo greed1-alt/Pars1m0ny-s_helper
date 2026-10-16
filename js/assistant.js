@@ -83,6 +83,17 @@ ACT.aimic = () => {
   try { r.start(); aiRec = r; aiDraw(); } catch { aiRec = null; toast('Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре'); }
 };
 
+// Понятная причина ошибки; в скобках — служебный код, по нему видно, где сбой (ответ сервера · что случилось · код нейросети)
+function aiErr(st, j) {
+  const e = j.error, c = Number(j.code) || 0, tag = ` (${st}${e ? ' · ' + e : ''}${c ? ' ' + c : ''})`;
+  if (e === 'limit') return `На сегодня запросы закончились (${j.limit} в день). Завтра снова можно.`;
+  if (e === 'off' || st === 404) return 'Помощник ещё не подключён к нейросети — скоро заработает.';
+  if (st === 401 || st === 403) return 'Войдите в аккаунт заново.' + tag;
+  if (e === 'model') return (c === 401 ? 'Помощник временно не работает: нейросеть не приняла ключ.' : c === 402 ? 'Помощник временно не работает: на счёте нейросети закончились деньги.'
+    : c === 429 ? 'Нейросеть сейчас перегружена — попробуйте через минуту.' : 'Нейросеть не ответила — попробуйте ещё раз через минуту.') + tag;
+  if (e === 'parse') return 'Нейросеть ответила непонятно — попробуйте ещё раз или напишите проще.' + tag;
+  return 'Ошибка на сервере помощника — попробуйте позже.' + tag;
+}
 async function aiGo() {
   if (!ai || ai.busy) return;
   if (aiRec) aiRec.stop();
@@ -95,7 +106,7 @@ async function aiGo() {
       headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() },
       body: JSON.stringify({ text, ctx: aiCtx() }) });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) ai.err = j.error === 'limit' ? `На сегодня запросы закончились (${j.limit} в день). Завтра снова можно.` : j.error === 'off' || r.status === 404 ? 'Помощник ещё не подключён к нейросети — скоро заработает.' : r.status === 403 ? 'Войдите в аккаунт заново.' : 'Нейросеть не ответила. Попробуйте ещё раз через минуту.';
+    if (!r.ok) ai.err = aiErr(r.status, j);
     else { ai.reply = String(j.reply || ''); ai.items = (Array.isArray(j.items) ? j.items : []).map(x => Object.assign(x, { on: true })); ai.left = Number.isFinite(j.left) ? j.left : null;
       if (!ai.items.length && !ai.reply) ai.reply = 'Не нашёл, что добавить. Попробуйте написать подробнее.'; }
   } catch { ai.err = 'Не удалось связаться с сервером. Проверьте интернет.'; }

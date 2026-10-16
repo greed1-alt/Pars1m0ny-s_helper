@@ -103,7 +103,7 @@ async function askModel(system, user) {
       body: JSON.stringify({ model: MODEL, temperature: 0.2, max_tokens: 3000, response_format: { type: 'json_object' },
         messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }),
     });
-    if (!r.ok) { console.error('deepseek', r.status, (await r.text()).slice(0, 300)); return { error: 'model' }; }
+    if (!r.ok) { console.error('deepseek', r.status, (await r.text()).slice(0, 300)); return { error: 'model', code: r.status }; }   // 401 — ключ, 402 — баланс, 429 — перегрузка
     const j = await r.json();
     return { text: j && j.choices && j.choices[0] && j.choices[0].message ? j.choices[0].message.content : '' };
   }
@@ -129,7 +129,7 @@ Deno.serve(async req => {
     if (n > DAILY) return json({ error: 'limit', limit: DAILY }, 429);
     if (n === 1) await sb.from('ai_usage').delete().lt('day', new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10));
     const m = await askModel(SYSTEM, userMessage(text, ctx));
-    if (m.error) return json({ error: m.error }, m.error === 'off' ? 503 : 502);
+    if (m.error) return json({ error: m.error, code: m.code || 0 }, m.error === 'off' ? 503 : 502);
     let out; try { out = JSON.parse(m.text); } catch { return json({ error: 'parse' }, 502); }
     const items = (Array.isArray(out && out.items) ? out.items : []).slice(0, MAX_ITEMS).map(cleanItem).filter(Boolean);
     return json({ reply: str(out && out.reply, 400), items, left: Math.max(0, DAILY - n) });
