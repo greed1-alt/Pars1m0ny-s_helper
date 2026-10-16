@@ -686,6 +686,16 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .ai-mic.rec{color:#fff;background:var(--red);animation:aiPulse 1.4s ease-in-out infinite}
 @keyframes aiPulse{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--red) 22%,transparent)}}
 .ai-flash{box-shadow:0 0 0 2px var(--acc)!important;transition:box-shadow .3s}
+/* Кнопка помощника в шапке: на телефоне — значок слева от настроек, на ПК — «Помощник» слева от имени */
+.hdr-ai{color:var(--acc)}
+.hdr-ai span{display:none}
+@media(max-width:899px){.top .hdr-ai{width:36px}}
+@media(min-width:900px){.hdr-ai{width:auto;display:inline-flex;gap:6px;padding:0 13px 0 11px;height:36px;border-radius:999px;border:1px solid color-mix(in srgb,var(--acc) 35%,var(--line));font-size:13.5px;font-weight:600}.hdr-ai span{display:inline}}
+@media(hover:hover){.hdr-ai:hover{background:color-mix(in srgb,var(--acc) 10%,transparent)}}
+/* Прочитать ответ вслух */
+.ai-say{float:right;width:30px;height:30px;margin:4px -6px -6px 6px;border-radius:50%;display:grid;place-items:center;color:var(--tx2)}
+.ai-say.on{color:var(--acc);background:color-mix(in srgb,var(--acc) 14%,transparent)}
+@media(hover:hover){.ai-say:hover{background:var(--hov)}}
 .st-grid>.card[id]{scroll-margin-top:80px}
 .ai-chk{display:grid;place-items:center;width:18px;height:18px;margin-top:1px;color:var(--good)}
 .ai-mb .ai-list{margin-top:10px;background:var(--sf)}

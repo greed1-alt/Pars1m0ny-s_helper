@@ -3,6 +3,7 @@
 $$('[data-act=prev]').forEach(b => b.innerHTML = I(IC.left, 20));
 $$('[data-act=next]').forEach(b => b.innerHTML = I(IC.right, 20));
 $('[data-act=settings]').innerHTML = I(IC.gear, 19);
+$('.hdr-ai').innerHTML = I(IC.spark, 19) + '<span>Помощник</span>';   // чат помощника (js/assistant.js); подпись — только на ПК
 $('.bar2 [data-act=search]').innerHTML = I(IC.search, 19);
 $('.btn-new').innerHTML = I(IC.plus, 17) + 'Создать';
 
