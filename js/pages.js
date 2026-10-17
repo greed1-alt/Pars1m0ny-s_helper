@@ -367,8 +367,45 @@ function settingsHTML() {
     <button class="btn" style="width:100%;margin-top:8px" data-act="tourmenu">${I(IC.spark, 16)} Знакомство с приложением</button>
     <button class="btn" style="width:100%;margin-top:8px" data-act="feedback">${I(IC.msg, 16)} Написать отзыв</button>
     <a class="btn" style="width:100%;margin-top:8px" href="beta.html" target="_blank" rel="noopener">${I(IC.note, 16)} Памятка бета-тестера</a>`;
-  return `<button class="card st-prof" data-act="pe" data-tab="main">${avatarHTML(48)}<span><b>${esc(name || 'Ваш профиль')}</b><small>${name ? 'Личные данные, аватар и обложка' : 'Укажите имя, выберите аватар и обложку'}</small></span>${I(IC.right, 18)}</button>
-  <div class="st-grid"><div class="card" id="st-look">${b.look}</div><div class="card" id="st-cal">${b.cal}</div><div class="card" id="st-cats">${b.cats}</div><div class="card" id="st-secs">${secs}</div><div class="card" id="st-notif">${b.notif}</div><div class="card" id="st-data">${b.data}</div><div class="card" id="st-about">${about}</div></div>`;   // id — для кнопок помощника «Открыть…» (assistant.js → aiSet)
+  const prof = `<button class="card st-prof" data-act="pe" data-tab="main">${avatarHTML(48)}<span><b>${esc(name || 'Ваш профиль')}</b><small>${name ? 'Личные данные, аватар и обложка' : 'Укажите имя, выберите аватар и обложку'}</small></span>${I(IC.right, 18)}</button>`;
+  const cards = { look: b.look, cal: b.cal, cats: b.cats, secs, notif: b.notif, data: b.data, about };
+  // id карточек — для оглавления, списка разделов и кнопок помощника «Открыть…» (stJump)
+  const grid = `<div class="st-grid">${ST_SEC.map(([k]) => `<div class="card" id="st-${k}">${cards[k]}</div>`).join('')}</div>`;
+  if (!stPhone()) return prof + grid;
+  const pick = `<div class="st-pick"><span>Вид настроек <em class="beta">проба</em></span><div class="seg2"><button class="${stView() === 'a' ? 'on' : ''}" data-act="stview" data-v="a">А · оглавление</button><button class="${stView() === 'b' ? 'on' : ''}" data-act="stview" data-v="b">Б · список</button></div></div>`;
+  if (stView() === 'a') return pick + prof + `<div class="st-toc">${ST_SEC.map(([k, ic, n, f]) => { const s = f(); return `<button class="st-tile" data-act="stjump" data-k="${k}">${I(ic, 20)}<b>${n}</b><small${s.warn ? ' class="warn"' : ''}>${esc(s.t)}</small></button>`; }).join('')}</div>`
+    + grid + `<button class="st-up" data-act="stup" hidden>${I(IC.up, 16)} Оглавление</button>`;
+  if (stOpen && cards[stOpen]) return `<button class="st-back" data-act="stback">${I(IC.left, 18)} Все настройки</button><div class="st-one"><div class="card" id="st-${stOpen}">${cards[stOpen]}</div></div>`;
+  return pick + prof + `<div class="card st-list">${ST_SEC.map(([k, ic, n, f]) => { const s = f(); return `<button class="st-item" data-act="stjump" data-k="${k}">${I(ic, 20)}<span><b>${n}</b><small${s.warn ? ' class="warn"' : ''}>${esc(s.t)}</small></span>${I(IC.right, 16)}</button>`; }).join('')}</div>`;
 }
+
+// ---- Настройки на телефоне: проба двух видов (17 октября 2026, просьба пользователя: «в бете сначала А, потом Б, а потом я выберу»).
+// Раньше — одна лента карточек на 4,5 экрана. А — сверху оглавление плитками с состоянием раздела, нажатие прокручивает к карточке;
+// Б — короткий список разделов, как в настройках iPhone, нажатие открывает только этот раздел («‹ Все настройки» — назад).
+// Переключатель вида — вверху страницы (S.settings.stView = 'a' / 'b'). На ПК — карточки в две колонки, как раньше ----
+const stPhone = () => innerWidth < 900;
+const stView = () => S.settings.stView === 'b' ? 'b' : 'a';
+let stOpen = null;   // вид Б: открытый раздел
+const ST_SEC = [
+  ['look', IC.sun, 'Оформление', () => ({ t: [(PAL[S.settings.pal] || {}).n, ((THEME_N.find(x => x[0] === S.settings.theme) || [])[1] || '').toLowerCase()].filter(Boolean).join(', ') })],
+  ['cal', IC.cal, 'Календарь', () => ({ t: 'неделя с ' + (S.settings.weekStart === 0 ? 'воскресенья' : 'понедельника') })],
+  ['cats', IC.list, 'Календари', () => ({ t: plural(S.cats.length, ['календарь', 'календаря', 'календарей']) })],
+  ['secs', IC.grid, 'Расположение', () => ({ t: 'разделы, блоки, запуск' })],
+  ['notif', IC.bell, 'Напоминания', () => ({ t: notif.short ? notif.short[0].toUpperCase() + notif.short.slice(1) : 'Проверяю…', warn: !notif.on })],
+  ['data', IC.user, 'Аккаунт и данные', () => signedIn() ? { t: (auth && auth.email) || 'Вход выполнен' } : { t: 'Вход не выполнен', warn: true }],
+  ['about', IC.note, 'О приложении', () => ({ t: 'знакомство, отзыв, памятка' })],
+];
+// Перейти к разделу настроек: в виде Б — открыть его, иначе — прокрутить к карточке и подсветить (так же — кнопки помощника)
+function stJump(k) {
+  if (sec !== 'settings') setSec('settings');
+  if (stPhone() && stView() === 'b') { stOpen = k; render(); window.scrollTo(0, 0); return; }
+  setTimeout(() => { const c = $('#st-' + k); if (!c) return; c.scrollIntoView({ block: 'start', behavior: 'smooth' }); c.classList.add('ai-flash'); setTimeout(() => c.classList.remove('ai-flash'), 1800); }, 30);   // после перерисовки
+}
+ACT.stjump = el => stJump(el.dataset.k);
+ACT.stback = () => { stOpen = null; render(); window.scrollTo(0, 0); };
+ACT.stview = el => { S.settings.stView = el.dataset.v === 'b' ? 'b' : 'a'; stOpen = null; save(); render(); };
+ACT.stup = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+// Вид А: кнопка «↑ Оглавление», когда плитки ушли вверх за экран
+addEventListener('scroll', () => { const u = $('.st-up'), t = $('.st-toc'); if (u && t) u.hidden = t.getBoundingClientRect().bottom > 0; }, { passive: true });
 ACT.ststart = el => { S.settings.startSec = el.dataset.v === 'last' ? 'last' : 'home'; save(); render(); };
-SEC.settings = { name:'Настройки', icon:IC.gear, noNav:true, title: () => 'Настройки', html: settingsHTML, move: () => {} };
+SEC.settings = { name:'Настройки', icon:IC.gear, noNav:true, title: () => { const s = stOpen && stPhone() && stView() === 'b' && ST_SEC.find(x => x[0] === stOpen); return s ? s[2] : 'Настройки'; }, html: settingsHTML, move: () => {} };

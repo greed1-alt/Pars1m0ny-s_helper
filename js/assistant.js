@@ -81,8 +81,7 @@ const aiHist = () => ai.msgs.slice(-AI_HIST).map(m => ({ r: m.r, t: ((m.t || '')
 
 // ---- Куда помощник может отправить кнопкой (ключи — те же, что в функции assistant → NAV) ----
 const aiSec = s => () => { if (!secOn(s)) { toast('Этот раздел выключен — его можно включить здесь'); return aiSet('secs')(); } if (s === 'tasks' && tView === 'goals') tView = 'main'; setSec(s); };
-const aiSet = k => () => { if (sec !== 'settings') setSec('settings');
-  requestAnimationFrame(() => { const c = $('#st-' + k); if (!c) return; c.scrollIntoView({ block: 'start', behavior: 'smooth' }); c.classList.add('ai-flash'); setTimeout(() => c.classList.remove('ai-flash'), 1800); }); };
+const aiSet = k => () => stJump(k);   // pages.js: открыть раздел (вид Б) или прокрутить к нему
 const AI_NAV = { home:['Главная', aiSec('home')], cal:['Календарь', aiSec('cal')], tasks:['Задачи', aiSec('tasks')], goals:['Цели', () => goGoals()], habits:['Привычки', aiSec('habits')], fin:['Финансы', aiSec('fin')],
   budget:['Бюджет на месяц', () => openBudget()], missed:['Вы пропустили', () => ACT.missopen()], profile:['Профиль', () => setSec('profile')], settings:['Настройки', aiSet('look')],
   set_look:['Оформление', aiSet('look')], set_cal:['Настройки календаря', aiSet('cal')], set_cats:['Календари', aiSet('cats')], set_layout:['Расположение', aiSet('secs')], sections:['Разделы и вкладки', () => openSecs()],
