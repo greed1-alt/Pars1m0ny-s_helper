@@ -13,6 +13,9 @@
 // функция всё проверяет и возвращает приложению. Без подтверждения человека приложение ничего не добавляет.
 // mode «hello» — приветствие при первом открытии чата за день: подначка или похвала по сводке.
 // С 17 октября 2026 записи приложение добавляет сразу, без подтверждения; у каждой в ответе — «Отменить».
+// С 18 октября 2026 — ещё изменения уже созданного (edit / done / delete / uncheck по ссылкам [e3] / [m2] из сводки) и картинки:
+// приложение присылает JPEG/PNG (body.image, data:…;base64), функция кладёт его в хранилище GigaChat (POST /files), передаёт в запросе
+// (attachments) и сразу удаляет (POST /files/{id}/delete). Картинку разбирает основная модель (Pro), при 402 — Max.
 // Тексты сообщений и сводки нигде не сохраняются и в журнал не пишутся.
 //
 // В настройках функции «Verify JWT» выключен (как у reminders): токены входа проекта — ES256, доступ проверяется здесь через auth.getUser.
@@ -38,6 +41,8 @@ const str = (v, n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g
 const date = v => { if (typeof v !== 'string' || !DATE_RE.test(v)) return null; const d = new Date(v + 'T00:00:00Z'); return isNaN(d) || d.toISOString().slice(0, 10) !== v ? null : v; };
 const time = v => typeof v === 'string' && TIME_RE.test(v) ? v : null;
 const block = (v, n) => typeof v === 'string' ? v.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, n) : '';   // как str, но строки сохраняются
+const REF_RE = /^[em]\d{1,3}$/;
+const remindOf = v => Array.isArray(v) ? [...new Set(v.map(Number).filter(m => Number.isInteger(m) && m >= 0 && m <= 10080))].sort((a, b) => b - a).slice(0, 5) : [];
 const cleanNav = v => Array.isArray(v) ? v.filter(x => x && NAV.includes(x.to)).slice(0, 3).map(x => ({ to: x.to, label: str(x.label, 40) })) : [];
 const list = (v, n, len) => Array.isArray(v) ? v.map(x => str(x, len)).filter(Boolean).slice(0, n) : [];
 const days = v => Array.isArray(v) ? [...new Set(v.map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))].sort() : [];
@@ -48,7 +53,7 @@ function cleanItem(it) {
   if (t === 'task' || t === 'event') {
     const title = str(it.title, 200); if (!title) return null;
     const r = it.repeat && typeof it.repeat === 'object' && REPEATS.includes(it.repeat.type) ? { type: it.repeat.type, days: days(it.repeat.days), until: date(it.repeat.until) } : null;
-    const remind = Array.isArray(it.remind) ? [...new Set(it.remind.map(Number).filter(m => Number.isInteger(m) && m >= 0 && m <= 10080))].sort((a, b) => b - a).slice(0, 5) : [];
+    const remind = remindOf(it.remind);
     return { type: t, title, date: date(it.date), time: time(it.time), time2: time(it.time2), prio: PRIOS.includes(it.prio) ? it.prio : 'mid', cat: str(it.cat, 60) || null, repeat: r, remind, loc: str(it.loc, 120) };
   }
   if (t === 'habit') { const title = str(it.title, 120); if (!title) return null;
@@ -60,7 +65,32 @@ function cleanItem(it) {
     const steps = Array.isArray(it.steps) ? it.steps.slice(0, 20).map(s => ({ title: str(s && s.title, 200), date: date(s && s.date) })).filter(s => s.title) : [];
     return { type: t, title, emoji: str(it.emoji, 8), due: date(it.due), steps }; }
   if (t === 'note') { const text = str(it.text, 2000); return text ? { type: t, text } : null; }
-  if (t === 'check') { const habit = str(it.habit || it.title, 120); return habit ? { type: t, habit, date: date(it.date) } : null; }   // отметить привычку выполненной
+  if (t === 'check') { const habit = str(it.habit || it.title, 120); return habit ? { type: t, habit, date: date(it.date) } : null; }
+  // Изменить / отметить / удалить то, что уже есть: ref — ссылка из сводки ([e3] — дело или событие, [m2] — трата / доход)
+  const ref = typeof it.ref === 'string' && REF_RE.test(it.ref.trim()) ? it.ref.trim() : null;
+  if (t === 'uncheck') { const habit = str(it.habit || it.title, 120); return habit ? { type: t, habit, date: date(it.date) } : null; }
+  if (t === 'done') return ref && ref[0] === 'e' ? { type: t, ref, date: date(it.date), done: it.done !== false } : null;
+  if (t === 'delete') return ref ? { type: t, ref, only_date: date(it.only_date) } : null;
+  if (t === 'edit') {
+    if (!ref) return null;
+    const o = { type: t, ref };
+    if (ref[0] === 'e') {
+      const s = str(it.title, 200); if (s) o.title = s;
+      for (const k of ['date', 'only_date']) { const d = date(it[k]); if (d) o[k] = d; }
+      for (const k of ['time', 'time2']) { const v = time(it[k]); if (v) o[k] = v; }
+      if (it.all_day === true) o.all_day = true;
+      if (typeof it.loc === 'string') o.loc = str(it.loc, 120);
+      const c = str(it.cat, 60); if (c) o.cat = c;
+      if (PRIOS.includes(it.prio)) o.prio = it.prio;
+      if (Array.isArray(it.remind)) o.remind = remindOf(it.remind);
+    } else {
+      const a = Math.round(Number(it.amount) * 100) / 100; if (a > 0 && a < 1e9) o.amount = a;
+      const c = str(it.category, 60); if (c) o.category = c;
+      if (typeof it.note === 'string' && str(it.note, 120)) o.note = str(it.note, 120);
+      const d = date(it.date); if (d) o.date = d;
+    }
+    return Object.keys(o).length > 2 ? o : null;   // нечего менять — не запись
+  }   // отметить привычку выполненной
   return null;
 }
 
@@ -98,7 +128,15 @@ nav — до 2 кнопок перехода в нужное место прил
 - Если такая привычка уже есть в списке привычек — не добавляй её повторно; если пользователь говорит, что выполнил её, — это "check". Привычки, которой нет в списке, не отмечай: предложи создать её ("habit").
 - Не выдумывай того, чего нет в сообщении. Одно дело — одна запись. Названия короткие, с большой буквы, без даты и времени внутри.
 - Что было сделано в разговоре и что пользователь отменил, видно в «Недавнем разговоре» в квадратных скобках. Отменённое не добавляй снова, если об этом не просят.
-- Менять, переносить, отмечать и удалять уже добавленные записи ты пока не умеешь: так и скажи и дай кнопку туда, где это сделать.
+- Изображение: если к сообщению приложено изображение (скриншот или фото), разбери, что на нём, и добавь в приложение. Расписание на неделю (уроки, пары, смены, тренировки) — каждое занятие отдельным "event" с repeat weekly и одним днём недели в days, time и time2, аудитория или адрес — в loc; date — ближайший такой день из «Ближайших дней»; если видны даты окончания («до 28 декабря») — repeat.until. Чек или список покупок — траты; список дел — задачи; афиша или приглашение — событие. Что не разобрать (мелкий текст, чётные и нечётные недели) — добавь понятное и спроси про остальное.
+
+Изменить, отметить или удалить то, что уже есть. В «Сводке записей» у дел, событий и денег стоят ссылки [e3], [m2] — используй только их:
+8. "edit" — изменить дело или событие: {"type":"edit","ref":"e3","only_date":"ГГГГ-ММ-ДД" или null,"date":…,"time":…,"time2":…,"all_day":true,"title":…,"loc":…,"cat":…,"prio":…,"remind":[…]} — пиши только то, что меняется. Перенести — новые date и/или time. У повторяющегося (↻) only_date — какой именно день меняется (тогда date — новый день для него); без only_date меняется весь повтор, и date не пиши. «Без времени» — all_day true.
+   Изменить трату или доход: {"type":"edit","ref":"m2","amount":…,"category":…,"note":…,"date":…}.
+9. "done" — отметить дело сделанным: {"type":"done","ref":"e3","date":"ГГГГ-ММ-ДД" или null,"done":true}; снять отметку — "done":false. date — для повторяющегося: какой день.
+10. "delete" — удалить: {"type":"delete","ref":"e3" или "m2","only_date":"ГГГГ-ММ-ДД" или null}. У повторяющегося only_date — удалить только этот день; без only_date удаляется весь повтор.
+11. "uncheck" — снять отметку привычки: {"type":"uncheck","habit":"название из списка привычек","date":…}.
+- Подходит несколько записей или нужной нет в сводке — ничего не меняй, спроси в reply, какую именно. Удаляй только то, что явно просят удалить. Изменения тоже делаются сразу, у каждой — «Отменить»; в reply коротко скажи, что изменил.
 
 Вопросы о делах, деньгах, целях и привычках:
 - Отвечай только по «Сводке записей» из сообщения; суммы, проценты и даты бери оттуда как есть, ничего не досчитывай и не выдумывай. Если сводки нет или нужного в ней нет — так и скажи.
@@ -109,7 +147,7 @@ nav — до 2 кнопок перехода в нужное место прил
 
 Справка по приложению (для вопросов «где» и «как»):
 - Главная: приветствие, кольцо «день выполнен на N%», строка ввода, «План на сегодня», привычки, деньги, самочувствие, цели, мысли дня. Порядок блоков — «Настроить Главную» внизу страницы.
-- Строка ввода (на Главной, в Календаре и Задачах) понимает фразы: «завтра в 15 встреча», «кофе 350», «+ зарплата 60000», «каждый день вода», «заметка: …», «цель: … до лета». «!» — важно, «!!» — срочно, #тег — календарь. Этот чат открывается кнопкой «Помощник» в шапке и в строке ввода; сообщение можно надиктовать (микрофон).
+- Строка ввода (на Главной, в Календаре и Задачах) понимает фразы: «завтра в 15 встреча», «кофе 350», «+ зарплата 60000», «каждый день вода», «заметка: …», «цель: … до лета». «!» — важно, «!!» — срочно, #тег — календарь. Этот чат открывается кнопкой «Помощник» в шапке и в строке ввода; сообщение можно надиктовать (микрофон), а картинку — прикрепить (например, скриншот расписания: занятия встанут в календарь). Помощник умеет и переносить, отмечать, удалять уже созданное.
 - Календарь: Месяц, Неделя (на телефоне — День по часам), Лента. На телефоне Календарь и Задачи — одна вкладка «План»; вернуть две вкладки — Настройки → Расположение → Разделы и вкладки. Событие можно перетащить и растянуть. В карточке события — повтор, календарь, напоминания, место, заметка, «Поделиться».
 - Задачи: на ПК «Фокус дня», вкладки «Все» и «Цели». Важность: срочно, высокая, средняя, низкая.
 - Цели: срок, шаги (шаг со сроком — задача в календаре), темп, подначки и похвалы; свои фразы и выключатели подначек — внизу вкладки «Цели».
@@ -156,6 +194,7 @@ function userMessage(text, c, extra) {
   if (data) L.push('', 'Сводка записей пользователя:', data);
   const h = extra && extra.history ? histOf(extra.history) : [];
   if (h.length) L.push('', 'Недавний разговор:', ...h.map(m => (m.r === 'u' ? 'Пользователь: ' : 'Помощник: ') + m.t));
+  if (extra && extra.image) L.push('', 'К сообщению приложено изображение.');
   if (text) L.push('', 'Сообщение пользователя:', '"""', text, '"""');
   return L.join('\n');
 }
@@ -235,7 +274,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function askGiga(system, user, o) {
   const key = env('GIGACHAT_AUTH_KEY').replace(/^Basic\s+/i, ''); if (!key) return { error: 'off' };
   // 402 — кончились бесплатные токены этой модели: тогда пробуем Lite, у неё бесплатный запас больше всех (250 млн в год, у Pro — 40 млн)
-  const models = [o.model]; if (!/^GigaChat(-2)?$/i.test(o.model)) models.push('GigaChat-2');
+  // картинку понимают Pro и Max, но не Lite — для неё запасная модель Max
+  const models = [o.model]; if (o.attach) { if (!/max/i.test(o.model)) models.push('GigaChat-2-Max'); } else if (!/^GigaChat(-2)?$/i.test(o.model)) models.push('GigaChat-2');
   let last = { error: 'model', code: 0 };
   for (const model of models) {
     let fresh = false, busy = 0;
@@ -243,7 +283,7 @@ async function askGiga(system, user, o) {
       const t = await gcToken(key, fresh); if (t.error) return t;
       const r = await gcFetch('https://api.giga.chat/v1/chat/completions', { method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + t.token },
-        body: JSON.stringify({ model, temperature: o.temp, max_tokens: o.max, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
+        body: JSON.stringify({ model, temperature: o.temp, max_tokens: o.max, messages: [{ role: 'system', content: system }, { role: 'user', content: user, ...(o.attach ? { attachments: [o.attach] } : {}) }] }) });
       if (r.status === 401 && !fresh) { fresh = true; continue; }   // токен мог истечь раньше срока — один повтор с новым
       if (r.status === 429 && busy < 2) { busy++; await r.text().catch(() => ''); await sleep(1500 * busy); continue; }   // у физлица один поток: кто-то пишет одновременно — подождать
       if (!r.ok) { console.error('gigachat', model, r.status, (await r.text()).slice(0, 300)); last = { error: 'model', code: r.status }; break; }
@@ -253,6 +293,35 @@ async function askGiga(system, user, o) {
     if (last.code !== 402) return last;
   }
   return last;
+}
+// Картинка в хранилище GigaChat (multipart/form-data собираем сами: так одинаково работает и fetch, и запасной node:https)
+async function gcUpload(bytes, mime) {
+  const key = env('GIGACHAT_AUTH_KEY').replace(/^Basic\s+/i, ''); if (!key) return { error: 'off' };
+  for (let i = 0; i < 2; i++) {
+    const t = await gcToken(key, i > 0); if (t.error) return t;
+    const b = 'psm' + crypto.randomUUID().replace(/-/g, ''), enc = new TextEncoder();
+    const head = enc.encode(`--${b}\r\nContent-Disposition: form-data; name="purpose"\r\n\r\ngeneral\r\n--${b}\r\nContent-Disposition: form-data; name="file"; filename="image.${mime === 'image/png' ? 'png' : 'jpg'}"\r\nContent-Type: ${mime}\r\n\r\n`);
+    const tail = enc.encode(`\r\n--${b}--\r\n`), body = new Uint8Array(head.length + bytes.length + tail.length);
+    body.set(head); body.set(bytes, head.length); body.set(tail, head.length + bytes.length);
+    const r = await gcFetch('https://api.giga.chat/v1/files', { method: 'POST', headers: { Authorization: 'Bearer ' + t.token, Accept: 'application/json', 'Content-Type': 'multipart/form-data; boundary=' + b }, body });
+    if (r.status === 401 && i === 0) continue;
+    if (!r.ok) { console.error('gigachat files', r.status, (await r.text()).slice(0, 300)); return { error: 'model', code: r.status }; }
+    const j = await r.json(); return j && typeof j.id === 'string' ? { id: j.id } : { error: 'model', code: 0 };
+  }
+  return { error: 'model', code: 401 };
+}
+async function gcDrop(id) {   // после разбора картинка в хранилище Сбера не нужна
+  try { const key = env('GIGACHAT_AUTH_KEY').replace(/^Basic\s+/i, ''), t = await gcToken(key);
+    if (t.token) { const r = await gcFetch(`https://api.giga.chat/v1/files/${encodeURIComponent(id)}/delete`, { method: 'POST', headers: { Authorization: 'Bearer ' + t.token, Accept: 'application/json' } }); if (!r.ok) console.error('gigachat delete', r.status); }
+  } catch (e) { console.error('gigachat delete', e && e.message); }
+}
+// Картинка из приложения: только JPEG или PNG (проверяем и подпись в начале файла), не больше 4,5 МБ
+function imageOf(v) {
+  if (typeof v !== 'string' || !v || v.length > 6.2e6) return null;
+  const m = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/=]+)$/.exec(v); if (!m) return null;
+  let bytes; try { bytes = Uint8Array.from(atob(m[2]), c => c.charCodeAt(0)); } catch { return null; }
+  const ok = m[1] === 'image/png' ? bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e : bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  return ok && bytes.length <= 4.5e6 ? { bytes, mime: m[1] } : null;
 }
 async function askDeepseek(system, user, o) {
   const key = env('DEEPSEEK_API_KEY'); if (!key) return { error: 'off' };
@@ -293,8 +362,16 @@ Deno.serve(async req => {
     if (le) throw le;
     if (n > DAILY) return json({ error: 'limit', limit: DAILY }, 429);
     if (n === 1) await sb.from('ai_usage').delete().lt('day', new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10));
-    const m = hello ? await askModel(HELLO, userMessage('', ctx), { model: LITE, temp: 0.8, max: 300 })
-      : await askModel(SYSTEM, userMessage(text, ctx, { history: body.history }), { model: body.ask ? LITE : MODEL, temp: 0.2, max: 2500 });
+    const img = !hello && body.image ? imageOf(body.image) : null;
+    if (!hello && body.image && !img) return json({ error: 'image' }, 400);
+    if (img && PROVIDER !== 'gigachat') return json({ error: 'noimage' }, 400);
+    let fileId = null, m;
+    if (img) { const up = await gcUpload(img.bytes, img.mime).catch(e => { console.error('gigachat files', e && e.message); return { error: 'net' }; });
+      if (up.error) return json({ error: up.error, code: up.code || 0, p: PROVIDER }, up.error === 'off' ? 503 : 502); fileId = up.id; }
+    try {
+      m = hello ? await askModel(HELLO, userMessage('', ctx), { model: LITE, temp: 0.8, max: 300 })
+        : await askModel(SYSTEM, userMessage(text, ctx, { history: body.history, image: !!img }), { model: img ? MODEL : body.ask ? LITE : MODEL, temp: 0.2, max: 2500, attach: fileId });
+    } finally { if (fileId) { const w = globalThis.EdgeRuntime && globalThis.EdgeRuntime.waitUntil; if (w) globalThis.EdgeRuntime.waitUntil(gcDrop(fileId)); else await gcDrop(fileId); } }
     if (m.error) return json({ error: m.error, code: m.code || 0, p: PROVIDER }, m.error === 'off' ? 503 : 502);   // p — какая нейросеть ответила (видно в окне помощника)
     const j0 = jsonOf(m.text), plain = String(m.text || '').trim();
     // Модель иногда отвечает просто текстом — тогда это ответ в чате без записей

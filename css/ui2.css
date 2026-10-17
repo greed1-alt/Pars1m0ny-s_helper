@@ -686,6 +686,12 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .ai-mic.rec{color:#fff;background:var(--red);animation:aiPulse 1.4s ease-in-out infinite}
 @keyframes aiPulse{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--red) 22%,transparent)}}
 .ai-flash{box-shadow:0 0 0 2px var(--acc)!important;transition:box-shadow .3s}
+/* Картинка к сообщению помощника: превью над полем и миниатюра в сообщении */
+.ai-att:empty{display:none}
+.ai-attc{display:flex;align-items:center;gap:10px;margin:0 0 8px;padding:6px 6px 6px 8px;border:1px solid var(--line);border-radius:14px;background:var(--bg2);font-size:12.5px;color:var(--tx2)}
+.ai-attc img{width:44px;height:44px;object-fit:cover;border-radius:9px;flex:none}
+.ai-attc span{flex:1;min-width:0}
+.ai-uimg{display:block;max-width:200px;max-height:200px;border-radius:12px;margin:2px 0 6px;object-fit:cover}
 /* Кнопка помощника в шапке: на телефоне — значок слева от настроек, на ПК — «Помощник» слева от имени */
 .hdr-ai{color:var(--acc)}
 .hdr-ai span{display:none}

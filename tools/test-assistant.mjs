@@ -56,4 +56,45 @@ x = await run('GigaChat-2-Pro', { 'GigaChat-2-Pro': 429 }); ok(x.r.code === 429 
 x = await run('GigaChat-2-Pro', { 'GigaChat-2-Pro': [401, 200] }); ok(x.r.text && x.calls.length === 2, '401 fresh token', x);
 x = await run('GigaChat-2-Pro', { 'GigaChat-2-Pro': 401 }); ok(x.r.code === 401 && x.calls.length === 2, '401 twice', x);
 x = await run('GigaChat-2', { 'GigaChat-2': 402 }); ok(x.r.code === 402 && x.calls.length === 1, 'lite no fallback', x);
+// 3) изменения уже созданного: проверка записей edit / done / delete / uncheck
+{
+  const mod = `const Deno = { env: { get: k => ({ AI_PROVIDER: 'gigachat' })[k] } };\n${cut('const env =', 'const sb =')}${cut('// ---- Проверка', '// ---- Нейросеть:')}\nexport { cleanItem };`;
+  const p = join(TMP, 'edit.mjs'); writeFileSync(p, mod); const { cleanItem } = await import(pathToFileURL(p).href);
+  const e = cleanItem({ type: 'edit', ref: 'e3', time: '11:00', date: '2026-10-20', only_date: 'плохо', title: ' Стоматолог ', remind: [60, 'x'], all_day: 'да', junk: 1 });
+  ok(JSON.stringify(e) === JSON.stringify({ type: 'edit', ref: 'e3', title: 'Стоматолог', date: '2026-10-20', time: '11:00', remind: [60] }), 'edit event', e);
+  ok(cleanItem({ type: 'edit', ref: 'e3' }) === null && cleanItem({ type: 'edit', ref: 'x9', time: '10:00' }) === null && cleanItem({ type: 'edit', ref: 'e3; drop', time: '10:00' }) === null, 'edit needs ref and a change');
+  const m = cleanItem({ type: 'edit', ref: 'm2', amount: '450', category: 'Кафе', date: '2026-10-15', time: '10:00' });
+  ok(JSON.stringify(m) === JSON.stringify({ type: 'edit', ref: 'm2', amount: 450, category: 'Кафе', date: '2026-10-15' }), 'edit money', m);
+  ok(JSON.stringify(cleanItem({ type: 'done', ref: 'e1', done: false, date: '2026-10-17' })) === JSON.stringify({ type: 'done', ref: 'e1', date: '2026-10-17', done: false }) && cleanItem({ type: 'done', ref: 'm1' }) === null, 'done');
+  ok(JSON.stringify(cleanItem({ type: 'delete', ref: 'm4' })) === JSON.stringify({ type: 'delete', ref: 'm4', only_date: null }) && cleanItem({ type: 'delete' }) === null, 'delete');
+  ok(cleanItem({ type: 'uncheck', habit: 'Вода' }).habit === 'Вода' && cleanItem({ type: 'uncheck' }) === null, 'uncheck');
+}
+// 4) картинки: проверка файла, загрузка в хранилище (multipart), запрос с attachments, запасная модель Max, удаление
+{
+  const body = cut('async function gcToken', 'async function askDeepseek');
+  const mod = `let gcTok='', gcExp=0; const env = k => k==='GIGACHAT_AUTH_KEY' ? 'KEY' : ''; export const calls=[]; export const plan = { chat: {} };
+  const sleep = async () => {};
+  async function gcFetch(url, o) { calls.push({ url, o }); if (url.includes('oauth')) return { ok:true, status:200, json: async()=>({access_token:'T', expires_at: Date.now()+1800000}) };
+    if (url.endsWith('/files')) return { ok:true, status:200, json: async()=>({ id: 'f-1' }), text: async()=>'' };
+    if (url.includes('/delete')) return { ok:true, status:200, text: async()=>'' };
+    const b = JSON.parse(o.body), st = plan.chat[b.model] ?? 200; return { ok: st===200, status: st, text: async()=>'x', json: async()=>({choices:[{message:{content:'ok '+b.model}}]}) }; }
+  ${body.replace("const sleep = ms => new Promise(r => setTimeout(r, ms));", '')}
+  export { askGiga, gcUpload, gcDrop, imageOf };`;
+  const p = join(TMP, 'img.mjs'); writeFileSync(p, mod); const t = await import(pathToFileURL(p).href);
+  const jpg = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]), b64 = Buffer.from(jpg).toString('base64');
+  const im = t.imageOf('data:image/jpeg;base64,' + b64);
+  ok(im && im.mime === 'image/jpeg' && im.bytes.length === 7, 'image ok');
+  ok(t.imageOf('data:image/jpeg;base64,' + Buffer.from('<svg>').toString('base64')) === null && t.imageOf('data:image/svg+xml;base64,AAAA') === null && t.imageOf('javascript:1') === null && t.imageOf(5) === null, 'image junk rejected');
+  const up = await t.gcUpload(im.bytes, im.mime), uc = t.calls.find(c => c.url.endsWith('/files'));
+  const raw = Buffer.from(uc.o.body).toString('latin1'), bnd = uc.o.headers['Content-Type'].split('boundary=')[1];
+  ok(up.id === 'f-1' && uc.url === 'https://api.giga.chat/v1/files' && uc.o.headers.Authorization === 'Bearer T' && raw.includes('name="purpose"\r\n\r\ngeneral') && raw.includes('filename="image.jpg"') && raw.includes('Content-Type: image/jpeg') && raw.endsWith('--' + bnd + '--\r\n'), 'upload multipart', raw.slice(0, 200));
+  t.calls.length = 0; let r = await t.askGiga('s', 'u', { model: 'GigaChat-2-Pro', temp: .2, max: 100, attach: 'f-1' });
+  const cb = JSON.parse(t.calls.find(c => c.url.includes('chat/completions')).o.body);
+  ok(r.text === 'ok GigaChat-2-Pro' && JSON.stringify(cb.messages[1].attachments) === '["f-1"]' && !cb.messages[0].attachments, 'attach in user message', cb.messages);
+  t.plan.chat['GigaChat-2-Pro'] = 402; t.calls.length = 0; r = await t.askGiga('s', 'u', { model: 'GigaChat-2-Pro', temp: .2, max: 100, attach: 'f-1' });
+  ok(r.text === 'ok GigaChat-2-Max' && t.calls.filter(c => c.url.includes('chat/completions')).map(c => JSON.parse(c.o.body).model).join() === 'GigaChat-2-Pro,GigaChat-2-Max', 'image 402 → Max, not Lite', r);
+  t.calls.length = 0; r = await t.askGiga('s', 'u', { model: 'GigaChat-2-Pro', temp: .2, max: 100 });
+  ok(r.text === 'ok GigaChat-2', 'text 402 → Lite');
+  t.calls.length = 0; await t.gcDrop('f-1'); ok(t.calls.some(c => c.url === 'https://api.giga.chat/v1/files/f-1/delete' && c.o.method === 'POST'), 'file deleted');
+}
 console.log(process.exitCode ? 'есть ошибки' : 'чат на сервере: всё прошло');
