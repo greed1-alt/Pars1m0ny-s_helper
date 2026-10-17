@@ -107,7 +107,7 @@ const aiHist = () => ai.msgs.slice(-AI_HIST).map(m => ({ r: m.r, t: ((m.t || '')
 const aiSec = s => () => { if (!secOn(s)) { toast('Этот раздел выключен — его можно включить здесь'); return aiSet('secs')(); } if (s === 'tasks' && tView === 'goals') tView = 'main'; setSec(s); };
 const aiSet = k => () => stJump(k);   // pages.js: на телефоне — открыть раздел, на ПК — прокрутить к нему
 const AI_NAV = { home:['Главная', aiSec('home')], cal:['Календарь', aiSec('cal')], tasks:['Задачи', aiSec('tasks')], goals:['Цели', () => goGoals()], habits:['Привычки', aiSec('habits')], fin:['Финансы', aiSec('fin')],
-  budget:['Бюджет на месяц', () => openBudget()], missed:['Вы пропустили', () => ACT.missopen()], profile:['Профиль', () => setSec('profile')], settings:['Настройки', aiSet('look')],
+  budget:['Бюджет на месяц', () => openBudget()], missed:['Вы пропустили', () => ACT.missopen()], profile:['Профиль', () => setSec('profile')], settings:['Настройки', () => { if (sec !== 'settings') return setSec('settings'); stOpen = null; render(); window.scrollTo(0, 0); }],
   set_look:['Оформление', aiSet('look')], set_cal:['Настройки календаря', aiSet('cal')], set_cats:['Календари', aiSet('cats')], set_layout:['Расположение', aiSet('secs')], sections:['Разделы и вкладки', () => openSecs()],
   set_notif:['Напоминания', aiSet('notif')], set_data:['Аккаунт и данные', aiSet('data')], tour:['Знакомство с приложением', () => openTourMenu()], feedback:['Отзыв', () => ACT.feedback()] };
 ACT.ainav = el => { const n = AI_NAV[el.dataset.to]; if (!n) return; closeSheet(); n[1](); };
@@ -270,18 +270,20 @@ async function aiCall(body) {
   } catch (e) { return { err: 'Не удалось связаться с сервером. Проверьте интернет.' }; }
 }
 async function aiSend(text) {
-  if (!ai || ai.busy) return;
-  if (aiRec) aiRec.stop();
+  if (!ai) return;
+  if (ai.busy) { if (text == null) aiSendWhenFree(); return; }   // Enter, пока помощник отвечает (например, на приветствие), — уйдёт, когда ответит
+  // Запись голосом ещё идёт — выключить и отцепить: иначе её последний кусок после остановки отправил бы то же сообщение второй раз
+  if (aiRec) { const r = aiRec; aiRec = null; r.onresult = r.onend = null; try { r.stop(); } catch (e) {} }
   const ta = $('#ai_text'); text = String(text != null ? text : ta ? ta.value : ai.draft).trim().slice(0, AI_MAX);
   const img = ai.img || null;
   if (!text && !img) { if (ta) ta.focus(); return; }
-  if (!navigator.onLine) { ai.err = 'Нет интернета — помощнику нужен сервер.'; return aiRefresh(); }
+  if (!navigator.onLine) { ai.err = 'Нет интернета — помощнику нужен сервер.'; ai.errT = text; return aiRefresh(); }   // сообщение не ушло — «Повторить» отправит его
   // Вопрос — со сводкой записей; короткое уточнение после ответа по сводке («а послезавтра», «и в пятницу») — тоже
   // Просят изменить уже созданное — сводка со ссылками на записи и основная модель; картинка — тоже основная модель
   const edit = AI_EDIT.test(text), prev = [...ai.msgs].reverse().find(m => m.r === 'a');
   const ask = !edit && !img && (aiAsks(text) || !!(prev && prev.ask && !prev.hi && text.length < 60 && /^\s*(?:а|и|ещё|еще)(?=[\s,])/i.test(text)));
   const history = aiHist(), R = aiRefs();
-  ai.msgs.push({ r:'u', t:text, day: todayK(), ...(img ? { img: img.thumb } : {}) }); ai.draft = ''; ai.err = ''; ai.busy = true; ai.img = null; aiClearAsk = 0; aiStore();
+  ai.msgs.push({ r:'u', t:text, day: todayK(), ...(img ? { img: img.thumb } : {}) }); ai.draft = ''; ai.err = ''; ai.errT = null; ai.busy = true; ai.img = null; aiClearAsk = 0; aiStore();
   if (ta && text === ta.value.trim()) { ta.value = ''; aiGrow(); }
   aiRefresh();
   const j = await aiCall({ mode:'chat', text: text || 'Разбери картинку и добавь в приложение, что на ней', ask, history, ctx: aiCtx(ask || edit, R, edit ? text : ''), ...(img ? { image: img.data } : {}) });
@@ -293,7 +295,9 @@ async function aiSend(text) {
     if (items.length && j.fix) aiFixPrev(items);
     items.forEach(x => aiDo(x, refs));
     ai.msgs.push({ r:'a', t: String(j.reply || (items.length ? '' : 'Не понял, что сделать. Напишите подробнее.')), day: todayK(), ...(items.length ? { items, auto: 1 } : {}), ...(Object.keys(refs).length ? { refs } : {}), ...(nav.length ? { nav } : {}), ...(ask ? { ask: 1 } : {}) });
-    if (items.length) { save(); render(); } }
+    if (items.length) { save(); render(); }
+    const done = items.filter(x => x.st === 'ok').length;   // окно чата закрыли до ответа — сказать, что сделано
+    if (done && !(sheetOpen() && $('#ai_log'))) toast('Помощник: ' + plural(done, ['изменение', 'изменения', 'изменений']) + ' — отменить можно в чате'); }
   aiStore(); aiRefresh();
 }
 
@@ -305,7 +309,8 @@ function aiSendWhenFree(n = 0) {
 }
 ACT.aigo = () => aiSend();
 ACT.aiex = el => aiSend(el.dataset.t);
-ACT.airetry = () => { const m = ai && ai.msgs[ai.msgs.length - 1]; if (!m || m.r !== 'u') return; ai.msgs.pop(); ai.err = ''; aiSend(m.t); };
+ACT.airetry = () => { if (ai && ai.errT != null) { const t = ai.errT; ai.errT = null; ai.err = ''; return aiSend(t); }
+  const m = ai && ai.msgs[ai.msgs.length - 1]; if (!m || m.r !== 'u') return; ai.msgs.pop(); ai.err = ''; aiSend(m.t); };
 ACT.aiclear = () => {
   if (!ai) return;
   if (!aiClearAsk) { aiClearAsk = setTimeout(() => { aiClearAsk = 0; aiRefresh(); }, 3000); return aiRefresh(); }
@@ -454,13 +459,25 @@ function aiUndo(it) {
   if (r.mark) { const h = S.habits.find(x => x.id === r.mark[0]); if (h) delete h.log[r.mark[1]]; }
   it.res = null; it.st = 'undone'; delete it.why;
 }
+// Созданную помощником привычку или цель, которой с тех пор пользовались (есть отметки, сделанные шаги), «Отменить» не удаляет:
+// вместе с ней пропали бы отметки, а «Вернуть» создаёт запись заново — уже пустой. Удалить можно в самом разделе
+function aiUsed(it) {
+  const r = it.res || {}, h = r.hb && S.habits.find(x => x.id === r.hb), g = r.goal && S.goals.find(x => x.id === r.goal);
+  if (h && Object.keys(h.log || {}).length) return 'У привычки «' + h.name + '» уже есть отметки — удалить её можно в «Привычках»';
+  if (g && (g.done || (g.steps || []).some(s => s.done) || S.events.some(e => e.goal === g.id && (e.done || (e.doneDates || []).length))))
+    return 'В цели «' + g.title + '» уже есть сделанные шаги — удалить её можно во вкладке «Цели»';
+  return '';
+}
 ACT.aiundo = el => {
   const [i, j] = String(el.dataset.i).split(':').map(Number), m = ai && ai.msgs[i], it = m && m.items && m.items[j]; if (!it) return;
+  const used = it.st === 'ok' && aiUsed(it); if (used) return toast(used);
   if (it.st === 'ok') aiUndo(it); else if (it.st === 'undone') aiDo(it, m.refs); else return;
   save(); aiStore(); render(); aiRefresh();
 };
 ACT.aiundoall = el => { const m = ai && ai.msgs[+el.dataset.i]; if (!m || !m.items) return;
-  [...m.items].reverse().forEach(x => { if (x.st === 'ok') aiUndo(x); }); save(); aiStore(); render(); aiRefresh(); };   // с конца: последнее сделанное — первым
+  let used = '';
+  [...m.items].reverse().forEach(x => { if (x.st !== 'ok') return; const u = aiUsed(x); if (u) used = used || u; else aiUndo(x); });
+  save(); aiStore(); render(); aiRefresh(); if (used) toast(used); };   // с конца: последнее сделанное — первым
 
 // ---- Картинка к сообщению (18 октября 2026: «скинуть скрин расписания, а помощник заполнит календарь»). Уменьшается до 1600 px
 // по большей стороне (JPEG), в сообщение — миниатюра 240 px (она и хранится в истории чата на устройстве). На ПК можно вставить Ctrl+V ----

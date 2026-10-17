@@ -377,7 +377,7 @@ function toast(msg, withUndo) {
   const t = $('#toast');
   t.innerHTML = `<span>${esc(msg)}</span>${withUndo ? '<button data-act="undo">Отменить</button>' : ''}`;
   t.classList.add('show'); clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), withUndo ? 6000 : 2600);
+  toastTimer = setTimeout(() => { t.classList.remove('show'); toastTimer = setTimeout(() => { t.textContent = ''; }, 250); }, withUndo ? 6000 : 2600);
 }
 
 // ---- Окна ----

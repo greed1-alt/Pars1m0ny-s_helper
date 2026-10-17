@@ -73,7 +73,8 @@ function merge3(base, loc, rem) {
   if (same(rem, base)) return loc;
   if (isObj(loc) && isObj(rem)) {
     const b = isObj(base) ? base : {}, out = {};
-    new Set([...Object.keys(rem), ...Object.keys(loc)]).forEach(k => { const v = merge3(b[k], loc[k], rem[k]); if (v !== undefined) out[k] = v; });
+    // geo — [широта, долгота] целиком: как множество чисел две правки перемешали бы координаты
+    new Set([...Object.keys(rem), ...Object.keys(loc)]).forEach(k => { const v = k === 'geo' ? (same(loc[k], b[k]) ? rem[k] : loc[k]) : merge3(b[k], loc[k], rem[k]); if (v !== undefined) out[k] = v; });
     return out;
   }
   if (Array.isArray(loc) && Array.isArray(rem)) {

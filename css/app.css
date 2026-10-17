@@ -1,3 +1,5 @@
+/* hidden прячет всегда: иначе display у класса (.f-mem{display:flex}) перебивал атрибут */
+[hidden]{display:none!important}
 /* ---- Дизайн-токены: цвета тем, отступы (шаг 4/8), радиусы, тени ---- */
 :root{
   --bg:#ffffff;--bg2:#f7f7f5;--sf:#ffffff;--tx:#1d1d1c;--tx2:#5f5e5b;--mut:#9b9a97;

@@ -251,7 +251,8 @@ function openBioMetric(id, back) {
   if (!m) setTimeout(() => { const i = $('#bm_n'); if (i) i.focus(); }, 30);
 }
 const bmKeep = () => { const e = $('#bm_e'), n = $('#bm_n'), p = $('#bm_p'); if (!bmForm) return;
-  if (e) bmForm.emoji = e.value.trim(); if (n) bmForm.name = n.value; if (p) bmForm.plan = Math.max(0, Math.min(24, Number(String(p.value).replace(',', '.')) || 0)); };
+  if (e) bmForm.emoji = e.value.trim(); if (n) bmForm.name = n.value; if (p) bmForm.plan = Math.max(0, Math.min(24, Number(String(p.value).replace(',', '.')) || 0));
+  const lw = $('#bm_low'); if (lw) bmForm.low = lw.checked; };
 function drawBioMetric() {
   const f = bmForm, n = f.id ? bmMarks(f.id) : 0;
   sheet(`<div class="sh-head">${bmBack ? `<button class="ic" data-act="bioedit" aria-label="Назад">${I(IC.left, 18)}</button>` : ''}<h3>${f.id ? 'Показатель' : 'Новый показатель'}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>

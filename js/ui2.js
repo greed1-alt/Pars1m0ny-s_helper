@@ -133,7 +133,7 @@ function omniHTML(id, ctx) {
   const st = omSt(id); st.ctx = ctx;
   return `<div class="om" data-om="${id}">
     <div class="om-box">${I(IC.spark, 19)}<input id="${id}" class="om-in" type="text" value="${esc(st.v)}" placeholder="${esc(st.force ? OM_T[st.force].ph : st.ph || OM_PH[ctx] || OM_PH.home)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" aria-label="Быстрое добавление"><button class="om-go om-keep" data-act="omgo" data-om="${id}" aria-label="Добавить">${I(IC.plus, 20)}</button></div>
-    <div class="om-types" role="group" aria-label="Что добавить"><button class="om-t om-ai om-keep" data-act="aiopen" data-om="${id}" title="Разложить сообщение по разделам (js/assistant.js)">${I(IC.spark, 15)}Помощник</button>${OM_ORDER.filter(t => (ctx === 'home' || t === 'task' || t === 'event') && omOn(t)).map(t => `<button class="om-t om-keep" data-act="omtype" data-om="${id}" data-t="${t}" aria-pressed="false">${I(OM_T[t].ic, 15)}${OM_T[t].n}</button>`).join('')}</div>
+    <div class="om-types" role="group" aria-label="Что добавить"><button class="om-t om-ai om-keep" data-act="aiopen" data-om="${id}" title="Помощник: разложит сообщение по разделам">${I(IC.spark, 15)}Помощник</button>${OM_ORDER.filter(t => (ctx === 'home' || t === 'task' || t === 'event') && omOn(t)).map(t => `<button class="om-t om-keep" data-act="omtype" data-om="${id}" data-t="${t}" aria-pressed="false">${I(OM_T[t].ic, 15)}${OM_T[t].n}</button>`).join('')}</div>
     <div class="om-prev" id="${id}_prev" aria-live="polite"></div>
   </div>`;
 }
@@ -618,4 +618,6 @@ function balanceHome() {
 SEC.home.after = () => { omRefresh(); balanceHome(); };
 SEC.tasks.after = omRefresh;
 SEC.cal.after = omRefresh;   // строка добавления под выбранным днём (js/calendar.js: calDayHTML)
-if (!S.settings.onboarded) setTimeout(onbOpen, 350);
+// Знакомство — когда загружены все скрипты: onbOpen нужен secOn из layout.js (он ниже). Раньше был таймер 350 мс, и на медленном
+// интернете знакомство падало (ReferenceError: secOn) — нашёл Lighthouse 18 октября 2026
+if (!S.settings.onboarded) { const go = () => setTimeout(onbOpen, 350); document.readyState === 'loading' ? addEventListener('DOMContentLoaded', go) : go(); }

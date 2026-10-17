@@ -47,12 +47,13 @@ function mapPut(g, addr) {
 }
 // Адрес точки: «улица, дом, город» (или название места)
 async function mapAddr(g) {
+  const fe = window._fe;   // пока ищется адрес, карточку могли закрыть и открыть другую — в неё чужой адрес не пишем
   try {
     const r = await fetch(`${NOMI}reverse?format=jsonv2&accept-language=ru&zoom=18&lat=${g[0]}&lon=${g[1]}`); if (!r.ok) return;
     const j = await r.json(), a = j.address || {}, road = a.road || a.pedestrian || a.footway || '';
     const s = [j.name && j.name !== road ? j.name : '', [road, a.house_number].filter(Boolean).join(', '), a.city || a.town || a.village || ''].filter(Boolean).join(', ')
       || String(j.display_name || '').split(', ').slice(0, 3).join(', ');
-    const loc = $('#f_loc'); if (loc && !loc.value.trim() && s) loc.value = s.slice(0, 120);
+    const loc = $('#f_loc'); if (window._fe === fe && loc && !loc.value.trim() && s) loc.value = s.slice(0, 120);
   } catch (e) {}
 }
 async function mapFind(quiet) {
