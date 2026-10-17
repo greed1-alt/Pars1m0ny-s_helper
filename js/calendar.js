@@ -382,8 +382,42 @@ function toast(msg, withUndo) {
 
 // ---- Окна ----
 const sheet = (h, keep) => { tinvHide(); const sh = $('#sh'), top = sh.scrollTop;   // плашка «Впервые здесь?» (tour.js) не висит поверх окна
- sh.innerHTML = '<span class="grab"></span>' + h; $('#ov').classList.remove('ov-light'); $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; };
-const closeSheet = () => { $('#ov').classList.remove('show', 'ov-light'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; };
+ sh.innerHTML = '<span class="grab"></span>' + h; $('#ov').classList.remove('ov-light'); $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; shHistOpen(); };
+// fromBack — окно закрыто кнопкой «Назад»: шаг в истории уже сделан
+const closeSheet = fromBack => { $('#ov').classList.remove('show', 'ov-light'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; shHistClose(fromBack === true); };
+// «Назад» закрывает открытое окно (18 октября 2026: на Android «Назад» выходил из приложения, пока окно было открыто).
+// Открылось окно — в истории шаг вперёд (один на все окна подряд); закрыли крестиком или «Сохранить» — сами делаем шаг назад
+// и пропускаем его popstate (shBack). Пока этот шаг не дошёл, новое окно добавляет свой шаг — его закроет следующее «Назад».
+let shHist = false, shBack = false;
+function shHistOpen() { if (shHist) return; shHist = true; try { history.pushState({ psh: 1 }, ''); } catch (e) {} }
+function shHistClose(fromBack) { if (!shHist) return; shHist = false; if (!fromBack) { shBack = true; try { history.back(); } catch (e) { shBack = false; } } }
+addEventListener('popstate', () => {
+  if (shBack) { shBack = false; return; }
+  if (shHist && sheetOpen()) { shHist = false; closeSheet(true); }
+});
+// Свайп вниз закрывает окно на телефоне (полоска сверху — за неё и тянут; можно и за любое место, пока окно прокручено к началу).
+// Не мешает: полям ввода, карте, ленте чата и рядам, которые листаются вбок
+{ const sh = $('#sh'); let d = null;
+  sh.addEventListener('touchstart', e => {
+    d = null; if (innerWidth >= 900 || e.touches.length !== 1 || sh.scrollTop > 0) return;
+    if (e.target.closest('input, textarea, select, [contenteditable], .f-map, .ai-log, .leaflet-container')) return;
+    d = { y: e.touches[0].clientY, x: e.touches[0].clientX, t: Date.now(), dy: 0, on: false };
+  }, { passive: true });
+  sh.addEventListener('touchmove', e => {
+    if (!d) return;
+    const dy = e.touches[0].clientY - d.y, dx = e.touches[0].clientX - d.x;
+    if (!d.on) { if (dy > 10 && dy > Math.abs(dx) * 1.5 && sh.scrollTop <= 0) d.on = true; else if (dy < -4 || Math.abs(dx) > 12) { d = null; return; } else return; }
+    e.preventDefault(); d.dy = Math.max(0, dy - 10); sh.style.transition = 'none'; sh.style.transform = `translateY(${d.dy}px)`;
+  }, { passive: false });
+  const end = () => {
+    if (!d) return; const x = d; d = null; if (!x.on) return;
+    sh.style.transition = 'transform .2s cubic-bezier(.2,.8,.2,1)';
+    if (x.dy > 110 || (x.dy > 50 && Date.now() - x.t < 280)) {   // дотянули или смахнули быстро — закрыть
+      sh.style.transform = 'translateY(100%)';
+      setTimeout(() => { closeSheet(); sh.style.transition = sh.style.transform = ''; }, 190);
+    } else { sh.style.transform = ''; setTimeout(() => { sh.style.transition = ''; }, 210); }
+  };
+  sh.addEventListener('touchend', end); sh.addEventListener('touchcancel', end); }
 const sheetOpen = () => $('#ov').classList.contains('show');
 const catChips = (selId, act) => S.cats.map(c => `<button type="button" class="ccat${c.id===selId?' on':''}" data-act="${act}" data-id="${c.id}" style="--c:${c.color}"><i></i>${esc(c.name)}</button>`).join('');
 
@@ -441,7 +475,7 @@ function openEvent(id, preset, instDate) {
   <div class="frow"><span class="fl">Задача</span><div><div class="f-hrow" style="margin-top:9px"><label class="swl" style="margin-top:0"><input id="f_task" class="sw" type="checkbox"${e.task?' checked':''}> Показывать в «Задачах»</label>${hintK('task')}</div>
     <div id="f_prio" class="chips" style="display:${e.task?'flex':'none'}">${PRIO_ORDER.map(k => `<button type="button" class="chip prio${window._fe.prio===k?' on':''}" data-act="fprio" data-p="${k}" style="--c:${PRIO[k].c}">${PRIO[k].n}</button>`).join('')}</div></div></div>
   <div class="frow"><span class="fl">Напомнить</span><div><div class="f-hrow f-remh"><span id="f_remsum" class="f-remsum">${remSum(window._fe.rems)}</span>${hintK('remind')}</div>
-    <div id="f_rems" class="chips">${remChips(window._fe.rems)}</div></div></div>
+    <div id="f_rems" class="chips">${remChips(window._fe.rems)}</div><div id="f_remwarn">${remWarnHTML()}</div></div></div>
   <div class="frow"><span class="fl">Место</span><div><div class="f-locrow"><input id="f_loc" class="fin" type="text" value="${esc(e.loc||'')}" placeholder="Адрес или ссылка" autocomplete="off"><button type="button" id="f_mapb" class="f-mapb${window._fe.geo ? ' on' : ''}" data-act="fmap" title="Точка на карте" aria-label="Точка на карте" aria-expanded="false">${I(IC.pin, 18)}</button></div>
     <div id="f_map" class="f-map" hidden></div><div id="f_mapbar" class="f-mapbar" hidden></div></div></div>
   <div class="frow"><span class="fl">Заметка</span><textarea id="f_n" class="fin" placeholder="Подробности">${esc(e.note||'')}</textarea></div>
@@ -483,7 +517,7 @@ ACT.fmem = el => {
   fe.cat = validCat(s.cat); $$('#f_cats .ccat').forEach(b => b.classList.toggle('on', b.dataset.id === fe.cat));
   $('#f_task').checked = !!s.task; $('#f_prio').style.display = s.task ? 'flex' : 'none';
   fe.prio = PRIO[s.prio] ? s.prio : 'mid'; $$('#f_prio .chip').forEach(b => b.classList.toggle('on', b.dataset.p === fe.prio));
-  fe.rems = new Set(remOffs(s)); $('#f_rems').innerHTML = remChips(fe.rems); $('#f_remsum').textContent = remSum(fe.rems);
+  fe.rems = new Set(remOffs(s)); $('#f_rems').innerHTML = remChips(fe.rems); $('#f_remsum').textContent = remSum(fe.rems); remWarn();
   $('#f_loc').value = s.loc || ''; $('#f_n').value = s.note || '';
   fe.geo = geoOk(s.geo) ? [s.geo[0], s.geo[1]] : null; mapSync();
   $('#f_mem').hidden = true;
@@ -498,7 +532,17 @@ const remSum = set => { const l = [...set].sort((a, b) => b - a).map(remWord); r
 // Свои (старые) значения, которых нет в списке, тоже показываем кнопками
 const remChips = set => [...new Set([...REM_OPT, ...set])].sort((a, b) => a - b).map(v => `<button type="button" class="chip${set.has(v) ? ' on' : ''}" data-act="remchip" data-v="${v}" aria-pressed="${set.has(v)}">${remChipName(v)}</button>`).join('');
 ACT.remchip = el => { const fe = window._fe; if (!fe) return; const v = Number(el.dataset.v); fe.rems.has(v) ? fe.rems.delete(v) : fe.rems.add(v);
-  el.classList.toggle('on', fe.rems.has(v)); el.setAttribute('aria-pressed', fe.rems.has(v)); const s = $('#f_remsum'); if (s) s.textContent = remSum(fe.rems); };
+  el.classList.toggle('on', fe.rems.has(v)); el.setAttribute('aria-pressed', fe.rems.has(v)); const s = $('#f_remsum'); if (s) s.textContent = remSum(fe.rems); remWarn(); };
+// Напоминание выбрано, а уведомления на этом устройстве не включены — сказать сразу, в карточке (18 октября 2026: человек ставил
+// «за час», а уведомление не приходило). «Включить» — только там, где включить можно прямо здесь; иначе — причина (нужен вход,
+// приложение с «Домой» на iPhone, запрещены в настройках телефона). Окно при этом не закрывается — набранное не пропадает
+function remWarnHTML() {
+  const fe = window._fe; if (!fe || !fe.rems.size || notif.on) return '';
+  const can = signedIn() && pushSupported() && !(isIOS && navigator.standalone !== true) && Notification.permission !== 'denied';
+  return `<div class="f-remwarn">${I(IC.alert, 15)}<span>${can ? 'На этом устройстве напоминания выключены — без этого уведомление не придёт.' : esc(notif.text) + '.'}</span>${can ? '<button type="button" class="pill sm" data-act="remnudge">Включить</button>' : ''}</div>`;
+}
+const remWarn = () => { const w = $('#f_remwarn'); if (w) w.innerHTML = remWarnHTML(); };
+ACT.remnudge = async () => { await enablePush(); await checkNotif(); remWarn(); };
 
 const PALETTE = ['#ef4444','#f97316','#f59e0b','#eab308','#22c55e','#14b8a6','#38bdf8','#3b82f6','#6366f1','#a855f7','#ec4899','#64748b'];
 
