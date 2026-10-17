@@ -38,18 +38,24 @@ const hintK = k => HINTS[k] ? hint(HINTS[k]) : '';
 const withHint = (text, k) => { const s = String(text), i = s.lastIndexOf(' '), tail = s.slice(i + 1);
   return i < 0 || /[<>]/.test(tail) ? `<span class="hint-nw">${s}${hintK(k)}</span>` : `${s.slice(0, i + 1)}<span class="hint-nw">${tail}${hintK(k)}</span>`; };
 
-let tipFor = null, tipPinned = false, hintAt = 0, hintW = 0;
+let tipFor = null, tipPinned = false;
 function showTip(el, pin) {
   let t = $('#tip');
   if (!t) { t = document.createElement('div'); t.id = 'tip'; t.setAttribute('role', 'tooltip'); document.body.appendChild(t); }
   if (tipFor && tipFor !== el) tipFor.setAttribute('aria-expanded', 'false');
-  tipFor = el; tipPinned = !!pin; hintAt = Date.now(); hintW = innerWidth; el.setAttribute('aria-expanded', 'true');
-  t.textContent = el.dataset.tip; t.classList.add('show');
+  tipFor = el; tipPinned = !!pin; el.setAttribute('aria-expanded', 'true');
+  t.textContent = el.dataset.tip; t.dataset.k = 'hint'; t.classList.add('show');   // окошко общее с подсказками графиков (charts.js)
   hintPlace();
 }
 // Под значком, а если внизу мало места — над ним; по ширине не выходит за край экрана
 function hintPlace() {
-  const t = $('#tip'), el = tipFor; if (!t || !el) return;
+  const t = $('#tip'); if (!t || !tipFor) return;
+  if (!tipFor.isConnected) {   // страница перерисовалась и значок заменён таким же — подсказка переходит к нему; такого нет — ей не к чему относиться
+    const h = [...document.querySelectorAll('.hint')].find(x => x.dataset.tip === t.textContent && x.getClientRects().length);
+    if (!h) return hideTip();
+    tipFor = h; h.setAttribute('aria-expanded', 'true');
+  }
+  const el = tipFor;
   const r = el.getBoundingClientRect(), w = Math.min(300, innerWidth - 24); t.style.maxWidth = w + 'px';
   const tw = t.offsetWidth, th = t.offsetHeight, below = r.bottom + 8 + th < innerHeight - 8 || r.top - 8 - th < 8;
   t.style.left = Math.max(12, Math.min(r.left + r.width / 2 - tw / 2, innerWidth - tw - 12)) + 'px';
@@ -64,14 +70,17 @@ ACT.hint = el => { if (tipFor === el && tipPinned) hideTip(); else showTip(el, t
 const canHover = matchMedia('(hover: hover) and (pointer: fine)');
 document.addEventListener('mouseover', e => { const h = canHover.matches && e.target.closest && e.target.closest('.hint'); if (h && h !== tipFor && !tipPinned) showTip(h, false); });
 document.addEventListener('mouseout', e => { const h = e.target.closest && e.target.closest('.hint'); if (h && h === tipFor && !tipPinned && !h.contains(e.relatedTarget)) hideTip(); });
-document.addEventListener('pointerdown', e => { if (tipFor && !(e.target.closest && e.target.closest('.hint, #tip'))) hideTip(); }, true);
+// Закрывает подсказку только нажатие мимо неё. Прокрутка пальцем — не нажатие: палец сдвинулся больше чем на 10 px или браузер
+// забрал жест себе (pointercancel) — подсказка остаётся
+let tipTap = null;
+document.addEventListener('pointerdown', e => { tipTap = tipFor && !(e.target.closest && e.target.closest('.hint, #tip')) ? [e.clientX, e.clientY] : null; }, true);
+document.addEventListener('pointerup', e => { const p = tipTap; tipTap = null; if (p && tipFor && Math.hypot(e.clientX - p[0], e.clientY - p[1]) < 10) hideTip(); }, true);
+document.addEventListener('pointercancel', () => { tipTap = null; }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && tipFor) { e.stopImmediatePropagation(); e.preventDefault(); hideTip(); } }, true);
-// Прокрутка и изменение высоты экрана (на iPhone — от малейшего движения пальцем и адресной строки) подсказку не прячут:
-// она едет за значком и пропадает, только когда значок ушёл с экрана или его больше нет. Первые 3 с — не пропадает совсем
-// (правка бета-тестеров 17 октября 2026: «на телефоне „?“ слишком быстро пропадает»). Закрыть — нажать мимо, Esc или на «?»
-addEventListener('scroll', () => {
-  if (!tipFor) return;
-  const r = tipFor.getBoundingClientRect(), gone = !tipFor.isConnected || r.bottom < 0 || r.top > innerHeight;
-  if (gone && Date.now() - hintAt > 3000) hideTip(); else if (!gone) hintPlace();
-}, true);
-addEventListener('resize', () => { if (!tipFor) return; if (innerWidth !== hintW && Date.now() - hintAt > 3000) hideTip(); else hintPlace(); });
+// «?» пропадает, только если нажать на экран: мимо подсказки, на «?» ещё раз или Esc (просьба пользователя 18 октября 2026:
+// «чтобы не пропадали, если не нажать на экран»; 17 октября бета-тестеры жаловались, что на телефоне «?» пропадает слишком быстро).
+// Прокрутка, поворот и изменение высоты экрана (на iPhone — адресная строка, клавиатура) не прячут: подсказка едет за значком,
+// а перерисовка страницы (например, раз в 30 с) переносит её на новый такой же значок
+addEventListener('scroll', () => { if (tipFor) hintPlace(); }, true);
+addEventListener('resize', () => { if (tipFor) hintPlace(); });
+new MutationObserver(() => { if (tipFor && !tipFor.isConnected) hintPlace(); }).observe(document.body, { childList: true, subtree: true });

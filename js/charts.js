@@ -114,9 +114,13 @@ function donutSVG(segs, size, center, sub) {
 const legendHTML = items => `<div class="lgd">${items.map(it => `<span><i style="background:${it.color}"></i>${esc(it.name)}${it.val != null ? ` <b>${esc(it.val)}</b>` : ''}</span>`).join('')}</div>`;
 
 // ---- Подсказка: перекрестие на линиях, наведение на столбики, доли и клетки с data-tip ----
+// Окошко #tip общее с подсказками «?» (js/help.js): графики трогают его, только когда в нём их подсказка (dataset.k = chart), и не берут
+// себе «?» (у них тоже data-tip). Иначе любое касание и прокрутка прятали «?», а нажатие на «?» убирало его через 2,6 с
 const tipEl = document.createElement('div'); tipEl.id = 'tip'; tipEl.setAttribute('role', 'tooltip'); document.body.appendChild(tipEl);
 let tipTimer;
 function tipShow(x, y, title, rows) {
+  if (tipFor) hideTip();   // открытая подсказка «?» уступает место подсказке графика
+  tipEl.dataset.k = 'chart';
   tipEl.textContent = '';
   if (title) { const t = document.createElement('div'); t.className = 'tp-h'; t.textContent = title; tipEl.appendChild(t); }
   (rows || []).forEach(([color, name, val]) => {
@@ -133,7 +137,7 @@ function tipShow(x, y, title, rows) {
   if (ly < 8) ly = y + 18;
   tipEl.style.left = Math.max(8, lx) + 'px'; tipEl.style.top = ly + 'px';
 }
-const tipHide = () => { tipEl.classList.remove('show'); $$('.chart .xh, .chart .xb').forEach(l => l.style.opacity = 0); $$('.chart .hd').forEach(g => g.innerHTML = ''); };
+const tipHide = () => { if (tipEl.dataset.k === 'chart') tipEl.classList.remove('show'); $$('.chart .xh, .chart .xb').forEach(l => l.style.opacity = 0); $$('.chart .hd').forEach(g => g.innerHTML = ''); };
 function tipAt(e) {
   const box = e.target.closest && e.target.closest('.chart[data-ch]');
   if (box) {
@@ -150,14 +154,14 @@ function tipAt(e) {
       : spec.series.map(s => [s.color, s.name, s.vals[i] == null ? '—' : spec.fmt ? spec.fmt(s.vals[i]) : s.vals[i]]);
     return tipShow(e.clientX, e.clientY, spec.tipTitle ? spec.tipTitle(i) : spec.xs[i], rows);
   }
-  const t = e.target.closest && e.target.closest('[data-tip]');
+  const t = e.target.closest && e.target.closest('[data-tip]:not(.hint)');
   if (t) { const lines = t.getAttribute('data-tip').split('\n'); return tipShow(e.clientX, e.clientY, lines[0], lines.slice(1).map(l => [null, '', l])); }
   if (tipEl.classList.contains('show')) tipHide();
 }
 document.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') tipAt(e); });
 document.addEventListener('pointerdown', e => {
   if (e.pointerType === 'mouse') return;
-  if (e.target.closest && e.target.closest('.chart[data-ch], [data-tip]')) { tipAt(e); clearTimeout(tipTimer); tipTimer = setTimeout(tipHide, 2600); }
+  if (e.target.closest && e.target.closest('.chart[data-ch], [data-tip]:not(.hint)')) { tipAt(e); clearTimeout(tipTimer); tipTimer = setTimeout(tipHide, 2600); }
   else tipHide();
 });
 addEventListener('scroll', () => { if (tipEl.classList.contains('show')) tipHide(); }, { passive:true, capture:true });

@@ -296,14 +296,14 @@ function profEditHTML() {
       <div class="acc-row"><span class="acc-t"><b>Друзья</b><small>Добавлять друзей, смотреть их календарь и соревноваться в привычках.</small></span><span class="soon">Скоро</span></div></div>`;
   else body = `<div class="card"><div class="pe-sec">Личные данные</div>
       <div class="pe-grid">
-        <label class="pe-f"><span>Имя или никнейм · до ${NAME_MAX} знаков</span><input class="fin" data-pf="name" value="${v('name')}" maxlength="${NAME_MAX}" placeholder="Как вас называть" autocomplete="nickname"></label>
+        <label class="pe-f"><span>Имя или никнейм · до ${NAME_MAX} знаков</span><input class="fin" data-pf="name" data-nchk="name" value="${v('name')}" maxlength="${NAME_MAX}" placeholder="Как вас называть" autocomplete="nickname"></label>
         <label class="pe-f"><span>Пол</span><select class="fin" data-pf="gender"><option value="">Не указан</option><option value="m"${st.gender === 'm' ? ' selected' : ''}>Мужской</option><option value="f"${st.gender === 'f' ? ' selected' : ''}>Женский</option></select></label>
         <label class="pe-f full"><span>Девиз</span><input class="fin" data-pf="motto" value="${v('motto')}" maxlength="90" placeholder="Каждый день — шаг к мечте" autocomplete="off"></label>
         <label class="pe-f full"><span>Обо мне</span><textarea class="fin hn-text" data-pf="about" maxlength="2048" placeholder="Напишите что-нибудь о себе…">${v('about')}</textarea><em class="pe-cnt" id="pe_cnt">${(st.about || '').length}/2048</em></label>
         <label class="pe-f"><span>День рождения</span><input class="fin" type="date" data-pf="birthday" value="${v('birthday')}" max="${todayK()}"></label>
         <label class="pe-f"><span>Страна</span><input class="fin" data-pf="country" value="${v('country')}" list="pe_countries" placeholder="Ваша страна" autocomplete="country-name"><datalist id="pe_countries">${COUNTRIES.map(c => `<option value="${c}">`).join('')}</datalist></label>
         <label class="pe-f"><span>Город</span><input class="fin" data-pf="city" value="${v('city')}" placeholder="Ваш город" autocomplete="address-level2"></label>
-        <label class="pe-f"><span>Ник</span><input class="fin" data-pf="nick" value="${v('nick')}" maxlength="24" placeholder="Ваш ник" autocomplete="off"></label>
+        <label class="pe-f"><span>Ник</span><input class="fin" data-pf="nick" data-nchk="nick" value="${v('nick')}" maxlength="24" placeholder="Ваш ник" autocomplete="off"></label>
       </div></div>
     <div class="card"><div class="pe-sec">Я в социальных сетях<small>Покажите, где вас ещё найти — ссылки появятся в профиле</small></div>
       ${(st.socials || []).map((x, i) => `<div class="pe-soc"><input class="fin" data-soc="${i}" data-f="url" value="${esc(x.url || '')}" placeholder="https://" inputmode="url" autocomplete="off" aria-label="Ссылка"><input class="fin" data-soc="${i}" data-f="title" value="${esc(x.title || '')}" placeholder="Я в соцсети" autocomplete="off" aria-label="Заголовок"><button class="cdel" data-act="socdel" data-i="${i}" aria-label="Удалить ссылку">${I(IC.trash)}</button></div>`).join('')}
@@ -337,6 +337,8 @@ document.addEventListener('change', async e => {
   }
   if (t.dataset.pf) {
     const f = t.dataset.pf; let val = t.value.trim();
+    // мат, оскорбления и служебные имена (admin, Parsimony) — недоступны: остаётся прежнее (js/names.js)
+    if (f === 'name' || f === 'nick') { const bad = nameBadMsg(t.value, f === 'nick'); if (bad) { t.value = S.settings[f] || ''; nameNote(t, ''); return toast(bad); } }
     if (f === 'name') { val = val.slice(0, NAME_MAX).trim(); t.value = val; }
     if (f === 'nick') { val = val.toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_.]/g, '').slice(0, 24); t.value = val; }
     if (f === 'birthday' && val && (!isDayKey(val) || val > todayK())) { t.value = S.settings.birthday || ''; return toast('Проверьте дату рождения'); }

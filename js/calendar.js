@@ -314,7 +314,7 @@ function render(dir) {
   closeQuick();
   const root = document.documentElement, cal = sec === 'cal', S2 = SEC[sec];
   if (cal && view === 'week' && innerWidth < 900) view = 'day';   // на телефоне неделя — полоской дней над «Днём»
-  applyLook(); hideTip();   // js/look.js, js/help.js
+  applyLook();   // js/look.js; открытая подсказка «?» переживает перерисовку — она переходит к новому значку (js/help.js)
   document.body.dataset.sec = sec;
   document.body.dataset.nonav = S2.noNav ? '1' : '';    // «Главная», «Профиль», «Настройки»: без стрелок периода
   document.body.dataset.nonew = S2.newLabel && sec !== 'home' && sec !== 'cal' && !(sec === 'tasks' && tView !== 'goals') ? '' : '1';   // на Главной, в Календаре и Задачах добавляют строкой ввода — «+» в шапке не повторяем (12 октября 2026)

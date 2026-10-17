@@ -238,6 +238,9 @@ body.ui2 .fh-t b{font-size:15px}
 .onb-a.on{border-color:var(--acc);color:var(--tx);background:color-mix(in srgb,var(--acc) 8%,var(--bg))}
 .onb-a.on i{background:var(--acc);border-color:var(--acc)}
 .onb-form .set-note{margin:4px 0 0}
+/* недоступное имя или ник — подсказка под полем (js/names.js) */
+.name-bad{display:block;font-size:12.5px;line-height:1.35;color:var(--bad);margin-top:2px}
+.frow .name-bad{grid-column:2}
 
 /* ---- Телефон ---- */
 @media(max-width:899px){
