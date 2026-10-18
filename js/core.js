@@ -13,7 +13,8 @@ const APP_TITLE = APP_NAME + (IS_BETA ? ' β' : '');
 const BETA_PILL = IS_BETA ? '<span class="beta-pill" title="Тестовая версия: здесь пробуются изменения до выхода к друзьям">β</span>' : '';
 // Имя пользователя — не длиннее 20 знаков: целиком помещается в шапке рядом с аватаром (решение пользователя 6 октября 2026)
 const NAME_MAX = 20;
-// Шрифт надписи Parsimony: 'josefin' (№14 Josefin Sans), 'vibes' (№9 Great Vibes), 'serif' (Instrument Serif) — стили в css/sections.css
+// Шрифт надписи Parsimony: 'josefin' (№14 Josefin Sans), 'vibes' (№9 Great Vibes), 'serif' (Instrument Serif) — стили в css/sections.css.
+// Грузится только шрифт выбранной надписи (index.html, ссылка на Google Fonts): сменили WORDMARK — поменяйте и её
 const WORDMARK = 'josefin';
 document.documentElement.dataset.wm = WORDMARK;
 const LS = 'remapp_v1';
