@@ -17,6 +17,9 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 git -C "$REPO" archive dev | tar -x -C "$TMP"
+# Пробная иконка только для беты (tools/beta-icons/icon-180/192/512.png): подменяет иконки в снимке беты, у друзей (main) — прежние.
+# Сейчас — «Py» шрифтом Mrs Saint Delafield, белым на чёрном (выбор пользователя 19 октября 2026, на пробу). Убрать папку — бета вернётся к обычной
+if [ -d "$TMP/tools/beta-icons" ]; then cp "$TMP/tools/beta-icons/"icon-*.png "$TMP/"; fi
 rm -rf "$TMP/tools"
 printf 'beta.parsimony.ru\n' > "$TMP/CNAME"
 sed -i 's/"name": "Parsimony"/"name": "Parsimony β"/; s/"short_name": "Parsimony"/"short_name": "Parsimony β"/' "$TMP/manifest.json"
