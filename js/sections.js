@@ -88,7 +88,7 @@ document.addEventListener('change', e => { if (e.target.classList.contains('ms-d
 
 // ---- Пример для пробы: заполнить раздел, чтобы увидеть, как он выглядит; потом убрать одной кнопкой ----
 const demoBar = (key, on) => on
-  ? `<div class="demobar">${I(IC.spark, 16)}<span>Это <b>пример</b> — ваши данные он не затрагивает.</span><button class="btn" data-act="demooff" data-s="${key}">Убрать пример</button></div>`
+  ? `<div class="demobar">${I(IC.spark, 16)}<span>Это <b>пример</b> — не ваши записи</span><button class="btn" data-act="demooff" data-s="${key}">Убрать</button></div>`   // одной строкой (было ~90 px на каждой странице)
   : '';
 const emptyCard = (key, title, text) => `<div class="card empty-card"><b>${title}</b><p>${text}</p><div class="row"><button class="btn pri" data-act="add">${I(IC.plus, 16)} ${SEC[key].newLabel}</button><button class="btn" data-act="demoon" data-s="${key}">${I(IC.spark, 16)} Показать на примере</button></div></div>`;
 ACT.demoon = el => { const s = SEC[el.dataset.s]; if (!s || !s.demo) return; s.demo(true); save(); render(); toast('Добавлен пример — посмотрите, как всё выглядит'); };

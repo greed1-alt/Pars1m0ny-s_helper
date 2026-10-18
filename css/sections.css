@@ -447,6 +447,7 @@ table.hg,table.hw{border-collapse:separate;border-spacing:0;font-size:12px}
 .hg-name button,.hw th button{display:flex;align-items:center;gap:7px;width:100%;min-height:30px;padding:3px 6px;border-radius:7px;text-align:left;font-size:13px;font-weight:500}
 .hg-name .em,.hw .em{flex:none;width:18px;text-align:center}
 .hg-name .nm,.hw .nm{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hg-name .nm{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.25;overflow-wrap:anywhere}   /* название привычки — до двух строк, а не «2 литра …» */
 .hg-name .nm small{display:block;font-size:12px;color:var(--mut);font-weight:500}
 @media(hover:hover){.hg-name button:hover,.hw th button:hover{background:var(--hov)}}
 thead th.hg-name{font-size:12px;color:var(--mut);font-weight:600;padding-left:6px!important;vertical-align:bottom}

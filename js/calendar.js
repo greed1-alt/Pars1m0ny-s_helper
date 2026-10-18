@@ -317,7 +317,10 @@ function render(dir) {
   applyLook();   // js/look.js; открытая подсказка «?» переживает перерисовку — она переходит к новому значку (js/help.js)
   document.body.dataset.sec = sec;
   document.body.dataset.nonav = S2.noNav ? '1' : '';    // «Главная», «Профиль», «Настройки»: без стрелок периода
-  document.body.dataset.nonew = S2.newLabel && sec !== 'home' && sec !== 'cal' && !(sec === 'tasks' && tView !== 'goals') ? '' : '1';   // на Главной, в Календаре и Задачах добавляют строкой ввода — «+» в шапке не повторяем (12 октября 2026)
+  // Привычки: «+» не нужен — в карточке «Сегодня» и в таблице есть «+ Привычка» (мелочи из аудита, 19 октября 2026)
+  document.body.dataset.nonew = S2.newLabel && sec !== 'home' && sec !== 'cal' && sec !== 'habits' && !(sec === 'tasks' && tView !== 'goals') ? '' : '1';
+  // Привычки и Финансы на текущем месяце: вторая строка шапки телефона («Сегодня» и поиск) не нужна — прячется (css/ui2.css)
+  document.body.dataset.cur = (sec === 'habits' || sec === 'fin') && secYM === ymOf(todayK()) ? '1' : '';   // на Главной, в Календаре и Задачах добавляют строкой ввода — «+» в шапке не повторяем (12 октября 2026)
   $('#ttl').innerHTML = cal ? titleHTML() : S2.title();
   $$('header [data-v]').forEach(b => b.classList.toggle('on', sec === 'tasks' ? b.dataset.v === 'tasks' : b.dataset.v === view));
   document.body.dataset.plan = planOn() && (cal || sec === 'tasks') ? '1' : '';   // «План» на телефоне: общий переключатель виден и в Задачах

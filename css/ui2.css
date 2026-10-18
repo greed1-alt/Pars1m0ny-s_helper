@@ -15,6 +15,16 @@ body.ui2 main.sec .card{border-radius:var(--rc);padding:18px}
 body.ui2 main.sec .card-h{margin-bottom:14px}
 body.ui2 main.sec .card-h>b{font-size:16.5px}
 body.ui2 .missbar,body.ui2 .demobar{border-radius:14px;padding:12px 14px}
+body.ui2 .demobar{padding:6px 6px 6px 12px;font-size:13.5px}   /* «Это пример» — одной строкой */
+body.ui2 .demobar .btn{height:32px;padding:0 12px}
+@media (max-width:899px){
+  /* «Все» в Задачах: дата и «просрочено на N дней» — второй строкой под названием, название — во всю ширину (было «Позвон…») */
+  .t3-list .t3-row{flex-wrap:wrap}
+  .t3-list .t3-row:has(.t3-meta) .t3-main{padding-bottom:2px}
+  .t3-list .t3-meta{flex-basis:100%;padding:0 0 8px 48px;margin-top:-2px}
+  /* Привычки и Финансы на текущем месяце: вторая строка шапки («Сегодня», поиск) не нужна */
+  body[data-cur="1"] .bar2{display:none}
+}
 body.ui2 .missbar b{font-size:14.5px}
 body.ui2 .ev{padding:10px 4px;gap:12px}
 body.ui2 .evb b{font-size:15.5px}
