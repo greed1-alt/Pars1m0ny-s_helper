@@ -69,6 +69,11 @@ const hx = h => { h = String(h).replace('#', ''); if (h.length === 3) h = h.repl
 const toHex = a => '#' + a.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
 const mixC = (a, b, t) => { const A = hx(a), B = hx(b); return toHex(A.map((v, i) => v + (B[i] - v) * t)); };
 const rgba = (h, a) => `rgba(${hx(h).join(',')},${a})`;
+// Контраст по WCAG. Приглушённый текст (--mut) доводится до 4,5:1 к фону страницы, карточки и полей во всех палитрах и темах
+// (аудит 18 октября 2026: в тёмной «Индиго» было 4,13:1, в светлых палитрах — 3,2–3,6:1). Цвет понемногу сдвигается к основному тексту — оттенок палитры остаётся
+const lumC = h => { const [r, g, b] = hx(h).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * r + .7152 * g + .0722 * b; };
+const ratioC = (a, b) => { const x = lumC(a), y = lumC(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+const readableC = (fg, toward, bgs, min = 4.5) => { for (let i = 0; i <= 20; i++) { const c = i ? mixC(fg, toward, i / 20) : fg; if (bgs.every(b => ratioC(c, b) >= min)) return c; } return toward; };
 
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
 const darkNow = () => { const t = S.settings.theme; return t === 'dark' || t === 'black' || (t === 'auto' && darkMQ.matches); };
@@ -89,6 +94,7 @@ function applyLook() {
   if (st.contrast === 'high') { tx = dark ? '#ffffff' : '#000000'; tx2 = mixC(tx2, tx, .5); mut = mixC(mut, tx, .4); line = mixC(line, tx, .2); }
   else if (st.contrast === 'soft') { tx = mixC(tx, page, .14); tx2 = mixC(tx2, page, .08); line = mixC(line, page, .35); }
   const card = st.card === 'line' ? page : c.sf;
+  mut = readableC(mut, tx, [page, card, c.bg2]);
   const cardbd = st.card === 'line' || st.contrast === 'high' ? line : 'transparent';
   const cardsh = st.card !== 'soft' ? 'none' : dark ? '0 1px 2px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.045)' : `0 1px 2px ${rgba(c.tx, .05)},0 6px 18px ${rgba(c.tx, .06)}`;
   const bright = st.evc === 'bright';

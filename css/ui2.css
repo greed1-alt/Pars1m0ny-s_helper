@@ -2,9 +2,9 @@
    Всё внутри body.ui2 — при выключенном переключателе в Настройках действует прежний вид. */
 
 /* Метка категории: точка + название в «таблетке», отдельно от названия события */
-.ctag{display:inline-flex;align-items:center;gap:5px;height:20px;max-width:150px;padding:0 8px 0 6px;border-radius:999px;font-size:11.5px;font-weight:600;line-height:1;letter-spacing:0;text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;background:color-mix(in srgb,var(--c) 15%,transparent);color:color-mix(in srgb,var(--c) 72%,var(--tx))}
+.ctag{display:inline-flex;align-items:center;gap:5px;height:20px;max-width:150px;padding:0 8px 0 6px;border-radius:999px;font-size:12px;font-weight:600;line-height:1;letter-spacing:0;text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;background:color-mix(in srgb,var(--c) 15%,transparent);color:color-mix(in srgb,var(--c) 72%,var(--tx))}
 .ctag i{width:7px;height:7px;border-radius:50%;background:var(--c);flex:none}
-.pbadge{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;font-size:11.5px;font-weight:700;line-height:1;white-space:nowrap;flex:none;background:color-mix(in srgb,var(--c) 16%,transparent);color:color-mix(in srgb,var(--c) 80%,var(--tx))}
+.pbadge{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:700;line-height:1;white-space:nowrap;flex:none;background:color-mix(in srgb,var(--c) 16%,transparent);color:color-mix(in srgb,var(--c) 80%,var(--tx))}
 body.ui2 .evb small{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:5px}
 body.ui2 .evb small .ev-tm{font-weight:600;color:var(--tx2)}
 body.ui2 .ag-txt small{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px}
@@ -59,7 +59,7 @@ body.ui2 .chk{width:22px;height:22px;border-radius:7px}
 .om-c.ctag{padding-left:8px}
 .om-c.ctag.dflt{opacity:.75;border:1px dashed color-mix(in srgb,var(--c) 50%,transparent)}
 button.om-c{cursor:pointer}
-button.om-c::after{content:'⟳';font-size:11px;opacity:.55;margin-left:1px}
+button.om-c::after{content:'⟳';font-size:12px;opacity:.55;margin-left:1px}
 .om-amt{background:color-mix(in srgb,var(--c-red) 14%,transparent);color:color-mix(in srgb,var(--c-red) 85%,var(--tx))}
 .om-amt.plus{background:color-mix(in srgb,var(--good) 15%,transparent);color:color-mix(in srgb,var(--good) 85%,var(--tx))}
 .om-more{font-size:12.5px;font-weight:600;color:var(--mut);text-decoration:underline;text-underline-offset:3px;padding:4px 2px;margin-left:auto}
@@ -75,6 +75,19 @@ button.om-c::after{content:'⟳';font-size:11px;opacity:.55;margin-left:1px}
 #sh .om-types{margin:12px -18px 0;padding:0 18px 2px}
 .h2-omni{padding:16px 18px!important;border-color:color-mix(in srgb,var(--acc) 22%,var(--line))!important}
 .h2-omni.pulse .om-box{animation:omPulse 1.2s ease-out 2}
+/* «спокойная» строка ввода (Месяц, День, Задачи): в покое — одна строка */
+.om.calm:not(.open) .om-types,.om.calm:not(.open) .om-prev{display:none}
+.om.calm:not(.open) .om-box{height:50px}
+.h2-omni:has(.om.calm:not(.open)){padding:10px 12px!important}
+/* «Вы пропустили» тонкой строкой (План, Задачи) — видно, но не кричит */
+body.ui2 .missbar.thin{padding:8px 12px;gap:8px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+body.ui2 .missbar.thin b{font-size:14px;font-weight:600}
+.missbar.thin em{color:var(--acc)}
+/* «Закрыть без сохранения?» над окном */
+#shask{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));z-index:80;display:flex;align-items:center;gap:8px;width:min(440px,calc(100% - 24px));padding:10px 10px 10px 16px;border-radius:16px;background:var(--sf);color:var(--tx);border:1px solid var(--line);box-shadow:var(--sh2);opacity:0;visibility:hidden;transform:translate(-50%,12px);transition:opacity .15s,transform .15s,visibility 0s .15s}
+#shask.show{opacity:1;visibility:visible;transform:translate(-50%,0);transition:opacity .15s,transform .15s}
+#shask span{flex:1;min-width:0;font-size:15px;font-weight:600}
+#shask .btn{height:40px;flex:none}
 @keyframes omPulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc) 45%,transparent)}100%{box-shadow:0 0 0 14px transparent}}
 
 /* ---- Главная ---- */
@@ -85,7 +98,7 @@ button.om-c::after{content:'⟳';font-size:11px;opacity:.55;margin-left:1px}
 .h2-line{margin:8px 0 0;font-size:14.5px;color:var(--tx2);max-width:560px}
 .h2-ring{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px}
 .h2-ring .rg-t{font-size:23px}
-.h2-ring small{font-size:11.5px;font-weight:600;color:var(--mut)}
+.h2-ring small{font-size:12px;font-weight:600;color:var(--mut)}
 .h2-cols,.h2-col{display:flex;flex-direction:column;gap:16px;min-width:0}
 .h2-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
 .h2-h b{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700;letter-spacing:-.015em}
@@ -99,7 +112,7 @@ button.om-c::after{content:'⟳';font-size:11px;opacity:.55;margin-left:1px}
 .h2-h+.pl-row,.pl-sub+.pl-row{border-top:0}
 .pl-tm{padding-top:1px;line-height:1.2}
 .pl-tm b{display:block;font-size:14px;font-weight:650}
-.pl-tm small{display:block;font-size:11.5px;color:var(--mut)}
+.pl-tm small{display:block;font-size:12px;color:var(--mut)}
 .pl-row .chk{margin-top:0}
 .pl-main{display:flex;flex-direction:column;gap:6px;min-width:0;text-align:left}
 .pl-t{font-size:16px;font-weight:550;line-height:1.3;overflow-wrap:anywhere}
@@ -160,7 +173,7 @@ body.ui2 .fh-t b{font-size:15px}
 /* ---- Задачи ---- */
 .t2-seg{width:100%;margin-bottom:6px}
 .t2-seg button{flex:1;height:38px;font-size:14px;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
-.t2-seg em{font-style:normal;display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--acc);color:var(--accfg);font-size:11.5px;font-weight:700}
+.t2-seg em{font-style:normal;display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--acc);color:var(--accfg);font-size:12px;font-weight:700}
 .t2-flt{display:flex;flex-direction:column;gap:10px;margin:10px 0 6px}
 .t2-flt .seg2{align-self:flex-start}
 .t2-prios{display:flex;gap:6px;flex-wrap:wrap}
@@ -171,10 +184,10 @@ body.ui2 .fh-t b{font-size:15px}
 .wgwrap.fz .wg-col{background-image:none}
 .wg-lines{position:absolute;inset:0;pointer-events:none}
 .wg-lines i{position:absolute;left:0;right:0;background-image:repeating-linear-gradient(to bottom,var(--grid) 0,var(--grid) 1px,transparent 1px,transparent var(--rh))}
-.wg-fold{position:absolute;left:0;right:0;z-index:2;display:flex;align-items:center;justify-content:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:repeating-linear-gradient(-45deg,transparent 0 7px,var(--hov) 7px 9px),var(--bg2);font-size:11.5px;font-weight:600;color:var(--mut);cursor:pointer}
+.wg-fold{position:absolute;left:0;right:0;z-index:2;display:flex;align-items:center;justify-content:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:repeating-linear-gradient(-45deg,transparent 0 7px,var(--hov) 7px 9px),var(--bg2);font-size:12px;font-weight:600;color:var(--mut);cursor:pointer}
 .wg-fold span{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line);white-space:nowrap}
 .wg-fold span::after{content:'⌄';font-size:12px;line-height:1;margin-top:-4px}
-.wg-foldlbl{display:flex;align-items:center;justify-content:flex-end;width:100%;padding-right:8px;font-size:10px;font-weight:600;color:var(--mut);border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg2)}
+.wg-foldlbl{display:flex;align-items:center;justify-content:flex-end;width:100%;padding-right:8px;font-size:12px;font-weight:600;color:var(--mut);border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg2)}
 @media(hover:hover){.wg-fold:hover span,.wg-foldlbl:hover{color:var(--tx)}}
 
 /* ---- Знакомство (первый запуск) ---- */
@@ -381,7 +394,7 @@ body.ui2 main.sec .card-h{margin-bottom:10px}
 @media(max-width:899px){.lk-wide{display:none}}
 @media(min-width:900px){.lk-pick{display:none}}
 .pals-sh{gap:6px}
-.pals-sh .pal{padding:4px 4px 6px;font-size:11.5px}
+.pals-sh .pal{padding:4px 4px 6px;font-size:12px}
 .pals-sh .pal-pv{height:38px}
 #ov.ov-light{background:rgba(0,0,0,.1)}
 .pal{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:5px 5px 7px;border:1.5px solid var(--line);border-radius:12px;font-size:12px;font-weight:500;color:var(--tx2);text-align:center;transition:border-color .12s}
@@ -455,7 +468,7 @@ body.ui2 main.sec .card-h{margin-bottom:10px}
 .lo-seg button:disabled{opacity:.45;cursor:default}
 .lo-foot{display:flex;gap:8px;margin-top:14px}
 /* Вкладки внизу: если разделов больше пяти, подписи чуть мельче */
-#tabbar[data-n="6"] .tb-b{font-size:9.5px}
+#tabbar[data-n="6"] .tb-b{font-size:11px}
 
 /* ---- Подробный тур (js/tour.js): затемнение с «окном» вокруг элемента и подсказка ---- */
 #tour{position:fixed;inset:0;z-index:400;display:none}
@@ -570,9 +583,9 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 
 /* ---- Главная (12 октября 2026): середина между прежней и вариантом А — привычки «таблетками», остальное чуть свободнее ---- */
 .h2-hero{gap:12px}
-.h2-date{font-size:11.5px}
+.h2-date{font-size:12px}
 .h2-greet{margin-top:3px}
-.h2-ring small{font-size:11px}
+.h2-ring small{font-size:12px}
 .h2-ring .rg-t{font-size:20px}
 .h2-h{margin-bottom:6px}
 .h2-h b{font-size:16.5px}
@@ -632,7 +645,7 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .t3-more{display:block;width:100%;padding:10px 0 2px;text-align:left;font-size:13.5px;font-weight:600;color:var(--acc)}
 .t3-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 .t3-day{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 0 5px;border-radius:12px;background:var(--card);border:1px solid var(--cardbd,var(--line));transition:background .12s}
-.t3-day small{font-size:11px;font-weight:600;color:var(--mut)}
+.t3-day small{font-size:12px;font-weight:600;color:var(--mut)}
 .t3-day b{font-size:16px;font-weight:700;line-height:1.2}
 .t3-day.today b{color:var(--red)}
 .t3-day.past{opacity:.7}
@@ -655,7 +668,7 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .ai-clear.ask{color:var(--dng);background:color-mix(in srgb,var(--dng) 10%,transparent)}
 .ai-clear.ask span{display:inline}
 .ai-log{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:10px;padding:8px 2px 12px}
-.ai-day{align-self:center;font-size:11.5px;font-weight:600;color:var(--mut);padding:4px 0 0}
+.ai-day{align-self:center;font-size:12px;font-weight:600;color:var(--mut);padding:4px 0 0}
 .ai-m{display:flex;gap:8px;align-items:flex-end;min-width:0}
 .ai-m.u{justify-content:flex-end}
 .ai-mb{min-width:0;font-size:15px;line-height:1.45;overflow-wrap:anywhere}
@@ -773,7 +786,7 @@ div.ai-row{cursor:default}
 .ai-b{min-width:0}
 .ai-b b{display:block;font-size:14.5px;font-weight:600;overflow-wrap:anywhere}
 .ai-b small{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:3px;font-size:12.5px;color:var(--tx2)}
-.ai-note{margin:6px 4px 0;font-size:11.5px;line-height:1.4;color:var(--mut);text-align:center}
+.ai-note{margin:6px 4px 0;font-size:12px;line-height:1.4;color:var(--mut);text-align:center}
 @media(max-width:899px){.ai-row{grid-template-columns:22px minmax(0,1fr)}.ai-k{grid-column:2}.ai-b{grid-column:2}}
 
 /* ---- Задачи на ПК, вариант В «Фокус дня» (15 октября 2026) ---- */
@@ -809,7 +822,7 @@ div.ai-row{cursor:default}
 .t4-col u{background:var(--hov2)}
 .t4-col i{background:var(--good)}
 .t4-bar.on .t4-col u{background:color-mix(in srgb,var(--acc) 35%,transparent)}
-.t4-bar small{font-size:11.5px;font-weight:600;color:var(--mut);white-space:nowrap}
+.t4-bar small{font-size:12px;font-weight:600;color:var(--mut);white-space:nowrap}
 .t4-bar.today small{color:var(--red)}
 .t4-bar b{font-size:12px;font-weight:650;color:var(--tx2)}
 .t4-bar.past .t4-col{opacity:.75}
@@ -855,11 +868,11 @@ div.ai-row{cursor:default}
 .cd-day .t3-gh:first-child small,.cd-day .t3-gbtn{white-space:nowrap}
 .cd-tm{flex:none;align-self:stretch;width:50px;display:flex;flex-direction:column;justify-content:center;padding:6px 8px 6px 0;border-right:3px solid var(--c);line-height:1.15}
 .cd-tm b{font-size:13.5px;font-weight:650}
-.cd-tm small{font-size:11px;color:var(--mut);font-weight:500}
+.cd-tm small{font-size:12px;color:var(--mut);font-weight:500}
 .cd-row.past .t3-t{color:var(--tx2)}
 .cd-row.next .t3-t{font-weight:650}
 .cd-loc{max-width:38%;overflow:hidden;text-overflow:ellipsis;color:var(--mut);font-weight:500}
-.cd-now{display:flex;align-items:center;gap:6px;margin:3px 0;color:var(--red);font-size:11.5px;font-weight:700}
+.cd-now{display:flex;align-items:center;gap:6px;margin:3px 0;color:var(--red);font-size:12px;font-weight:700}
 .cd-now i{flex:1;height:2px;border-radius:1px;background:var(--red)}
 .cd-now+.t3-row{border-top:0}
 .cd-strip .t3-day.on .t3-marks i{box-shadow:0 0 0 1.5px var(--accfg)}
@@ -871,7 +884,7 @@ div.ai-row{cursor:default}
 .cf-past span{flex:1}
 .cf-past em{font-style:normal;font-size:12.5px;font-weight:600;color:var(--acc)}
 .cd-feed>.t3-gh:first-child{margin-top:2px}
-.wg-more{text-align:left;font-size:11px;font-weight:600;line-height:18px;color:var(--tx2);padding:0 6px;border-radius:5px}
+.wg-more{text-align:left;font-size:12px;font-weight:600;line-height:18px;color:var(--tx2);padding:0 6px;border-radius:5px}
 @media(hover:hover){.wg-more:hover{background:var(--hov2);color:var(--tx)}}
 @media(max-width:899px){
   /* Шапка: на телефоне «Месяц», «День» (почасовая сетка) и «Лента» (вид list) */

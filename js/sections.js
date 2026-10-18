@@ -50,8 +50,10 @@ const missedList = () => {
   return S.events.filter(e => !isRec(e) && !e.done && e.date < t && e.date >= from)
     .sort((a, b) => b.date.localeCompare(a.date) || (a.time || '').localeCompare(b.time || ''));
 };
-function missedBar(full) {
+// thin — тонкая строка «Пропущено: N · Разобрать» в Плане и Задачах; целиком плашка только на Главной (аудит 18 октября 2026: была на четырёх экранах)
+function missedBar(full, thin) {
   const l = missedList(); if (!l.length) return '';
+  if (thin) return `<button class="missbar thin" data-act="missopen">${I(IC.alert, 16)}<span><b>Пропущено: ${plural(l.length, ['дело', 'дела', 'дел'])}</b></span><em>Разобрать</em></button>`;
   const names = l.slice(0, full ? 3 : 2).map(e => esc(e.title)).join(', ') + (l.length > (full ? 3 : 2) ? '…' : '');
   return `<button class="missbar" data-act="missopen">${I(IC.alert, 18)}<span><b>Вы пропустили: ${plural(l.length, ['дело', 'дела', 'дел'])}</b><small>${names}</small></span><em>Разобрать</em></button>`;
 }

@@ -3,7 +3,7 @@ document.addEventListener('click', async ev => {
   if (Date.now() - lastDragEnd < 250) return;
   const el = ev.target.closest('[data-act]');
   if (quickOpen() && !$('#qc').contains(ev.target) && !(el && (el.dataset.act === 'colclick' || el.dataset.act === 'quickadd'))) closeQuick();
-  if (ev.target.id === 'ov') return closeSheet();
+  if (ev.target.id === 'ov') return closeSheetAsk();   // вписано в окно с «Сохранить» — сначала вопрос (calendar.js)
   if (ev.target.id === 'cmd') return closeCmd();
   if (!el) return;
   const a = el.dataset.act, id = el.dataset.id;
@@ -316,7 +316,7 @@ document.addEventListener('keydown', e => {
     if (drag) { const d = drag; drag = null; clearTimeout(d.timer); document.body.classList.remove('dragmode'); if (d.active) { lastDragEnd = Date.now(); render(); } return; }
     if (mk) { if (mk.ghost) mk.ghost.remove(); mk = null; document.body.classList.remove('dragmode'); return; }
     if (quickOpen()) { e.preventDefault(); closeQuick(); return; }
-    if (sheetOpen()) { e.preventDefault(); if (delAsk) { delAsk = null; openSettings(true); return; } closeSheet(); return; }
+    if (sheetOpen()) { e.preventDefault(); if (delAsk) { delAsk = null; openSettings(true); return; } closeSheetAsk(); return; }
     return;
   }
   if (e.key === 'Enter' && !e.isComposing) {

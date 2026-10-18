@@ -129,9 +129,13 @@ function omPrevHTML(p, id, demo) {
 }
 const omHint = st => `<span class="om-hint">${withHint(st.force ? 'Напишите и нажмите Enter' : st.ctx === 'tasks' ? 'Дата, время, <b>#категория</b> и <b>!</b> приоритет — прямо в тексте' : 'Пишите как говорите — Parsimony сам поймёт, что это: дело, встреча, трата или привычка', 'omni')}</span>`;
 
+// Месяц, День, Задачи (не Главная и не окно «Добавить»): в покое — одна строка, кнопки вида записи и подсказка — по нажатию
+// (аудит 18 октября 2026: строка с подсказкой занимала ~190 px на четырёх экранах, сетка «Дня» уходила ниже экрана).
+// На Главной строка прежняя — пользователь 12 октября 2026 вернул её после пробы такой же «спокойной» строки
+const omCalm = (id, ctx) => id !== 'oms' && (ctx === 'cal' || ctx === 'tasks');
 function omniHTML(id, ctx) {
   const st = omSt(id); st.ctx = ctx;
-  return `<div class="om" data-om="${id}">
+  return `<div class="om${omCalm(id, ctx) ? ' calm' : ''}${omCalm(id, ctx) && (st.v || st.force) ? ' open' : ''}" data-om="${id}">
     <div class="om-box">${I(IC.spark, 19)}<input id="${id}" class="om-in" type="text" value="${esc(st.v)}" placeholder="${esc(st.force ? OM_T[st.force].ph : st.ph || OM_PH[ctx] || OM_PH.home)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" aria-label="Быстрое добавление"><button class="om-go om-keep" data-act="omgo" data-om="${id}" aria-label="Добавить">${I(IC.plus, 20)}</button></div>
     <div class="om-types" role="group" aria-label="Что добавить"><button class="om-t om-ai om-keep" data-act="aiopen" data-om="${id}" title="Помощник: разложит сообщение по разделам">${I(IC.spark, 15)}Помощник</button>${OM_ORDER.filter(t => (ctx === 'home' || t === 'task' || t === 'event') && omOn(t)).map(t => `<button class="om-t om-keep" data-act="omtype" data-om="${id}" data-t="${t}" aria-pressed="false">${I(OM_T[t].ic, 15)}${OM_T[t].n}</button>`).join('')}</div>
     <div class="om-prev" id="${id}_prev" aria-live="polite"></div>
@@ -145,6 +149,7 @@ function omUpdate(id) {
   if (prev) prev.innerHTML = p ? omPrevHTML(p, id) : omHint(st);
   if (box) {
     box.classList.toggle('has', !!p);
+    if (i.value || st.force) box.classList.add('open');   // «спокойная» строка: пишут — кнопки и разбор видны (даже если фокус пришёл без focusin)
     box.querySelectorAll('.om-t').forEach(b => { const on = p ? b.dataset.t === p.type : b.dataset.t === st.force; b.classList.toggle('on', on); b.classList.toggle('auto', on && !st.force); b.setAttribute('aria-pressed', on); });
   }
   i.placeholder = st.force ? OM_T[st.force].ph : st.ph || OM_PH[st.ctx] || OM_PH.home;
@@ -195,6 +200,10 @@ ACT.omfull = el => {
   else { openQuickNote(); const t = $('#qn_text'); if (t) t.value = p.title; }
 };
 document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('om-in')) omUpdate(e.target.id); });
+// «Спокойная» строка раскрывается при нажатии и сворачивается, если ушли с пустым полем (пауза — чтобы успело сработать нажатие на кнопку вида)
+document.addEventListener('focusin', e => { const o = e.target.closest && e.target.closest('.om.calm'); if (o) o.classList.add('open'); });
+document.addEventListener('focusout', e => { const o = e.target.closest && e.target.closest('.om.calm'); if (!o) return;
+  setTimeout(() => { const i = o.querySelector('.om-in'), st = i && omSt(i.id); if (o.contains(document.activeElement) || !i || i.value.trim() || (st && st.force)) return; o.classList.remove('open'); }, 700); });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.target.classList && e.target.classList.contains('om-in')) { e.preventDefault(); omGo(e.target.id); } });
 
 // Окно «Добавить» (кнопка «Создать», клавиша N): та же строка + примеры + полные формы
@@ -405,7 +414,7 @@ function tasksHTML() {
   const views = [['main', wide ? 'Фокус дня' + (lateN ? ` <em class="late">${lateN}</em>` : '') : 'Неделя'], ['all', 'Все'], ['goals', 'Цели' + (gLate ? ` <em class="late">${gLate}</em>` : '')]];
   const tabs = `<div class="seg2 t2-seg" role="tablist" aria-label="Что показать">${views.filter(([v]) => !(planOn() && v === 'main')).map(([v, n]) => `<button class="${tView === v ? 'on' : ''}" data-act="tview" data-v="${v}" role="tab" aria-selected="${tView === v}">${n}</button>`).join('')}</div>`;
   // Вкладка «Цели» — та же страница целей (js/goals.js), что и раньше была отдельным разделом
-  if (tView === 'goals') return `${missedBar(true)}${tabs}${goalsHTML()}`;
+  if (tView === 'goals') return `${missedBar(false, true)}${tabs}${goalsHTML()}`;
   // Строка ввода на телефоне добавляет задачу на выбранный день; стоит между полоской дней и списком (правка пользователя 15 октября 2026)
   // На ПК («Фокус дня») — на день, который показан крупно
   const st = omSt('omt'); st.base = tView === 'main' && sel !== t ? sel : null;
@@ -432,7 +441,7 @@ function tasksHTML() {
   const blocks = wide ? '' : blk();   // на ПК доска и статистика идут под колонками
   const empty = !hasAny ? emptyCard('tasks', 'Задачи', 'Пишите задачи обычной фразой в строке ввода: «позвонить маме», «отчёт в пятницу #работа !!». Задача с датой видна и в календаре.') : '';
   // На ПК пропущенное — в самом списке («Просрочено»), отдельная плашка не повторяет его
-  const miss = wide && tView === 'main' ? '' : missedBar(true);
+  const miss = wide && tView === 'main' ? '' : missedBar(false, true);
   const goalsCard = secOn('tasks') && activeGoals().length ? `<div class="card t3-goals"><div class="h2-h"><b>${I(IC.goal, 18)}Цели</b><small>${gLate ? `<span class="late">просрочено шагов: ${gLate}</span>` : ''}</small></div>${goalsMiniHTML(3)}<div class="hm-foot"><span></span><button data-act="gall">Все цели →</button></div></div>` : '';
   // ПК, «Фокус дня»: доски недели нет — её заменяют столбики недели и «Дальше»
   if (wide && tView === 'main') return `${demoBar('tasks', demo)}${empty}${tabs}

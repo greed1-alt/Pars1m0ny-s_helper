@@ -34,7 +34,7 @@ function monthHTML() {
   }).join('');
   h += '</div>';
   if (side) return `<div class="wkview"><div class="wkgrid">${h}</div><aside class="wkside">${calDayHTML(sel, true)}</aside></div>`;
-  return pc ? h : `<div class="cd-wrap">${missedBar()}${h}${calDayHTML(sel)}</div>`;
+  return pc ? h : `<div class="cd-wrap">${missedBar(false, true)}${h}${calDayHTML(sel)}</div>`;
 }
 
 // ---- Календарь, вариант А (12 октября 2026): выбранный день списком — на телефоне под месяцем или полоской недели,
@@ -117,7 +117,7 @@ function feedHTML() {
     flush(); out.push(feedDay(k, all, nx, nm)); }
   flush();
   const st = omSt('omc'); st.base = sel !== t ? sel : null; st.ph = st.base ? `Добавить на ${relDay(sel)}…` : null;
-  return `<div class="cd-wrap">${missedBar()}${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>
+  return `<div class="cd-wrap">${missedBar(false, true)}${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>
     <div class="card t3-list cd-feed">${out.join('')}<button class="t3-more" data-act="cdmore">Следующие 2 недели →</button></div></div>`;
 }
 
@@ -229,7 +229,7 @@ function phoneDayHTML() {
   const plan = planOn(), tl = plan ? daySort(dayTasks(sel).filter(e => !e.time)) : [], dn = tl.filter(e => e.done).length, show = cdTasksAll ? tl : tl.slice(0, 6);
   const tasks = tl.length ? `<div class="card t3-list cd-tasks">${t3Head(withHint('Задачи', 'taskRing'), `${dn} из ${tl.length}`)}${show.map(e => t3Row(e, sel, '')).join('')}
     ${tl.length > 6 ? `<button class="t3-more" data-act="cdtasks">${cdTasksAll ? 'Свернуть' : `Ещё ${tl.length - 6}`}</button>` : ''}</div>` : '';
-  return `<div class="cd-wrap">${missedBar()}${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>${tasks}<div class="card cd-grid">${gridHTML([sel], { noTasks: plan })}</div></div>`;
+  return `<div class="cd-wrap">${missedBar(false, true)}${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>${tasks}<div class="card cd-grid">${gridHTML([sel], { noTasks: plan })}</div></div>`;
 }
 let cdTasksAll = false;
 ACT.cdtasks = () => { cdTasksAll = !cdTasksAll; render(); };
@@ -381,10 +381,28 @@ function toast(msg, withUndo) {
 }
 
 // ---- Окна ----
-const sheet = (h, keep) => { tinvHide(); const sh = $('#sh'), top = sh.scrollTop;   // плашка «Впервые здесь?» (tour.js) не висит поверх окна
+// Окно с «Сохранить», в котором что-то вписали: свайп вниз, нажатие на фон, «Назад» и Esc сначала спрашивают «Закрыть без сохранения?»
+// (аудит 18 октября 2026: смахнул карточку — набранное пропало). Крестик закрывает сразу — его нажали нарочно
+const SH_SAVE = '[data-act="save"],[data-act="opsave"],[data-act="fcsave"],[data-act="hbsave"],[data-act="ntupd"],[data-act="qnsave"],[data-act="gsave"],[data-act="bmsave"],[data-act="fbsend"]';
+let shDirty = false;   // в окне что-то вписали или переключили (поля ввода, выбор, галочки)
+['input', 'change'].forEach(t => document.addEventListener(t, e => { if (e.target.closest && e.target.closest('#sh') && e.target.id !== 'ai_text') shDirty = true; }, true));
+const shUnsaved = () => shDirty && sheetOpen() && !!$('#sh').querySelector(SH_SAVE);
+function shAsk() {
+  let a = $('#shask');
+  if (!a) { a = document.createElement('div'); a.id = 'shask'; a.setAttribute('role', 'alertdialog'); a.setAttribute('aria-label', 'Закрыть без сохранения?');
+    a.innerHTML = '<span>Закрыть без сохранения?</span><button class="btn" data-act="shstay">Остаться</button><button class="btn pri" data-act="shdrop">Закрыть</button>'; document.body.appendChild(a); }
+  a.classList.add('show'); a.querySelector('[data-act="shstay"]').focus();
+}
+function shAskHide() { const a = $('#shask'); if (a) a.classList.remove('show'); }
+const shAskOpen = () => { const a = $('#shask'); return !!(a && a.classList.contains('show')); };
+function closeSheetAsk() { if (shAskOpen()) return shAskHide(); if (shUnsaved()) return shAsk(); closeSheet(); }   // вопрос уже открыт — Esc и фон его прячут
+ACT.shstay = () => shAskHide();
+ACT.shdrop = () => { shAskHide(); closeSheet(); };
+document.addEventListener('pointerdown', e => { if (shAskOpen() && !(e.target.closest && e.target.closest('#shask'))) shAskHide(); }, true);   // продолжили писать — вопрос убирается
+const sheet = (h, keep) => { tinvHide(); if (!keep) shDirty = false; shAskHide(); const sh = $('#sh'), top = sh.scrollTop;   // плашка «Впервые здесь?» (tour.js) не висит поверх окна
  sh.innerHTML = '<span class="grab"></span>' + h; $('#ov').classList.remove('ov-light'); $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; shHistOpen(); };
 // fromBack — окно закрыто кнопкой «Назад»: шаг в истории уже сделан
-const closeSheet = fromBack => { $('#ov').classList.remove('show', 'ov-light'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; shHistClose(fromBack === true); };
+const closeSheet = fromBack => { shAskHide(); $('#ov').classList.remove('show', 'ov-light'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; shHistClose(fromBack === true); };
 // «Назад» закрывает открытое окно (18 октября 2026: на Android «Назад» выходил из приложения, пока окно было открыто).
 // Открылось окно — в истории шаг вперёд (один на все окна подряд); закрыли крестиком или «Сохранить» — сами делаем шаг назад
 // и пропускаем его popstate (shBack). Пока этот шаг не дошёл, новое окно добавляет свой шаг — его закроет следующее «Назад».
@@ -393,7 +411,7 @@ function shHistOpen() { if (shHist) return; shHist = true; try { history.pushSta
 function shHistClose(fromBack) { if (!shHist) return; shHist = false; if (!fromBack) { shBack = true; try { history.back(); } catch (e) { shBack = false; } } }
 addEventListener('popstate', () => {
   if (shBack) { shBack = false; return; }
-  if (shHist && sheetOpen()) { shHist = false; closeSheet(true); }
+  if (shHist && sheetOpen()) { shHist = false; if (shUnsaved()) { shHistOpen(); return shAsk(); } closeSheet(true); }   // вписано — окно остаётся, шаг в истории возвращаем
 });
 // Свайп вниз закрывает окно на телефоне (полоска сверху — за неё и тянут; можно и за любое место, пока окно прокручено к началу).
 // Не мешает: полям ввода, карте, ленте чата и рядам, которые листаются вбок
@@ -412,7 +430,9 @@ addEventListener('popstate', () => {
   const end = () => {
     if (!d) return; const x = d; d = null; if (!x.on) return;
     sh.style.transition = 'transform .2s cubic-bezier(.2,.8,.2,1)';
-    if (x.dy > 110 || (x.dy > 50 && Date.now() - x.t < 280)) {   // дотянули или смахнули быстро — закрыть
+    const far = x.dy > 110 || (x.dy > 50 && Date.now() - x.t < 280);   // дотянули или смахнули быстро
+    if (far && shUnsaved()) { sh.style.transform = ''; setTimeout(() => { sh.style.transition = ''; }, 210); shAsk(); }   // вписано — окно возвращается и спрашивает
+    else if (far) {   // закрыть
       sh.style.transform = 'translateY(100%)';
       setTimeout(() => { closeSheet(); sh.style.transition = sh.style.transform = ''; }, 190);
     } else { sh.style.transform = ''; setTimeout(() => { sh.style.transition = ''; }, 210); }
