@@ -1,8 +1,12 @@
-const CACHE = 'rem-v95';
+const CACHE = 'rem-v96';
 const FILES = ['./', './index.html', './beta.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png', './favicon.png',
   './css/app.css', './css/sections.css', './css/ui2.css', ...['core', 'names', 'look', 'help', 'calendar', 'charts', 'sections', 'tasks', 'habits', 'finance', 'goals', 'pages', 'timer', 'ui2', 'layout', 'tour', 'input', 'share', 'cloud', 'notify', 'assistant', 'map', 'main'].map(n => './js/' + n + '.js')];
 // cache:'reload' / 'no-cache' — мимо кэша браузера: GitHub Pages разрешает хранить файлы 10 минут, и без этого новая версия приходила с опозданием
-self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(u => new Request(u, { cache:'reload' })))).then(() => self.skipWaiting())));
+// С меткой версии в адресе (?v=rem-vN): сразу после выпуска сервер GitHub (CDN) ещё может отдавать старые копии по обычным адресам,
+// а кэш теперь — единственный источник файлов до следующей версии, поэтому в него должны попасть именно файлы этого выпуска. Хранятся под обычным адресом
+self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => Promise.all(FILES.map(u =>
+  fetch(new Request(u + '?v=' + CACHE, { cache:'reload' })).then(r => { if (!r.ok) throw new Error(u + ': ' + r.status); return c.put(u, r); }))))
+  .then(() => self.skipWaiting(), err => caches.delete(CACHE).then(() => { throw err; }))));   // не скачалось — без половинчатого кэша, попытка при следующем запуске
 self.addEventListener('activate', e => e.waitUntil(
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 // Скорость (rem-v95): файлы приложения — сразу из кэша этой версии, без ожидания сети (раньше каждый запуск ждал ответа сервера
