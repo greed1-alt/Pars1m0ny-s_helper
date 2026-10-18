@@ -364,7 +364,7 @@ function settingsHTML() {
     <div class="set-row"><span>${withHint('Отмечать привычки задним числом', 'habitPast')}</span><input id="s_hpast" class="sw" type="checkbox"${st.habitPast ? ' checked' : ''}></div>
     <div class="set-row"><span>Показатели самочувствия</span><button class="btn" data-act="bioedit">${I(IC.gear, 15)} Настроить</button></div>`;
   const about = `<div class="set-sec">О приложении</div>
-    <div class="st-about"><span class="wordmark">${APP_NAME}</span><small>Календарь, задачи, привычки и финансы — в одном месте.</small></div>
+    <div class="st-about"><span class="wordmark">${APP_NAME}</span><small>Календарь, задачи, привычки и финансы — в одном месте.</small><small class="st-ver">${appVerText()}</small></div>
     <button class="btn" style="width:100%" data-act="help">${I(IC.key, 16)} Горячие клавиши</button>
     <button class="btn" style="width:100%;margin-top:8px" data-act="tourmenu">${I(IC.spark, 16)} Знакомство с приложением</button>
     <button class="btn" style="width:100%;margin-top:8px" data-act="feedback">${I(IC.msg, 16)} Написать отзыв</button>
@@ -381,6 +381,15 @@ function settingsHTML() {
 // ---- Настройки на телефоне — список разделов, как в настройках iPhone (18 октября 2026; раньше — одна лента карточек на 4,5 экрана).
 // У каждого раздела — состояние («Напоминания — выключены» красным); нажатие открывает только этот раздел («‹ Все настройки» — назад).
 // Пробовали и оглавление плитками над лентой (вид А) — пользователь выбрал список. На ПК — карточки в две колонки, как раньше ----
+// Версия на этом устройстве — из названия кэша service worker (sw.js: CACHE = 'rem-vN'): это то, что реально установлено, а не то, что лежит
+// на сайте (просьба пользователя 19 октября 2026: «показать в настройках, какая версия установлена на устройстве»). Её же шлёт «Отзыв»
+let appVer = 0;
+async function appVerLoad() {
+  try { const v = Math.max(0, ...(await caches.keys()).map(k => +((/^rem-v(\d+)$/.exec(k) || [])[1] || 0)));
+    if (v && v !== appVer) { appVer = v; if (sec === 'settings') render(); } } catch (e) {}
+  return appVer;
+}
+const appVerText = () => { if (!appVer) appVerLoad(); return appVer ? 'Версия ' + appVer + (IS_BETA ? ' · бета' : '') : 'Версия: проверяю…'; };
 const stPhone = () => innerWidth < 900;
 let stOpen = null;   // открытый раздел
 onMigrate(() => { delete S.settings.stView; });   // переключатель вида пробы А / Б
@@ -391,7 +400,7 @@ const ST_SEC = [
   ['secs', IC.grid, 'Расположение', () => ({ t: 'разделы, блоки, запуск' })],
   ['notif', IC.bell, 'Напоминания', () => ({ t: notif.short ? notif.short[0].toUpperCase() + notif.short.slice(1) : 'Проверяю…', warn: !notif.on })],
   ['data', IC.user, 'Аккаунт и данные', () => signedIn() ? { t: (auth && auth.email) || 'Вход выполнен' } : { t: 'Вход не выполнен', warn: true }],
-  ['about', IC.note, 'О приложении', () => ({ t: 'знакомство, отзыв, памятка' })],
+  ['about', IC.note, 'О приложении', () => ({ t: appVerText() })],
 ];
 // Перейти к разделу настроек: на телефоне — открыть его, на ПК — прокрутить к карточке и подсветить (так же — кнопки помощника)
 function stJump(k) {

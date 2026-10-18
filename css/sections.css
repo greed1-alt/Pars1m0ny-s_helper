@@ -234,6 +234,7 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .st-about{margin:4px 0 12px}
 .st-about .wordmark{display:inline-block;font-size:calc(34px * var(--wm-k))}
 .st-about small{display:block;font-size:12.5px;color:var(--mut);margin-top:2px}
+.st-about .st-ver{margin-top:8px;color:var(--tx2);font-weight:600}   /* версия на этом устройстве */
 
 /* Шапка: в разделах вместо переключателя видов — короткая сводка */
 .secinfo{display:none}
