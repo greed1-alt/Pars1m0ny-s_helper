@@ -32,6 +32,7 @@
         <div class="navg d-only"><button class="ic" data-act="prev" aria-label="Назад" title="Назад (←)"></button><button class="pill" data-act="today" title="Сегодня (T)">Сегодня</button><button class="ic" data-act="next" aria-label="Вперёд" title="Вперёд (→)"></button></div>
         <div class="segc d-only"><button data-act="v" data-v="month" title="Месяц (M)">Месяц</button><button data-act="v" data-v="week" title="Неделя (W)">Неделя</button><button data-act="v" data-v="day" title="День (D)">День</button><button data-act="v" data-v="list" title="Список (L)">Список</button></div>
         <button class="btn-new m-only" data-act="add"></button>
+        <button class="ic m-only hdr-sr" data-act="search" aria-label="Поиск" title="Поиск"></button>
         <button class="ic hdr-ai" data-act="aiopen" aria-label="Помощник" title="Помощник Parsimony"></button>
         <button class="ic m-only" data-act="settings" aria-label="Настройки" title="Настройки"></button>
         <button class="ic hdr-ava" data-act="sec" data-s="profile" aria-label="Профиль" title="Профиль"></button>
@@ -40,7 +41,6 @@
         <div class="segc"><button data-act="v" data-v="month">Месяц</button><button data-act="v" data-v="week">Неделя</button><button data-act="v" data-v="day">День</button><button data-act="v" data-v="list">Лента</button><button data-act="v" data-v="tasks">Задачи</button></div>
         <div id="secinfo" class="secinfo"></div>
         <button class="pill" data-act="today">Сегодня</button>
-        <button class="ic" data-act="search" aria-label="Поиск" style="width:36px"></button>
       </div>
     </header>
     <main id="main"></main>
@@ -49,7 +49,7 @@
 <nav id="tabbar" class="m-only" aria-label="Разделы"></nav>
 <div id="ov"><div id="sh"></div></div>
 <div id="qc" class="qc"></div>
-<div id="cmd"><div class="cmd-box"><div class="cmd-in"><span id="cmd_ic"></span><input id="cmd_q" type="text" placeholder="Найти событие, команду или написать «встреча завтра в 15»" autocomplete="off"></div><div id="cmd_res"></div><div class="cmd-foot"><span><kbd>↑</kbd> <kbd>↓</kbd> выбрать</span><span><kbd>Enter</kbd> выполнить</span><span><kbd>Esc</kbd> закрыть</span></div></div></div>
+<div id="cmd"><div class="cmd-box"><div class="cmd-in"><span id="cmd_ic"></span><input id="cmd_q" type="text" placeholder="Найти дело, трату, заметку, привычку, цель или команду" autocomplete="off"></div><div id="cmd_res"></div><div class="cmd-foot"><span><kbd>↑</kbd> <kbd>↓</kbd> выбрать</span><span><kbd>Enter</kbd> выполнить</span><span><kbd>Esc</kbd> закрыть</span></div></div></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <input id="imp_file" type="file" accept="application/json,.json" hidden>
 

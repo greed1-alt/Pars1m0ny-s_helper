@@ -721,7 +721,7 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 /* Кнопка помощника в шапке: на телефоне — значок слева от настроек, на ПК — «Помощник» слева от имени */
 .hdr-ai{color:var(--acc)}
 .hdr-ai span{display:none}
-@media(max-width:899px){.top .hdr-ai{width:36px}}
+@media(max-width:899px){.top .hdr-ai,.top .hdr-sr,.top [data-act=settings],.top .hdr-ava{width:36px}}   /* в шапке телефона и поиск — кнопки по 36 px, чтобы месяц в заголовке помещался */
 @media(min-width:900px){.hdr-ai{width:auto;display:inline-flex;gap:6px;padding:0 13px 0 11px;height:36px;border-radius:999px;border:1px solid color-mix(in srgb,var(--acc) 35%,var(--line));font-size:13.5px;font-weight:600}.hdr-ai span{display:inline}}
 @media(hover:hover){.hdr-ai:hover{background:color-mix(in srgb,var(--acc) 10%,transparent)}}
 /* Память событий: прошлые события с тем же названием под полем названия (calendar.js → evMemShow) */

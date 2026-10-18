@@ -26,7 +26,8 @@ const ymAdd = (ym, n) => { const [y, m] = ym.split('-').map(Number), d = new Dat
 const ymDays = ym => { const [y, m] = ym.split('-').map(Number), n = new Date(y, m, 0).getDate(); return [...Array(n)].map((_, i) => ym + '-' + String(i + 1).padStart(2, '0')); };
 const ymTitle = ym => { const [y, m] = ym.split('-').map(Number); return MON[m - 1] + ' ' + y; };
 // В шапке телефона мало места: текущий год не пишем
-const ymHead = ym => innerWidth >= 900 || ym.slice(0, 4) !== todayK().slice(0, 4) ? ymTitle(ym) : MON[Number(ym.slice(5)) - 1];
+// На телефоне в шапке мало места: текущий год не пишем, другой — с коротким месяцем («Сен 2025»)
+const ymHead = ym => innerWidth >= 900 ? ymTitle(ym) : ym.slice(0, 4) !== todayK().slice(0, 4) ? MON[Number(ym.slice(5)) - 1].slice(0, 3) + ' ' + ym.slice(0, 4) : MON[Number(ym.slice(5)) - 1];
 const ymGen = ym => { const [y, m] = ym.split('-').map(Number); return MONG[m - 1]; };
 let secYM = ymOf(todayK());   // месяц, открытый в «Привычках» и «Финансах»
 

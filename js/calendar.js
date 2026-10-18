@@ -296,7 +296,7 @@ function sideHTML() {
 
 function titleHTML() {
   const pc = innerWidth >= 900;
-  if (view === 'month') return `${MON[monthAnchor.getMonth()]} ${monthAnchor.getFullYear()}`;
+  if (view === 'month') return ymHead(ymOf(ds(monthAnchor)));   // на телефоне год — только если не текущий: в шапке ещё поиск (19 октября 2026)
   if (view === 'week') {
     const days = weekDays(), a = pd(days[0]), b = pd(days[days.length-1]);
     const wn = S.settings.weekNums ? `<span class="sub">неделя ${isoWeek(days[0])}</span>` : '';
@@ -305,7 +305,7 @@ function titleHTML() {
     return a.getMonth() === b.getMonth() ? `${a.getDate()}–${b.getDate()} ${MONS[b.getMonth()]}` : `${a.getDate()} ${MONS[a.getMonth()]} – ${b.getDate()} ${MONS[b.getMonth()]}`;
   }
   if (view === 'day') { const d = pd(sel); return pc ? `${d.getDate()} ${MONG[d.getMonth()]} ${d.getFullYear()}<span class="sub">${DOWF[dowIdx(sel)].toLowerCase()}</span>` : `${d.getDate()} ${MONS[d.getMonth()]}, ${dowName(sel).toLowerCase()}`; }
-  const d = pd(sel); return pc ? `Список<span class="sub">с ${d.getDate()} ${MONG[d.getMonth()]}</span>` : `${MON[d.getMonth()]} ${d.getFullYear()}`;
+  const d = pd(sel); return pc ? `Список<span class="sub">с ${d.getDate()} ${MONG[d.getMonth()]}</span>` : ymHead(ymOf(sel));
 }
 
 let lastGridView = null;
@@ -318,9 +318,9 @@ function render(dir) {
   document.body.dataset.sec = sec;
   document.body.dataset.nonav = S2.noNav ? '1' : '';    // «Главная», «Профиль», «Настройки»: без стрелок периода
   // Привычки: «+» не нужен — в карточке «Сегодня» и в таблице есть «+ Привычка» (мелочи из аудита, 19 октября 2026)
-  document.body.dataset.nonew = S2.newLabel && sec !== 'home' && sec !== 'cal' && sec !== 'habits' && !(sec === 'tasks' && tView !== 'goals') ? '' : '1';
-  // Привычки и Финансы на текущем месяце: вторая строка шапки телефона («Сегодня» и поиск) не нужна — прячется (css/ui2.css)
-  document.body.dataset.cur = (sec === 'habits' || sec === 'fin') && secYM === ymOf(todayK()) ? '1' : '';   // на Главной, в Календаре и Задачах добавляют строкой ввода — «+» в шапке не повторяем (12 октября 2026)
+  document.body.dataset.nonew = S2.newLabel && sec !== 'home' && sec !== 'cal' && sec !== 'habits' && sec !== 'fin' && !(sec === 'tasks' && tView !== 'goals') ? '' : '1';
+  // Привычки и Финансы на текущем месяце: вторая строка шапки телефона («Сегодня») не нужна — прячется (css/ui2.css); поиск — в первой строке
+  document.body.dataset.cur = (sec === 'habits' || sec === 'fin') && secYM === ymOf(todayK()) ? '1' : '';   // на Главной, в Календаре и Задачах добавляют строкой ввода — «+» в шапке не повторяем (12 октября 2026); в Привычках и Финансах — тоже (кнопки и строка записи на странице)
   $('#ttl').innerHTML = cal ? titleHTML() : S2.title();
   $$('header [data-v]').forEach(b => b.classList.toggle('on', sec === 'tasks' ? b.dataset.v === 'tasks' : b.dataset.v === view));
   document.body.dataset.plan = planOn() && (cal || sec === 'tasks') ? '1' : '';   // «План» на телефоне: общий переключатель виден и в Задачах
@@ -622,7 +622,8 @@ function openHelp() {
 // ---- Командное меню ----
 let cmdItems = [], cmdIdx = 0;
 const cmdOpen = () => $('#cmd').classList.contains('show');
-function openCmd() { closeQuick(); $('#cmd_ic').innerHTML = I(IC.search, 19); $('#cmd').classList.add('show'); $('#cmd_q').value = ''; cmdUpdate(); setTimeout(() => $('#cmd_q').focus(), 20); }
+function openCmd() { closeQuick(); $('#cmd_ic').innerHTML = I(IC.search, 19); $('#cmd').classList.add('show'); $('#cmd_q').value = '';
+  $('#cmd_q').placeholder = innerWidth < 900 ? 'Найти дело, трату, заметку…' : 'Найти дело, трату, заметку, привычку, цель или команду'; cmdUpdate(); setTimeout(() => $('#cmd_q').focus(), 20); }
 const closeCmd = () => $('#cmd').classList.remove('show');
 const COMMANDS = () => [
   { ic:IC.plus, t:'Новое событие', run:() => openEvent() },
@@ -651,33 +652,105 @@ const COMMANDS = () => [
   ...S.cats.map(c => ({ ic:IC.share, t:`Поделиться календарём «${c.name}»`, run:() => openShare({ kind:'c', id:c.id }) })),
   { ic:IC.undo, t:'Отменить последнее действие', k:'Ctrl Z', run:undo },
 ];
-function cmdUpdate() {
+// ---- Общий поиск (19 октября 2026): задачи, события, деньги, заметки, привычки, цели ----
+// Каждое слово запроса укорачивается до основы («стоматолога» → «стоматолог», «такси» → «такс»); запись подходит, если в ней есть все основы.
+// Выключенный раздел (Финансы, Привычки, Задачи — цели) в поиске не показывается, как и везде
+const SR_END = /(иями|ями|ами|ого|его|ому|ему|ыми|ими|иях|ах|ях|ам|ям|ов|ев|ей|ой|ий|ый|ая|яя|ое|ее|ую|юю|ом|ем|ия|ие|ию|а|я|о|е|ы|и|у|ю|ь|й)$/;
+const srNorm = s => String(s || '').toLowerCase().replace(/ё/g, 'е');
+const srStems = q => srNorm(q).split(/[^\p{L}\p{N}]+/u).filter(Boolean).map(w => { if (w.length < 5) return w; const s = w.replace(SR_END, ''); return s.length >= 4 ? s : w.slice(0, 4); });
+// Где в тексте слово, начинающееся с основы (только с начала слова: «спорт» не находит «транспорт»); −1 — нет
+const SR_L = /[\p{L}\p{N}]/u;
+function srAt(n, s) { for (let i = n.indexOf(s); i >= 0; i = n.indexOf(s, i + 1)) if (!i || !SR_L.test(n[i - 1])) return i; return -1; }
+const srIn = (text, s) => srAt(srNorm(text), s) >= 0;
+// 0 — не подходит; 3 — название начинается с запроса; 2 — все слова в названии; 1 — нашлось в заметке, месте, категории
+function srScore(title, rest, st) {
+  const t = srNorm(title), r = srNorm(rest), inT = st.every(s => srAt(t, s) >= 0); if (!inT && !st.every(s => srAt(t, s) >= 0 || srAt(r, s) >= 0)) return 0;
+  return !inT ? 1 : t.startsWith(st[0]) ? 3 : 2;
+}
+// Найденное в тексте — подсвечено (<mark>); остальное экранировано
+function srHL(text, st) {
+  const t = String(text || ''), n = srNorm(t); if (n.length !== t.length) return esc(t);
+  const on = new Array(t.length).fill(false);
+  st.forEach(s => { const i = srAt(n, s); if (i >= 0) for (let j = i; j < i + s.length; j++) on[j] = true; });
+  let h = '', m = false;
+  for (let i = 0; i < t.length; i++) { if (on[i] !== m) { h += m ? '</mark>' : '<mark>'; m = on[i]; } h += esc(t[i]); }
+  return h + (m ? '</mark>' : '');
+}
+// Кусок длинной заметки с первым найденным словом
+function srSnip(text, st) {
+  const t = String(text || '').replace(/\s+/g, ' ').trim(), n = srNorm(t);
+  const i = st.reduce((a, s) => { const x = srAt(n, s); return x >= 0 && (a < 0 || x < a) ? x : a; }, -1);
+  const j = i > 40 ? t.indexOf(' ', i - 25) + 1 : 0;   // с начала слова, а не с середины
+  return (j > 0 && j <= i ? '…' + t.slice(j) : t).slice(0, 160);
+}
+const SR_ORDER = ['Задачи', 'События', 'Деньги', 'Заметки', 'Привычки', 'Цели'], SR_MAX = { 'Задачи':6, 'События':6, 'Деньги':6, 'Заметки':4, 'Привычки':4, 'Цели':4 };
+let srMore = {}, srQ = '';   // группы, раскрытые «Ещё N», — до нового запроса
+const srEvOpen = (e, k) => () => { sel = k; syncMini(); monthAnchor = pd(k); monthAnchor.setDate(1); render(); openEvent(e.id, null, k); };
+function srFind(q) {
+  const st = srStems(q), g = {}, add = (sec, sc, it) => (g[sec] = g[sec] || []).push(Object.assign({ sec, sc, rec:1 }, it)), t0 = todayK();
+  if (!st.length) return [];
+  S.events.forEach(e => {
+    const c = cat(e.cat), sc = srScore(e.title, (e.loc || '') + ' ' + (e.note || '') + ' ' + c.name, st); if (!sc) return;
+    const k = nextOcc(e), gl = e.goal && secOn('tasks') && goalById(e.goal), inT = sc > 1, inL = !inT && st.every(s => srIn(e.title + ' ' + (e.loc || ''), s));
+    const s = relDay(k) + (e.time ? ', ' + e.time : '') + (isRec(e) ? ' ↻' : '') + (e.task && isDone(e, k) ? ' · сделано' : '')
+      + (gl ? ' · цель «' + gl.title + '»' : '') + (inT ? '' : inL && e.loc ? ' · ' + e.loc : srIn(e.note, st[0]) ? ' · в заметке' : ' · ' + c.name);
+    add(e.task ? 'Задачи' : 'События', sc, { c:c.color, h:srHL(e.title, st), t:e.title, s, d:Math.abs(dayDiff(t0, k)) + (k < t0 ? .5 : 0), run:srEvOpen(e, k) });
+  });
+  if (secOn('fin')) S.fin.ops.forEach(o => {
+    const c = fcat(o.cat), title = o.note || c.name, sc = srScore(title, (o.note ? c.name : '') + ' ' + o.amt, st); if (!sc) return;
+    add('Деньги', sc, { em:c.emoji || '•', h:srHL(title, st), t:title, s:shortDate(o.date) + (o.date.slice(0, 4) !== t0.slice(0, 4) ? ' ' + o.date.slice(0, 4) : '') + (o.note ? ' · ' + c.name : ''),
+      r:(c.g === 'inc' ? '+' : '') + rub0(o.amt), d:-o.date.replace(/-/g, ''), run:() => openOp(o.id) });
+  });
+  (S.notes || []).forEach(n => { const sc = srScore(n.text, '', st); if (sc) { const sn = srSnip(n.text, st); add('Заметки', sc > 1 ? 2 : 1, { ic:IC.note, h:srHL(sn, st), t:sn, s:relDay(n.date), d:-n.date.replace(/-/g, ''), run:() => openNote(n.id) }); } });
+  if (secOn('habits')) S.habits.forEach(h => {
+    const sc = srScore(h.name, '', st); if (!sc) return;
+    add('Привычки', sc, { em:h.emoji || '•', h:srHL(h.name, st), t:h.name, s: h.kind === 'weekly' ? 'раз в неделю' : h.kind === 'monthly' ? 'раз в месяц' : h.days.length ? [...h.days].sort().map(d => DOW[d].toLowerCase()).join(', ') : 'каждый день', d:0, run:() => openHabit(h.id) });
+  });
+  if (secOn('tasks')) S.goals.forEach(gl => {
+    const sc = srScore(gl.title, gl.why || '', st), due = 'до ' + shortDate(gl.due) + (gl.due.slice(0, 4) !== t0.slice(0, 4) ? ' ' + gl.due.slice(0, 4) : '') + (gl.done ? ' · достигнута' : '');
+    if (sc) add('Цели', sc, { em:gl.emoji || '🎯', h:srHL(gl.title, st), t:gl.title, s:due, d:gl.done ? 1e9 : dayDiff(t0, gl.due), run:() => openGoal(gl.id) });
+    (gl.steps || []).forEach(x => { const s2 = srScore(x.t, '', st); if (s2) add('Цели', s2 - .5, { ic:IC.goal, h:srHL(x.t, st), t:x.t, s:'шаг цели «' + gl.title + '»' + (x.done ? ' · сделан' : ''), d:gl.done ? 1e9 : dayDiff(t0, gl.due), run:() => openGoal(gl.id) }); });
+  });
+  // группы — по лучшему совпадению, внутри — сначала точнее, потом ближе к сегодня / новее
+  const out = [];
+  Object.keys(g).sort((a, b) => Math.max(...g[b].map(x => x.sc)) - Math.max(...g[a].map(x => x.sc)) || SR_ORDER.indexOf(a) - SR_ORDER.indexOf(b)).forEach(sec => {
+    const l = g[sec].sort((a, b) => b.sc - a.sc || a.d - b.d), n = srMore[sec] ? l.length : SR_MAX[sec];
+    out.push(...l.slice(0, n));
+    if (l.length > n) out.push({ sec, ic:IC.more, t:'Ещё ' + (l.length - n), keep:1, run:() => { srMore[sec] = 1; cmdUpdate(cmdIdx); } });   // выбор остаётся на месте — там первая из раскрытых записей
+  });
+  return out;
+}
+function cmdUpdate(keepIdx) {
   const q = $('#cmd_q').value.trim(), ql = q.toLowerCase(), items = [];
+  if (q !== srQ) { srQ = q; srMore = {}; }
   if (shareCode(q)) items.push({ sec:'Присланное', ic:IC.link, t:'Открыть присланную ссылку', s:'событие или календарь', run:() => openShareCode(shareCode(q)) });
   else if (q) {
-    const p = parseNL(q, sel);
-    if (p.title) items.push({ sec:'Создать', ic:IC.plus, t:`Создать «${p.title}»`, s: p.found ? p.desc : relDay(sel), run:() => quickCreate(p.title, p.date || sel, p.time || '', p.time2 || '', p.cat) });
-    S.events.filter(e => (e.title + ' ' + (e.note||'') + ' ' + (e.loc||'')).toLowerCase().includes(ql))
-      .map(e => ({ e, k: nextOcc(e) })).sort((a, b) => Math.abs(dayDiff(todayK(), a.k)) - Math.abs(dayDiff(todayK(), b.k))).slice(0, 12)
-      .forEach(({ e, k }) => items.push({ sec:'События', c:cat(e.cat).color, t:e.title, s: relDay(k) + (e.time ? ', ' + e.time : '') + (isRec(e) ? ' ↻' : ''), run:() => { sel = k; syncMini(); monthAnchor = pd(k); monthAnchor.setDate(1); render(); openEvent(e.id, null, k); } }));
+    const p = parseNL(q, sel), found = srFind(q);
+    // с датой или временем («врач завтра в 10») сначала «Создать», иначе сначала найденное
+    const mk = p.title ? { sec:'Создать', ic:IC.plus, t:`Создать «${p.title}»`, s: p.found ? p.desc : relDay(sel), run:() => quickCreate(p.title, p.date || sel, p.time || '', p.time2 || '', p.cat) } : null;
+    if (mk && p.found) items.push(mk);
+    items.push(...found);
     COMMANDS().filter(c => c.t.toLowerCase().includes(ql)).forEach(c => items.push(Object.assign({ sec:'Команды' }, c)));
+    if (mk && !p.found) items.push(mk);
   } else {
     const up = []; for (let i = 0; i < 14 && up.length < 5; i++) { const k = addDays(todayK(), i); evOn(k).forEach(e => { if (up.length < 5 && !e.done && (i > 0 || !e.time || (timeMin(e.time2 || e.time) || 0) >= nowMin())) up.push({ e, k }); }); }
     up.forEach(({ e, k }) => items.push({ sec:'Ближайшие', c:cat(e.cat).color, t:e.title, s: relDay(k) + (e.time ? ', ' + e.time : ''), run:() => { sel = k; syncMini(); render(); openEvent(e.id, null, k); } }));
     COMMANDS().forEach(c => items.push(Object.assign({ sec:'Команды' }, c)));
   }
-  cmdItems = items; cmdIdx = 0; cmdDraw();
+  cmdItems = items; cmdIdx = keepIdx > 0 ? Math.min(keepIdx, items.length - 1) : 0; cmdDraw();
 }
 function cmdDraw() {
   let h = '', last = '';
   cmdItems.forEach((it, i) => {
     if (it.sec !== last) { h += `<div class="cmd-sec">${it.sec}</div>`; last = it.sec; }
-    h += `<button class="cmd-it${i===cmdIdx?' act':''}" data-act="cmdrun" data-i="${i}">${it.c ? `<span class="cd" style="--c:${it.c}"></span>` : `<span class="ci">${I(it.ic,17)}</span>`}<span class="cl">${esc(it.t)}</span>${it.s ? `<span class="cs">${esc(it.s)}</span>` : ''}${it.k ? `<kbd>${it.k}</kbd>` : ''}</button>`;
+    const ic = it.c ? `<span class="cd" style="--c:${it.c}"></span>` : it.em ? `<span class="ci em">${esc(it.em)}</span>` : `<span class="ci">${I(it.ic,17)}</span>`;
+    h += it.rec ? `<button class="cmd-it rec${i===cmdIdx?' act':''}" data-act="cmdrun" data-i="${i}">${ic}<span class="cl"><span class="cmd-tt">${it.h}</span><small>${esc(it.s)}</small></span>${it.r ? `<b class="cr">${esc(it.r)}</b>` : ''}</button>`
+      : `<button class="cmd-it${it.keep ? ' more' : ''}${i===cmdIdx?' act':''}" data-act="cmdrun" data-i="${i}">${ic}<span class="cl">${esc(it.t)}</span>${it.s ? `<span class="cs">${esc(it.s)}</span>` : ''}${it.k ? `<kbd>${it.k}</kbd>` : ''}</button>`;
   });
-  $('#cmd_res').innerHTML = h || '<p class="empty" style="padding:14px">Ничего не найдено</p>';
+  $('#cmd_res').innerHTML = h || `<p class="empty" style="padding:14px">Ничего не найдено. Ищу по задачам, событиям, тратам, заметкам, привычкам и целям</p>`;
   const a = $('.cmd-it.act'); if (a) a.scrollIntoView({ block:'nearest' });
 }
-function cmdRun(i) { const it = cmdItems[i]; if (!it) return; closeCmd(); it.run(); }
+function cmdRun(i) { const it = cmdItems[i]; if (!it) return; if (it.keep) { cmdIdx = i; it.run(); $('#cmd_q').focus({ preventScroll:true }); return; } closeCmd(); it.run(); }
 
 // Дело без времени — это задача (видна в разделе «Задачи»); со временем — обычное событие
 function quickCreate(title, date, time, time2, catId, opts) {
