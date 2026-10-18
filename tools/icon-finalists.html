@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Финалисты иконки Parsimony</title>
+<!-- Финалисты иконки «Py» (выбор пользователя 19 октября 2026). Открыть в браузере — нарисует все 15 тем же способом, что иконка беты
+     (tools/beta-icons): буквы ≤ 66% ширины и 74% высоты (у 6 и 6е — 80% / 86%, «крупнее»), обводка 0,9%, по центру по контуру букв.
+     Окончательную иконку пользователь выберет опросом в своём Telegram-канале; тогда отсюда же делаются icon-180/192/512 и круглая favicon.png -->
+<link id="gf" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mrs+Saint+Delafield&family=Love+Light&family=Monsieur+La+Doulaise&family=Island+Moments&family=Dawning+of+a+New+Day&family=Moon+Dance&family=Niconne&family=Great+Vibes&family=Cookie&family=Yesteryear&family=Lavishly+Yours&family=Ole&family=Lovers+Quarrel&family=Ephesis&family=Comforter&display=block">
+<style>
+body{margin:0;padding:24px max(16px,env(safe-area-inset-left,0px));font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:#f3f3f6;color:#1b1b22}
+h1{font-size:20px;margin:0 0 4px}
+p{margin:0 0 16px;color:#5c5c70}
+.strip{display:flex;flex-wrap:wrap;gap:6px;padding:14px;border-radius:14px;background:#fff;margin-bottom:20px}
+.strip canvas{width:48px;height:48px;border-radius:11px}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:18px 10px}
+.t{display:flex;flex-direction:column;align-items:center;gap:6px}
+.t canvas{width:112px;height:112px;border-radius:25px;box-shadow:0 0 0 1px #0001}
+.t b{font-weight:600}.t span{font-size:12px;color:#5c5c70;text-align:center}
+</style>
+</head>
+<body>
+<h1>Финалисты иконки Parsimony</h1>
+<p id="st">Загружаю шрифты…</p>
+<div class="strip" id="strip"></div>
+<div class="g" id="grid"></div>
+<script>
+// [номер, шрифт, фон, буквы, крупнее]
+const V = [
+ ['1', 'Mrs Saint Delafield', '#0d0d0f', '#ffffff'],
+ ['6е', 'Love Light', '#5b1a2b', '#f6d6d8', 1],
+ ['6', 'Monsieur La Doulaise', '#5b1a2b', '#f6d6d8', 1],
+ ['12е', 'Island Moments', '#f6f1e7', '#3b2a20'],
+ ['11б', 'Dawning of a New Day', '#ffffff', '#111111'],
+ ['14е', 'Moon Dance', '#f7d9d9', '#6d1f2f'],
+ ['15а', 'Niconne', '#dff3e7', '#1e5631'],
+ ['21', 'Great Vibes', '#4b4fd1', '#ffffff'],
+ ['24г', 'Cookie', '#f28c28', '#ffffff'],
+ ['24е', 'Yesteryear', '#f28c28', '#ffffff'],
+ ['29', 'Lavishly Yours', '#e0a526', '#1a1a1a'],
+ ['29а', 'Ole', '#e0a526', '#1a1a1a'],
+ ['29б', 'Lovers Quarrel', '#e0a526', '#1a1a1a'],
+ ['30', 'Ephesis', '#2a2a2e', '#c9ccd3'],
+ ['30б', 'Comforter', '#2a2a2e', '#c9ccd3']
+];
+const spec = f => '400 64px "' + f + '"';
+function draw(cv, f, bg, fg, big) {
+  const S = cv.width, x = cv.getContext('2d'); x.clearRect(0, 0, S, S);
+  x.fillStyle = bg; x.fillRect(0, 0, S, S);
+  const kw = big ? .8 : .66, kh = big ? .86 : .74; let fs = S * 1.4, m;
+  for (;;) { x.font = '400 ' + fs + 'px "' + f + '"'; m = x.measureText('Py'); const w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight, h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent; if ((w <= S * kw && h <= S * kh) || fs < 8) break; fs -= S / 128; }
+  const w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight, h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+  x.fillStyle = x.strokeStyle = fg; x.lineWidth = S * .009; x.lineJoin = 'round';
+  const tx = (S - w) / 2 + m.actualBoundingBoxLeft, ty = (S - h) / 2 + m.actualBoundingBoxAscent;
+  x.fillText('Py', tx, ty); x.strokeText('Py', tx, ty);
+}
+const strip = document.getElementById('strip'), grid = document.getElementById('grid'), tiles = [];
+V.forEach(([id, f, bg, fg, big]) => {
+  const s = document.createElement('canvas'); s.width = s.height = 96; s.title = id; strip.appendChild(s);
+  const d = document.createElement('div'); d.className = 't'; d.innerHTML = '<canvas width="224" height="224"></canvas><b>' + id + '</b><span>' + f + '</span>'; grid.appendChild(d);
+  tiles.push({ cvs: [s, d.querySelector('canvas')], f, bg, fg, big: !!big, done: false });
+});
+// Рисуем, только когда шрифт действительно загружен: пока таблица стилей не пришла, fonts.check отвечает «готово» — и холст рисовался запасным шрифтом
+const st = document.getElementById('st'), ready = {}, fams = [...new Set(tiles.map(t => t.f))];
+function paint() { tiles.forEach(t => { if (!t.done && ready[t.f]) { t.cvs.forEach(c => draw(c, t.f, t.bg, t.fg, t.big)); t.done = true; } }); const left = fams.filter(f => !ready[f]); st.textContent = left.length ? 'Загружаю шрифты… осталось ' + left.length : 'Все 15 вариантов. Сверху — примерно как на экране телефона.'; return left; }
+async function kick() { await Promise.all(fams.map(async f => { if (ready[f]) return; try { const a = await document.fonts.load(spec(f), 'Py'); if (a && a.length) ready[f] = true; } catch (e) {} })); return paint(); }
+document.fonts.addEventListener('loadingdone', () => kick());
+document.getElementById('gf').addEventListener('load', () => kick());
+let n = 0;
+(async function loop() { const left = await kick(); if (!left.length) return; if (++n < 40) return setTimeout(loop, 500);
+  tiles.forEach(t => { if (!t.done) t.cvs.forEach(c => draw(c, t.f, t.bg, t.fg, t.big)); }); st.textContent = 'Не загрузились: ' + left.join(', '); })();
+</script>
+</body>
+</html>
