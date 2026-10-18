@@ -99,7 +99,7 @@ const aiStore = () => { if (!ai) return; ai.msgs = ai.msgs.slice(-AI_KEEP); try 
 // Что было в разговоре — коротко, вместе с предложенными записями: так нейросеть понимает «нет, в 11» и «а послезавтра?»
 const aiBrief = it => AI_ACT.includes(it.type) ? (AI_T[it.type] || [0, ''])[1] + ' «' + (it.lbl || it.habit || '') + '»' + (it.chg ? ' ' + it.chg : '') : (AI_T[it.type] || [0, 'Запись'])[1] + ' «' + (it.title || it.habit || it.text || it.note || '') + '»' + (it.date ? ' ' + it.date : '') + (it.time ? ' ' + it.time : '') + (it.amount ? ' ' + it.amount + ' ₽' : '');
 const AI_ACT = ['edit', 'done', 'delete', 'uncheck'];   // действия с тем, что уже есть
-const aiSt = x => x.st === 'ok' ? 'сделано' : x.st === 'undone' ? 'пользователь отменил' : 'не получилось' + (x.why ? ' — ' + x.why : '');
+const aiSt = x => x.st === 'ok' ? 'сделано' : x.st === 'undone' ? 'пользователь отменил' : x.st === 'ask' ? 'ждёт подтверждения' : x.st === 'no' ? 'пользователь не подтвердил' : 'не получилось' + (x.why ? ' — ' + x.why : '');
 const aiHist = () => ai.msgs.slice(-AI_HIST).map(m => ({ r: m.r, t: ((m.t || '') + (!m.items || !m.items.length ? '' : m.auto ? ` [${m.items.map(x => aiBrief(x) + ' — ' + aiSt(x)).join('; ')}]`
   : ` [предложено: ${m.items.map(aiBrief).join('; ')} — ${m.added != null ? 'добавлено' : 'пока не добавлено'}]`)).slice(0, 700) }));
 
@@ -148,7 +148,7 @@ function aiRow(it, key, mode) {
   const hb = it.type === 'check' && aiHab(it.habit);
   const title = AI_ACT.includes(it.type) ? (it.lbl || it.habit || '—') : it.type === 'note' ? it.text : it.type === 'check' ? (hb ? (hb.emoji ? hb.emoji + ' ' : '') + hb.name : it.habit) : AI_KIND[it.type] ? (it.note || kind) : (it.type === 'habit' || it.type === 'goal') && it.emoji ? it.emoji + ' ' + it.title : it.title;
   if (auto) {
-    const st = it.st || 'skip', ico = st === 'ok' ? IC.check : st === 'undone' ? IC.undo : IC.alert;
+    const st = it.st || 'skip', ico = st === 'ok' ? IC.check : st === 'undone' ? IC.undo : st === 'no' ? IC.x : IC.alert;
     if (it.why) bits.push(esc(it.why));
     const btn = st === 'ok' || st === 'undone' ? `<button class="ai-undo" data-act="aiundo" data-i="${key}">${st === 'ok' ? 'Отменить' : 'Вернуть'}</button>` : '';
     return `<div class="ai-row ai-auto st-${st}"><span class="ai-chk">${I(ico, 14)}</span><span class="ai-k">${I(ic, 15)}${kind}</span>
@@ -158,13 +158,19 @@ function aiRow(it, key, mode) {
   return `<${tag} class="ai-row${it.on || locked ? '' : ' off'}">${box}<span class="ai-k">${I(ic, 15)}${kind}</span>
     <span class="ai-b"><b>${esc(title)}</b>${bits.length ? `<small>${bits.join(' · ')}</small>` : ''}</span></${tag}>`;
 }
+// Удаление и больше трёх изменений за раз ждут подтверждения: «Удалить» / «Подтвердить» и «Не надо» под сообщением
+function aiAskHTML(m, i) {
+  const a = (m.items || []).filter(x => x.st === 'ask'); if (!a.length) return '';
+  const del = a.every(x => x.type === 'delete');
+  return `<div class="ai-ask"><button class="btn pri" data-act="aiyes" data-i="${i}">${del ? I(IC.trash, 15) + ' Удалить' : 'Подтвердить'}${a.length > 1 ? ' (' + a.length + ')' : ''}</button><button class="btn" data-act="aino" data-i="${i}">Не надо</button></div>`;
+}
 // Текст ответа: экранируется; **жирный** и переводы строк — как в чате
 const aiTxt = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
 function aiMsg(m, i) {
   if (m.r === 'u') return `<div class="ai-m u"><div class="ai-mb">${aiThumbOk(m.img) ? `<img class="ai-uimg" src="${m.img}" alt="Картинка">` : ''}${m.t ? aiTxt(m.t) : ''}</div></div>`;
   const it = m.items || [], on = it.filter(x => x.on).length, added = m.added != null, okN = it.filter(x => x.st === 'ok').length;
   const list = m.auto && it.length ? `<div class="ai-list">${it.map((x, j) => aiRow(x, i + ':' + j, 'auto')).join('')}</div>
-    ${okN > 1 ? `<button class="ai-undoall" data-act="aiundoall" data-i="${i}">${I(IC.undo, 14)} Отменить всё</button>` : ''}` : it.length ? `<div class="ai-list">${(added ? it.filter(x => x.on) : it).map((x, j) => aiRow(x, i + ':' + j, added ? 'done' : 'pick')).join('')}</div>
+    ${okN > 1 ? `<button class="ai-undoall" data-act="aiundoall" data-i="${i}">${I(IC.undo, 14)} Отменить всё</button>` : ''}${aiAskHTML(m, i)}` : it.length ? `<div class="ai-list">${(added ? it.filter(x => x.on) : it).map((x, j) => aiRow(x, i + ':' + j, added ? 'done' : 'pick')).join('')}</div>
     ${added ? `<p class="ai-ok">${I(IC.check, 14)} ${m.added ? 'Готово: ' + plural(m.added, ['запись', 'записи', 'записей']) : 'Ничего не изменилось — это уже было'}</p>`
       : `<button class="btn pri ai-add" data-act="aiapply" data-i="${i}"${on ? '' : ' disabled'}>${on ? (it.every(x => !x.on || x.type === 'check') ? 'Отметить' : `Добавить ${plural(on, ['запись', 'записи', 'записей'])}`) : 'Выберите, что добавить'}</button>`}` : '';
   const nav = (m.nav || []).filter(n => AI_NAV[n.to]).map(n => `<button class="ai-nav" data-act="ainav" data-to="${n.to}">${esc(n.label || AI_NAV[n.to][0])}${I(IC.right, 14)}</button>`).join('');
@@ -196,7 +202,7 @@ function aiDraw() {
       ${AI_SR ? `<button class="ai-ib ai-mic${aiRec ? ' rec' : ''}" id="ai_mic" data-act="aimic" aria-pressed="${!!aiRec}" title="${aiRec ? 'Остановить запись' : 'Сказать голосом'}" aria-label="Сказать голосом">${I(IC.mic, 18)}</button>` : ''}
       <button class="ai-ib ai-send" id="ai_send" data-act="aigo" title="Отправить" aria-label="Отправить"${ai.busy ? ' disabled' : ''}>${I(IC.send, 18)}</button>
     </div>
-    <p class="ai-note">Помощник Parsimony · данные в России${hintK('aiData')}<span id="ai_left">${ai.left != null ? ' · осталось сегодня: ' + ai.left : ''}</span></p></div>`);
+    <p class="ai-note">Помощник Parsimony · нейросеть в России${hintK('aiData')}<span id="ai_left">${ai.left != null ? ' · осталось сегодня: ' + ai.left : ''}</span></p></div>`);
   aiGrow(); aiScroll();
 }
 // Перерисовка только ленты и кнопок — поле ввода и клавиатура телефона не сбрасываются
@@ -280,24 +286,29 @@ async function aiSend(text) {
   if (!navigator.onLine) { ai.err = 'Нет интернета — помощнику нужен сервер.'; ai.errT = text; return aiRefresh(); }   // сообщение не ушло — «Повторить» отправит его
   // Вопрос — со сводкой записей; короткое уточнение после ответа по сводке («а послезавтра», «и в пятницу») — тоже
   // Просят изменить уже созданное — сводка со ссылками на записи и основная модель; картинка — тоже основная модель
-  const edit = AI_EDIT.test(text), prev = [...ai.msgs].reverse().find(m => m.r === 'a');
+  // Изменить уже созданное — только по просьбе: «перенеси», «удали», «отметь»… или поправка к прошлому изменению («нет, на 11»).
+  // Флаг edit уходит и на сервер: там такие записи без просьбы тоже отбрасываются (аудит 18 октября 2026)
+  const prev = [...ai.msgs].reverse().find(m => m.r === 'a'), prevAct = !!(prev && prev.auto && (prev.items || []).some(x => AI_ACT.includes(x.type) && x.st === 'ok'));
+  const edit = AI_EDIT.test(text) || (prevAct && text.length < 80 && /^\s*(?:нет|не\s|лучше|точнее|давай|а\s)/i.test(text));
   const ask = !edit && !img && (aiAsks(text) || !!(prev && prev.ask && !prev.hi && text.length < 60 && /^\s*(?:а|и|ещё|еще)(?=[\s,])/i.test(text)));
   const history = aiHist(), R = aiRefs();
   ai.msgs.push({ r:'u', t:text, day: todayK(), ...(img ? { img: img.thumb } : {}) }); ai.draft = ''; ai.err = ''; ai.errT = null; ai.busy = true; ai.img = null; aiClearAsk = 0; aiStore();
   if (ta && text === ta.value.trim()) { ta.value = ''; aiGrow(); }
   aiRefresh();
-  const j = await aiCall({ mode:'chat', text: text || 'Разбери картинку и добавь в приложение, что на ней', ask, history, ctx: aiCtx(ask || edit, R, edit ? text : ''), ...(img ? { image: img.data } : {}) });
+  const j = await aiCall({ mode:'chat', text: text || 'Разбери картинку и добавь в приложение, что на ней', ask, edit, history, ctx: aiCtx(ask || edit, R, edit ? text : ''), ...(img ? { image: img.data } : {}) });
   ai.busy = false;
   if (j.err) { ai.err = j.err; if (img) ai.img = img; }   // «Повторить» отправит картинку ещё раз
-  else { const items = Array.isArray(j.items) ? j.items.filter(x => x && AI_T[x.type]) : [], nav = Array.isArray(j.nav) ? j.nav.filter(n => n && AI_NAV[n.to]) : [];
+  else { const items = Array.isArray(j.items) ? j.items.filter(x => x && AI_T[x.type] && (edit || !AI_ACT.includes(x.type))) : [], nav = Array.isArray(j.nav) ? j.nav.filter(n => n && AI_NAV[n.to]) : [];
     const refs = {}; items.forEach(x => { if (x.ref && R.map[x.ref]) refs[x.ref] = R.map[x.ref]; });
     // Записи — сразу, без подтверждения; «нет, в 11» (fix) — исправленные прошлые записи отменяются, новые встают вместо них
     if (items.length && j.fix) aiFixPrev(items);
-    items.forEach(x => aiDo(x, refs));
+    // Удаление и больше трёх изменений за раз — не сразу, а по кнопке под сообщением (aiPeek только описывает, что будет)
+    const askAll = items.filter(x => AI_ACT.includes(x.type)).length > 3;
+    items.forEach(x => x.type === 'delete' || (askAll && AI_ACT.includes(x.type)) ? aiPeek(x, refs) : aiDo(x, refs));
     ai.msgs.push({ r:'a', t: String(j.reply || (items.length ? '' : 'Не понял, что сделать. Напишите подробнее.')), day: todayK(), ...(items.length ? { items, auto: 1 } : {}), ...(Object.keys(refs).length ? { refs } : {}), ...(nav.length ? { nav } : {}), ...(ask ? { ask: 1 } : {}) });
     if (items.length) { save(); render(); }
-    const done = items.filter(x => x.st === 'ok').length;   // окно чата закрыли до ответа — сказать, что сделано
-    if (done && !(sheetOpen() && $('#ai_log'))) toast('Помощник: ' + plural(done, ['изменение', 'изменения', 'изменений']) + ' — отменить можно в чате'); }
+    const done = items.filter(x => x.st === 'ok').length, asks = items.filter(x => x.st === 'ask').length;   // окно чата закрыли до ответа — сказать, что сделано
+    if ((done || asks) && !(sheetOpen() && $('#ai_log'))) toast(asks ? 'Помощник ждёт подтверждения в чате' : 'Помощник: ' + plural(done, ['изменение', 'изменения', 'изменений']) + ' — отменить можно в чате'); }
   aiStore(); aiRefresh();
 }
 
@@ -378,6 +389,21 @@ const aiByRef = (it, refs) => { const id = refs && refs[it.ref], k = String(it.r
   return !id ? null : k === 'e' ? S.events.find(e => e.id === id) || null : k === 'm' ? S.fin.ops.find(o => o.id === id) || null : null; };
 const aiWhen = (k, tm) => shortDate(k) + (tm ? ', ' + tm : '');
 function aiSkip(it, why) { it.st = 'skip'; it.why = why; }
+// Ждёт подтверждения: только описание — что и с какой записью будет; сама запись пока не меняется
+function aiPeek(it, refs) {
+  it.st = 'ask'; delete it.why; it.res = null;
+  if (it.type === 'uncheck') { const h = aiHab(it.habit); it.lbl = h ? (h.emoji ? h.emoji + ' ' : '') + h.name : it.habit; return; }
+  const x = aiByRef(it, refs); if (!x) return aiSkip(it, 'не нашёл эту запись');
+  if (String(it.ref)[0] === 'm') { it.lbl = x.note || fcat(x.cat).name; it.chg = rub(x.amt) + ' · ' + shortDate(x.date); return; }
+  it.lbl = x.title;
+  if (it.type === 'delete') it.chg = it.only_date ? 'только ' + shortDate(it.only_date) : isRec(x) ? 'весь повтор' : aiWhen(x.date, x.time);
+  else if (it.type === 'done') it.chg = it.done === false ? 'снять отметку' : 'отметить сделанным';
+  else it.chg = '→ ' + [it.title && '«' + it.title + '»', it.date && shortDate(it.date), it.all_day ? 'без времени' : it.time].filter(Boolean).join(', ');
+}
+ACT.aiyes = el => { const m = ai && ai.msgs[+el.dataset.i]; if (!m || !m.items) return;
+  m.items.forEach(x => { if (x.st === 'ask') { delete x.st; delete x.chg; aiDo(x, m.refs); } }); save(); aiStore(); render(); aiRefresh(); };
+ACT.aino = el => { const m = ai && ai.msgs[+el.dataset.i]; if (!m || !m.items) return;
+  m.items.forEach(x => { if (x.st === 'ask') { x.st = 'no'; x.why = 'вы не подтвердили'; } }); aiStore(); aiRefresh(); };
 function aiChange(it, refs) {
   const t = it.type, today = todayK();
   if (t === 'uncheck') {   // снять отметку привычки

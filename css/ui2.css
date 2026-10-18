@@ -747,6 +747,10 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .ai-auto.st-undone .ai-b b{text-decoration:line-through;color:var(--mut)}
 .ai-auto.st-undone .ai-k,.ai-auto.st-skip{opacity:.75}
 .ai-auto.st-skip .ai-chk{color:var(--warn)}
+/* ждёт подтверждения / не подтверждено */
+.ai-auto.st-ask .ai-chk{color:var(--warn)}
+.ai-auto.st-no{opacity:.75}.ai-auto.st-no .ai-chk{color:var(--mut)}.ai-auto.st-no .ai-b b{text-decoration:line-through;color:var(--mut)}
+.ai-ask{display:flex;gap:8px;margin-top:10px}.ai-ask .btn{height:38px;flex:1}
 .ai-undoall{display:inline-flex;align-items:center;gap:6px;margin-top:8px;height:32px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--tx2);border:1px solid var(--line);background:var(--sf)}
 @media(hover:hover){.ai-undo:hover,.ai-undoall:hover{background:var(--hov)}}
 .st-grid>.card[id]{scroll-margin-top:80px}
