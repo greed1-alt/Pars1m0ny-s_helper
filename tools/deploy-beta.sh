@@ -4,7 +4,7 @@
 # Запуск: bash tools/deploy-beta.sh   (из любой папки репозитория; выкладывается последний коммит ветки dev)
 #
 # Репозиторий беты — только для выкладки: каждый раз туда уходит один свежий коммит с принудительной заменой (push -f),
-# история там не нужна. Отличия от dev: CNAME = beta.parsimony.ru, в manifest.json название «Parsimony β», без tools/.
+# история там не нужна. Отличия от dev: CNAME = beta.parsimony.ru, в manifest.json название «Parsimony β», без tools/ и docs/.
 set -euo pipefail
 
 REPO="$(git rev-parse --show-toplevel)"
@@ -20,7 +20,7 @@ git -C "$REPO" archive dev | tar -x -C "$TMP"
 # Пробная иконка только для беты (tools/beta-icons/icon-180/192/512.png): подменяет иконки в снимке беты, у друзей (main) — прежние.
 # Сейчас — «Py» шрифтом Mrs Saint Delafield, белым на чёрном (выбор пользователя 19 октября 2026, на пробу). Убрать папку — бета вернётся к обычной
 if [ -d "$TMP/tools/beta-icons" ]; then cp "$TMP/tools/beta-icons/"*.png "$TMP/"; fi   # icon-180/192/512 и круглая favicon.png
-rm -rf "$TMP/tools"
+rm -rf "$TMP/tools" "$TMP/docs"   # docs/ — архив CLAUDE.md, не часть приложения
 printf 'beta.parsimony.ru\n' > "$TMP/CNAME"
 sed -i 's/"name": "Parsimony"/"name": "Parsimony β"/; s/"short_name": "Parsimony"/"short_name": "Parsimony β"/' "$TMP/manifest.json"
 grep -q 'Parsimony β' "$TMP/manifest.json" || { echo "manifest.json: не нашёл название для замены" >&2; exit 1; }
