@@ -768,9 +768,16 @@ button.sbl:hover{background:var(--hov)}
   .hb-two{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
   .hb-three{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:stretch}
   .hg-name{min-width:168px;max-width:168px}
-  /* Месяц целиком без прокрутки вбок на экране от ~1280 px (было шире блока на 135 px; аудит, 21 октября 2026) */
-  .hg-d th{min-width:24px;width:24px}
+  /* Таблица месяца — по ширине карточки (21 октября 2026): на ноутбуке ~1280 px столбцы дней ~24 px и месяц помещается целиком
+     (было шире блока на 135 px), на большом мониторе — шире, до ~40 px, без пустого места справа (правка пользователя «что-то между»).
+     Уже ~940 px — листается вбок, как раньше. Ширины столбцов — по первой строке (table-layout:fixed): название 168, «%» 52, дни делят остальное */
+  .hg{width:100%;min-width:940px;table-layout:fixed}
+  .hg .sticky-col{width:168px}
+  .hg .hg-pc{width:52px}
+  .hg-d th{min-width:0;width:auto}
   .hc{width:20px;height:20px}
+  @media(min-width:1600px){.hc{width:22px;height:22px}}   /* на широком экране клетки шире — и галочки прежнего размера */
+  @media(min-width:2200px){.hc{width:26px;height:26px;border-radius:7px}}   /* очень широкий экран — галочки крупнее, чтобы не было пусто */
   .bio-bars{grid-template-columns:repeat(3,minmax(0,1fr))}
   .ft{grid-template-columns:1.4fr repeat(4,minmax(0,1fr))}
   .ft-t.hero{grid-column:auto}
