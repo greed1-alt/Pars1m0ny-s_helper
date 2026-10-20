@@ -185,7 +185,8 @@ function aiLogHTML() {
     <div class="ai-ex">${AI_EX.map(x => `<button data-act="aiex" data-t="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>`;
   ai.msgs.forEach((m, i) => { if (m.day && m.day !== day) { day = m.day; const d = relDay(day); out += `<div class="ai-day">${d[0].toUpperCase() + d.slice(1)}</div>`; } out += aiMsg(m, i); });
   if (ai.busy) out += `<div class="ai-m a"><span class="ai-av">${I(IC.spark, 14)}</span><div class="ai-mb ai-typing" aria-label="Помощник печатает"><i></i><i></i><i></i></div></div>`;
-  if (ai.err) out += `<div class="ai-err"><span>${esc(ai.err)}</span><button class="btn" data-act="airetry">${I(IC.rep, 15)} Повторить</button></div>`;
+  if (ai.err) { const [msg, code] = ai.err.split('\n');   // понятный текст крупно, служебный код (aiErr) — мелкой строкой для отзыва
+    out += `<div class="ai-err"><span>${esc(msg)}${code ? `<small class="ai-errc">Код для отзыва: ${esc(code)}</small>` : ''}</span><button class="btn" data-act="airetry">${I(IC.rep, 15)} Повторить</button></div>`; }
   return out;
 }
 function aiDraw() {
@@ -254,7 +255,7 @@ ACT.aimic = () => {
 // ---- Сервер ----
 // Понятная причина ошибки; в скобках — служебный код, по нему видно, где сбой (ответ сервера · что случилось · код нейросети · какая нейросеть)
 function aiErr(st, j) {
-  const e = j.error, c = Number(j.code) || 0, p = String(j.p || '').replace(/[^a-z]/g, ''), tag = ` (${st}${e ? ' · ' + e : ''}${c ? ' ' + c : ''}${p ? ' · ' + p[0].toUpperCase() : ''})`;   // G — GigaChat, D — DeepSeek
+  const e = j.error, c = Number(j.code) || 0, p = String(j.p || '').replace(/[^a-z]/g, ''), tag = `\n${st}${e ? ' · ' + e : ''}${c ? ' ' + c : ''}${p ? ' · ' + p[0].toUpperCase() : ''}`;   // G — GigaChat, D — DeepSeek. Код — после перевода строки: окно показывает его мелко, «Код для отзыва» (аудит, 21 октября 2026)
   if (e === 'limit') return `На сегодня запросы закончились (${j.limit} в день). Завтра снова можно.`;
   if (e === 'off' || st === 404) return 'Помощник ещё не подключён к нейросети — скоро заработает.';
   if (st === 401 || st === 403) return 'Войдите в аккаунт заново.' + tag;

@@ -185,6 +185,7 @@ document.addEventListener('change', e => {
   else if (t.id === 's_wn') { st.weekNums = t.checked; save(); render(); }
   else if (t.id === 's_dim') { st.dimPast = t.checked; save(); render(); }
   else if (t.id === 's_fold') { st.fold = t.checked; save(); render(); }
+  else if (t.id === 's_keys1') { st.keys1 = t.checked; save(); toast(t.checked ? 'Клавиши одной буквой включены' : 'Клавиши одной буквой выключены — Ctrl+K работает'); }
   else if (t.id === 'f_all') { $('.ftime').classList.toggle('off', t.checked); if (!t.checked && !$('#f_tm').value) { $('#f_tm').value = '09:00'; $('#f_tm2').value = '10:00'; } }
   else if (t.id === 'f_tm') { timeOn(); const a = timeMin(t.value), b = timeMin($('#f_tm2').value); if (a != null && (b == null || b <= a)) $('#f_tm2').value = fmtMin(Math.min(1439, a + 60)); }
   else if (t.id === 'f_tm2') timeOn();
@@ -332,6 +333,9 @@ document.addEventListener('keydown', e => {
   }
   if (typing || mod || e.altKey || sheetOpen() || quickOpen()) return;
   const k = e.code;
+  // Клавиши одной буквой (N, T, M, W, D, L, J, K, «/», «?») можно выключить — Настройки → «Календарь» (WCAG 2.1.4; аудит, 21 октября 2026):
+  // их случайно нажимает голосовой ввод или экранный диктор. Ctrl+K, Ctrl+Z, Esc и стрелки работают всегда
+  if (S.settings.keys1 === false && (/^Key[A-Z]$/.test(k) || k === 'Slash' || e.key === '?')) return;
   if (k === 'Slash' && e.shiftKey || e.key === '?') { e.preventDefault(); openHelp(); }
   else if (k === 'Slash') { e.preventDefault(); openCmd(); }
   else if (k === 'KeyT') goToday();

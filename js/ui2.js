@@ -572,8 +572,9 @@ function onbOpen() {
   let el = $('#onb');
   if (!el) { el = document.createElement('div'); el.id = 'onb'; el.className = 'onb'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Знакомство с ' + APP_NAME); document.body.appendChild(el); }
   onbDraw(); requestAnimationFrame(() => el.classList.add('show'));
+  a11yOpen();   // js/a11y.js: страница за знакомством «заморожена» — Tab и диктор не уходят за окно (аудит, 21 октября 2026)
 }
-function onbClose() { clearTimeout(onbT); const el = $('#onb'); if (!el) return; el.classList.remove('show'); setTimeout(() => { if (!el.classList.contains('show')) el.remove(); }, 300); }
+function onbClose() { clearTimeout(onbT); const el = $('#onb'); if (!el) return; el.classList.remove('show'); a11yClose(); setTimeout(() => { if (!el.classList.contains('show')) el.remove(); }, 300); }
 function onbMock() {
   return `<div class="onb-mock" aria-hidden="true">
     <div class="mk-top"><div><small>${DOWF[dowIdx(todayK())]}</small><b>${greet()}${S.settings.name ? ', ' + esc(S.settings.name) : ''}</b></div>${ringSVG(.62, 52, 'var(--good)', '62%', '')}</div>

@@ -22,6 +22,10 @@ body.ui2 .demobar .btn{height:32px;padding:0 12px}
   .t3-list .t3-row{flex-wrap:wrap}
   .t3-list .t3-row:has(.t3-meta) .t3-main{padding-bottom:2px}
   .t3-list .t3-meta{flex-basis:100%;padding:0 0 8px 48px;margin-top:-2px}
+  /* Метка цели — второй строкой под названием: название видно целиком (аудит, 21 октября 2026: «Сравнить ипотечн…») */
+  .t3-main:has(.gtag){flex-wrap:wrap;row-gap:3px}
+  .t3-main:has(.gtag) .t3-t{flex:1 1 calc(100% - 40px)}
+  .t3-main .gtag{max-width:calc(100% - 18px);margin-left:16px}
   /* Привычки и Финансы на текущем месяце: вторая строка шапки («Сегодня», поиск) не нужна */
   body[data-cur="1"] .bar2{display:none}
 }
@@ -722,6 +726,7 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .ai-ok{display:flex;align-items:center;gap:6px;margin:8px 0 0;font-size:13px;font-weight:600;color:var(--tx2)}
 .ai-ok svg{color:var(--good)}
 .ai-err{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:0 0 0 34px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--dng) 9%,transparent);font-size:13.5px;color:var(--dng)}
+.ai-errc{display:block;margin-top:4px;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}   /* служебный код ошибки — мелко, для отзыва */
 .ai-in{display:flex;align-items:flex-end;gap:4px;padding:5px 5px 5px 12px;border:1px solid var(--line);border-radius:24px;background:var(--bg2)}
 .ai-in textarea{flex:1;min-width:0;border:0;background:none;resize:none;outline:0;font:inherit;font-size:16px;line-height:1.4;padding:7px 0;max-height:140px;overflow-y:hidden;color:var(--tx)}
 .ai-ib{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--tx2)}
