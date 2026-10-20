@@ -146,13 +146,41 @@ async function syncNow() {
 function cloudStart() {
   // iPhone мог перезапустить приложение, пока человек ходил в почту за кодом, — сразу снова открываем ввод кода (15 минут)
   const pend = lsGet(LG_LS);
-  if (!signedIn() && pend && EMAIL_RE.test(pend.email || '') && Date.now() - pend.sentAt < 15 * 60000) { lg = { step:'code', email: pend.email, sentAt: pend.sentAt, err:'' }; setTimeout(() => openLogin(), 400); }
+  if (!signedIn() && pend && EMAIL_RE.test(pend.email || '') && Date.now() - pend.sentAt < 15 * 60000) { lg = { step:'code', email: pend.email, sentAt: pend.sentAt, err:'', agree: !!pend.agree }; setTimeout(() => openLogin(), 400); }
   else lsSet(LG_LS, null);
-  if (signedIn()) { syncNow(); pushSync(); }
+  if (signedIn()) { syncNow(); pushSync(); setTimeout(consentCheck, 2500); }   // вошли раньше, чем появилось согласие, — спросить один раз
   document.addEventListener('visibilitychange', () => { if (!signedIn()) return; clearTimeout(syncTimer); syncNow(); });   // при закрытии — сразу, без таймера: его iPhone может не дождаться
   addEventListener('online', () => { if (signedIn()) syncNow(); });
   setInterval(() => { if (signedIn() && !document.hidden) syncNow(); }, 60000);   // раз в минуту — проверить, не изменилось ли на другом устройстве
 }
+
+// ---- Согласие на обработку персональных данных (20 октября 2026) ----
+// Документы — consent.html (согласие отдельным документом, как требует закон с 1 сентября 2025 года) и privacy.html (политика).
+// Даётся галочкой при входе — до того, как почта уйдёт на сервер; кто вошёл раньше — окном при следующем открытии.
+// Запись — S.settings.consent = { v: редакция, at: время }: синхронизируется с аккаунтом, это и есть подтверждение согласия.
+// Изменились условия (новая редакция документов) — новая CONSENT_V, и приложение спросит снова
+const CONSENT_V = '2026-10-20';
+let consentAgreed = false;   // отметил галочку при входе — записываем, как только аккаунт подключён и данные загружены
+const consentOk = () => !!(S.settings.consent && S.settings.consent.v === CONSENT_V);
+function consentSave() { S.settings.consent = { v: CONSENT_V, at: new Date().toISOString() }; save(); }
+function consentCheck() {
+  if (!signedIn() || consentOk()) return;
+  if (consentAgreed) { consentAgreed = false; return consentSave(); }
+  if (sheetOpen() || onbIsOpen() || tour) return setTimeout(consentCheck, 5000);   // не поверх открытого окна, знакомства или тура
+  openConsent(false);
+}
+function openConsent(no) {
+  sheet(`<div class="sh-head"><h3>${no ? 'Без согласия' : 'Согласие на обработку данных'}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  ${no ? `<p class="set-note" style="margin:0 0 12px">Без согласия хранить ваши записи в аккаунте нельзя. Можно скачать копию записей и удалить аккаунт — тогда Parsimony будет работать только на этом устройстве, без отправки данных на сервер. Копию потом можно загрузить обратно: Настройки → «Загрузить из файла».</p>
+    <div class="cns-btns"><button class="btn" data-act="export">${I(IC.down, 16)} Скачать копию</button><button class="btn dng" data-act="accdel">Удалить аккаунт…</button><button class="btn" data-act="cnsback">Назад</button></div>`
+  : `<p class="set-note" style="margin:0 0 10px">Ваши записи хранятся в аккаунте на сервере. Для этого нужно ваше согласие на обработку персональных данных — коротко:</p>
+    <ul class="cns-list"><li>записи видите только вы; мы не продаём данные и не показываем рекламу;</li><li>пока идёт бета, сервер — в Европе; к открытому запуску переезжаем в Россию;</li><li>помощнику уходят только ваши сообщения, а при вопросах — короткая сводка дел, трат, целей и привычек;</li><li>удалить всё — Настройки → «Удалить аккаунт».</li></ul>
+    <p class="set-note" style="margin:0 0 12px">Полностью — <a href="consent.html" target="_blank" rel="noopener">Согласие на обработку персональных данных</a> и <a href="privacy.html" target="_blank" rel="noopener">Политика конфиденциальности</a>.</p>
+    <div class="sh-foot cns-foot"><button class="btn pri grow" data-act="cnsyes">Согласен</button><button class="btn" data-act="cnsno">Не согласен</button></div>`}`);
+}
+ACT.cnsyes = () => { consentSave(); closeSheet(); toast('Спасибо! Согласие сохранено'); };
+ACT.cnsno = () => openConsent(true);
+ACT.cnsback = () => openConsent(false);
 
 // ---- Вход, выход, удаление ----
 async function afterLogin() {
@@ -163,7 +191,7 @@ async function afterLogin() {
   else if (sync.owner === auth.uid && readBase()) { await syncNow(); toast('С возвращением! Записи обновлены'); }
   else if (hasLocalData()) { cloudPending = row; openMergeAsk(); return; }
   else { const remote = cleanTree(row.data || {}, ''); applyData(remote); writeBase(remote, row.rev); toast('Вы вошли — записи загружены из аккаунта'); }
-  syncUI(); render(); checkNotif();
+  syncUI(); render(); checkNotif(); consentCheck();
 }
 let cloudPending = null;
 function openMergeAsk() {
@@ -180,7 +208,7 @@ async function cloudResolve(merge) {
     if (merge) { const m = merge3({}, packS(), remote); applyData(m); const r = await rowUpdate(packS(), row.rev); if (r) writeBase(packS(), r.rev); else { writeBase(remote, row.rev); syncNow(); } toast('Готово — записи объединены'); }
     else { safetyCopy(); applyData(remote); writeBase(remote, row.rev); toast('Записи загружены из аккаунта'); }
   } catch (e) { toast(cloudErrText(e)); }
-  syncUI();
+  syncUI(); consentCheck();
 }
 ACT.cmerge = () => cloudResolve(true);
 ACT.creplace = () => cloudResolve(false);
@@ -242,6 +270,7 @@ function openLogin(keep) {
     <label class="lg-l" for="lg_email">Почта</label>
     <input id="lg_email" class="fin lg-in" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="200" value="${esc(lg.email)}" placeholder="name@mail.ru">
     <div id="lg_err" class="lg-err" role="alert">${esc(lg.err)}</div>
+    <label class="lg-ok"><input id="lg_ok" type="checkbox"${lg.agree ? ' checked' : ''}><span>Даю <a href="consent.html" target="_blank" rel="noopener">согласие на обработку персональных данных</a> и принимаю <a href="privacy.html" target="_blank" rel="noopener">политику</a></span></label>
     <button class="btn pri lg-go" data-act="lgsend">Получить код</button>`
   : `<p class="set-note" style="margin:0 0 12px">Отправили код на <b style="color:var(--tx)">${esc(lg.email)}</b>. Письмо приходит за минуту; если его нет — загляните в «Спам».</p>
     <label class="lg-l" for="lg_code">Код из письма</label>
@@ -259,8 +288,10 @@ const lgBusy = (on, txt) => { const b = $('.lg-go'); if (b) { b.disabled = on; i
 async function lgSend() {
   const i = $('#lg_email'), email = (i ? i.value : lg.email).trim().toLowerCase();
   if (!EMAIL_RE.test(email)) { if (i) i.focus(); return lgErr('Проверьте почту — похоже, в ней ошибка'); }
+  const ok = $('#lg_ok'); lg.agree = !ok || ok.checked;   // согласие — до того, как почта уйдёт на сервер
+  if (!lg.agree) { ok.focus(); return lgErr('Отметьте согласие на обработку данных — без него войти в аккаунт нельзя'); }
   lg.email = email; lgErr(''); lgBusy(true, 'Отправляю…');
-  try { await api('/auth/v1/otp', { method:'POST', body:{ email, create_user:false } }); lg.step = 'code'; lg.sentAt = Date.now(); lsSet(LG_LS, { email, sentAt: lg.sentAt }); openLogin(true); }
+  try { await api('/auth/v1/otp', { method:'POST', body:{ email, create_user:false } }); lg.step = 'code'; lg.sentAt = Date.now(); lsSet(LG_LS, { email, sentAt: lg.sentAt, agree: true }); openLogin(true); }
   catch (e) { lgBusy(false, 'Получить код'); lgErr(cloudErrText(e)); }
 }
 async function lgVerify() {
@@ -269,7 +300,7 @@ async function lgVerify() {
   lgErr(''); lgBusy(true, 'Проверяю…');
   try { setSession(await api('/auth/v1/verify', { method:'POST', body:{ type:'email', email: lg.email, token: code } })); }
   catch (e) { lgBusy(false, 'Войти'); return lgErr(cloudErrText(e)); }
-  lg = null; lsSet(LG_LS, null); closeSheet();
+  consentAgreed = !!(lg && lg.agree); lg = null; lsSet(LG_LS, null); closeSheet();
   try { await afterLogin(); } catch (e) { toast(cloudErrText(e)); syncUI(); }
 }
 ACT.login = () => { lg = null; openLogin(); };
