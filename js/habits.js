@@ -2,13 +2,19 @@
 // Привычка: { id, name, emoji, kind:'daily'|'weekly'|'monthly', days:[0..6] (для daily: пусто = каждый день), from, log:{ ключ:1 } }
 // Ключ отметки: день «2026-10-05», неделя «2026-10:w2» (недели месяца: 1–7, 8–14, 15–21, 22–28, 29–31), месяц «2026-10».
 const BIO_DEF = [
-  { id:'sleep', name:'Сон', emoji:'😴', type:'hours', plan:8 },
-  { id:'energy', name:'Энергия', emoji:'⚡', type:'score', plan:5 },
-  { id:'mood', name:'Настроение', emoji:'🙂', type:'score', plan:5 },
-  { id:'prod', name:'Продуктивность', emoji:'🚀', type:'score', plan:5 },
-  { id:'focus', name:'Фокус', emoji:'🎯', type:'score', plan:5 },
-  { id:'stress', name:'Стресс', emoji:'🌪️', type:'score', plan:1, low:true },
+  { id:'sleep', name:'Сон', emoji:'😴', type:'hours', plan:8, dir:'target' },
+  { id:'energy', name:'Энергия', emoji:'⚡', type:'score', plan:5, dir:'more' },
+  { id:'mood', name:'Настроение', emoji:'🙂', type:'score', plan:5, dir:'more' },
+  { id:'prod', name:'Продуктивность', emoji:'🚀', type:'score', plan:5, dir:'more' },
+  { id:'focus', name:'Фокус', emoji:'🎯', type:'score', plan:5, dir:'more' },
+  { id:'stress', name:'Стресс', emoji:'🌪️', type:'score', plan:1, low:true, dir:'less' },
 ];
+// Как оценивать показатель относительно плана (20 октября 2026, просьба пользователя): «ровно план» — и недобор, и перебор плохо (сон 8 часов);
+// «больше — лучше» — план минимум (энергия); «меньше — лучше» — план максимум (стресс). Раньше был только флажок low («меньше — лучше»),
+// без него считалось «больше — лучше». low оставлен (= dir 'less') для старой версии приложения на другом устройстве
+const BIO_DIR = [['target', 'Ровно план'], ['more', 'Больше — лучше'], ['less', 'Меньше — лучше']];
+const BIO_DIR_NOTE = { target:'Лучше всего — ровно план: и меньше, и больше — плохо. Как сон 8 часов.', more:'Чем больше, тем лучше, план — минимум. Как энергия.', less:'Чем меньше, тем лучше, план — максимум. Как стресс.' };
+const bioDir = m => BIO_DIR.some(x => x[0] === m.dir) ? m.dir : m.low ? 'less' : 'more';
 const HB_EMOJI = ['💧','🏃','📚','🧘','💪','🥗','😴','📝','🚭','🍎','🧹','💊','🚶','🎯','🙏','📵','☀️','🛌','🎸','🧠','💻','💰','🌿','❤️','🦷','🧴','🏋️','✍️'];
 onMigrate(() => {
   if (!Array.isArray(S.habits)) S.habits = [];
@@ -22,6 +28,8 @@ onMigrate(() => {
   if (!S.bio || typeof S.bio !== 'object') S.bio = {};
   if (!Array.isArray(S.bio.metrics)) S.bio.metrics = structuredClone(BIO_DEF);
   if (!S.bio.log || typeof S.bio.log !== 'object') S.bio.log = {};
+  // Прежние показатели: «меньше — лучше» остаётся; энергия, настроение, продуктивность, фокус — «больше — лучше»; сон и свои — «ровно план»
+  S.bio.metrics.forEach(m => { if (m && !BIO_DIR.some(x => x[0] === m.dir)) m.dir = m.low ? 'less' : ['energy', 'mood', 'prod', 'focus'].includes(m.id) ? 'more' : 'target'; if (m) m.low = m.dir === 'less'; });
   // Заметки — журнал записей с датой: { id, date, text }. Старый текст месяца (S.hnotes) превращается в запись.
   if (!Array.isArray(S.notes)) S.notes = [];
   if (S.hnotes && typeof S.hnotes === 'object') {
@@ -127,7 +135,12 @@ function periodicCard(kind, ym) {
 const bioVal = (k, id) => (S.bio.log[k] || {})[id];
 const bioMax = m => m.type === 'hours' ? Math.max(12, m.plan) : 5;
 function bioAvg(m, days) { const v = days.map(k => bioVal(k, m.id)).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; }
-function bioScore(m, avg) { if (avg == null) return null; const max = bioMax(m); return m.low ? (avg <= m.plan ? 1 : Math.max(0, (max - avg) / (max - m.plan))) : Math.min(1, avg / m.plan); }
+function bioScore(m, avg) {
+  if (avg == null) return null; const max = bioMax(m), d = bioDir(m);
+  if (d === 'less') return avg <= m.plan ? 1 : Math.max(0, (max - avg) / (max - m.plan));
+  if (d === 'more') return Math.min(1, avg / m.plan);
+  return Math.max(0, 1 - Math.abs(avg - m.plan) / (m.type === 'hours' ? Math.max(1, m.plan / 2) : 2));   // «ровно план»: отклонение в полплана (часы) или на 2 балла — уже плохо
+}
 const bioUnit = m => m.type === 'hours' ? ' ч' : '';
 const fmtNum = v => v == null ? '—' : String(Math.round(v * 10) / 10).replace('.', ',');
 function bioCard(ym) {
@@ -140,7 +153,7 @@ function bioCard(ym) {
   </tbody></table></div>`;
   const bars = M.map(m => {
     const avg = bioAvg(m, days), sc = bioScore(m, avg), st = sc == null ? '' : sc >= .85 ? 'good' : sc >= .6 ? 'mid' : 'low';
-    return `<div class="bio-bar"><div class="bb-h"><span>${esc(m.emoji || '')} ${esc(m.name)}</span><small>${avg == null ? 'нет данных' : `${fmtNum(avg)}${bioUnit(m)} · план ${fmtNum(m.plan)}${bioUnit(m)}`}${st ? ` · <b class="st-${st}">${{ good:'хорошо', mid:'средне', low:'плохо' }[st]}</b>` : ''}</small></div><div class="ds-bar"><i class="st-${st}" style="width:${sc == null ? 0 : Math.round(sc * 100)}%"></i></div></div>`;
+    return `<div class="bio-bar"><div class="bb-h"><span>${esc(m.emoji || '')} ${esc(m.name)}</span><small>${avg == null ? 'нет данных' : `${fmtNum(avg)}${bioUnit(m)} · план ${fmtNum(m.plan)}${bioUnit(m)}`}${st ? ` · <b class="st-${st}">${{ good:'хорошо', mid:'средне', low:'плохо' }[st]}</b>` : ''}${st && st !== 'good' && bioDir(m) === 'target' ? (avg > m.plan ? ' — выше плана' : ' — ниже плана') : ''}</small></div><div class="ds-bar"><i class="st-${st}" style="width:${sc == null ? 0 : Math.round(sc * 100)}%"></i></div></div>`;
   }).join('');
   return `<div class="card bio-card"><div class="card-h"><b>Самочувствие</b><button class="pill sm" data-act="bioedit">${I(IC.gear, 14)} Настроить</button></div>
     <p class="set-note" style="margin:-4px 0 10px">Нажмите на клетку дня и выберите оценку: сон — в часах, остальное — от 1 до 5. Так видно, как отдых связан с результатами.</p>
@@ -207,7 +220,7 @@ function openBioPicker(el) {
   const qc = $('#qc');
   qc.innerHTML = `<div class="qhead"><b>${esc(m.emoji || '')} ${esc(m.name)} · ${esc(fmtLong(k))}</b><button class="qx" data-act="qclose" aria-label="Закрыть">${I(IC.x, 15)}</button></div>
     <div class="chips bp">${opts.map(v => `<button type="button" class="chip${cur === v ? ' on' : ''}" data-act="bioval" data-m="${m.id}" data-k="${k}" data-v="${v}">${fmtNum(v)}</button>`).join('')}</div>
-    ${m.type === 'hours' ? `<div class="qrow bp-own"><label for="bp_in">Своё число</label><input id="bp_in" class="fin" type="text" inputmode="decimal" maxlength="5" value="${cur == null ? '' : fmtNum(cur)}" placeholder="например, 2 или 5,5"><button class="btn" data-act="bioin" data-m="${m.id}" data-k="${k}">OK</button></div>` : `<p class="set-note" style="margin:8px 2px 0">${m.low ? '1 — спокойно, 5 — очень сильно' : '1 — плохо, 5 — отлично'}</p>`}
+    ${m.type === 'hours' ? `<div class="qrow bp-own"><label for="bp_in">Своё число</label><input id="bp_in" class="fin" type="text" inputmode="decimal" maxlength="5" value="${cur == null ? '' : fmtNum(cur)}" placeholder="например, 2 или 5,5"><button class="btn" data-act="bioin" data-m="${m.id}" data-k="${k}">OK</button></div>` : `<p class="set-note" style="margin:8px 2px 0">${bioDir(m) === 'less' ? '1 — спокойно, 5 — очень сильно' : '1 — плохо, 5 — отлично'}</p>`}
     ${cur != null ? `<button class="btn" style="width:100%;margin-top:8px;height:34px" data-act="bioval" data-m="${m.id}" data-k="${k}" data-v="">Очистить</button>` : ''}`;
   qc.classList.add('show');
   const r = el.getBoundingClientRect(), w = innerWidth < 900 ? innerWidth - 16 : 310, h = qc.offsetHeight || 160;
@@ -231,7 +244,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id
 // «нужно изменить название, а прогресс то ли сбрасывается»). Отметки привязаны к id показателя, а не к названию — переименование
 // и смена значка, шкалы и плана их не трогают; пропадают они только при удалении показателя (с подтверждением и «Отменить»)
 const bmMarks = id => Object.values(S.bio.log).filter(d => d[id] != null).length;
-const bmSub = m => `${m.type === 'hours' ? 'в часах' : 'оценка 1–5'} · план ${fmtNum(m.plan)}${bioUnit(m)}${m.low ? ' · меньше — лучше' : ''}`;
+const bmSub = m => `${m.type === 'hours' ? 'в часах' : 'оценка 1–5'} · план ${fmtNum(m.plan)}${bioUnit(m)} · ${BIO_DIR.find(x => x[0] === bioDir(m))[1].toLowerCase()}`;
 function openBioEdit(keep) {
   sheet(`<div class="sh-head"><h3>Самочувствие</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   <p class="set-note" style="margin:0 0 10px">Что отмечать каждый день. Нажмите на показатель, чтобы переименовать его или поменять шкалу и план, — отметки сохранятся.</p>
@@ -246,20 +259,19 @@ ACT.bioedit = () => openBioEdit();
 let bmForm = null, bmBack = false, bmAsk = false;
 function openBioMetric(id, back) {
   const m = S.bio.metrics.find(x => x.id === id);
-  bmForm = m ? { id, emoji: m.emoji || '', name: m.name, type: m.type, plan: m.plan, low: !!m.low } : { id: null, emoji: '⭐', name: '', type: 'score', plan: 5, low: false };
+  bmForm = m ? { id, emoji: m.emoji || '', name: m.name, type: m.type, plan: m.plan, dir: bioDir(m) } : { id: null, emoji: '⭐', name: '', type: 'score', plan: 5, dir: 'target' };
   bmBack = !!back; bmAsk = false; drawBioMetric();
   if (!m) setTimeout(() => { const i = $('#bm_n'); if (i) i.focus(); }, 30);
 }
 const bmKeep = () => { const e = $('#bm_e'), n = $('#bm_n'), p = $('#bm_p'); if (!bmForm) return;
-  if (e) bmForm.emoji = e.value.trim(); if (n) bmForm.name = n.value; if (p) bmForm.plan = Math.max(0, Math.min(24, Number(String(p.value).replace(',', '.')) || 0));
-  const lw = $('#bm_low'); if (lw) bmForm.low = lw.checked; };
+  if (e) bmForm.emoji = e.value.trim(); if (n) bmForm.name = n.value; if (p) bmForm.plan = Math.max(0, Math.min(24, Number(String(p.value).replace(',', '.')) || 0)); };
 function drawBioMetric() {
   const f = bmForm, n = f.id ? bmMarks(f.id) : 0;
   sheet(`<div class="sh-head">${bmBack ? `<button class="ic" data-act="bioedit" aria-label="Назад">${I(IC.left, 18)}</button>` : ''}<h3>${f.id ? 'Показатель' : 'Новый показатель'}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
     <div class="bm-name"><input id="bm_e" class="bm-em" value="${esc(f.emoji)}" maxlength="4" aria-label="Значок"><input id="bm_n" class="fin" value="${esc(f.name)}" maxlength="40" placeholder="Название, например «Вода» или «Шаги»" aria-label="Название"></div>
     <div class="set-row"><span>Шкала</span><div class="seg2"><button class="${f.type === 'score' ? 'on' : ''}" data-act="bmtype" data-v="score">Оценка 1–5</button><button class="${f.type === 'hours' ? 'on' : ''}" data-act="bmtype" data-v="hours">Часы</button></div></div>
     <div class="set-row"><span>План — к чему стремитесь</span><input id="bm_p" class="fin bm-pl" type="text" inputmode="decimal" maxlength="5" value="${fmtNum(f.plan)}"></div>
-    <div class="set-row"><span>Меньше — лучше <small class="set-note" style="display:block;margin:2px 0 0">как стресс</small></span><input id="bm_low" class="sw" type="checkbox"${f.low ? ' checked' : ''}></div>
+    <div class="bm-dir"><span>Как оценивать</span><div class="seg2" role="group" aria-label="Как оценивать">${BIO_DIR.map(([v, n]) => `<button class="${f.dir === v ? 'on' : ''}" data-act="bmdir" data-v="${v}" aria-pressed="${f.dir === v}">${n}</button>`).join('')}</div><small class="set-note">${BIO_DIR_NOTE[f.dir]}</small></div>
     ${f.id ? `<p class="set-note">${n ? `Отметок: ${n}. Они сохранятся — меняются только название и настройки.` : 'Отметок пока нет.'}</p>` : ''}
     <button class="btn pri" style="width:100%;margin-top:12px" data-act="bmsave">${f.id ? 'Сохранить' : 'Добавить показатель'}</button>
     ${f.id ? (bmAsk ? `<div class="catedit ask2" style="margin-top:10px"><span class="askt">Удалить «${esc(f.name)}»${n ? ` и ${plural(n, ['отметку', 'отметки', 'отметок'])}` : ''}?</span><button class="askyes" data-act="bmdelyes">Удалить</button><button class="askno" data-act="bmdelno">Отмена</button></div>`
@@ -269,12 +281,13 @@ ACT.bmopen = el => openBioMetric(el.dataset.id, !el.closest('.hg'));   // из �
 ACT.bmadd = () => openBioMetric(null, true);
 ACT.bmtype = el => { bmKeep(); bmForm.type = el.dataset.v === 'hours' ? 'hours' : 'score';
   if (bmForm.type === 'score' && bmForm.plan > 5) bmForm.plan = 5; if (bmForm.type === 'hours' && bmForm.plan <= 5) bmForm.plan = 8; drawBioMetric(); };
+ACT.bmdir = el => { bmKeep(); bmForm.dir = el.dataset.v; shDirty = true; drawBioMetric(); };
 ACT.bmsave = () => {
-  bmKeep(); const f = bmForm, lw = $('#bm_low'); f.low = !!(lw && lw.checked);
+  bmKeep(); const f = bmForm;
   const name = f.name.trim(); if (!name) { const i = $('#bm_n'); if (i) i.focus(); return toast('Напишите название'); }
   const plan = f.type === 'score' ? Math.min(5, Math.max(1, f.plan || 5)) : f.plan || 8;
-  if (f.id) { const m = S.bio.metrics.find(x => x.id === f.id); if (!m) return; Object.assign(m, { name, emoji: f.emoji || m.emoji, type: f.type, plan, low: f.low }); }
-  else S.bio.metrics.push({ id: 'm' + uid(), name, emoji: f.emoji || '⭐', type: f.type, plan, low: f.low });
+  if (f.id) { const m = S.bio.metrics.find(x => x.id === f.id); if (!m) return; Object.assign(m, { name, emoji: f.emoji || m.emoji, type: f.type, plan, dir: f.dir, low: f.dir === 'less' }); }
+  else S.bio.metrics.push({ id: 'm' + uid(), name, emoji: f.emoji || '⭐', type: f.type, plan, dir: f.dir, low: f.dir === 'less' });
   save(); render(); toast(f.id ? 'Сохранено' : 'Показатель добавлен');
   if (bmBack) openBioEdit(); else closeSheet();
 };
@@ -368,7 +381,7 @@ SEC.habits = {
     const keys = [];
     days.forEach(k => {
       const day = S.bio.log[k] || (S.bio.log[k] = {});
-      S.bio.metrics.forEach(m => { if (day[m.id] != null) return; day[m.id] = m.type === 'hours' ? 6 + Math.round(rnd() * 6) / 2 : m.low ? 1 + Math.floor(rnd() * 3) : 2 + Math.floor(rnd() * 4); keys.push(k + '|' + m.id); });
+      S.bio.metrics.forEach(m => { if (day[m.id] != null) return; day[m.id] = m.type === 'hours' ? 6 + Math.round(rnd() * 6) / 2 : bioDir(m) === 'less' ? 1 + Math.floor(rnd() * 3) : 2 + Math.floor(rnd() * 4); keys.push(k + '|' + m.id); });
     });
     S.bio.demoKeys = keys;
   },
