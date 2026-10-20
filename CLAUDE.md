@@ -12,6 +12,7 @@ PWA-календарь-планер **Parsimony** (название — конс
 ## Файлы
 Без сборщика: обычные `<script>` по порядку, у всех файлов общие глобальные переменные. Данные — в localStorage (ключ `remapp_v1`).
 - `index.html` — разметка и подключение файлов.
+- `css/fonts.css` + папка `fonts/` — свои шрифты (Inter, Josefin Sans 300 для надписи) вместо Google Fonts, лицензия OFL рядом; см. «Свои шрифты».
 - `css/app.css` — запасные дизайн-токены (`:root`, темы), календарь, окна. `css/sections.css` — разделы, графики, нижние вкладки. `css/ui2.css` — экраны интерфейса, карточки, оформление, подсказки «?».
 - `js/core.js` — данные `S`, `migrate()` + `onMigrate()` для разделов, реестр действий `ACT`, иконки, даты, повторы, ввод фразой `parseNL`.
 - `js/names.js` — недоступные имена и ники: мат, оскорбления, служебные (`nameBad`, см. «Недоступные имена и ники»).
@@ -69,7 +70,7 @@ PWA-календарь-планер **Parsimony** (название — конс
 ## Безопасность
 - Пользовательский текст на экран — через `esc()`, подсказки графиков — `textContent`; ссылки — `safeUrl` (только http(s)), фото — `okImg`, цвета — `safeColor`.
 - Всё чужое проверяется: файл копии и данные с сервера — `cleanTree` (`share.js`), ссылки «Поделиться» — `fromShared` / `unpackShare`; `migrate()` чинит id, цвета, даты.
-- CSP в `index.html`: скрипты только свои, без встроенного кода; связь — сайт, `zgasnvubcdprgsypkglh.supabase.co`, `nominatim.openstreetmap.org`; картинки — свои, `data:`, `blob:`, `tile.openstreetmap.org`; шрифты — Google Fonts. **Новый внешний адрес нужно добавить в CSP**, иначе запросы будут заблокированы.
+- CSP в `index.html`: скрипты только свои, без встроенного кода; связь — сайт, `zgasnvubcdprgsypkglh.supabase.co`, `nominatim.openstreetmap.org`; картинки — свои, `data:`, `blob:`, `tile.openstreetmap.org`; шрифты и стили — только свои (`font-src 'self'`). **Новый внешний адрес нужно добавить в CSP**, иначе запросы будут заблокированы.
 - RLS: в каждой таблице — только своя строка, у `anon` прав нет; `delete_my_account` (security definer) удаляет только вызвавшего. Ожидаемые предупреждения Security Advisor: `delete_my_account`, Leaked Password Protection, `ai_usage` «RLS без правил».
 - **Чек-лист перед раздачей друзьям** (повторять перед каждым выпуском):
   1. 2FA на GitHub, Supabase, reg.ru и почте пользователя.
