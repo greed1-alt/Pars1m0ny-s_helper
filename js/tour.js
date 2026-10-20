@@ -108,6 +108,7 @@ function tourStart(k) {
   if (sheetOpen()) closeSheet(); hideTip(); tinvHide();
   const list = tourPlan(keys); if (!list.length) return;
   tour = { keys, list, i:-1 };
+  tinvHide();   // подсчёт шагов (tourPlan) перерисовал страницу ещё до начала тура — плашка «Впервые здесь?» могла успеть появиться
   let box = $('#tour');
   if (!box) {
     box = document.createElement('div'); box.id = 'tour';
@@ -254,7 +255,8 @@ function tinvHide() { const t = $('#tinv'); if (t) t.classList.remove('show'); t
 function tourInvite() {
   const k = sec;
   if (tourChecking) return;
-  if (tour || !S.settings.onboarded || !TOURS[k] || S.settings.toured[k] || onbIsOpen() || sheetOpen()) { if (tinvFor && tinvFor !== k) tinvHide(); return; }
+  if (tour) { if (tinvFor) tinvHide(); return; }   // во время тура плашки нет (20 октября 2026: висела внизу поверх тура)
+  if (!S.settings.onboarded || !TOURS[k] || S.settings.toured[k] || onbIsOpen() || sheetOpen()) { if (tinvFor && tinvFor !== k) tinvHide(); return; }
   if (tinvFor === k) return;
   let t = $('#tinv');
   if (!t) { t = document.createElement('div'); t.id = 'tinv'; t.setAttribute('role', 'status'); document.body.appendChild(t); }

@@ -452,6 +452,9 @@ table.hg,table.hw{border-collapse:separate;border-spacing:0;font-size:12px}
 @media(hover:hover){.hg-name button:hover,.hw th button:hover{background:var(--hov)}}
 thead th.hg-name{font-size:12px;color:var(--mut);font-weight:600;padding-left:6px!important;vertical-align:bottom}
 .hg-w th{font-size:12px;font-weight:600;height:26px;background:color-mix(in srgb,var(--w) var(--mix),var(--bg));color:color-mix(in srgb,var(--w) var(--mixtx),var(--tx));border:0 solid transparent;border-width:0 2px 2px;background-clip:padding-box;border-radius:9px}
+/* Закреплённые «Привычка» и «%» в той же строке — не таблетки недели: у них нет --w, и фон выходил прозрачным —
+   при прокрутке таблицы под ними просвечивали соседние недели и дни («%» налезал на «Пт 23», 20 октября 2026) */
+.hg .hg-w th.sticky-col,.hg .hg-w th.hg-pc{background:var(--bg);color:var(--mut);border-width:0;border-radius:0}
 .hg-d th{min-width:28px;width:28px;height:36px;padding-top:3px;line-height:1.15;font-weight:500;color:var(--tx)}
 .hg-d th small{display:block;font-size:12px;color:var(--mut)}
 .hg-d th.wknd small{color:color-mix(in srgb,var(--red) 55%,var(--mut))}
