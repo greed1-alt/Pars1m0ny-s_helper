@@ -101,6 +101,9 @@ SEC.home = {
   name:'Главная', icon:IC.home, newLabel:'Создать', noNav:true,
   title: () => innerWidth >= 900 ? 'Главная' : `<span class="wordmark">${APP_NAME}</span>${BETA_PILL}`,   // дата — в приветствии, в шапке не повторяем
   html: () => homeHTML(), move: () => {},
+  // Вкладки Главной (ui2.js, homeLay) — свайп листает их; в обычном виде листать нечего
+  swipeOn: () => homeLay() === 'tabs',
+  swipe: n => { const l = homeOrder(), i = l.findIndex(x => x.k === homeTab()), j = Math.max(0, Math.min(l.length - 1, i + n)); if (j !== i) { S.settings.homeTab = l[j].k; save(); render(); } },
 };
 
 // ---- Профиль: имя, аватар, статистика, достижения ----

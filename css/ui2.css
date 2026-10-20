@@ -446,6 +446,13 @@ body.ui2 main.sec .card-h{margin-bottom:10px}
 
 /* ---- Расположение (js/layout.js): окна «Разделы» и «Главная», строки в Настройках ---- */
 .h2-col:empty{display:none}
+/* Главная «Вкладки» (вариант В, проба 20 октября 2026): ряд вкладок листается вбок, если не помещается */
+.h2-tabs{overflow-x:auto;scrollbar-width:none;margin:0;-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}
+.h2-tabs::-webkit-scrollbar{display:none}
+.h2-tabs button{flex:1 0 auto;height:36px;padding:0 12px;font-size:14px;white-space:nowrap}
+.h2-tsum{font-size:13px;color:var(--mut);margin:-2px 0 8px}
+.h2-lay{display:flex;align-items:center;justify-content:center;gap:10px;margin:2px 0 6px;font-size:13px;color:var(--mut)}
+.h2-lay .seg2 button{height:30px;font-size:13px}
 .h2-cust{display:flex;justify-content:center;margin-top:4px}
 .h2-cust .lnk{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;font-size:13.5px;color:var(--mut);text-decoration:none;border-radius:10px}
 .h2-cust .lnk:hover{color:var(--tx);background:var(--hov)}

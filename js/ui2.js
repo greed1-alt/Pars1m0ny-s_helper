@@ -307,13 +307,33 @@ function homeHeroHTML(t) {
     <div class="h2-ring" title="Задачи и привычки на сегодня">${ringSVG(pct, 64, 'var(--good)', total ? Math.round(pct * 100) + '%' : '—', '')}<small>${withHint(total ? 'дела и привычки' : 'пока пусто', 'ring')}</small></div></div>`;
 }
 
+// ---- Вид Главной на телефоне (проба 20 октября 2026, «Главная короче»: сейчас ~2,4 экрана) ----
+// «Как было» — блоки подряд; «Вкладки» (вариант В) — один блок за раз, вкладки в порядке «Настроить Главную», свайп листает вкладки.
+// Дальше — «Плотнее» (вариант А). На ПК — всегда две колонки
+const HOME_LAY = [['blocks', 'Как было'], ['tabs', 'Вкладки']];
+const homeLay = () => innerWidth < 900 && HOME_LAY.some(x => x[0] === S.settings.homeLay) ? S.settings.homeLay : 'blocks';
+onMigrate(() => { if (S.settings.homeLay === undefined && IS_BETA) S.settings.homeLay = 'tabs'; });   // на бете проба видна сразу
+const HOME_TAB_N = { plan:'План', habits:'Привычки', money:'Деньги', goals:'Цели', bio:'Самочувствие', notes:'Мысли дня' };
+const homeTab = () => { const l = homeOrder(); return (l.find(x => x.k === S.settings.homeTab) || l[0] || {}).k; };
+function homeTabsHTML(t) {
+  const list = homeOrder(), k = homeTab(); if (!k) return '';
+  const d = homeBlockDef(k, t), sum = k === 'money' ? '' : homeCardSum(k, d, t);   // у «Денег» сумма и так крупно
+  return `<div class="seg2 h2-tabs" role="tablist" aria-label="Что показать">${list.map(x => `<button class="${x.k === k ? 'on' : ''}" data-act="htab" data-k="${x.k}" role="tab" aria-selected="${x.k === k}">${HOME_TAB_N[x.k]}</button>`).join('')}</div>
+    <div class="card h2-card h2-blk h2-tab" data-blk="${k}" role="tabpanel" aria-label="${HOME_BL[k].n}">${sum ? `<div class="h2-tsum">${esc(sum)}</div>` : ''}${d.body()}</div>`;
+}
+ACT.htab = el => { S.settings.homeTab = el.dataset.k; save(); render(); const b = $(`.h2-tabs [data-k="${el.dataset.k}"]`); if (b) b.scrollIntoView({ block:'nearest', inline:'nearest' }); };
+ACT.homelay = el => { S.settings.homeLay = el.dataset.v; save(); render(); };
+// Переключатель вида — внизу Главной на телефоне, пока идёт проба
+const homeLayHTML = () => innerWidth < 900 ? `<div class="h2-lay"><span>Вид Главной</span><div class="seg2">${HOME_LAY.map(([v, n]) => `<button class="${homeLay() === v ? 'on' : ''}" data-act="homelay" data-v="${v}" aria-pressed="${homeLay() === v}">${n}</button>`).join('')}</div></div>` : '';
+
 function homeHTML() {
   // Главная — середина между прежней и вариантом А (12 октября 2026): привычки «таблетками», строка ввода и деньги как раньше
-  const t = todayK(), hero = homeHeroHTML(t);
+  const t = todayK(), hero = homeHeroHTML(t), tabs = homeLay() === 'tabs';
   const omni = `<div class="card h2-omni">${omniHTML('om', 'home')}</div>`;
-  const blocks = homeOrder().map(x => homeBlock(x, t)).join('');
-  return `${hero}<div class="h2-cols"><div class="h2-col">${omni}${secOn('tasks') || secOn('cal') ? missedBar(true) : ''}${blocks}</div><div class="h2-col"></div></div>
-  ${homeCustHTML()}`;
+  const miss = secOn('tasks') || secOn('cal') ? missedBar(!tabs, tabs) : '';   // во вкладках — тонкой строкой
+  const blocks = tabs ? homeTabsHTML(t) : homeOrder().map(x => homeBlock(x, t)).join('');
+  return `${hero}<div class="h2-cols"><div class="h2-col">${omni}${miss}${blocks}</div><div class="h2-col"></div></div>
+  ${homeCustHTML()}${homeLayHTML()}`;
 }
 
 
