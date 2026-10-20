@@ -31,7 +31,10 @@ const OM_T = {
   note:{ n:'Заметка', ic:IC.note, ph:'Заметка: мысль, идея, вывод дня' },
 };
 const OM_ORDER = ['task', 'event', 'money', 'habit', 'goal', 'note'];
-const OM_PH = { home:'Что добавить? «кафе 450», «встреча завтра в 15»', tasks:'Новая задача: «отчёт в пятницу #работа !!»', cal:'«Встреча завтра в 15:00 #работа»' };
+// Общая строка с приоритетом вкладки (21 октября 2026, просьба пользователя): в «Финансах» по умолчанию — деньги (вид — кнопками
+// «Расход / Доход / Накопление» над строкой, finKind), во вкладке «Цели» — цель. Этот вид — первая кнопка; другой можно выбрать кнопками
+const OM_PRIO = { fin:'money', goals:'goal' };
+const OM_PH = { home:'Что добавить? «кафе 450», «встреча завтра в 15»', tasks:'Новая задача: «отчёт в пятницу #работа !!»', cal:'«Встреча завтра в 15:00 #работа»', goals:'Новая цель: «выучить английский до 1 июня»' };   // «Финансы» — по виду денег (FIN_PH, omSt('omf').ph)
 const OM_EX = {
   home:['купить хлеб', 'встреча завтра в 15 #работа', 'кафе 450', '+ зарплата 60 000', 'привычка: 2 литра воды', 'заметка: идея для подарка'],
   cal:['созвон завтра в 11', 'тренировка в пятницу с 19 до 20', 'кино в субботу в 20:30', 'день рождения 12 ноября'],
@@ -80,7 +83,11 @@ function omniParse(raw, ctx, force, st, rawType) {
   if (!s) return null;
   const t = todayK(), yest = /(^|\s)вчера(?=\s|$)/i.test(s), sm = s.replace(/(^|\s)вчера(?=\s|$)/i, ' ').trim();
   // Время без даты («в 16») — на выбранный день строки (st.base), а не на сегодня
-  const nl = parseNL(s, (st && st.base) || t), mo = parseMoney(plus ? '+ ' + sm : sm);
+  const finK = ctx === 'fin' && !plus && !sm.startsWith('+') ? finKind : undefined;   // в «Финансах» — категории выбранного вида
+  const nl = parseNL(s, (st && st.base) || t), mo = parseMoney(plus ? '+ ' + sm : sm, finK);
+  if (!type && ctx === 'goals' && omOn('goal')) type = 'goal';
+  // «Финансы»: деньги, кроме фразы со временем без суммы в рублях и без слова из словаря трат («встреча в банке в 15» — событие)
+  if (!type && ctx === 'fin' && omOn('money') && !(nl.time && !finHit(sm.toLowerCase()) && !/₽|руб/i.test(sm))) type = 'money';
   if (!type) {
     if (mo.ok && !nl.time && ctx !== 'tasks') {
       const plusM = plus || /^\+/.test(sm), cur = /\d\s*(₽|р\.?(?=\s|$)|руб|к(?=\s|$)|k(?=\s|$)|тыс)/i.test(sm);
@@ -92,7 +99,8 @@ function omniParse(raw, ctx, force, st, rawType) {
   if (!rawType && !omOn(type)) type = nl.time && ctx !== 'tasks' ? 'event' : 'task';
   const S_ = st || {};
   if (type === 'money') {
-    const date = yest ? addDays(t, -1) : nl.date && nl.date <= t ? nl.date : t;
+    const d0 = ctx === 'fin' && ymOf(t) !== secYM ? secYM + '-01' : t;   // «Финансы» на другом месяце — запись в этот месяц
+    const date = yest ? addDays(t, -1) : nl.found && nl.date ? (nl.date <= t ? nl.date : d0) : d0;
     return { type, amt: mo.ok ? mo.amt : 0, fcat: mo.ok ? mo.cat : kindDefaultCat(plus ? 'inc' : 'out').id, note: mo.ok ? mo.note : '', title: mo.ok ? mo.note : sm, date };
   }
   if (type === 'habit') { const name = s.replace(HAB_RE, ' ').replace(/\s+/g, ' ').trim(), low = name.toLowerCase(); const g = HB_GUESS.find(([re]) => re.test(low));
@@ -127,7 +135,7 @@ function omPrevHTML(p, id, demo) {
   else parts = [chip(I(IC.note, 13) + 'в журнал заметок · сегодня')];
   return `<span class="om-kind">${I(OM_T[p.type].ic, 14)}${kind}</span>${title ? `<b class="om-ttl">${esc(title)}</b>` : ''}${parts.join('')}${demo ? '' : `<button class="om-more om-keep" data-act="omfull" data-om="${id}">Подробнее…</button>`}`;
 }
-const omHint = st => `<span class="om-hint">${withHint(st.force ? 'Напишите и нажмите Enter' : st.ctx === 'tasks' ? 'Дата, время, <b>#категория</b> и <b>!</b> приоритет — прямо в тексте' : 'Пишите как говорите — Parsimony сам поймёт, что это: дело, встреча, трата или привычка', 'omni')}</span>`;
+const omHint = st => `<span class="om-hint">${withHint(st.force ? 'Напишите и нажмите Enter' : st.ctx === 'tasks' ? 'Дата, время, <b>#категория</b> и <b>!</b> приоритет — прямо в тексте' : st.ctx === 'fin' ? 'Сумма и на что: «кафе 450», «+ зарплата 60 000». Другое — кнопками выше' : st.ctx === 'goals' ? 'Срок — прямо в тексте: «до 31 декабря», «через 3 месяца»' : 'Пишите как говорите — Parsimony сам поймёт, что это: дело, встреча, трата или привычка', 'omni')}</span>`;
 
 // Месяц, День, Задачи (не Главная и не окно «Добавить»): в покое — одна строка, кнопки вида записи и подсказка — по нажатию
 // (аудит 18 октября 2026: строка с подсказкой занимала ~190 px на четырёх экранах, сетка «Дня» уходила ниже экрана).
@@ -137,7 +145,7 @@ function omniHTML(id, ctx) {
   const st = omSt(id); st.ctx = ctx;
   return `<div class="om${omCalm(id, ctx) ? ' calm' : ''}${omCalm(id, ctx) && (st.v || st.force) ? ' open' : ''}" data-om="${id}">
     <div class="om-box">${I(IC.spark, 19)}<input id="${id}" class="om-in" type="text" value="${esc(st.v)}" placeholder="${esc(st.force ? OM_T[st.force].ph : st.ph || OM_PH[ctx] || OM_PH.home)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" aria-label="Быстрое добавление"><button class="om-go om-keep" data-act="omgo" data-om="${id}" aria-label="Добавить">${I(IC.plus, 20)}</button></div>
-    <div class="om-types" role="group" aria-label="Что добавить"><button class="om-t om-ai om-keep" data-act="aiopen" data-om="${id}" title="Помощник: разложит сообщение по разделам">${I(IC.spark, 15)}Помощник</button>${OM_ORDER.filter(t => (ctx === 'home' || t === 'task' || t === 'event') && omOn(t)).map(t => `<button class="om-t om-keep" data-act="omtype" data-om="${id}" data-t="${t}" aria-pressed="false">${I(OM_T[t].ic, 15)}${OM_T[t].n}</button>`).join('')}</div>
+    <div class="om-types" role="group" aria-label="Что добавить"><button class="om-t om-ai om-keep" data-act="aiopen" data-om="${id}" title="Помощник: разложит сообщение по разделам">${I(IC.spark, 15)}Помощник</button>${(OM_PRIO[ctx] ? [OM_PRIO[ctx], ...OM_ORDER.filter(t => t !== OM_PRIO[ctx])] : OM_ORDER).filter(t => (ctx === 'home' || OM_PRIO[ctx] || t === 'task' || t === 'event') && omOn(t)).map(t => `<button class="om-t om-keep" data-act="omtype" data-om="${id}" data-t="${t}" aria-pressed="false">${I(OM_T[t].ic, 15)}${OM_T[t].n}</button>`).join('')}</div>
     <div class="om-prev" id="${id}_prev" aria-live="polite"></div>
   </div>`;
 }
@@ -191,6 +199,7 @@ function omGo(id) {
   const inSheet = !!i.closest('#sh'), was = document.activeElement === i;
   omReset(st); i.value = '';
   if (inSheet) closeSheet();
+  if (p.type === 'goal' && st.ctx === 'goals') return openGoal(null, { title: p.title, due: p.due });   // во вкладке «Цели» — сразу окно цели: срок и шаги
   omCreate(p);
   if (!inSheet && was) { const n = $('#' + id); if (n) n.focus(); }
 }
@@ -502,10 +511,10 @@ function financeHTML() {
   const bar = st.spentPlan ? `<div class="f2-bar"><div class="ds-bar${st.spent > st.spentPlan ? ' over' : ''}"><i style="width:${Math.min(100, Math.round(st.spent / st.spentPlan * 100))}%"></i></div><span><span>Расходы ${rub0(st.spent)} из ${rub0(st.spentPlan)}</span><span>${cur ? 'до конца месяца ' + plural(ymDays(ym).filter(k => k >= t).length, NDAY) : ''}</span></span></div>` : '';
   const hero = `<div class="card f2-hero${big.neg ? ' neg' : ''}"><div class="f2-top"><small class="f2-l">${lim ? withHint(big.l, 'limit') : big.l}</small><button class="pill sm" data-act="finbudget">${I(IC.wallet, 14)} Бюджет</button></div><b class="f2-big">${big.v}</b><span class="f2-s">${big.s}</span>${bar}
     <div class="f2-mini"><div><small>Доходы</small><b class="plus">${rub0(st.g.inc.fact)}</b></div><div><small>Накопления</small><b>${rub0(st.g.sav.fact)}</b></div><div class="${st.left < 0 ? 'neg' : ''}"><small>Осталось</small><b>${rub0(st.left)}</b></div></div></div>`;
+  omSt('omf').ph = FIN_PH[finKind];   // подсказка в строке — по выбранному виду
   const input = `<div class="card fq-card f2-in">
     <div class="f2-kh"><div class="seg2 fq-kind" role="group" aria-label="Что записать">${OP_KINDS.map(([k, n]) => `<button class="${finKind === k ? 'on' : ''}" data-act="fqkind" data-k="${k}" aria-pressed="${finKind === k}">${n}</button>`).join('')}</div>${hintK('finKind')}</div>
-    <div class="om-box">${I(IC.spark, 19)}<input id="fq_in" class="om-in-fin" type="text" placeholder="${FIN_PH[finKind]}" autocomplete="off" enterkeyhint="done" aria-label="Быстрая запись"><button class="om-go" data-act="fqadd" aria-label="Записать">${I(IC.plus, 20)}</button></div>
-    <div id="fq_hint" class="nlhint"></div><button class="f2-more" data-act="opnew">Подробная форма…</button></div>`;
+    ${omniHTML('omf', 'fin')}<button class="f2-more" data-act="opnew">Подробная форма…</button></div>`;
   const ops = [...st.ops].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   const recent = `<div class="card"><div class="h2-h"><b>Последние записи</b><small>${ops.length ? plural(ops.length, ['запись', 'записи', 'записей']) + ' за месяц' : ''}</small></div>
     ${ops.slice(0, 6).map(f2Row).join('') || `<p class="h2-empty">Записей за ${mon} нет. Напишите трату в строке выше — например, «продукты 1200».</p>`}
@@ -655,7 +664,8 @@ function balanceHome() {
 }
 SEC.home.after = () => { omRefresh(); balanceHome(); };
 SEC.tasks.after = omRefresh;
-SEC.cal.after = omRefresh;   // строка добавления под выбранным днём (js/calendar.js: calDayHTML)
+SEC.cal.after = omRefresh;
+SEC.fin.after = omRefresh;   // общая строка в «Финансах»   // строка добавления под выбранным днём (js/calendar.js: calDayHTML)
 // Знакомство — когда загружены все скрипты: onbOpen нужен secOn из layout.js (он ниже). Раньше был таймер 350 мс, и на медленном
 // интернете знакомство падало (ReferenceError: secOn) — нашёл Lighthouse 18 октября 2026
 if (!S.settings.onboarded) { const go = () => setTimeout(onbOpen, 350); document.readyState === 'loading' ? addEventListener('DOMContentLoaded', go) : go(); }

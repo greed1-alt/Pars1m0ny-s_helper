@@ -183,29 +183,16 @@ ACT.fpaid = el => {
   const t = todayK();
   addOp({ cat:c.id, amt:c.plan - fct, date: ymOf(t) === ym ? t : ym + '-' + String(Math.min(c.due || 1, ymDays(ym).length)).padStart(2, '0'), note:'Оплачено' });
 };
-ACT.fqadd = () => quickMoney();
-function quickMoney() {
-  const i = $('#fq_in'); if (!i) return;
-  const p = parseMoney(i.value, finKind); if (!p.ok) { i.focus(); return toast('Напишите сумму, например «' + (finKind === 'inc' ? 'зарплата 60 000' : finKind === 'sav' ? 'отпуск 5000' : 'кафе 450') + '»'); }
-  const t = todayK();
-  addOp({ amt:p.amt, cat:p.cat, note:p.note, date: ymOf(t) === secYM ? t : secYM + '-01' });
-  const n = $('#fq_in'); if (n) n.focus();
-}
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || e.isComposing) return;
-  if (e.target.id === 'fq_in') { e.preventDefault(); quickMoney(); }
-  else if (e.target.id === 'op_amt' || e.target.id === 'op_n') { e.preventDefault(); saveOp(); }
+  if (e.target.id === 'op_amt' || e.target.id === 'op_n') { e.preventDefault(); saveOp(); }
   else if (e.target.id === 'op_cn') { e.preventDefault(); ACT.opcatadd(); }
   else if (e.target.dataset && e.target.dataset.fnewcat) { e.preventDefault(); budgetNewCat(e.target); }
   else if (e.target.dataset && e.target.dataset.fplan) { e.preventDefault(); e.target.blur(); }
   else if (e.target.id === 'fc_n' || e.target.id === 'fc_plan') { e.preventDefault(); saveFinCat(); }
 });
-document.addEventListener('input', e => {
-  if (e.target.id !== 'fq_in') return;
-  const el = $('#fq_hint'), p = e.target.value.trim() ? parseMoney(e.target.value, finKind) : { ok:false }, g = p.ok ? fcat(p.cat).g : '';
-  if (el) el.innerHTML = p.ok ? `${I(IC.spark, 13)} Запишу ${g === 'inc' ? 'доход' : g === 'sav' ? 'в накопления' : 'расход'}: <b>${esc(fcat(p.cat).name)}</b><b>${rub(p.amt)}</b>${p.note ? `<b>${esc(p.note)}</b>` : ''}` : '';
-});
-ACT.fqkind = el => { const i = $('#fq_in'), v = i ? i.value : ''; finKind = el.dataset.k; render(); const n = $('#fq_in'); if (n) { n.value = v; n.focus(); n.dispatchEvent(new Event('input', { bubbles:true })); } };
+// Расход / Доход / Накопление над общей строкой «Финансов» (omf, js/ui2.js): меняет вид денег и подсказку, текст в строке остаётся
+ACT.fqkind = el => { finKind = el.dataset.k; render(); const n = $('#omf'); if (n) { n.focus(); omUpdate('omf'); } };
 
 // ---- Бюджет на месяц: план доходов и бюджет расходов по всем категориям в одном окне ----
 const planOf = g => S.fin.cats.filter(c => c.g === g).reduce((a, c) => a + (c.plan || 0), 0);

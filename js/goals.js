@@ -145,7 +145,6 @@ const stepRowSide = x => x.kind === 't'
   ? `<div class="sbl"><button class="chk" data-act="toggle" data-id="${x.id}" data-d="${x.date}" aria-label="Выполнено"></button><button class="sbl-t" data-act="edit" data-id="${x.id}" data-d="${x.date}">${esc(x.t)}</button><small class="${x.date < todayK() ? 'late' : ''}">${esc(dueShort(x.date))}</small></div>`
   : `<div class="sbl"><button class="chk" data-act="gfree" data-g="${x.g.id}" data-s="${x.id}" aria-label="Выполнено"></button><button class="sbl-t" data-act="gopen" data-id="${x.g.id}">${esc(x.t)}</button><small>${esc(x.g.emoji)}</small></div>`;
 
-let gDraft = '';
 function goalsHTML() {
   const act = activeGoals(), done = S.goals.filter(g => g.done).sort((a, b) => (b.doneAt || '').localeCompare(a.doneAt || '')), demo = S.goals.some(g => g.demo), t = todayK();
   const lateAll = act.flatMap(g => goalStat(g).late.map(x => ({ g, x })));
@@ -163,8 +162,7 @@ function goalsHTML() {
     <details class="ph-all"><summary>Встроенные фразы: ${TAUNTS.length} подначек и ${PRAISE.length} похвал</summary><ul>${[...TAUNTS, ...PRAISE].map(x => `<li>${esc(x)}</li>`).join('')}</ul></details></div>`;
   return `${demoBar('goals', demo)}
   ${!S.goals.length ? emptyCard('goals', 'Цели', 'Большие цели со сроком и шагами: «накопить на отпуск к июлю», «выучить английский до B1». Шаги со сроком появятся в задачах и календаре, а за пропуски Parsimony будет язвить — по-доброму, но не очень.') : ''}
-  <div class="card h2-omni g-add"><div class="om-box">${I(IC.goal, 19)}<input id="g_new" type="text" value="${esc(gDraft)}" placeholder="Новая цель: «выучить английский до 1 июня»" autocomplete="off" enterkeyhint="done" aria-label="Новая цель"><button class="om-go" data-act="gnew" aria-label="Создать цель" style="opacity:1">${I(IC.plus, 20)}</button></div>
-    <p class="om-hint" style="margin:10px 0 0">Срок — прямо в тексте: «до 31 декабря», «через 3 месяца».</p></div>
+  <div class="card h2-omni g-add">${omniHTML('omg', 'goals')}</div>
   ${nudge}
   ${act.length ? `<div class="gl-grid">${act.map(goalCardHTML).join('')}</div>` : ''}
   ${done.length ? foldHTML('g-done', 'Достигнутые', plural(done.length, ['цель', 'цели', 'целей']), () => `<div class="gl-grid">${done.map(g => `<div class="gl-card done" data-act="gopen" data-id="${g.id}" role="button" tabindex="0"><div class="gl-top"><span class="gl-em">${esc(g.emoji)}</span><b>${esc(g.title)}</b></div><div class="gl-due">достигнута ${g.doneAt ? esc(fmtLong(g.doneAt)) : ''} 🏆</div></div>`).join('')}</div>`, false, { ic: IC.trophy }) : ''}
@@ -273,23 +271,18 @@ ACT.gundone = () => { const g = curGoal(); if (!g) return; snap(); g.done = fals
 ACT.gdel = () => { gKeep(); gForm.ask = true; drawGoal(true); };
 ACT.gdelno = () => { gForm.ask = false; drawGoal(true); };
 ACT.gdelyes = el => { const g = curGoal(); if (!g) return; snap(); S.goals = S.goals.filter(x => x !== g); if (el.dataset.all) S.events = S.events.filter(e => e.goal !== g.id); else S.events.forEach(e => { if (e.goal === g.id) delete e.goal; }); save(); closeSheet(); render(); toast('Цель удалена', true); };
-ACT.gnew = () => { const i = $('#g_new'), raw = (i ? i.value : gDraft).trim(); if (!raw) { if (i) i.focus(); return toast('Напишите, какая цель'); }
-  const p = parseNL(raw.replace(/(^|\s)до(?=\s+\d|\s+(конца|понедельника|вторника|среды|четверга|пятницы|субботы|воскресенья))/i, '$1'), todayK());
-  const title = p.found && p.title ? p.title : raw; gDraft = '';
-  openGoal(null, { title: title.charAt(0).toUpperCase() + title.slice(1), due: p.date || '' }); };
+// «Новая цель» — общая строка (omniHTML 'omg', вид по умолчанию — цель; js/ui2.js, 21 октября 2026): Enter открывает окно цели со сроком из фразы
 ACT.phradd = () => { const t = $('#ph_t'), k = $('#ph_k'); const v = t ? t.value.trim() : ''; if (!v) { if (t) t.focus(); return; } S.settings.phr.custom.push({ id: 'p' + uid(), kind: k ? k.value : 'taunt', t: v }); save(); render(); toast('Фраза добавлена'); };
 ACT.phrdel = el => { S.settings.phr.custom = S.settings.phr.custom.filter(p => p.id !== el.dataset.id); save(); render(); };
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || e.isComposing) return;
-  if (e.target.id === 'g_new') { e.preventDefault(); ACT.gnew(); }
-  else if (e.target.id === 'g_t' && !curGoal()) { e.preventDefault(); saveGoal(); }
+  if (e.target.id === 'g_t' && !curGoal()) { e.preventDefault(); saveGoal(); }
   else if (e.target.id === 'g_t') { e.preventDefault(); e.target.blur(); }
   else if (e.target.id === 'g_step') { e.preventDefault(); const g = curGoal(); if (g) addGoalStep(g, e.target.value); }
   else if (e.target.id === 'ph_t') { e.preventDefault(); ACT.phradd(); }
 });
 document.addEventListener('input', e => {
-  if (e.target.id === 'g_new') gDraft = e.target.value;
-  else if (e.target.id === 'g_step') nlHint(e.target.value.trim() ? parseNL(e.target.value, todayK()) : null, '#g_step_hint');
+  if (e.target.id === 'g_step') nlHint(e.target.value.trim() ? parseNL(e.target.value, todayK()) : null, '#g_step_hint');
 });
 document.addEventListener('change', e => {
   const t = e.target;
