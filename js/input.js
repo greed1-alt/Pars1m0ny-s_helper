@@ -352,7 +352,7 @@ const inHScroll = el => { for (; el && el !== document.body; el = el.parentEleme
 document.addEventListener('touchstart', e => { tsx = e.touches[0].clientX; tsy = e.touches[0].clientY; tsIn = !!(e.target.closest && e.target.closest('[data-hs], .chart, input, textarea, .onb, .om-types')) || inHScroll(e.target); }, {passive:true});
 document.addEventListener('touchend', e => {
   if (!e.changedTouches || tsIn || sheetOpen() || cmdOpen() || quickOpen() || drag || Date.now() - lastDragEnd < 600) return;
-  if (sec !== 'cal' && SEC[sec].noNav && !(SEC[sec].swipeOn && SEC[sec].swipeOn())) return;   // Главная (кроме вкладок), профиль, настройки, вкладка «Цели»: листать нечего
+  if (sec !== 'cal' && SEC[sec].noNav) return;   // Главная, профиль, настройки, вкладка «Цели»: листать нечего
   const dx = e.changedTouches[0].clientX - tsx, dy = e.changedTouches[0].clientY - tsy;
   if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5) (SEC[sec].swipe || move)(dx < 0 ? 1 : -1);   // раздел может листать иначе: «Задачи» на телефоне — по дням
 }, {passive:true});

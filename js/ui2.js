@@ -267,10 +267,11 @@ function homeMoney(t) {
     <div class="hm-foot"><span>${ops.length ? '' : 'Трату можно записать в строке выше: «кафе 450»'}</span>${secLink('fin', 'Финансы')}</div>`;
 }
 // Часы — 6…9 и «…»: своё число (2 часа, 5,5…) в окне выбора; оно же и показывается на «…» (правка бета-тестеров 17 октября 2026)
-const homeBio = t => { const M = S.bio.metrics; return `<div class="hm-bio">${M.map(m => { const v = bioVal(t, m.id), hrs = m.type === 'hours', opts = hrs ? [6, 7, 8, 9] : [1, 2, 3, 4, 5], own = v != null && !opts.includes(v);
+const homeBio = t => { const all = S.bio.metrics, cut = homeTight && !hmBioAll && all.length > HM_BIO_MAX + 1, M = cut ? all.slice(0, HM_BIO_MAX) : all; return `<div class="hm-bio">${M.map(m => { const v = bioVal(t, m.id), hrs = m.type === 'hours', opts = hrs ? [6, 7, 8, 9] : [1, 2, 3, 4, 5], own = v != null && !opts.includes(v);
     return `<div class="hm-bm"><span class="nm">${esc(m.emoji || '')} ${esc(m.name)}</span><div class="hm-sc">${opts.map(o => `<button class="${v === o ? 'on' : ''}" data-act="hmbio" data-m="${m.id}" data-v="${o}" aria-label="${esc(m.name)}: ${o}" aria-pressed="${v === o}">${o}</button>`).join('')}${hrs ? `<button class="hm-own${own ? ' on' : ''}" data-act="bioset" data-m="${m.id}" data-k="${t}" aria-label="${esc(m.name)}: своё число" title="Своё число">${own ? fmtNum(v) : '…'}</button>` : ''}</div></div>`; }).join('')}</div>
+    ${cut ? `<button class="hm-more" data-act="hmbioall" aria-expanded="false">Ещё ${all.length - M.length} ▾</button>` : homeTight && hmBioAll && all.length > HM_BIO_MAX + 1 ? '<button class="hm-more" data-act="hmbioall" aria-expanded="true">Свернуть ▴</button>' : ''}
     <div class="hm-foot"><button data-act="bioedit">Настроить</button>${secLink('habits', 'Подробнее')}</div>`; };
-const homeGoals = () => `${goalsMiniHTML(3)}<div class="hm-foot"><button data-act="gnewh">+ Цель</button><button data-act="gall">Все цели →</button></div>`;
+const homeGoals = () => `${goalsMiniHTML(homeTight ? HM_GOALS_MAX : 3)}<div class="hm-foot"><button data-act="gnewh">+ Цель</button><button data-act="gall">Все цели →</button></div>`;
 const homeNotes = () => { const last = notesOf('')[0]; return `<textarea id="hm_note" class="fin hn-text" placeholder="Что сегодня получилось? Что мешало? О чём подумать завтра?" aria-label="Заметка">${esc(hmNoteDraft)}</textarea>
     <div class="nt-bar"><small>${last ? 'Последняя: ' + esc(fmtLong(last.date)) : 'Сохранится в журнал с сегодняшней датой'}</small><span><button class="pill sm" data-act="ntall">Все заметки</button> <button class="btn pri" data-act="hmnote">Сохранить</button></span></div>`; };
 
@@ -307,35 +308,24 @@ function homeHeroHTML(t) {
     <div class="h2-ring" title="Задачи и привычки на сегодня">${ringSVG(pct, 64, 'var(--good)', total ? Math.round(pct * 100) + '%' : '—', '')}<small>${withHint(total ? 'дела и привычки' : 'пока пусто', 'ring')}</small></div></div>`;
 }
 
-// ---- Вид Главной на телефоне (проба 20 октября 2026, «Главная короче»: сейчас ~2,4 экрана) ----
-// «Как было» — блоки подряд; «Плотнее» (вариант А) — те же блоки короче; «Вкладки» (вариант В) — один блок за раз, вкладки в порядке
-// «Настроить Главную», свайп листает вкладки. На ПК — всегда две колонки
-const HOME_LAY = [['blocks', 'Как было'], ['tight', 'Плотнее'], ['tabs', 'Вкладки']];
-let homeTight = false;   // вариант А «Плотнее» (проба 20 октября 2026): те же блоки подряд, но короче — homeHabits, homeMoney, цели свёрнуты, без подсказки под строкой
-const homeLay = () => innerWidth < 900 && HOME_LAY.some(x => x[0] === S.settings.homeLay) ? S.settings.homeLay : 'blocks';
-onMigrate(() => { if (S.settings.homeLay === undefined && IS_BETA) S.settings.homeLay = 'tabs'; });   // на бете проба видна сразу
-const HOME_TAB_N = { plan:'План', habits:'Привычки', money:'Деньги', goals:'Цели', bio:'Самочувствие', notes:'Мысли дня' };
-const homeTab = () => { const l = homeOrder(); return (l.find(x => x.k === S.settings.homeTab) || l[0] || {}).k; };
-function homeTabsHTML(t) {
-  const list = homeOrder(), k = homeTab(); if (!k) return '';
-  const d = homeBlockDef(k, t), sum = k === 'money' ? '' : homeCardSum(k, d, t);   // у «Денег» сумма и так крупно
-  return `<div class="seg2 h2-tabs" role="tablist" aria-label="Что показать">${list.map(x => `<button class="${x.k === k ? 'on' : ''}" data-act="htab" data-k="${x.k}" role="tab" aria-selected="${x.k === k}">${HOME_TAB_N[x.k]}</button>`).join('')}</div>
-    <div class="card h2-card h2-blk h2-tab" data-blk="${k}" role="tabpanel" aria-label="${HOME_BL[k].n}">${sum ? `<div class="h2-tsum">${esc(sum)}</div>` : ''}${d.body()}</div>`;
-}
-ACT.htab = el => { S.settings.homeTab = el.dataset.k; save(); render(); const b = $(`.h2-tabs [data-k="${el.dataset.k}"]`); if (b) b.scrollIntoView({ block:'nearest', inline:'nearest' }); };
-ACT.homelay = el => { S.settings.homeLay = el.dataset.v; save(); render(); };
-// Переключатель вида — внизу Главной на телефоне, пока идёт проба
-const homeLayHTML = () => innerWidth < 900 ? `<div class="h2-lay"><span>Вид Главной</span><div class="seg2">${HOME_LAY.map(([v, n]) => `<button class="${homeLay() === v ? 'on' : ''}" data-act="homelay" data-v="${v}" aria-pressed="${homeLay() === v}">${n}</button>`).join('')}</div></div>` : '';
+// ---- Главная на телефоне — «Плотнее» (вариант А, выбор пользователя 20 октября 2026: «оставь вариант а») ----
+// Была ~2,4 экрана. Те же блоки в том же порядке, но короче: без подсказки под пустой строкой ввода, 4 привычки и «Ещё N» внизу блока,
+// в «Деньгах» без списка трат, «Цели» свёрнуты по умолчанию; Самочувствие — 4 показателя и «Ещё N ▾», Цели — 2 самые срочные.
+// Пробовали ещё «Вкладки» (вариант В, один блок за раз) — код в коммите 44db8b9. На ПК — две колонки, всё полностью
+let homeTight = false;
+const HM_BIO_MAX = 4, HM_GOALS_MAX = 2;
+let hmBioAll = false;   // «Ещё N ▾» у Самочувствия — раскрыто до перезапуска
+ACT.hmbioall = () => { hmBioAll = !hmBioAll; render(); };
+onMigrate(() => { delete S.settings.homeLay; delete S.settings.homeTab; });   // переключатель вида на время пробы
 
 function homeHTML() {
   // Главная — середина между прежней и вариантом А (12 октября 2026): привычки «таблетками», строка ввода и деньги как раньше
-  const t = todayK(), hero = homeHeroHTML(t), tabs = homeLay() === 'tabs';
-  homeTight = homeLay() === 'tight';
+  const t = todayK(), hero = homeHeroHTML(t);
+  homeTight = innerWidth < 900;
   const omni = `<div class="card h2-omni">${omniHTML('om', 'home')}</div>`;
-  const miss = secOn('tasks') || secOn('cal') ? missedBar(!tabs, tabs) : '';   // во вкладках — тонкой строкой
-  const blocks = tabs ? homeTabsHTML(t) : homeOrder().map(x => homeBlock(x, t)).join('');
-  return `${hero}<div class="h2-cols${homeTight ? ' h2-tight' : ''}"><div class="h2-col">${omni}${miss}${blocks}</div><div class="h2-col"></div></div>
-  ${homeCustHTML()}${homeLayHTML()}`;
+  const blocks = homeOrder().map(x => homeBlock(x, t)).join('');
+  return `${hero}<div class="h2-cols${homeTight ? ' h2-tight' : ''}"><div class="h2-col">${omni}${secOn('tasks') || secOn('cal') ? missedBar(true) : ''}${blocks}</div><div class="h2-col"></div></div>
+  ${homeCustHTML()}`;
 }
 
 
