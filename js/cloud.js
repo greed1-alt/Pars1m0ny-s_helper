@@ -160,11 +160,14 @@ function cloudStart() {
 // Запись — S.settings.consent = { v: редакция, at: время }: синхронизируется с аккаунтом, это и есть подтверждение согласия.
 // Изменились условия (новая редакция документов) — новая CONSENT_V, и приложение спросит снова
 const CONSENT_V = '2026-10-20';
+// Пока политика — черновик (ждёт текст-образец от пользователя и юриста, 20 октября 2026), галочка, окно и ссылки — только на бете.
+// Политика готова — LEGAL_ON = true (и ссылку в памятку beta.html вернуть)
+const LEGAL_ON = IS_BETA;
 let consentAgreed = false;   // отметил галочку при входе — записываем, как только аккаунт подключён и данные загружены
 const consentOk = () => !!(S.settings.consent && S.settings.consent.v === CONSENT_V);
 function consentSave() { S.settings.consent = { v: CONSENT_V, at: new Date().toISOString() }; save(); }
 function consentCheck() {
-  if (!signedIn() || consentOk()) return;
+  if (!LEGAL_ON || !signedIn() || consentOk()) return;
   if (consentAgreed) { consentAgreed = false; return consentSave(); }
   if (sheetOpen() || onbIsOpen() || tour) return setTimeout(consentCheck, 5000);   // не поверх открытого окна, знакомства или тура
   openConsent(false);
@@ -270,7 +273,7 @@ function openLogin(keep) {
     <label class="lg-l" for="lg_email">Почта</label>
     <input id="lg_email" class="fin lg-in" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="200" value="${esc(lg.email)}" placeholder="name@mail.ru">
     <div id="lg_err" class="lg-err" role="alert">${esc(lg.err)}</div>
-    <label class="lg-ok"><input id="lg_ok" type="checkbox"${lg.agree ? ' checked' : ''}><span>Даю <a href="consent.html" target="_blank" rel="noopener">согласие на обработку персональных данных</a> и принимаю <a href="privacy.html" target="_blank" rel="noopener">политику</a></span></label>
+    ${LEGAL_ON ? `<label class="lg-ok"><input id="lg_ok" type="checkbox"${lg.agree ? ' checked' : ''}><span>Даю <a href="consent.html" target="_blank" rel="noopener">согласие на обработку персональных данных</a> и принимаю <a href="privacy.html" target="_blank" rel="noopener">политику</a></span></label>` : ''}
     <button class="btn pri lg-go" data-act="lgsend">Получить код</button>`
   : `<p class="set-note" style="margin:0 0 12px">Отправили код на <b style="color:var(--tx)">${esc(lg.email)}</b>. Письмо приходит за минуту; если его нет — загляните в «Спам».</p>
     <label class="lg-l" for="lg_code">Код из письма</label>
