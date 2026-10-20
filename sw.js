@@ -1,4 +1,4 @@
-const CACHE = 'rem-v105';
+const CACHE = 'rem-v106';
 const FILES = ['./', './index.html', './beta.html', './privacy.html', './consent.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png', './favicon.png',
   './css/app.css', './css/sections.css', './css/ui2.css', ...['core', 'names', 'a11y', 'look', 'help', 'calendar', 'charts', 'sections', 'tasks', 'habits', 'finance', 'goals', 'pages', 'timer', 'ui2', 'layout', 'tour', 'input', 'share', 'cloud', 'notify', 'assistant', 'map', 'main'].map(n => './js/' + n + '.js')];
 // cache:'reload' / 'no-cache' — мимо кэша браузера: GitHub Pages разрешает хранить файлы 10 минут, и без этого новая версия приходила с опозданием

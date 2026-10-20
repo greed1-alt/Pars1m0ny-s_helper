@@ -156,7 +156,7 @@ function bioCard(ym) {
     return `<div class="bio-bar"><div class="bb-h"><span>${esc(m.emoji || '')} ${esc(m.name)}</span><small>${avg == null ? 'нет данных' : `${fmtNum(avg)}${bioUnit(m)} · план ${fmtNum(m.plan)}${bioUnit(m)}`}${st ? ` · <b class="st-${st}">${{ good:'хорошо', mid:'средне', low:'плохо' }[st]}</b>` : ''}${st && st !== 'good' && bioDir(m) === 'target' ? (avg > m.plan ? ' — выше плана' : ' — ниже плана') : ''}</small></div><div class="ds-bar"><i class="st-${st}" style="width:${sc == null ? 0 : Math.round(sc * 100)}%"></i></div></div>`;
   }).join('');
   return `<div class="card bio-card"><div class="card-h"><b>Самочувствие</b><button class="pill sm" data-act="bioedit">${I(IC.gear, 14)} Настроить</button></div>
-    <p class="set-note" style="margin:-4px 0 10px">Нажмите на клетку дня и выберите оценку: сон — в часах, остальное — от 1 до 5. Так видно, как отдых связан с результатами.</p>
+    <p class="set-note" style="margin:-4px 0 10px">Нажмите на клетку дня и поставьте оценку: часы — числом, остальное — от 1 до 5. Полоски внизу показывают, насколько месяц близок к плану. У каждого показателя в «Настроить» выбирается, как его оценивать: ровно план (плохо и недобор, и перебор), больше — лучше или меньше — лучше.</p>
     ${grid}<div class="bio-bars">${bars}</div></div>`;
 }
 
@@ -220,7 +220,7 @@ function openBioPicker(el) {
   const qc = $('#qc');
   qc.innerHTML = `<div class="qhead"><b>${esc(m.emoji || '')} ${esc(m.name)} · ${esc(fmtLong(k))}</b><button class="qx" data-act="qclose" aria-label="Закрыть">${I(IC.x, 15)}</button></div>
     <div class="chips bp">${opts.map(v => `<button type="button" class="chip${cur === v ? ' on' : ''}" data-act="bioval" data-m="${m.id}" data-k="${k}" data-v="${v}">${fmtNum(v)}</button>`).join('')}</div>
-    ${m.type === 'hours' ? `<div class="qrow bp-own"><label for="bp_in">Своё число</label><input id="bp_in" class="fin" type="text" inputmode="decimal" maxlength="5" value="${cur == null ? '' : fmtNum(cur)}" placeholder="например, 2 или 5,5"><button class="btn" data-act="bioin" data-m="${m.id}" data-k="${k}">OK</button></div>` : `<p class="set-note" style="margin:8px 2px 0">${bioDir(m) === 'less' ? '1 — спокойно, 5 — очень сильно' : '1 — плохо, 5 — отлично'}</p>`}
+    ${m.type === 'hours' ? `<div class="qrow bp-own"><label for="bp_in">Своё число</label><input id="bp_in" class="fin" type="text" inputmode="decimal" maxlength="5" value="${cur == null ? '' : fmtNum(cur)}" placeholder="например, 2 или 5,5"><button class="btn" data-act="bioin" data-m="${m.id}" data-k="${k}">OK</button></div>` : `<p class="set-note" style="margin:8px 2px 0">${bioDir(m) === 'less' ? '1 — спокойно, 5 — очень сильно' : bioDir(m) === 'target' ? `Лучше всего — ровно ${fmtNum(m.plan)}: и меньше, и больше — хуже` : '1 — плохо, 5 — отлично'}</p>`}
     ${cur != null ? `<button class="btn" style="width:100%;margin-top:8px;height:34px" data-act="bioval" data-m="${m.id}" data-k="${k}" data-v="">Очистить</button>` : ''}`;
   qc.classList.add('show');
   const r = el.getBoundingClientRect(), w = innerWidth < 900 ? innerWidth - 16 : 310, h = qc.offsetHeight || 160;
@@ -247,7 +247,7 @@ const bmMarks = id => Object.values(S.bio.log).filter(d => d[id] != null).length
 const bmSub = m => `${m.type === 'hours' ? 'в часах' : 'оценка 1–5'} · план ${fmtNum(m.plan)}${bioUnit(m)} · ${BIO_DIR.find(x => x[0] === bioDir(m))[1].toLowerCase()}`;
 function openBioEdit(keep) {
   sheet(`<div class="sh-head"><h3>Самочувствие</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
-  <p class="set-note" style="margin:0 0 10px">Что отмечать каждый день. Нажмите на показатель, чтобы переименовать его или поменять шкалу и план, — отметки сохранятся.</p>
+  <p class="set-note" style="margin:0 0 10px">Что отмечать каждый день. Нажмите на показатель, чтобы переименовать его, поменять шкалу, план и то, как его оценивать, — отметки сохранятся.</p>
   <div class="catlist">${S.bio.metrics.map(m => `<button class="bm-item" data-act="bmopen" data-id="${m.id}"><span class="em">${esc(m.emoji || '•')}</span><span class="bm-t"><b>${esc(m.name)}</b><small>${bmSub(m)}</small></span>${I(IC.right, 16)}</button>`).join('')}</div>
   <button class="addcat" data-act="bmadd">+ Добавить показатель</button>
   <div class="set-sec">Привычки</div>
