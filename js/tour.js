@@ -141,6 +141,7 @@ function tourDraw(st, el) {
     <div class="tour-foot">${tour.i > 0 ? '<button class="btn" data-act="tourprev">Назад</button>' : '<span></span>'}<button class="btn pri" data-act="tournext">${last ? 'Готово' : 'Далее'}</button></div>`;
   if (el) tourScroll(el);   // прокрутка мгновенная — размеры сразу известны
   tourPlace(el);
+  if (el) tourHeal(el, 1);
   const nx = pop.querySelector('[data-act="tournext"]'); if (nx) nx.focus({ preventScroll:true });
 }
 // Прокрутка к элементу. ПК: по центру экрана (высокий блок — с начала, под шапкой).
@@ -151,7 +152,7 @@ function tourScroll(el) {
   const H = innerHeight;
   if (innerWidth >= 600) {
     const tall = el.getBoundingClientRect().height > H * .7;
-    el.scrollIntoView({ block: tall ? 'start' : 'center', inline:'nearest', behavior:'instant' });
+    el.scrollIntoView({ block: tall ? 'start' : 'center', inline:'nearest' });
     const inner = el.closest('.wgwrap, #side, header, #tabbar'), hh = $('header').offsetHeight;
     if (tall && scrollY > 0 && !inner) window.scrollBy(0, -(hh + 12));
     // Подсказка не помещается ни под блоком, ни над ним — ставим блок под шапку, подсказку под него
@@ -162,13 +163,30 @@ function tourScroll(el) {
   const pop = $('#tour .tour-pop');
   if (el.closest('header, #tabbar')) { tour.side = el.getBoundingClientRect().top < H / 2 ? 'bottom' : 'top'; return; }
   tour.side = 'top'; popSide(pop, 'top');
-  el.scrollIntoView({ block:'start', inline:'nearest', behavior:'instant' });
+  el.scrollIntoView({ block:'nearest', inline:'nearest' });   // только чтобы вынуть элемент из ряда, который листается вбок
+  // Прокрутка страницы — простым scrollTo(0, y): его понимают все браузеры (на iPhone прокрутка при overflow:hidden у страницы откатывалась, 20 октября 2026)
   const want = pop.getBoundingClientRect().bottom + 14;
-  window.scrollBy(0, el.getBoundingClientRect().top - want);
+  window.scrollTo(0, Math.max(0, scrollY + el.getBoundingClientRect().top - want));
   if (el.getBoundingClientRect().top >= want - 2) return;
   tour.side = 'bottom'; popSide(pop, 'bottom');
   const lim = pop.getBoundingClientRect().top - 14, b = el.getBoundingClientRect().bottom;
-  if (b > lim) window.scrollBy(0, b - lim);
+  if (b > lim) window.scrollTo(0, scrollY + b - lim);
+}
+// Телефон: подсказка закрывает свой элемент? (на iPhone прокрутка может догнать или откатиться не сразу)
+const tourCovers = el => { const p = $('#tour .tour-pop').getBoundingClientRect(), r = el.getBoundingClientRect(); return Math.min(p.bottom, r.bottom) - Math.max(p.top, r.top) > 8; };
+// Через мгновение после показа шага проверяем ещё раз: закрыт подсказкой или ушёл за край экрана — прокручиваем заново;
+// всё равно закрыт — подсказка на другую сторону экрана. В конце рамка встаёт туда, где элемент на самом деле
+function tourHeal(el, n) {
+  const i0 = tour && tour.i;
+  setTimeout(() => {
+    if (!tour || tour.i !== i0 || !el.isConnected) return;
+    const r = el.getBoundingClientRect(), off = r.bottom < 8 || r.top > innerHeight - 24;
+    if (innerWidth < 600 && !el.closest('header, #tabbar') && (tourCovers(el) || off)) {
+      if (n) { tourScroll(el); tourPlace(el); return tourHeal(el, n - 1); }
+      if (tourCovers(el)) tour.side = tour.side === 'top' ? 'bottom' : 'top';
+    }
+    tourPlace(el);
+  }, 80);
 }
 // Подсветка — «окно» в затемнении вокруг элемента; подсказка — под ним, над ним или (на телефоне) у края экрана
 function tourPlace(el) {

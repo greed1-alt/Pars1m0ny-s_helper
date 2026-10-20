@@ -524,7 +524,9 @@ body.ui2 main.sec .card-h{margin-bottom:10px}
 @media(hover:hover){.tm-grid button:hover,.tm-all:hover{background:var(--hov)}}
 @media(max-width:420px){.tm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* Во время тура страница не прокручивается (место под полосу прокрутки остаётся — ничего не сдвигается) */
-html.touring{overflow:hidden;scrollbar-gutter:stable}
+/* Полоса прокрутки во время тура — только на ПК с мышью. На телефоне палец и так не прокручивает (touchmove над #tour), а overflow:hidden у страницы
+   на iPhone откатывал прокрутку самого тура — подсказка закрывала свой элемент (20 октября 2026) */
+@media (hover:hover) and (pointer:fine){html.touring{overflow:hidden;scrollbar-gutter:stable}}
 /* Блок страницы, который всегда открыт (Настройки → «Расположение»): заголовок без сворачивания */
 .fold.fixed>.fold-h{cursor:default;pointer-events:none}
 .set-sub{font-size:12px;color:var(--mut);margin:12px 0 2px}

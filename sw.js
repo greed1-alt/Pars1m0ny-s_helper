@@ -1,4 +1,4 @@
-const CACHE = 'rem-v96';
+const CACHE = 'rem-v97';
 const FILES = ['./', './index.html', './beta.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png', './favicon.png',
   './css/app.css', './css/sections.css', './css/ui2.css', ...['core', 'names', 'look', 'help', 'calendar', 'charts', 'sections', 'tasks', 'habits', 'finance', 'goals', 'pages', 'timer', 'ui2', 'layout', 'tour', 'input', 'share', 'cloud', 'notify', 'assistant', 'map', 'main'].map(n => './js/' + n + '.js')];
 // cache:'reload' / 'no-cache' — мимо кэша браузера: GitHub Pages разрешает хранить файлы 10 минут, и без этого новая версия приходила с опозданием
@@ -14,6 +14,7 @@ self.addEventListener('activate', e => e.waitUntil(
 // Новая версия: браузер при запуске сам сверяет sw.js; изменился CACHE — новый service worker скачивает FILES в фоне (install),
 // забирает страницу (claim), а страница перезагружается сама, когда человек ничего не делает (js/main.js, swUpdated).
 // Остальное (карта vendor/leaflet и т. п.) — из сети с запасной копией в кэше, как раньше.
+const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const fresh = (url, nav) => fetch(new Request(url, { cache:'no-cache', credentials:'same-origin', redirect: nav ? 'manual' : 'follow' }));
 const keep = (req, r) => { if (r.ok && !r.redirected && r.type === 'basic') { const c = r.clone(); caches.open(CACHE).then(x => x.put(req, c)); } return r; };
 // Переезд на другой адрес: старый отвечает «переехал» (301) — тогда стираем кэш и просим страницы перезагрузиться: следующий запуск пойдёт
@@ -23,6 +24,8 @@ const movedCheck = url => fresh(url, true).then(r => { if (r.type !== 'opaquered
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
   const nav = e.request.mode === 'navigate', u = new URL(e.request.url), home = u.pathname === new URL('./', self.registration.scope).pathname || u.pathname.endsWith('/index.html');
+  // Локальная разработка (localhost): всегда свежие файлы из сети, кэш — только без сервера. На бете и у друзей — как ниже
+  if (DEV) return e.respondWith(fresh(e.request.url, nav).catch(() => caches.open(CACHE).then(c => c.match(e.request, { ignoreSearch: nav }).then(r => r || c.match('./index.html')))));
   if (nav) e.waitUntil(movedCheck(e.request.url));   // в фоне, страница не ждёт
   e.respondWith(caches.open(CACHE).then(c => (nav && home ? c.match('./index.html') : c.match(e.request, { ignoreSearch: nav })).then(hit => {
     if (hit) return hit;
