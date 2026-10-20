@@ -406,7 +406,7 @@ const ST_SEC = [
 function stJump(k) {
   if (sec !== 'settings') setSec('settings');
   if (stPhone()) { stOpen = k; render(); window.scrollTo(0, 0); return; }
-  setTimeout(() => { const c = $('#st-' + k); if (!c) return; c.scrollIntoView({ block: 'start', behavior: 'smooth' }); c.classList.add('ai-flash'); setTimeout(() => c.classList.remove('ai-flash'), 1800); }, 30);   // после перерисовки
+  setTimeout(() => { const c = $('#st-' + k); if (!c) return; c.scrollIntoView({ block: 'start', behavior: smoothB() }); c.classList.add('ai-flash'); setTimeout(() => c.classList.remove('ai-flash'), 1800); }, 30);   // после перерисовки
 }
 ACT.stjump = el => stJump(el.dataset.k);
 ACT.stback = () => { stOpen = null; render(); window.scrollTo(0, 0); };

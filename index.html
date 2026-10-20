@@ -49,14 +49,15 @@
   </div>
 </div>
 <nav id="tabbar" class="m-only" aria-label="Разделы"></nav>
-<div id="ov"><div id="sh"></div></div>
-<div id="qc" class="qc"></div>
-<div id="cmd"><div class="cmd-box"><div class="cmd-in"><span id="cmd_ic"></span><input id="cmd_q" type="text" placeholder="Найти дело, трату, заметку, привычку, цель или команду" autocomplete="off"></div><div id="cmd_res"></div><div class="cmd-foot"><span><kbd>↑</kbd> <kbd>↓</kbd> выбрать</span><span><kbd>Enter</kbd> выполнить</span><span><kbd>Esc</kbd> закрыть</span></div></div></div>
+<div id="ov"><div id="sh" role="dialog" aria-modal="true" tabindex="-1"></div></div>
+<div id="qc" class="qc" role="dialog" aria-label="Новое событие"></div>
+<div id="cmd" role="dialog" aria-modal="true" aria-label="Поиск и команды"><div class="cmd-box"><div class="cmd-in"><span id="cmd_ic" aria-hidden="true"></span><input id="cmd_q" type="text" role="combobox" aria-expanded="true" aria-controls="cmd_res" aria-autocomplete="list" aria-label="Поиск по записям и командам" placeholder="Найти дело, трату, заметку, привычку, цель или команду" autocomplete="off"></div><div id="cmd_res" role="listbox" aria-label="Найдено"></div><div class="cmd-foot" aria-hidden="true"><span><kbd>↑</kbd> <kbd>↓</kbd> выбрать</span><span><kbd>Enter</kbd> выполнить</span><span><kbd>Esc</kbd> закрыть</span></div></div></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <input id="imp_file" type="file" accept="application/json,.json" hidden>
 
 <script src="js/core.js"></script>
 <script src="js/names.js"></script>
+<script src="js/a11y.js"></script>
 <script src="js/look.js"></script>
 <script src="js/help.js"></script>
 <script src="js/calendar.js"></script>

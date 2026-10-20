@@ -1,6 +1,6 @@
-const CACHE = 'rem-v97';
+const CACHE = 'rem-v98';
 const FILES = ['./', './index.html', './beta.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png', './favicon.png',
-  './css/app.css', './css/sections.css', './css/ui2.css', ...['core', 'names', 'look', 'help', 'calendar', 'charts', 'sections', 'tasks', 'habits', 'finance', 'goals', 'pages', 'timer', 'ui2', 'layout', 'tour', 'input', 'share', 'cloud', 'notify', 'assistant', 'map', 'main'].map(n => './js/' + n + '.js')];
+  './css/app.css', './css/sections.css', './css/ui2.css', ...['core', 'names', 'a11y', 'look', 'help', 'calendar', 'charts', 'sections', 'tasks', 'habits', 'finance', 'goals', 'pages', 'timer', 'ui2', 'layout', 'tour', 'input', 'share', 'cloud', 'notify', 'assistant', 'map', 'main'].map(n => './js/' + n + '.js')];
 // cache:'reload' / 'no-cache' — мимо кэша браузера: GitHub Pages разрешает хранить файлы 10 минут, и без этого новая версия приходила с опозданием
 // С меткой версии в адресе (?v=rem-vN): сразу после выпуска сервер GitHub (CDN) ещё может отдавать старые копии по обычным адресам,
 // а кэш теперь — единственный источник файлов до следующей версии, поэтому в него должны попасть именно файлы этого выпуска. Хранятся под обычным адресом

@@ -194,7 +194,7 @@ function aiDraw() {
   if (!signedIn()) return sheet(`${head}<button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
     <p class="set-note">Помощник работает через сервер, поэтому нужен вход в аккаунт.</p><button class="btn pri" style="width:100%" data-act="login">Войти по почте</button>`);
   sheet(`<div class="ai-chat">${head}<button class="ai-clear" id="ai_clear" data-act="aiclear"${ai.msgs.length ? '' : ' hidden'} title="Очистить чат">${I(IC.trash, 16)}<span>Очистить?</span></button><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
-    <div class="ai-log" id="ai_log" aria-live="polite">${aiLogHTML()}</div>
+    <div class="ai-log" id="ai_log" role="log" aria-live="polite" aria-label="Переписка с помощником">${aiLogHTML()}</div>
     <div class="ai-att" id="ai_att">${aiAttHTML()}</div>
     <div class="ai-in">
       <button class="ai-ib" data-act="aiimg" title="Прикрепить картинку — например, скриншот расписания" aria-label="Прикрепить картинку">${I(IC.img, 18)}</button><input type="file" id="ai_file" accept="image/*" hidden>

@@ -48,7 +48,11 @@ html,body{margin:0}
 body{font-family:var(--font);font-size:14px;line-height:1.4;background:var(--bg);color:var(--tx);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;-webkit-text-size-adjust:100%}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 input,select,textarea{font:inherit;color:inherit}
-:focus-visible{outline:2px solid color-mix(in srgb,var(--acc) 55%,transparent);outline-offset:1px}
+/* Рамка фокуса — только при работе с клавиатуры (мышью и пальцем её не видно); заметная: сплошной цвет акцента (аудит, 20 октября 2026) */
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+[tabindex="-1"]:focus,[tabindex="-1"]:focus-visible{outline:none}   /* окно и пункты поиска получают фокус программно — рамка вокруг всего окна не нужна */
+/* «Уменьшить движение» в системе — без анимаций и плавной прокрутки */
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 kbd{font-family:var(--font);font-size:11px;font-weight:500;color:var(--mut);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;line-height:16px;display:inline-block;min-width:18px;text-align:center;background:var(--bg)}
 .app{display:block}
 .content{min-width:0}

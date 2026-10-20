@@ -241,12 +241,12 @@ function openLogin(keep) {
   ${lg.step === 'email' ? `<p class="set-note" style="margin:0 0 12px">Введите почту — пришлём код. Пароль не нужен.</p>
     <label class="lg-l" for="lg_email">Почта</label>
     <input id="lg_email" class="fin lg-in" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="200" value="${esc(lg.email)}" placeholder="name@mail.ru">
-    <div id="lg_err" class="lg-err">${esc(lg.err)}</div>
+    <div id="lg_err" class="lg-err" role="alert">${esc(lg.err)}</div>
     <button class="btn pri lg-go" data-act="lgsend">Получить код</button>`
   : `<p class="set-note" style="margin:0 0 12px">Отправили код на <b style="color:var(--tx)">${esc(lg.email)}</b>. Письмо приходит за минуту; если его нет — загляните в «Спам».</p>
     <label class="lg-l" for="lg_code">Код из письма</label>
     <input id="lg_code" class="fin lg-in lg-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456">
-    <div id="lg_err" class="lg-err">${esc(lg.err)}</div>
+    <div id="lg_err" class="lg-err" role="alert">${esc(lg.err)}</div>
     <button class="btn pri lg-go" data-act="lgverify">Войти</button>
     <div class="lg-row"><button class="lnk" data-act="lgback">Другая почта</button><button class="lnk" data-act="lgresend" id="lg_resend"${wait ? ' disabled' : ''}>${wait ? `Новый код — через ${wait} с` : 'Отправить код ещё раз'}</button></div>`}
   <p class="set-note lg-beta">${I(IC.alert, 14)} Бета-версия: войти могут только приглашённые. Записи хранятся на сервере Supabase за пределами России.</p>`, keep);

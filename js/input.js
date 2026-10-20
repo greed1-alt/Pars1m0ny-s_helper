@@ -65,7 +65,7 @@ document.addEventListener('click', async ev => {
   }
   else if (a === 'del') {
     const src = S.events.find(x => x.id === window._fe.id); if (!src) return;
-    if (isRec(src)) { $('#f_ask').innerHTML = `<div class="ask"><b>Это повторяющееся событие. Что удалить?</b><div class="row"><button class="btn dng" data-act="delone">Только ${esc(fmtLong(window._fe.inst))}</button><button class="btn dngf" data-act="delall">Все повторения</button><button class="btn" data-act="delcancel">Отмена</button></div></div>`; $('#f_ask').scrollIntoView({ block:'nearest', behavior:'smooth' }); return; }
+    if (isRec(src)) { $('#f_ask').innerHTML = `<div class="ask"><b>Это повторяющееся событие. Что удалить?</b><div class="row"><button class="btn dng" data-act="delone">Только ${esc(fmtLong(window._fe.inst))}</button><button class="btn dngf" data-act="delall">Все повторения</button><button class="btn" data-act="delcancel">Отмена</button></div></div>`; $('#f_ask').scrollIntoView({ block:'nearest', behavior: smoothB() }); return; }
     snap(); S.events = S.events.filter(x => x.id !== src.id); save(); closeSheet(); render(); toast('Событие удалено', true);
   }
   else if (a === 'delone') { const src = S.events.find(x => x.id === window._fe.id); if (!src) return; snap(); src.skip = [...(src.skip||[]), window._fe.inst]; save(); closeSheet(); render(); toast('Удалено только это повторение', true); }

@@ -24,13 +24,14 @@ function monthHTML() {
   const today = todayK(), cells = gridCells(monthAnchor), rows = cells.length / 7, pc = innerWidth >= 900, side = pc && wkSide(), dAct = side ? 'pick' : 'goday';
   const hh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hh')) || 60;
   const maxChips = Math.max(1, Math.floor(((innerHeight - hh - 32) / rows - 32) / 20));
-  let h = `<div class="month" style="--rows:${rows}">` + dowsOrdered().map(x => `<div class="mdw">${x}</div>`).join('');
+  const fk = cells.some(([c]) => ds(c) === sel) ? sel : ymOf(ds(monthAnchor)) + '-01';   // день, на который попадает Tab
+  let h = `<div class="month" style="--rows:${rows}">` + dowsOrdered().map(x => `<div class="mdw" aria-hidden="true">${x}</div>`).join('');
   h += cells.map(([c, inMonth]) => {
     const k = ds(c), es = evOn(k), lim = es.length > maxChips ? maxChips - 1 : maxChips;
     const chips = pc ? es.slice(0, lim).map(e => `<button class="mchip${e.time?'':' all'}${e.done?' done':''}" data-act="edit" data-id="${e.id}" data-d="${k}" style="--c:${cat(e.cat).color}"><i></i>${e.time?`<span class="t">${esc(e.time)}</span>`:''}<span class="n">${esc(e.title)}</span></button>`).join('')
       + (es.length > lim ? `<button class="mmore" data-act="${dAct}" data-d="${k}">ещё ${es.length - lim}</button>` : '') : '';
     const dots = es.slice(0,4).map(e => `<u style="background:${cat(e.cat).color}"></u>`).join('');
-    return `<div class="mc${inMonth?'':' oth'}${k===today?' today':''}${k===sel?' sel':''}${isWknd(k)?' wknd':''}" data-act="pick" data-d="${k}"><span class="mc-n"${pc?` data-act="${dAct}" data-d="${k}" title="${side ? 'Показать день справа' : 'Открыть день'}"`:''}>${c.getDate()}</span><span class="mdots">${dots}</span><div class="mchips">${chips}</div></div>`;
+    return `<div class="mc${inMonth?'':' oth'}${k===today?' today':''}${k===sel?' sel':''}${isWknd(k)?' wknd':''}" data-act="pick" data-d="${k}"><span class="mc-n"${pc?` data-act="${dAct}" data-d="${k}" title="${side ? 'Показать день справа' : 'Открыть день'}"`:''} data-k="${k}" role="button" tabindex="${k === fk ? 0 : -1}" aria-label="${esc(a11yDay(k, es.length))}${k === sel ? ', выбран' : ''}"${k === today ? ' aria-current="date"' : ''}>${c.getDate()}</span><span class="mdots">${dots}</span><div class="mchips">${chips}</div></div>`;
   }).join('');
   h += '</div>';
   if (side) return `<div class="wkview"><div class="wkgrid">${h}</div><aside class="wkside">${calDayHTML(sel, true)}</aside></div>`;
@@ -258,7 +259,7 @@ function agendaHTML() {
   for (let i = 0; i < 60; i++) {
     const k = addDays(sel, i), es = evOn(k); if (!es.length) continue;
     const d = pd(k);
-    out += `<div class="ag-day"><div class="ag-date${k===today?' today':''}" data-act="goday" data-d="${k}" title="Открыть день"><b>${d.getDate()}</b><small>${MONS[d.getMonth()]}, ${dowName(k).toLowerCase()}</small></div><div class="ag-list">${es.map(e => `<div class="ag-row${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button><button class="ag-main" data-act="edit" data-id="${e.id}" data-d="${k}"><span class="ag-time">${e.time ? timeRange(e) : 'весь день'}</span><span class="ag-bar"></span><span class="ag-txt"><b>${esc(e.title)}</b><small>${(e.time ? `<span class="ev-tm">${timeRange(e)}</span>` : '') + catTag(e.cat) + goalTag(e)}${e.rec?' · ↻ '+esc(repText(e)):''}${e.loc?' · '+esc(e.loc):''}</small></span></button></div>`).join('')}</div></div>`;
+    out += `<div class="ag-day"><div class="ag-date${k===today?' today':''}" data-act="goday" data-d="${k}" title="Открыть день" role="button" tabindex="0" aria-label="Открыть день: ${esc(a11yDay(k))}"><b>${d.getDate()}</b><small>${MONS[d.getMonth()]}, ${dowName(k).toLowerCase()}</small></div><div class="ag-list">${es.map(e => `<div class="ag-row${e.done?' done':''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено">${e.done?I(IC.check,13):''}</button><button class="ag-main" data-act="edit" data-id="${e.id}" data-d="${k}"><span class="ag-time">${e.time ? timeRange(e) : 'весь день'}</span><span class="ag-bar"></span><span class="ag-txt"><b>${esc(e.title)}</b><small>${(e.time ? `<span class="ev-tm">${timeRange(e)}</span>` : '') + catTag(e.cat) + goalTag(e)}${e.rec?' · ↻ '+esc(repText(e)):''}${e.loc?' · '+esc(e.loc):''}</small></span></button></div>`).join('')}</div></div>`;
   }
   return `<div class="agenda">${out || `<div class="ag-empty"><b>Ближайшие 60 дней свободны</b>Нажмите «Создать» или клавишу N, чтобы запланировать что-нибудь.</div>`}</div>`;
 }
@@ -289,7 +290,7 @@ function sideHTML() {
   ${S.cats.map(c => `<div class="sb-catw"><button type="button" class="sb-cat${hiddenCats.has(c.id)?'':' on'}" data-act="catfilter" data-id="${c.id}" style="--c:${c.color}"><span class="sb-box">${hiddenCats.has(c.id)?'':I(IC.check,11)}</span>${esc(c.name)}<span class="cnt">${cnt(c.id) || ''}</span></button><button type="button" class="cshare" data-act="sharecat" data-id="${c.id}" aria-label="Поделиться календарём «${esc(c.name)}»" title="Поделиться">${I(IC.share,14)}</button></div>`).join('')}
   <button class="sb-add" data-act="addcat">${I(IC.plus,15)} Добавить календарь</button></div>
   <div class="sb-sec"><button class="sb-h" data-act="tpltoggle">Шаблоны событий <span>${open?'▾':'▸'}</span></button>
-  ${open ? (S.templates.length ? S.templates.map(t => `<div class="tpl" data-act="usetpl" data-id="${t.id}" style="--c:${cat(t.cat).color}" role="button"><b>${esc(t.title)}</b><small>${esc(tplSub(t))}</small><button class="tpx" data-act="deltpl" data-id="${t.id}" aria-label="Удалить шаблон">${I(IC.x,13)}</button></div>`).join('') : '<p class="empty" style="font-size:12.5px;margin:0 4px">Шаблонов нет. Откройте событие и нажмите «В шаблоны».</p>') : ''}
+  ${open ? (S.templates.length ? S.templates.map(t => `<div class="tpl" data-act="usetpl" data-id="${t.id}" style="--c:${cat(t.cat).color}" role="button" tabindex="0" aria-label="Шаблон: ${esc(t.title)}"><b>${esc(t.title)}</b><small>${esc(tplSub(t))}</small><button class="tpx" data-act="deltpl" data-id="${t.id}" aria-label="Удалить шаблон">${I(IC.x,13)}</button></div>`).join('') : '<p class="empty" style="font-size:12.5px;margin:0 4px">Шаблонов нет. Откройте событие и нажмите «В шаблоны».</p>') : ''}
   </div>
   ${foot}`;
 }
@@ -311,6 +312,7 @@ function titleHTML() {
 let lastGridView = null;
 function render(dir) {
   evCache.clear();
+  const fk = focSave();   // js/a11y.js: фокус клавиатуры вернётся на ту же кнопку после перерисовки
   closeQuick();
   const root = document.documentElement, cal = sec === 'cal', S2 = SEC[sec];
   if (cal && view === 'week' && innerWidth < 900) view = 'day';   // на телефоне неделя — полоской дней над «Днём»
@@ -346,6 +348,7 @@ function render(dir) {
   if (dir) { main.classList.add(dir < 0 ? 'anim-l' : dir > 0 ? 'anim-r' : 'anim-f'); }
   const m = $('meta[name=theme-color]'); if (m) m.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#ffffff';
   tourSync(); tourInvite();   // js/tour.js
+  a11yPage(); focBack(fk);   // js/a11y.js
 }
 
 function move(n) {
@@ -396,16 +399,17 @@ function shAsk() {
     a.innerHTML = '<span>Закрыть без сохранения?</span><button class="btn" data-act="shstay">Остаться</button><button class="btn pri" data-act="shdrop">Закрыть</button>'; document.body.appendChild(a); }
   a.classList.add('show'); a.querySelector('[data-act="shstay"]').focus();
 }
-function shAskHide() { const a = $('#shask'); if (a) a.classList.remove('show'); }
+function shAskHide() { const a = $('#shask'); if (!a || !a.classList.contains('show')) return; const back = a.contains(document.activeElement); a.classList.remove('show'); if (back && sheetOpen()) $('#sh').focus({ preventScroll:true }); }   // «Остаться» — фокус обратно в окно
 const shAskOpen = () => { const a = $('#shask'); return !!(a && a.classList.contains('show')); };
 function closeSheetAsk() { if (shAskOpen()) return shAskHide(); if (shUnsaved()) return shAsk(); closeSheet(); }   // вопрос уже открыт — Esc и фон его прячут
 ACT.shstay = () => shAskHide();
 ACT.shdrop = () => { shAskHide(); closeSheet(); };
 document.addEventListener('pointerdown', e => { if (shAskOpen() && !(e.target.closest && e.target.closest('#shask'))) shAskHide(); }, true);   // продолжили писать — вопрос убирается
-const sheet = (h, keep) => { tinvHide(); if (!keep) shDirty = false; shAskHide(); const sh = $('#sh'), top = sh.scrollTop;   // плашка «Впервые здесь?» (tour.js) не висит поверх окна
- sh.innerHTML = '<span class="grab"></span>' + h; $('#ov').classList.remove('ov-light'); $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; shHistOpen(); };
+const sheet = (h, keep) => { tinvHide(); if (!keep) shDirty = false; shAskHide(); const sh = $('#sh'), top = sh.scrollTop, was = sheetOpen(), fk = was ? focSave() : null;   // плашка «Впервые здесь?» (tour.js) не висит поверх окна
+ sh.innerHTML = '<span class="grab" aria-hidden="true"></span>' + h; $('#ov').classList.remove('ov-light'); $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; shHistOpen();
+ a11ySheet(was, fk); };   // js/a11y.js: заголовок для диктора, фон «заморожен», фокус внутрь окна
 // fromBack — окно закрыто кнопкой «Назад»: шаг в истории уже сделан
-const closeSheet = fromBack => { shAskHide(); $('#ov').classList.remove('show', 'ov-light'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; shHistClose(fromBack === true); };
+const closeSheet = fromBack => { shAskHide(); $('#ov').classList.remove('show', 'ov-light'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; shHistClose(fromBack === true); a11yClose(); };
 // «Назад» закрывает открытое окно (18 октября 2026: на Android «Назад» выходил из приложения, пока окно было открыто).
 // Открылось окно — в истории шаг вперёд (один на все окна подряд); закрыли крестиком или «Сохранить» — сами делаем шаг назад
 // и пропускаем его popstate (shBack). Пока этот шаг не дошёл, новое окно добавляет свой шаг — его закроет следующее «Назад».
@@ -622,9 +626,9 @@ function openHelp() {
 // ---- Командное меню ----
 let cmdItems = [], cmdIdx = 0;
 const cmdOpen = () => $('#cmd').classList.contains('show');
-function openCmd() { closeQuick(); $('#cmd_ic').innerHTML = I(IC.search, 19); $('#cmd').classList.add('show'); $('#cmd_q').value = '';
+function openCmd() { closeQuick(); a11yOpen(); $('#cmd_ic').innerHTML = I(IC.search, 19); $('#cmd').classList.add('show'); $('#cmd_q').value = '';
   $('#cmd_q').placeholder = innerWidth < 900 ? 'Найти дело, трату, заметку…' : 'Найти дело, трату, заметку, привычку, цель или команду'; cmdUpdate(); setTimeout(() => $('#cmd_q').focus(), 20); }
-const closeCmd = () => $('#cmd').classList.remove('show');
+const closeCmd = () => { if (!cmdOpen()) return; $('#cmd').classList.remove('show'); a11yClose(); };
 const COMMANDS = () => [
   { ic:IC.plus, t:'Новое событие', run:() => openEvent() },
   { ic:IC.tasks, t:'Новая задача', run:() => newTask() },
@@ -742,13 +746,15 @@ function cmdUpdate(keepIdx) {
 function cmdDraw() {
   let h = '', last = '';
   cmdItems.forEach((it, i) => {
-    if (it.sec !== last) { h += `<div class="cmd-sec">${it.sec}</div>`; last = it.sec; }
+    if (it.sec !== last) { h += `<div class="cmd-sec" aria-hidden="true">${it.sec}</div>`; last = it.sec; }
     const ic = it.c ? `<span class="cd" style="--c:${it.c}"></span>` : it.em ? `<span class="ci em">${esc(it.em)}</span>` : `<span class="ci">${I(it.ic,17)}</span>`;
-    h += it.rec ? `<button class="cmd-it rec${i===cmdIdx?' act':''}" data-act="cmdrun" data-i="${i}">${ic}<span class="cl"><span class="cmd-tt">${it.h}</span><small>${esc(it.s)}</small></span>${it.r ? `<b class="cr">${esc(it.r)}</b>` : ''}</button>`
-      : `<button class="cmd-it${it.keep ? ' more' : ''}${i===cmdIdx?' act':''}" data-act="cmdrun" data-i="${i}">${ic}<span class="cl">${esc(it.t)}</span>${it.s ? `<span class="cs">${esc(it.s)}</span>` : ''}${it.k ? `<kbd>${it.k}</kbd>` : ''}</button>`;
+    const opt = `role="option" id="cmd_o${i}" aria-selected="${i === cmdIdx}" tabindex="-1"`;   // для диктора: список вариантов, выбранный — стрелками
+    h += it.rec ? `<button class="cmd-it rec${i===cmdIdx?' act':''}" data-act="cmdrun" data-i="${i}" ${opt}>${ic}<span class="cl"><span class="cmd-tt">${it.h}</span><small>${esc(it.s)}</small></span>${it.r ? `<b class="cr">${esc(it.r)}</b>` : ''}</button>`
+      : `<button class="cmd-it${it.keep ? ' more' : ''}${i===cmdIdx?' act':''}" data-act="cmdrun" data-i="${i}" ${opt}>${ic}<span class="cl">${esc(it.t)}</span>${it.s ? `<span class="cs">${esc(it.s)}</span>` : ''}${it.k ? `<kbd>${it.k}</kbd>` : ''}</button>`;
   });
   $('#cmd_res').innerHTML = h || `<p class="empty" style="padding:14px">Ничего не найдено. Ищу по задачам, событиям, тратам, заметкам, привычкам и целям</p>`;
   const a = $('.cmd-it.act'); if (a) a.scrollIntoView({ block:'nearest' });
+  if (a) $('#cmd_q').setAttribute('aria-activedescendant', a.id); else $('#cmd_q').removeAttribute('aria-activedescendant');
 }
 function cmdRun(i) { const it = cmdItems[i]; if (!it) return; if (it.keep) { cmdIdx = i; it.run(); $('#cmd_q').focus({ preventScroll:true }); return; } closeCmd(); it.run(); }
 

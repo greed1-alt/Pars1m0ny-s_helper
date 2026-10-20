@@ -19,7 +19,7 @@ function foldHTML(k, title, sum, body, def, opt) {
     ${open ? `<div class="fold-b">${typeof body === 'function' ? body() : body}</div>` : ''}</section>`;
 }
 ACT.fold = el => { const k = el.dataset.k; S.settings.folds[k] = el.getAttribute('aria-expanded') !== 'true'; save(); render(); };
-const foldOpenGo = k => { S.settings.folds[k] = true; save(); render(); setTimeout(() => { const f = $(`[data-fold="${k}"]`); if (f) f.scrollIntoView({ block:'start', behavior:'smooth' }); }, 60); };
+const foldOpenGo = k => { S.settings.folds[k] = true; save(); render(); setTimeout(() => { const f = $(`[data-fold="${k}"]`); if (f) f.scrollIntoView({ block:'start', behavior: smoothB() }); }, 60); };
 
 // ---- Единая строка ввода: дела, встречи, траты, привычки и заметки обычной фразой ----
 const OM_T = {
