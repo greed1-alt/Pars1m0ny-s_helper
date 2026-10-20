@@ -141,12 +141,27 @@ function omniHTML(id, ctx) {
     <div class="om-prev" id="${id}_prev" aria-live="polite"></div>
   </div>`;
 }
+// Строка + помощник (проба 21 октября 2026, «давай попробуем строка + помощник»; аудит: непонятно, чем строка отличается от помощника).
+// Строка записывает одну запись. Во фразе несколько записей («врач в 10, кофе 350») или вопрос («что у меня завтра?») — под разбором
+// кнопка «отдать помощнику» / «спросить помощника», она сразу отправляет текст в чат. Enter по-прежнему делает то, что показано в разборе.
+// «Несколько» — когда хотя бы в двух частях (через запятую, «;» или «и») есть время, дата, сумма или привычка: «купить хлеб, молоко» — одна задача
+function omAiWhy(text, ctx) {
+  const s = String(text || '').trim(); if (s.length < 5 || typeof aiAsks !== 'function') return '';
+  if (aiAsks(s)) return 'q';
+  const parts = s.split(/\s*(?:[,;\n]|\s+и\s+)\s*/i).filter(x => x.length > 1); if (parts.length < 2) return '';
+  const strong = parts.filter(x => { const p = omniParse(x, ctx), nl = parseNL(x, todayK()); return p && (p.type === 'money' || p.type === 'habit' || !!nl.time || !!nl.found); }).length;
+  return strong >= 2 ? 'many' : '';
+}
+const omAiHTML = (text, ctx, id) => { const w = omAiWhy(text, ctx); return w ? `<button class="om-aihint om-keep" data-act="omai" data-om="${id}">${I(IC.spark, 15)}<span>${w === 'q' ? 'Похоже на вопрос — спросить помощника' : 'Тут несколько записей — отдать помощнику'}</span></button>` : ''; };
+// openAI с текстом — без приветствия, aiSend берёт текст из поля чата. Без входа — только чат с просьбой войти, текст остаётся черновиком
+ACT.omai = el => { const i = $('#' + el.dataset.om), t = i ? i.value.trim() : ''; if (!t) return; i.value = ''; omUpdate(i.id); openAI(t); if (signedIn()) aiSend(); };
+
 function omUpdate(id) {
   const i = $('#' + id); if (!i) return;
   const st = omSt(id); st.v = i.value;
   if (!i.value.trim()) { st.cat = null; st.prio = null; }
   const p = omniParse(i.value, st.ctx, st.force, st), box = i.closest('.om'), prev = $('#' + id + '_prev');
-  if (prev) prev.innerHTML = p ? omPrevHTML(p, id) : omHint(st);
+  if (prev) prev.innerHTML = p ? omPrevHTML(p, id) + omAiHTML(i.value, st.ctx, id) : omHint(st);
   if (box) {
     box.classList.toggle('has', !!p);
     if (i.value || st.force) box.classList.add('open');   // «спокойная» строка: пишут — кнопки и разбор видны (даже если фокус пришёл без focusin)
