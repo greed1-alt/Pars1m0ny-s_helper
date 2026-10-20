@@ -250,10 +250,10 @@ function homePlan(t) {
     <div class="hm-foot"><span>${tm ? 'Завтра: ' + plural(tm, NEV) : 'На завтра пока пусто'}</span><span>${secLink('tasks', 'Задачи')}${secLink('cal', 'Календарь')}</span></div>`;
 }
 function homeHabits(t) {
-  const habs = todayHabs(t), sk = habitStreaks(), show = habs.slice(0, 12);
-  return `${habs.length ? `<div class="h2-hchips">${show.map(h => habChip(h, t)).join('')}${habs.length > show.length ? `<button class="h2-hc more" data-act="sec" data-s="habits">ещё ${habs.length - show.length} →</button>` : ''}</div>`
+  const habs = todayHabs(t), sk = habitStreaks(), show = habs.slice(0, homeTight ? 4 : 12);   // «Плотнее» — две строки «таблеток» и «ещё N»
+  return `${habs.length ? `<div class="h2-hchips">${show.map(h => habChip(h, t)).join('')}${habs.length > show.length && !homeTight ? `<button class="h2-hc more" data-act="sec" data-s="habits">ещё ${habs.length - show.length} →</button>` : ''}</div>`
       : `<p class="h2-empty">Привычек пока нет. Начните с одной — напишите выше «привычка: 2 литра воды».</p>`}
-    <div class="hm-foot"><span>${sk.cur > 1 ? `🔥 ${plural(sk.cur, NDAY)} подряд` : sk.best > 1 ? `Лучшая серия: ${plural(sk.best, NDAY)}` : ''}</span>${secLink('habits', 'Трекер')}</div>`;
+    <div class="hm-foot"><span>${sk.cur > 1 ? `🔥 ${plural(sk.cur, NDAY)} подряд` : sk.best > 1 ? `Лучшая серия: ${plural(sk.best, NDAY)}` : ''}</span>${secLink('habits', habs.length > show.length && homeTight ? `Ещё ${habs.length - show.length} · Трекер` : 'Трекер')}</div>`;   // «Плотнее» — «ещё N» здесь, а не отдельной строкой «таблеток»
 }
 function homeMoney(t) {
   const ym = ymOf(t), st = finStat(ym), lim = dailyLimit(st, ym);
@@ -263,7 +263,7 @@ function homeMoney(t) {
   return `<div class="h2-big${lim && lim.left < 0 ? ' neg' : ''}"><small>${lim ? withHint('Можно потратить сегодня', 'limit') : 'Потрачено сегодня'}</small><b>${lim ? rub0(Math.max(0, lim.left)) : rub0(spent)}</b>
       <span>${lim ? (lim.left >= 0 ? `лимит ${rub0(lim.limit)} в день · сегодня ${rub0(lim.today)}` : `лимит превышен на ${rub0(-lim.left)}`) : '<button class="lnk" data-act="finbudget">Задайте бюджет — появится дневной лимит</button>'}</span></div>
     ${bar}
-    ${ops.length ? `<div class="hm-ops">${ops.slice(0, 3).map(o => { const c = fcat(o.cat), plus = c.g === 'inc'; return `<button class="hm-op" data-act="opedit" data-id="${o.id}"><span class="em">${esc(c.emoji || '•')}</span><span class="n">${esc(o.note || c.name)}</span><b class="${plus ? 'plus' : ''}">${plus ? '+' : '−'}${rub0(o.amt)}</b></button>`; }).join('')}</div>` : ''}
+    ${ops.length && !homeTight ? `<div class="hm-ops">${ops.slice(0, 3).map(o => { const c = fcat(o.cat), plus = c.g === 'inc'; return `<button class="hm-op" data-act="opedit" data-id="${o.id}"><span class="em">${esc(c.emoji || '•')}</span><span class="n">${esc(o.note || c.name)}</span><b class="${plus ? 'plus' : ''}">${plus ? '+' : '−'}${rub0(o.amt)}</b></button>`; }).join('')}</div>` : ''}
     <div class="hm-foot"><span>${ops.length ? '' : 'Трату можно записать в строке выше: «кафе 450»'}</span>${secLink('fin', 'Финансы')}</div>`;
 }
 // Часы — 6…9 и «…»: своё число (2 часа, 5,5…) в окне выбора; оно же и показывается на «…» (правка бета-тестеров 17 октября 2026)
@@ -281,7 +281,7 @@ function homeBlockDef(k, t) {
   if (k === 'money') { const ym = ymOf(t), st = finStat(ym), lim = dailyLimit(st, ym); return { sum: lim ? 'можно ' + rub0(Math.max(0, lim.left)) : 'за месяц ' + rub0(st.spent), body: () => homeMoney(t) }; }
   if (k === 'bio') { const M = S.bio.metrics, f = M.filter(m => bioVal(t, m.id) != null).length; return { sum: f ? `сегодня ${f} из ${M.length}` : 'как вы сегодня?', body: () => homeBio(t) }; }
   if (k === 'goals') { const ga = activeGoals(), late = ga.reduce((n, g) => n + goalStat(g).late.length, 0);
-    return { sum: ga.length ? `${plural(ga.length, ['активная', 'активные', 'активных'])}${late ? ` · просрочено шагов: ${late}` : ''}` : 'пока нет', body: homeGoals, def: () => ga.length > 0 }; }
+    return { sum: ga.length ? `${plural(ga.length, ['активная', 'активные', 'активных'])}${late ? ` · просрочено шагов: ${late}` : ''}` : 'пока нет', body: homeGoals, def: () => ga.length > 0 && !homeTight }; }
   return { sum: S.notes.length ? plural(S.notes.length, ['заметка', 'заметки', 'заметок']) : 'журнал пуст', body: homeNotes };
 }
 // В открытой карточке сводка не повторяет то, что видно внутри: у «Денег» — месяц (сумма и так крупно), у пустого плана — ничего
@@ -308,9 +308,10 @@ function homeHeroHTML(t) {
 }
 
 // ---- Вид Главной на телефоне (проба 20 октября 2026, «Главная короче»: сейчас ~2,4 экрана) ----
-// «Как было» — блоки подряд; «Вкладки» (вариант В) — один блок за раз, вкладки в порядке «Настроить Главную», свайп листает вкладки.
-// Дальше — «Плотнее» (вариант А). На ПК — всегда две колонки
-const HOME_LAY = [['blocks', 'Как было'], ['tabs', 'Вкладки']];
+// «Как было» — блоки подряд; «Плотнее» (вариант А) — те же блоки короче; «Вкладки» (вариант В) — один блок за раз, вкладки в порядке
+// «Настроить Главную», свайп листает вкладки. На ПК — всегда две колонки
+const HOME_LAY = [['blocks', 'Как было'], ['tight', 'Плотнее'], ['tabs', 'Вкладки']];
+let homeTight = false;   // вариант А «Плотнее» (проба 20 октября 2026): те же блоки подряд, но короче — homeHabits, homeMoney, цели свёрнуты, без подсказки под строкой
 const homeLay = () => innerWidth < 900 && HOME_LAY.some(x => x[0] === S.settings.homeLay) ? S.settings.homeLay : 'blocks';
 onMigrate(() => { if (S.settings.homeLay === undefined && IS_BETA) S.settings.homeLay = 'tabs'; });   // на бете проба видна сразу
 const HOME_TAB_N = { plan:'План', habits:'Привычки', money:'Деньги', goals:'Цели', bio:'Самочувствие', notes:'Мысли дня' };
@@ -329,10 +330,11 @@ const homeLayHTML = () => innerWidth < 900 ? `<div class="h2-lay"><span>Вид �
 function homeHTML() {
   // Главная — середина между прежней и вариантом А (12 октября 2026): привычки «таблетками», строка ввода и деньги как раньше
   const t = todayK(), hero = homeHeroHTML(t), tabs = homeLay() === 'tabs';
+  homeTight = homeLay() === 'tight';
   const omni = `<div class="card h2-omni">${omniHTML('om', 'home')}</div>`;
   const miss = secOn('tasks') || secOn('cal') ? missedBar(!tabs, tabs) : '';   // во вкладках — тонкой строкой
   const blocks = tabs ? homeTabsHTML(t) : homeOrder().map(x => homeBlock(x, t)).join('');
-  return `${hero}<div class="h2-cols"><div class="h2-col">${omni}${miss}${blocks}</div><div class="h2-col"></div></div>
+  return `${hero}<div class="h2-cols${homeTight ? ' h2-tight' : ''}"><div class="h2-col">${omni}${miss}${blocks}</div><div class="h2-col"></div></div>
   ${homeCustHTML()}${homeLayHTML()}`;
 }
 
