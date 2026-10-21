@@ -128,6 +128,16 @@ if (!pgEntry || !existsSync(pgEntry)) {
   ok((await as('C', `select * from public.friends_list() where nick = 'alice'`)).rows.length === 0, 'у C Алисы больше нет');
   ok(await one('B', 'select public.friend_remove($1)', [U.C]) === false, 'нельзя убрать чужую дружбу');
 
+  // Общий список: только кто включил rank; только ник, имя, значок и числа; uid — только у друзей и себя
+  ok((await as('C', 'select * from public.leaders_all()')).rows.length === 0, 'пока никто не участвует — общий список пуст');
+  ok((await as('B', 'update public.profiles set rank = true, feed = $1 where user_id = $2 returning rank', [{ v: 1, at: '2026-10-21', wk: { w: '2026-10-19', t: 5, h: 9, s: 3 }, tot: { t: 50, h: 90 }, cs: [{ i: 'x' }], ev: [{ t: 'секрет' }], me: { ab: 'обо мне' } }, U.B])).rows[0].rank === true, 'участвовать можно самому');
+  const glob = (await as('C', 'select * from public.leaders_all()')).rows;
+  ok(glob.length === 1 && glob[0].nick === 'bob' && glob[0].wk.t === 5 && glob[0].tot.h === 90 && glob[0].uid === null && glob[0].rel === '', 'в общем списке — ник, имя и числа; uid чужого не виден');
+  ok(!JSON.stringify(glob).includes('секрет') && !JSON.stringify(glob).includes('обо мне') && !('feed' in glob[0]), 'календарь и профиль в общий список не попадают');
+  ok((await as('B', 'select * from public.leaders_all()')).rows[0].me === true, 'себя в общем списке видно как «я»');
+  ok(/permission/.test((await as(null, 'select * from public.leaders_all()')).err || ''), 'без входа общий список закрыт');
+  ok((await as('C', 'update public.profiles set rank = true where user_id = $1 returning 1', [U.B])).rows.length === 0, 'включить общий список за другого нельзя');
+
   // Размер ленты
   ok(/check|violates/.test((await as('B', 'update public.profiles set feed = $1 where user_id = $2', [{ x:'я'.repeat(200000) }, U.B])).err || ''), 'лента больше ~300 КБ не влезет');
 

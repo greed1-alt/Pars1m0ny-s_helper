@@ -86,11 +86,13 @@ create table if not exists public.profiles (
   invite text not null unique default replace(gen_random_uuid()::text, '-', ''),
   updated_at timestamptz not null default now()
 );
+-- Общий список лидеров (21 октября 2026) — только по желанию: rank = true, его включает сам человек
+alter table public.profiles add column if not exists rank boolean not null default false;
 alter table public.profiles enable row level security;
 -- Код приглашения меняет только invite_new(): прав на изменение этого столбца у приложения нет
 revoke all on public.profiles from anon, authenticated;
 grant select, delete on public.profiles to authenticated;
-grant insert (user_id, nick, name, ava, feed), update (user_id, nick, name, ava, feed) on public.profiles to authenticated;
+grant insert (user_id, nick, name, ava, feed, rank), update (user_id, nick, name, ava, feed, rank) on public.profiles to authenticated;
 
 drop policy if exists "profiles: read own" on public.profiles;
 drop policy if exists "profiles: insert own" on public.profiles;
@@ -253,6 +255,24 @@ revoke all on function public.friend_invite_use(text) from public, anon;
 revoke all on function public.invite_new() from public, anon;
 revoke all on function public.friend_accept(uuid) from public, anon;
 revoke all on function public.friend_remove(uuid) from public, anon;
+-- Общий список: только те, кто включил rank; только ник, имя, значок и числа (неделя и за всё время) — календарей и профиля тут нет.
+-- uid — только у друзей и у себя (чтобы открыть страницу друга); 500 недавно обновлённых карточек
+create or replace function public.leaders_all()
+returns table (uid uuid, nick text, name text, ava jsonb, wk jsonb, tot jsonb, at text, me boolean, rel text)
+language sql stable security definer set search_path = '' as $$
+  select case when f.ok or p.user_id = auth.uid() then p.user_id end, p.nick, p.name, p.ava,
+    jsonb_build_object('w', p.feed->'wk'->'w', 't', p.feed->'wk'->'t', 'h', p.feed->'wk'->'h', 's', p.feed->'wk'->'s'),
+    jsonb_build_object('t', p.feed->'tot'->'t', 'h', p.feed->'tot'->'h'),
+    p.feed->>'at', p.user_id = auth.uid(),
+    case when p.user_id = auth.uid() then 'me' when f.ok then 'ok' when f.a = auth.uid() then 'out' when f.b = auth.uid() then 'in' else '' end
+  from public.profiles p
+  left join public.friends f on (f.a = auth.uid() and f.b = p.user_id) or (f.b = auth.uid() and f.a = p.user_id)
+  where auth.uid() is not null and p.rank
+  order by p.updated_at desc
+  limit 500
+$$;
+revoke all on function public.leaders_all() from public, anon;
+grant execute on function public.leaders_all() to authenticated;
 revoke all on function public.friends_list() from public, anon;
 grant execute on function public.friend_find(text) to authenticated;
 grant execute on function public.friend_add(text) to authenticated;
