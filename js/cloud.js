@@ -159,7 +159,7 @@ function cloudStart() {
 // Даётся галочкой при входе — до того, как почта уйдёт на сервер; кто вошёл раньше — окном при следующем открытии.
 // Запись — S.settings.consent = { v: редакция, at: время }: синхронизируется с аккаунтом, это и есть подтверждение согласия.
 // Изменились условия (новая редакция документов) — новая CONSENT_V, и приложение спросит снова
-const CONSENT_V = '2026-10-20';
+const CONSENT_V = '2026-10-21';   // 21 октября — друзья, шрифты без Google
 // Пока политика — черновик (ждёт текст-образец от пользователя и юриста, 20 октября 2026), галочка, окно и ссылки — только на бете.
 // Политика готова — LEGAL_ON = true (и ссылку в памятку beta.html вернуть)
 const LEGAL_ON = IS_BETA;
@@ -194,7 +194,7 @@ async function afterLogin() {
   else if (sync.owner === auth.uid && readBase()) { await syncNow(); toast('С возвращением! Записи обновлены'); }
   else if (hasLocalData()) { cloudPending = row; openMergeAsk(); return; }
   else { const remote = cleanTree(row.data || {}, ''); applyData(remote); writeBase(remote, row.rev); toast('Вы вошли — записи загружены из аккаунта'); }
-  syncUI(); render(); checkNotif(); consentCheck();
+  syncUI(); render(); checkNotif(); consentCheck(); frStart();
 }
 let cloudPending = null;
 function openMergeAsk() {
@@ -211,14 +211,14 @@ async function cloudResolve(merge) {
     if (merge) { const m = merge3({}, packS(), remote); applyData(m); const r = await rowUpdate(packS(), row.rev); if (r) writeBase(packS(), r.rev); else { writeBase(remote, row.rev); syncNow(); } toast('Готово — записи объединены'); }
     else { safetyCopy(); applyData(remote); writeBase(remote, row.rev); toast('Записи загружены из аккаунта'); }
   } catch (e) { toast(cloudErrText(e)); }
-  syncUI(); consentCheck();
+  syncUI(); consentCheck(); frStart();
 }
 ACT.cmerge = () => cloudResolve(true);
 ACT.creplace = () => cloudResolve(false);
 // После выхода на устройстве остаются только оформление и «знакомство пройдено»
 const lookOnly = () => { const s = S.settings, o = { onboarded: 1 }; ['theme', 'pal', 'contrast', 'card', 'round', 'evc', 'density', 'dev'].forEach(k => { if (s[k] !== undefined) o[k] = s[k]; }); return o; };
 function wipeDevice() {
-  lsSet(BASE_LS, null); lsSet(SYNC_LS, null); lsSet(LS, { settings: lookOnly() }); lsSet('remapp_chat', null);   // и история чата помощника (assistant.js)
+  lsSet(BASE_LS, null); lsSet(SYNC_LS, null); lsSet(LS, { settings: lookOnly() }); lsSet('remapp_chat', null); lsSet('remapp_fr', null);   // и история чата помощника (assistant.js), и друзья (friends.js)
   location.reload();
 }
 async function cloudLogout(force) {

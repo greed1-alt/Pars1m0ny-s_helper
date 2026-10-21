@@ -328,7 +328,7 @@ function render(dir) {
   $$('header [data-v]').forEach(b => b.classList.toggle('on', sec === 'tasks' ? b.dataset.v === 'tasks' : b.dataset.v === view));
   document.body.dataset.plan = planOn() && (cal || sec === 'tasks') ? '1' : '';   // «План» на телефоне: общий переключатель виден и в Задачах
   const bn = $('.btn-new'); if (bn) { bn.innerHTML = I(IC.plus, 17) + (S2.newLabel || ''); bn.setAttribute('aria-label', S2.newLabel || 'Создать'); bn.title = S2.newLabel || 'Создать'; }
-  const ha = $('.hdr-ava'); if (ha) { ha.innerHTML = hdrAvaHTML(); ha.classList.toggle('on', sec === 'profile' || sec === 'profedit'); }
+  const ha = $('.hdr-ava'); if (ha) { ha.innerHTML = hdrAvaHTML(); ha.classList.toggle('on', sec === 'profile' || sec === 'profedit' || sec === 'friend'); }
   const si = $('#secinfo'); if (si) si.innerHTML = '';   // сводки в шапке убраны 6 октября 2026: они повторяли то, что видно на странице
   root.style.setProperty('--hh', $('header').offsetHeight + 'px');
   const main = $('#main'), oldW = $('.wgwrap'), oldTop = oldW ? oldW.scrollTop : null;
@@ -390,7 +390,7 @@ function toast(msg, withUndo) {
 // ---- Окна ----
 // Окно с «Сохранить», в котором что-то вписали: свайп вниз, нажатие на фон, «Назад» и Esc сначала спрашивают «Закрыть без сохранения?»
 // (аудит 18 октября 2026: смахнул карточку — набранное пропало). Крестик закрывает сразу — его нажали нарочно
-const SH_SAVE = '[data-act="save"],[data-act="opsave"],[data-act="fcsave"],[data-act="hbsave"],[data-act="ntupd"],[data-act="qnsave"],[data-act="gsave"],[data-act="bmsave"],[data-act="fbsend"]';
+const SH_SAVE = '[data-act="save"],[data-act="opsave"],[data-act="fcsave"],[data-act="hbsave"],[data-act="ntupd"],[data-act="qnsave"],[data-act="gsave"],[data-act="bmsave"],[data-act="fbsend"],[data-act="frsave"]';
 let shDirty = false;   // в окне что-то вписали или переключили (поля ввода, выбор, галочки)
 ['input', 'change'].forEach(t => document.addEventListener(t, e => { if (e.target.closest && e.target.closest('#sh') && e.target.id !== 'ai_text') shDirty = true; }, true));
 const shUnsaved = () => shDirty && sheetOpen() && !!$('#sh').querySelector(SH_SAVE);
@@ -729,6 +729,7 @@ function srFind(q) {
 function cmdUpdate(keepIdx) {
   const q = $('#cmd_q').value.trim(), ql = q.toLowerCase(), items = [];
   if (q !== srQ) { srQ = q; srMore = {}; }
+  if (frCode(q)) items.push({ sec:'Присланное', ic:IC.users, t:'Открыть приглашение в друзья', s:'ссылка от друга', run:() => frOpenCode(frCode(q)) });
   if (shareCode(q)) items.push({ sec:'Присланное', ic:IC.link, t:'Открыть присланную ссылку', s:'событие или календарь', run:() => openShareCode(shareCode(q)) });
   else if (q) {
     const p = parseNL(q, sel), found = srFind(q);

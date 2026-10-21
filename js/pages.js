@@ -155,8 +155,9 @@ function openAchievements() {
   <div class="ach ach-all">${achSorted(l).map(achHTML).join('')}</div>`);
 }
 ACT.achall = openAchievements;
-// «Пригласить друга»: пока просто ссылка на приложение; друзья появятся вместе с аккаунтами
+// «Пригласить»: есть карточка друзей — ссылка-приглашение в друзья (friends.js), иначе просто ссылка на приложение
 ACT.invite = () => {
+  if (frCanInvite()) return frInvite();
   const url = location.origin + location.pathname, text = `Попробуй ${APP_NAME} — календарь, задачи, привычки и финансы в одном месте.`;
   if (navigator.share) navigator.share({ title:APP_NAME, text, url }).catch(() => {}); else copyText(text + ' ' + url, 'Ссылка скопирована — отправьте её другу');
 };
@@ -217,18 +218,12 @@ function profileHTML() {
   </div>
   <div class="card"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения</b><span class="card-h-r"><small>${got} из ${ACH.length}</small><button class="pill sm" data-act="achall">Все достижения →</button></span></div>
     <div class="ach ach4">${achSorted(ach).slice(0, 4).map(achHTML).join('')}</div></div>
-  <div class="pf-two">
-    <div class="card pf-friends"><div class="card-h"><b>${I(IC.users, 17)} Друзья</b><span class="soon">Скоро</span></div>
-      <div class="fr-ghost" aria-hidden="true">${[0, 1, 2, 3, 4].map(i => `<span style="--i:${i}"></span>`).join('')}</div>
-      <p class="hm-empty">Добавляйте друзей, смотрите их календари и соревнуйтесь в привычках. Появится вместе с аккаунтами.</p>
-      <div class="hm-foot"><button class="btn" data-act="invite">${I(IC.share, 15)} Пригласить друга</button></div>
-    </div>
+  ${frCardHTML()}
     <div class="card pf-plans"><div class="card-h"><b>${I(IC.spark, 17)} Тарифы</b><span class="soon">Скоро</span></div>
       <div class="plans"><div class="plan cur"><small>Сейчас</small><b>Базовый</b><span>бесплатно</span></div><div class="plan pro"><small>Скоро</small><b>Премиум</b><span>стоимость — позже</span></div></div>
       <ul class="plan-perks"><li>${I(IC.spark, 14)} Переливающееся имя в профиле и на Главной</li><li>${I(IC.check, 14)} Синхронизация iPhone и компьютера</li><li>${I(IC.check, 14)} Друзья и общие календари</li></ul>
       <p class="set-note" style="margin-top:6px">Здесь будут тарифы, их возможности и цены.</p>
-    </div>
-  </div>`;
+    </div>`;
 }
 // Меню «⋯» рядом с «Редактировать профиль»
 ACT.pfmenu = el => {
@@ -258,7 +253,7 @@ function openAvatar() {
 }
 // Кнопка профиля в шапке: имя и аватар. Аватар — всегда у правого края на одном месте, имя растёт влево целиком (не длиннее NAME_MAX знаков).
 // Имя — только на ПК: на телефоне в шапке мало места
-const hdrAvaHTML = () => `<span class="hdr-name">${esc((S.settings.name || '').trim() || 'Профиль')}</span>${avatarHTML(28)}`;
+const hdrAvaHTML = () => `<span class="hdr-name">${esc((S.settings.name || '').trim() || 'Профиль')}</span>${avatarHTML(28)}${frDot()}`;   // точка — новая заявка в друзья
 const profTouch = () => { S.settings.profUpd = Date.now(); save(); $('#side').innerHTML = sideHTML(); const h = $('.hdr-ava'); if (h) h.innerHTML = hdrAvaHTML(); const u = $('#pe_upd'); if (u) u.textContent = 'Обновлён: только что'; };
 ACT.pfava = openAvatar;
 ACT.pfemoji = el => { S.settings.avatar = Object.assign({}, S.settings.avatar, { e: el.dataset.e, img: '' }); profTouch(); render(); openAvatar(); };
@@ -293,7 +288,7 @@ function profEditHTML() {
       <div class="acc-row"><span class="acc-t"><b>Копия в файл</b><small>На всякий случай — например, перед переездом на другое устройство.</small></span><div class="pe-btns"><button class="btn" data-act="export">${I(IC.down, 15)} Скачать копию</button><button class="btn" data-act="import">${I(IC.up, 15)} Загрузить</button></div></div>
 
       <div class="acc-row"><span class="acc-t"><b>Ссылка на профиль</b><small>Своя страница по нику${st.nick ? ` <b>@${esc(st.nick)}</b>` : ''} — чтобы делиться ей с друзьями.</small></span><span class="soon">Скоро</span></div>
-      <div class="acc-row"><span class="acc-t"><b>Друзья</b><small>Добавлять друзей, смотреть их календарь и соревноваться в привычках.</small></span><span class="soon">Скоро</span></div></div>`;
+      <div class="acc-row"><span class="acc-t"><b>Друзья</b><small>Ник, что видят друзья, ссылка-приглашение.</small></span><button class="btn" data-act="frset">Настроить</button></div></div>`;
   else body = `<div class="card"><div class="pe-sec">Личные данные</div>
       <div class="pe-grid">
         <label class="pe-f"><span>Имя или никнейм · до ${NAME_MAX} знаков</span><input class="fin" data-pf="name" data-nchk="name" value="${v('name')}" maxlength="${NAME_MAX}" placeholder="Как вас называть" autocomplete="nickname"></label>
@@ -344,6 +339,7 @@ document.addEventListener('change', async e => {
     if (f === 'birthday' && val && (!isDayKey(val) || val > todayK())) { t.value = S.settings.birthday || ''; return toast('Проверьте дату рождения'); }
     if (val) S.settings[f] = val; else delete S.settings[f];
     profTouch();
+    if (f === 'nick') frNickChanged(val, t);   // есть карточка друзей — сервер проверит, свободен ли ник
   } else if (t.dataset.soc != null) {
     const l = S.settings.socials || [], x = l[+t.dataset.soc]; if (!x) return;
     x[t.dataset.f] = t.value.trim().slice(0, 300);
