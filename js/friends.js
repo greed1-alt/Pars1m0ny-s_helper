@@ -57,7 +57,7 @@ function frFeed() {
   if (sh.about) { if (st.motto) me.m = String(st.motto).slice(0, 90); if (st.about) me.ab = String(st.about).slice(0, 600); }
   if (sh.bd && isDate(st.birthday)) me.bd = st.birthday.slice(5);
   if (sh.city) { const c = [st.city, st.country].filter(Boolean).join(', '); if (c) me.city = c.slice(0, 80); }
-  return { v: 1, at: t, cs, ev: ev.slice(0, 600), wk: frWeekStats(), me, tot: { t: s.tasksDone, h: s.marks, b: s.best, d: s.days }, ach: got.map(a => a.n), a: got.length, an: ACH.length };
+  return { v: 1, at: t, cs, ev: ev.slice(0, 600), wk: frWeekStats(), me, tot: { t: s.tasksDone, h: s.marks, b: s.best, d: s.days, s: isDate(st.since) ? st.since : '' }, ach: got.map(a => a.n), a: got.length, an: ACH.length };
 }
 // Имя и значок — из профиля; фото не уходит (оно хранится только на устройстве)
 const frBody = () => { const st = S.settings, a = st.avatar || {}; const cv = st.cover || {};
@@ -118,7 +118,8 @@ function frClean(f) {
   const obj = v => v && typeof v === 'object' && !Array.isArray(v) ? v : {}, wk = obj(f.wk), me = obj(f.me), tot = obj(f.tot);
   return { at: isDate(f.at) ? f.at : '', cs, ev, wk: { w: isDate(wk.w) ? wk.w : '', t: num(wk.t), h: num(wk.h), s: num(wk.s) },
     me: { m: str(me.m, 90), ab: str(me.ab, 600), bd: /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(me.bd || '') ? me.bd : '', city: str(me.city, 80) },
-    tot: { t: num(tot.t, 999999), h: num(tot.h, 999999), b: num(tot.b), d: num(tot.d, 99999) },
+    // s — с какого дня в приложении; в карточках до 21 октября его нет — считаем по числу дней от даты ленты
+    tot: { t: num(tot.t, 999999), h: num(tot.h, 999999), b: num(tot.b), d: num(tot.d, 99999), s: isDate(tot.s) ? tot.s : isDate(f.at) && num(tot.d, 99999) ? addDays(f.at, 1 - num(tot.d, 99999)) : '' },
     ach: (Array.isArray(f.ach) ? f.ach : []).filter(n => typeof n === 'string' && ACH.some(a => a[1] === n)).slice(0, ACH.length), a: num(f.a), an: num(f.an) };
 }
 async function frLoad(quiet) {
@@ -254,7 +255,7 @@ function frPageHTML() {
       ${note.t ? `<div class="card frp-mine"><div class="card-h"><b>${I(IC.lock, 16)} Не забыть</b><button class="pill sm" data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 13)} Изменить</button></div><p class="pf-about-t">${esc(note.t)}</p><small class="frp-lock">Видите только вы</small></div>` : ''}
       ${about}
       <div class="card frp-tot-c"><div class="card-h"><b>За всё время</b></div>
-        <ul class="frp-tot">${row('Задач выполнено', NF0.format(tot.t))}${row('Отметок привычек', NF0.format(tot.h))}${row('Лучшая серия', tot.b ? plural(tot.b, NDAY) : '—')}${row('С ' + APP_NAME, tot.d ? plural(tot.d, NDAY) : '—')}</ul></div>
+        <ul class="frp-tot">${row('Задач выполнено', NF0.format(tot.t))}${row('Отметок привычек', NF0.format(tot.h))}${row('Лучшая серия', tot.b ? plural(tot.b, NDAY) : '—')}${row('В ' + APP_NAME + ' с', tot.s ? pd(tot.s).getDate() + ' ' + MONG[pd(tot.s).getMonth()] + ' ' + tot.s.slice(0, 4) : '—')}</ul></div>
       <div class="card frp-ach-c"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения</b><span class="card-h-r"><small>${ach.length} из ${ACH.length}</small>${ach.length ? `<button class="pill sm" data-act="frach" data-u="${f.uid}">Все →</button>` : ''}</span></div>
         ${ach.length ? `<div class="frp-ach">${ach.map(a => `<span class="frp-b" title="${esc(a[1])}" role="img" aria-label="${esc(a[1])}">${a[0]}</span>`).join('')}</div>` : '<p class="hm-empty">Пока ни одного — всё впереди.</p>'}</div>
     </div>
