@@ -5,7 +5,7 @@
 // Сервер — supabase/sql/friends.sql: свою карточку (profiles) пишет сам человек, чужие видны только через функции и только друзьям.
 // На сервер карточка уходит, только когда человек сам её создал (S.settings.fr). В «ленте» — выбранные календари на FR_DAYS дней
 // вперёд (у «Только занят» — без названий) и числа недели. Задач без времени, заметок, мест, денег, самочувствия и фото там нет.
-const FR_LS = 'remapp_fr', FR_DAYS = 60, FR_SHOW = 14, FR_NICK = /^[a-z0-9_.]{3,24}$/;
+const FR_LS = 'remapp_fr', FR_DAYS = 60, FR_DAYN = 14, FR_NICK = /^[a-z0-9_.]{3,24}$/;
 const FR_LVL = [['hide', 'Скрыт'], ['busy', 'Только занят'], ['all', 'Всё']];
 // На устройстве (не синхронизируется): список друзей с их лентами, что уже отправлено, код приглашения, открытый друг
 let fr = Object.assign({ list: [], at: 0, pub: '', nick: '', invite: '', nameOff: false, cur: '', code: '', seen: [], err: '' }, lsGet(FR_LS) || {});
@@ -13,6 +13,15 @@ const frSave = () => lsSet(FR_LS, fr);
 NAME_ADMIN = !!fr.admin;   // админ — служебные ники можно (names.js); проверяет сервер
 const frLvl = c => c && (c.fr === 'hide' || c.fr === 'all') ? c.fr : 'busy';
 const frOn = () => signedIn() && !!S.settings.fr;
+// Заметки о друге (как в примере пользователя «Заметки о …»): своё имя для друга и отношения. Только у вас: S.frNotes = { uid: { n, r } }
+const FR_REL = [['best', '🤞', 'Лучший друг'], ['pair', '❤️', 'Пара'], ['family', '🏠', 'Семья'], ['work', '💼', 'Коллега'], ['study', '🎓', 'Учёба'], ['buddy', '🤝', 'Напарник']];
+const frNote = uid => (uid && S.frNotes && S.frNotes[uid]) || {};
+onMigrate(() => {
+  if (!S.frNotes || typeof S.frNotes !== 'object' || Array.isArray(S.frNotes)) S.frNotes = {};
+  Object.keys(S.frNotes).forEach(k => { const x = S.frNotes[k]; if (!/^[0-9a-f-]{36}$/i.test(k) || !x || typeof x !== 'object') return delete S.frNotes[k];
+    x.n = String(x.n || '').slice(0, NAME_MAX); if (!FR_REL.some(r => r[0] === x.r)) delete x.r; if (!x.n) delete x.n; if (!x.n && !x.r) delete S.frNotes[k]; });
+});
+const FR_SHOW = [['about', 'Девиз и «Обо мне»'], ['bd', 'День рождения — без года'], ['city', 'Город и страна']];   // что из профиля видят друзья (S.settings.frShow)
 onMigrate(() => { S.cats.forEach(c => { if (c.fr !== undefined && c.fr !== 'hide' && c.fr !== 'all' && c.fr !== 'busy') delete c.fr; }); });
 
 // ---- Что видят друзья ----
@@ -40,11 +49,16 @@ function frFeed() {
     }
     ev.push(o);
   });
-  const ach = achState(profileStats());
-  return { v: 1, at: t, cs, ev: ev.slice(0, 600), wk: frWeekStats(), a: ach.filter(a => a.ok).length, an: ach.length };
+  // Из профиля — только то, что человек сам открыл (по умолчанию ничего); за всё время и достижения — только числа и названия
+  const s = profileStats(), got = achState(s).filter(a => a.ok), st = S.settings, sh = st.frShow || {}, me = {};
+  if (sh.about) { if (st.motto) me.m = String(st.motto).slice(0, 90); if (st.about) me.ab = String(st.about).slice(0, 600); }
+  if (sh.bd && isDate(st.birthday)) me.bd = st.birthday.slice(5);
+  if (sh.city) { const c = [st.city, st.country].filter(Boolean).join(', '); if (c) me.city = c.slice(0, 80); }
+  return { v: 1, at: t, cs, ev: ev.slice(0, 600), wk: frWeekStats(), me, tot: { t: s.tasksDone, h: s.marks, b: s.best, d: s.days }, ach: got.map(a => a.n), a: got.length, an: ACH.length };
 }
 // Имя и значок — из профиля; фото не уходит (оно хранится только на устройстве)
-const frBody = () => { const st = S.settings, a = st.avatar || {}; return { name: (st.name || '').trim().slice(0, 40), ava: { e: a.e || '', c: safeColor(a.c || '#6366f1') }, feed: frFeed() }; };
+const frBody = () => { const st = S.settings, a = st.avatar || {}; const cv = st.cover || {};
+  return { name: (st.name || '').trim().slice(0, 40), ava: { e: a.e || '', c: safeColor(a.c || '#6366f1'), cv: okImg(cv.img) ? '' : cv.p || '' }, feed: frFeed() }; };
 
 // ---- Сервер ----
 const frNickErr = e => /nick_bad/.test(e && e.message || '') ? 'bad' : e && e.code === '23505' && /nick/.test(e.message || '') ? 'taken' : '';   // занят именно ник, а не строка
@@ -81,15 +95,15 @@ async function frPublishNow(nick) {
   return res;
 }
 // Значок — только из набора профиля (AVA_EMOJI): другого приложение не позволяет выбрать
-const frAvaOk = a => ({ e: a && AVA_EMOJI.includes(a.e) ? a.e : '', c: safeColor(a && a.c) });
+const frAvaOk = a => ({ e: a && AVA_EMOJI.includes(a.e) ? a.e : '', c: safeColor(a && a.c), cv: a && typeof a.cv === 'string' && Object.hasOwn(COVERS, a.cv) ? a.cv : '' });   // обложка — только из набора
 const frRow = r => r && /^[0-9a-f-]{36}$/i.test(r.uid || '') && ['ok', 'in', 'out'].includes(r.state) ? {
   uid: r.uid, nick: FR_NICK.test(r.nick || '') ? r.nick : '', name: String(r.name || '').slice(0, 40),
   ava: frAvaOk(r.ava),
-  state: r.state, feed: r.state === 'ok' ? frClean(r.feed) : null, at: Date.parse(r.updated_at || '') || 0 } : null;
+  state: r.state, feed: r.state === 'ok' ? frClean(r.feed) : null, at: Date.parse(r.updated_at || '') || 0, since: Date.parse(r.since || '') || 0 } : null;
 // Лента друга пришла извне — всё проверяем, как присланное по ссылке (fromShared в share.js)
 function frClean(f) {
   if (!f || typeof f !== 'object' || f.v !== 1) return null;
-  const num = v => Math.max(0, Math.min(9999, Math.round(Number(v) || 0)));
+  const num = (v, max) => Math.max(0, Math.min(max || 9999, Math.round(Number(v) || 0))), str = (v, n) => typeof v === 'string' ? v.slice(0, n) : '';
   const cs = (Array.isArray(f.cs) ? f.cs : []).slice(0, 60).filter(c => c && typeof c === 'object')
     .map(c => ({ i: String(c.i || '').slice(0, 80), n: c.l === 'all' ? String(c.n || '').slice(0, 60) : '', c: safeColor(c.c), l: c.l === 'all' ? 'all' : 'busy' })).filter(c => c.i);
   const ids = new Map(cs.map(c => [c.i, c]));
@@ -98,8 +112,11 @@ function frClean(f) {
     const e = fromShared({ t: o.t, d: o.d, s: o.s, e: o.e, r: o.r && typeof o.r === 'object' ? o.r : undefined, k: o.k });
     return { title: c.l === 'all' ? e.title : '', date: e.date, time: e.time, time2: e.time2, repeat: e.repeat, skip: e.skip, cat: c.i };
   }).filter(Boolean);
-  const wk = f.wk && typeof f.wk === 'object' ? f.wk : {};
-  return { at: isDate(f.at) ? f.at : '', cs, ev, wk: { w: isDate(wk.w) ? wk.w : '', t: num(wk.t), h: num(wk.h), s: num(wk.s) }, a: num(f.a), an: num(f.an) };
+  const obj = v => v && typeof v === 'object' && !Array.isArray(v) ? v : {}, wk = obj(f.wk), me = obj(f.me), tot = obj(f.tot);
+  return { at: isDate(f.at) ? f.at : '', cs, ev, wk: { w: isDate(wk.w) ? wk.w : '', t: num(wk.t), h: num(wk.h), s: num(wk.s) },
+    me: { m: str(me.m, 90), ab: str(me.ab, 600), bd: /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(me.bd || '') ? me.bd : '', city: str(me.city, 80) },
+    tot: { t: num(tot.t, 999999), h: num(tot.h, 999999), b: num(tot.b), d: num(tot.d, 99999) },
+    ach: (Array.isArray(f.ach) ? f.ach : []).filter(n => typeof n === 'string' && ACH.some(a => a[1] === n)).slice(0, ACH.length), a: num(f.a), an: num(f.an) };
 }
 async function frLoad(quiet) {
   if (!signedIn()) return;
@@ -143,7 +160,8 @@ function frNotify() {
 const frDot = () => frIncoming().length ? '<i class="fr-dot" aria-hidden="true"></i>' : '';
 
 // ---- Вид ----
-const frName = f => (f.name || '').trim() || (f.nick ? '@' + f.nick : 'Без имени');
+const frReal = f => (f.name || '').trim() || (f.nick ? '@' + f.nick : 'Без имени');
+const frName = f => (frNote(f.uid).n || '').trim() || frReal(f);   // своё имя для друга (заметки) — вместо его имени
 function frAva(f, size) {
   const a = f.ava || {}, n = initials(f.name);
   return `<span class="ava${a.e ? ' em' : ''}" style="--c:${safeColor(a.c)};--s:${size}px" aria-hidden="true">${a.e ? esc(a.e) : n ? esc(n) : I(IC.user, Math.round(size * .55))}</span>`;
@@ -197,33 +215,83 @@ function frDayRows(f, k) {
 }
 function frPageHTML() {
   const f = fr.list.find(x => x.uid === fr.cur && x.state === 'ok');
-  const back = `<button class="ic pe-back" data-act="sec" data-s="profile" aria-label="Назад к профилю" title="Назад к профилю">${I(IC.left, 20)}</button>`;
-  if (!f) return `<div class="pe-head">${back}<div><h2>Друг</h2></div></div><div class="card"><p class="hm-empty">Этого человека больше нет в списке друзей.</p></div>`;
+  if (!f) return `<div class="pe-head"><button class="ic pe-back" data-act="sec" data-s="profile" aria-label="Назад к профилю" title="Назад к профилю">${I(IC.left, 20)}</button><div><h2>Друг</h2></div></div><div class="card"><p class="hm-empty">Этого человека больше нет в списке друзей.</p></div>`;
   const t = todayK(), w = frWk(f), board = frBoard(fr.list.filter(x => x.state === 'ok')), place = board.findIndex(r => r.uid === f.uid) + 1, fd = f.feed;
+  const note = frNote(f.uid), rel = FR_REL.find(r => r[0] === note.r), since = f.since ? new Date(f.since) : null;
   let days = '';
-  if (fd && fd.cs.length) for (let i = 0; i < FR_SHOW; i++) { const k = addDays(t, i), rows = frDayRows(f, k); if (rows) days += `<div class="fr-day"><div class="fr-dh">${i < 2 ? relDay(k)[0].toUpperCase() + relDay(k).slice(1) + ', ' : ''}${fmtLong(k)}</div><ul class="fr-evs">${rows}</ul></div>`; }
-  const tile = (label, val, sub) => `<div class="ft-t"><span>${label}</span><b>${val}</b><small>${sub}</small></div>`;
-  return `<div class="pe-head">${back}<span class="fr-head">${frAva(f, 48)}<span><h2>${esc(frName(f))}</h2><small>${f.nick ? '@' + esc(f.nick) + ' · ' : ''}${f.at ? 'обновлено ' + ago(f.at) : 'ещё ничего не прислал'}</small></span></span>
-    <button class="btn pf-more" data-act="frmenu" data-u="${f.uid}" aria-label="Ещё" title="Ещё">${I(IC.more, 18)}</button></div>
-  <div class="pf-stats fr-stats">
-    ${tile('Задачи', w.t, 'за эту неделю')}${tile('Привычки', w.h, 'отметок за неделю')}${tile('Серия', w.s ? plural(w.s, NDAY) : '—', 'привычки подряд')}${tile('Место', place + ' из ' + board.length, 'в таблице недели')}
-    ${fd && fd.an ? tile('Достижения', fd.a + ' из ' + fd.an, 'получено') : ''}
+  if (fd && fd.cs.length) for (let i = 0; i < FR_DAYN; i++) { const k = addDays(t, i), rows = frDayRows(f, k); if (rows) days += `<div class="fr-day"><div class="fr-dh">${i < 2 ? relDay(k)[0].toUpperCase() + relDay(k).slice(1) + ', ' : ''}${fmtLong(k)}</div><ul class="fr-evs">${rows}</ul></div>`; }
+  const st = (label, val, sub, c, ic) => `<div class="frp-t" style="--c:${c}"><span class="frp-ic" aria-hidden="true">${ic}</span><span><b>${val}</b><span>${label}</span><small>${sub}</small></span></div>`;
+  const me = fd ? fd.me : null, bd = me && me.bd ? bdayInfo('2000-' + me.bd) : null;
+  const about = me && (me.m || me.ab || bd || me.city) ? `<div class="card frp-about"><div class="card-h"><b>Обо мне</b></div>
+    ${me.m ? `<p class="frp-motto">${esc(me.m)}</p>` : ''}${me.ab ? `<p class="pf-about-t">${esc(me.ab)}</p>` : ''}
+    <ul class="pf-det">${bd ? `<li>${I(IC.gift, 16)}<span>День рождения — ${bd.d.getDate()} ${MONG[bd.d.getMonth()]}${bd.days === 0 ? ' · сегодня! 🎉' : bd.days <= 30 ? ' · через ' + plural(bd.days, NDAY) : ''}</span></li>` : ''}${me.city ? `<li>${I(IC.globe, 16)}<span>${esc(me.city)}</span></li>` : ''}</ul></div>` : '';
+  const tot = fd && fd.tot, row = (n, v) => `<li><span>${n}</span><b>${v}</b></li>`;
+  const ach = fd ? ACH.filter(a => fd.ach.includes(a[1])) : [];
+  return `<div class="card pf-card frp-card">
+    <div class="pf-cover" style="background-image:${COVER_GLOW},${COVERS[f.ava.cv] || COVERS.dusk}"><button class="frp-back" data-act="sec" data-s="profile" aria-label="Назад к профилю" title="Назад к профилю">${I(IC.left, 18)}</button></div>
+    <div class="pf-bar">
+      <span class="pf-ava">${frAva(f, 104)}</span>
+      <div class="pf-who"><h2 class="pf-nm">${esc(frName(f))}</h2>
+        <div class="pf-tags">${note.n ? `<span class="pf-nick">${esc(frReal(f))}</span>` : ''}${f.nick && (!note.n || f.name) ? `<span class="pf-nick">@${esc(f.nick)}</span>` : ''}${rel ? `<span class="frp-rel">${rel[1]} ${rel[2]}</span>` : ''}</div>
+        <small class="frp-since">${since ? 'В друзьях с ' + since.getDate() + ' ' + MONG[since.getMonth()] + ' ' + since.getFullYear() : 'В друзьях'}${f.at ? ' · обновлено ' + ago(f.at) : ''}</small>
+      </div>
+      <div class="pf-acts"><span class="frp-ok">${I(IC.check, 15)} В друзьях</span><button class="btn" data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 15)} Заметки</button><button class="btn pf-more" data-act="frmenu" data-u="${f.uid}" aria-label="Ещё" title="Ещё">${I(IC.more, 18)}</button></div>
+    </div>
   </div>
-  <div class="card"><div class="card-h"><b>${I(IC.cal, 17)} Календарь на две недели</b></div>
-    ${!fd || !fd.cs.length ? '<p class="hm-empty">Друг пока не открыл вам ни одного календаря.</p>' : days || '<p class="hm-empty">На ближайшие две недели ничего не запланировано.</p>'}
-    ${fd && fd.cs.length ? `<p class="set-note">«Занят» — календарь, у которого друг показывает только время. Календари: ${fd.cs.map(c => `<span class="fr-cal"><i style="--c:${c.c}"></i>${c.n ? esc(c.n) : 'без названия'}</span>`).join(' ')}</p>` : ''}
-  </div>`;
+  ${!fd ? '<div class="card"><p class="hm-empty">Пока пусто — числа и календарь появятся, когда друг откроет приложение.</p></div>' : `<div class="frp-cols">
+    <div class="frp-col">
+      <div class="card frp-week"><div class="card-h"><b>Эта неделя ${hint('С понедельника: выполненные задачи и отметки привычек. Серия — дни подряд, когда выполнены все ежедневные привычки. Место — в таблице недели среди ваших друзей.', 'Как считается неделя')}</b></div>
+        <div class="frp-st">${st('Задачи', w.t, 'выполнено', 'var(--c-blue)', I(IC.check, 18))}${st('Привычки', w.h, 'отметок', 'var(--c-green)', I(IC.spark, 18))}${st('Серия', w.s ? plural(w.s, NDAY) : '—', 'привычки подряд', 'var(--c-orange)', '🔥')}${st('Место', place + ' из ' + board.length, 'среди друзей', 'var(--c-violet)', I(IC.trophy, 18))}</div></div>
+      <div class="card frp-cal"><div class="card-h"><b>${I(IC.cal, 17)} Календарь на две недели</b></div>
+        ${!fd.cs.length ? '<p class="hm-empty">Друг пока не открыл вам ни одного календаря.</p>' : days || '<p class="hm-empty">На ближайшие две недели ничего не запланировано.</p>'}
+        ${fd.cs.length ? `<p class="set-note">«Занят» — календарь, у которого друг показывает только время. Календари: ${fd.cs.map(c => `<span class="fr-cal"><i style="--c:${c.c}"></i>${c.n ? esc(c.n) : 'без названия'}</span>`).join(' ')}</p>` : ''}
+      </div>
+    </div>
+    <div class="frp-col">
+      ${about}
+      <div class="card frp-tot-c"><div class="card-h"><b>За всё время</b></div>
+        <ul class="frp-tot">${row('Задач выполнено', NF0.format(tot.t))}${row('Отметок привычек', NF0.format(tot.h))}${row('Лучшая серия', tot.b ? plural(tot.b, NDAY) : '—')}${row('С ' + APP_NAME, tot.d ? plural(tot.d, NDAY) : '—')}</ul></div>
+      <div class="card frp-ach-c"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения</b><span class="card-h-r"><small>${ach.length} из ${ACH.length}</small>${ach.length ? `<button class="pill sm" data-act="frach" data-u="${f.uid}">Все →</button>` : ''}</span></div>
+        ${ach.length ? `<div class="frp-ach">${ach.map(a => `<span class="frp-b" title="${esc(a[1])}" role="img" aria-label="${esc(a[1])}">${a[0]}</span>`).join('')}</div>` : '<p class="hm-empty">Пока ни одного — всё впереди.</p>'}</div>
+    </div>
+  </div>`}`;
 }
+// Достижения друга целиком: названия и за что
+ACT.frach = el => {
+  const f = fr.list.find(x => x.uid === el.dataset.u); if (!f || !f.feed) return;
+  const l = ACH.filter(a => f.feed.ach.includes(a[1]));
+  sheet(`<div class="sh-head"><h3>Достижения · ${esc(frName(f))}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  <div class="ach ach-all">${l.map(([e, n, dsc]) => `<div class="ach-i"><span class="ach-e" aria-hidden="true">${e}</span><span class="ach-t"><b>${esc(n)}</b><small>${esc(dsc)}</small><em>Получено</em></span></div>`).join('')}</div>`);
+};
+// Заметки о друге: своё имя и отношения — видите только вы
+let frNoteEd = null;   // { uid, n, r }
+function openFrNotes() {
+  const st = frNoteEd, f = fr.list.find(x => x.uid === st.uid); if (!f) return;
+  sheet(`<div class="sh-head"><h3>Заметки: ${esc(frReal(f))}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  <p class="set-note" style="margin:0 0 12px">Видите только вы — друг об этом не узнает.</p>
+  <div class="frow"><span class="fl">Своё имя для друга</span><input id="frn_n" class="fin" value="${esc(st.n)}" maxlength="${NAME_MAX}" placeholder="Как вы называете друга — или пусто" autocomplete="off"></div>
+  <div class="set-sec">Отношения</div>
+  <div class="chips frn-rel" role="group" aria-label="Отношения">${FR_REL.map(([k, e, n]) => `<button class="chip${st.r === k ? ' on' : ''}" data-act="frnrel" data-k="${k}" aria-pressed="${st.r === k}">${e} ${n}</button>`).join('')}</div>
+  <div class="sh-foot"><button class="btn pri" data-act="frnsave">Сохранить</button></div>`, true);
+}
+ACT.frnotes = el => { closeQuick(); const n = frNote(el.dataset.u); frNoteEd = { uid: el.dataset.u, n: n.n || '', r: n.r || '' }; openFrNotes(); };
+ACT.frnrel = el => { const i = $('#frn_n'); if (i) frNoteEd.n = i.value; frNoteEd.r = frNoteEd.r === el.dataset.k ? '' : el.dataset.k; shDirty = true; openFrNotes(); };
+ACT.frnsave = () => {
+  const st = frNoteEd; if (!st) return; const i = $('#frn_n'), n = (i ? i.value : st.n).trim().slice(0, NAME_MAX);
+  snap(); if (n || st.r) S.frNotes[st.uid] = Object.assign({}, n ? { n } : {}, st.r ? { r: st.r } : {}); else delete S.frNotes[st.uid];
+  save(); frNoteEd = null; shDirty = false; closeSheet(); render(); toast('Заметки сохранены', true);
+};
 SEC.friend = { name: 'Друг', icon: IC.users, noNav: true, title: () => 'Друзья', html: frPageHTML, move: () => {} };
 ACT.fropen = el => { fr.cur = el.dataset.u; frSave(); if (sec === 'friend') render(); else setSec('friend'); frLoad(true); };
 ACT.frmenu = el => {
   const qc = $('#qc'), f = fr.list.find(x => x.uid === el.dataset.u); if (!f) return;
-  qc.innerHTML = `<div class="pmenu"><button data-act="frrm" data-u="${f.uid}">${I(IC.x, 16)} Убрать из друзей</button><button data-act="frreload">${I(IC.down, 16)} Обновить</button></div>`;
+  qc.innerHTML = `<div class="pmenu">${f.nick ? `<button data-act="frcopy" data-u="${f.uid}">${I(IC.copy, 16)} Скопировать ник</button>` : ''}<button data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 16)} Заметки</button><button data-act="frreload">${I(IC.down, 16)} Обновить</button><button class="dng" data-act="frrm" data-u="${f.uid}">${I(IC.x, 16)} Убрать из друзей</button></div>`;
   qc.classList.add('show', 'menu');
   const r = el.getBoundingClientRect(), w = qc.offsetWidth;
   qc.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px'; qc.style.top = (r.bottom + 6) + 'px';
 };
 ACT.frreload = () => { closeQuick(); frLoad(); };
+ACT.frcopy = el => { closeQuick(); const f = fr.list.find(x => x.uid === el.dataset.u); if (f && f.nick) copyText('@' + f.nick, 'Ник скопирован'); };
 
 // ---- Заявки ----
 ACT.fracc = async el => {
@@ -319,7 +387,7 @@ ACT.frjoin = async () => {
 let frSet = null;   // { nick, lv: { id календаря: уровень }, err, busy, inv, first — карточки ещё не было }
 function openFrSet(invite) {
   if (!signedIn()) return ACT.login();
-  if (!frSet) frSet = { nick: fr.nick || S.settings.nick || '', lv: Object.fromEntries(S.cats.map(c => [c.id, frLvl(c)])), err: '', inv: !!invite, first: !S.settings.fr };
+  if (!frSet) frSet = { nick: fr.nick || S.settings.nick || '', lv: Object.fromEntries(S.cats.map(c => [c.id, frLvl(c)])), err: '', inv: !!invite, first: !S.settings.fr, show: Object.assign({}, S.settings.frShow) };
   const st = frSet, first = st.first;
   sheet(`<div class="sh-head"><h3>${first ? 'Карточка для друзей' : 'Друзья: настройки'}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   ${st.inv ? '<p class="set-note">Вас позвали в друзья. Создайте карточку — и приглашение откроется само.</p>' : ''}
@@ -328,15 +396,19 @@ function openFrSet(invite) {
   <p class="set-note">По нику друзья найдут вас в приложении. Латинские буквы, цифры, точка и _, от 3 знаков. Без ника — только по ссылке-приглашению.</p>
   <div class="set-sec">Что видят друзья ${hint('«Скрыт» — календаря друзья не видят совсем. «Только занят» — видят, когда вы заняты, без названий. «Всё» — названия и время. Показываются события на 2 месяца вперёд; задачи без времени, заметки, места, деньги и самочувствие друзья не видят никогда.', 'Что видят друзья')}</div>
   ${S.cats.map(c => `<div class="fr-lv"><span class="fr-lv-n"><i style="--c:${safeColor(c.color)}"></i>${esc(c.name)}</span><div class="seg2" role="group" aria-label="${esc(c.name)}: что видят друзья">${FR_LVL.map(([v, n]) => `<button class="${st.lv[c.id] === v ? 'on' : ''}" data-act="frlv" data-c="${esc(c.id)}" data-v="${v}" aria-pressed="${st.lv[c.id] === v}">${n}</button>`).join('')}</div></div>`).join('')}
-  <p class="set-note">В таблицу недели уходят только числа: сколько задач выполнено и сколько отметок привычек.</p>
+  <div class="set-sec">Из профиля</div>
+  ${FR_SHOW.map(([k, n]) => `<div class="set-row"><span>${n}</span><input id="frsh_${k}" class="sw" type="checkbox"${st.show[k] ? ' checked' : ''}></div>`).join('')}
+  <p class="set-note">Ещё друзья видят только числа: задачи и отметки привычек за неделю и за всё время, серию и полученные достижения.</p>
   <p class="fr-err" id="fr_err" aria-live="polite">${esc(st.err)}</p>
   ${first ? '' : `<div class="fr-more"><button class="btn" data-act="frinvnew">Новая ссылка-приглашение</button><button class="btn dng" data-act="froff">Удалить карточку</button></div>`}
   <div class="sh-foot"><button class="btn pri" data-act="frsave"${st.busy ? ' disabled' : ''}>${st.busy ? 'Сохраняю…' : first ? 'Создать карточку' : 'Сохранить'}</button></div>`, true);
 }
 ACT.frset = () => { frSet = null; openFrSet(); };
-ACT.frlv = el => { const i = $('#fr_nick'); if (i) frSet.nick = i.value; frSet.lv[el.dataset.c] = el.dataset.v; shDirty = true; openFrSet(); };
+const frSetRead = () => { const i = $('#fr_nick'); if (i) frSet.nick = i.value; FR_SHOW.forEach(([k]) => { const c = $('#frsh_' + k); if (c) frSet.show[k] = c.checked; }); };
+ACT.frlv = el => { frSetRead(); frSet.lv[el.dataset.c] = el.dataset.v; shDirty = true; openFrSet(); };
 ACT.frsave = async () => {
   const st = frSet; if (!st || st.busy) return;
+  frSetRead();
   const i = $('#fr_nick'), nick = (i ? i.value : st.nick).trim().replace(/^@/, '').toLowerCase();
   st.nick = nick; st.err = '';
   if (nick && !FR_NICK.test(nick)) st.err = 'Ник — от 3 до 24 знаков: латинские буквы, цифры, точка и _';
@@ -344,6 +416,7 @@ ACT.frsave = async () => {
   if (st.err) return openFrSet();
   const was = !st.first;
   snap(); S.cats.forEach(c => { const v = st.lv[c.id]; if (v === 'busy') delete c.fr; else if (v) c.fr = v; });
+  const sh = {}; FR_SHOW.forEach(([k]) => { if (st.show[k]) sh[k] = 1; }); if (Object.keys(sh).length) S.settings.frShow = sh; else delete S.settings.frShow;
   S.settings.fr = 1; save();
   st.busy = true; openFrSet();
   const res = await frPublish(nick);

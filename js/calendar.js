@@ -390,7 +390,7 @@ function toast(msg, withUndo) {
 // ---- Окна ----
 // Окно с «Сохранить», в котором что-то вписали: свайп вниз, нажатие на фон, «Назад» и Esc сначала спрашивают «Закрыть без сохранения?»
 // (аудит 18 октября 2026: смахнул карточку — набранное пропало). Крестик закрывает сразу — его нажали нарочно
-const SH_SAVE = '[data-act="save"],[data-act="opsave"],[data-act="fcsave"],[data-act="hbsave"],[data-act="ntupd"],[data-act="qnsave"],[data-act="gsave"],[data-act="bmsave"],[data-act="fbsend"],[data-act="frsave"]';
+const SH_SAVE = '[data-act="save"],[data-act="opsave"],[data-act="fcsave"],[data-act="hbsave"],[data-act="ntupd"],[data-act="qnsave"],[data-act="gsave"],[data-act="bmsave"],[data-act="fbsend"],[data-act="frsave"],[data-act="frnsave"]';
 let shDirty = false;   // в окне что-то вписали или переключили (поля ввода, выбор, галочки)
 ['input', 'change'].forEach(t => document.addEventListener(t, e => { if (e.target.closest && e.target.closest('#sh') && e.target.id !== 'ai_text') shDirty = true; }, true));
 const shUnsaved = () => shDirty && sheetOpen() && !!$('#sh').querySelector(SH_SAVE);

@@ -231,13 +231,15 @@ begin
   return found;
 end $$;
 
--- Мои друзья и заявки: 'ok' — друг (с лентой), 'in' — зовут меня, 'out' — я позвал (ленты нет, пока не примут)
-create or replace function public.friends_list()
-returns table (uid uuid, nick text, name text, ava jsonb, state text, feed jsonb, updated_at timestamptz)
+-- Мои друзья и заявки: 'ok' — друг (с лентой), 'in' — зовут меня, 'out' — я позвал (ленты нет, пока не примут); since — с какого дня.
+-- drop — потому что изменился состав столбцов (since, 21 октября 2026): create or replace так не умеет
+drop function if exists public.friends_list();
+create function public.friends_list()
+returns table (uid uuid, nick text, name text, ava jsonb, state text, feed jsonb, updated_at timestamptz, since timestamptz)
 language sql stable security definer set search_path = '' as $$
   select o.uid, p.nick, p.name, p.ava,
     case when f.ok then 'ok' when f.a = auth.uid() then 'out' else 'in' end,
-    case when f.ok then p.feed end, case when f.ok then p.updated_at end
+    case when f.ok then p.feed end, case when f.ok then p.updated_at end, f.created_at
   from public.friends f
   cross join lateral (select case when f.a = auth.uid() then f.b else f.a end as uid) o
   left join public.profiles p on p.user_id = o.uid

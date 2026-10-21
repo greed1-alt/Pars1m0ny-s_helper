@@ -245,6 +245,33 @@ button.fr-who:hover{background:var(--hov)}
 .fr-err{color:var(--bad);font-size:13px;min-height:0;margin:8px 0 0}
 .fr-err:empty{display:none}
 .fr-more{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.frp-card{margin-bottom:12px}
+.frp-back{position:absolute;left:12px;top:12px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;background:rgba(0,0,0,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.frp-back:hover{background:rgba(0,0,0,.5)}
+.frp-rel{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--hov2);color:var(--tx)}
+.frp-since{display:block;font-size:12.5px;color:var(--mut);margin-top:6px}
+.frp-ok{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 12px;border-radius:var(--r2);font-size:13.5px;font-weight:600;color:var(--good);background:color-mix(in srgb,var(--good) 12%,transparent)}
+.frp-motto{margin:0 0 8px;font-size:14px;font-weight:500;color:var(--tx2);font-style:italic;overflow-wrap:anywhere}
+.frp-cols{display:flex;flex-direction:column;gap:12px}
+/* Телефон — одна колонка, длинный календарь ниже «Обо мне» и достижений; ПК — две колонки (ниже, @media) */
+.frp-col{display:contents}
+.frp-week{order:1}.frp-about{order:2}.frp-ach-c{order:3}.frp-cal{order:4}.frp-tot-c{order:5}
+.frp-col>.card{margin:0}
+.frp-st{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.frp-t{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r3);border-left:3px solid var(--c);background:color-mix(in srgb,var(--c) 8%,var(--bg));min-width:0}
+.frp-ic{flex:none;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;font-size:17px;color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent)}
+.frp-t>span:last-child{display:flex;flex-direction:column;min-width:0}
+.frp-t b{font-size:19px;font-weight:700;letter-spacing:-.02em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frp-t span span{font-size:13px;color:var(--tx)}
+.frp-t small{font-size:12px;color:var(--mut)}
+.frp-tot{list-style:none;margin:0;padding:0}
+.frp-tot li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.frp-tot li:last-child{border-bottom:0}
+.frp-tot span{color:var(--tx2)}
+.frp-ach{display:flex;flex-wrap:wrap;gap:8px}
+.frp-b{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:24px;background:var(--hov)}
+.frn-rel{margin-top:0}
+@media(min-width:1600px){.frp-st{grid-template-columns:repeat(4,minmax(0,1fr))}}   /* на широком экране неделя — в один ряд */
 .plans{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
 .plan{border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px}
 .plan small{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
@@ -789,6 +816,8 @@ button.sbl:hover{background:var(--hov)}
   .hm-greet{font-size:36px}
   .ach4{grid-template-columns:repeat(4,minmax(0,1fr))!important}
   .fr-stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .frp-cols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
+  .frp-col{display:flex;flex-direction:column;gap:16px;min-width:0}
   .hm-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:stretch}
   .pf-cover{height:200px}
   .pf-bar{padding:0 24px 20px}

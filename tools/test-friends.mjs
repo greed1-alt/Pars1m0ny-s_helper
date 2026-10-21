@@ -104,6 +104,7 @@ if (!pgEntry || !existsSync(pgEntry)) {
   ok(await one('B', 'select public.friend_accept($1)', [U.A]) === true, 'B принимает заявку A');
   const la2 = (await as('A', 'select * from public.friends_list()')).rows, lb2 = (await as('B', 'select * from public.friends_list()')).rows;
   ok(la2[0].state === 'ok' && la2[0].feed && la2[0].feed.secret === 'B', 'теперь A видит ленту B');
+  ok(la2[0].since instanceof Date || !isNaN(Date.parse(la2[0].since)), 'видно, с какого дня дружба');
   ok(lb2[0].state === 'ok' && lb2[0].feed && lb2[0].feed.secret === 'A', 'и B видит ленту A');
   ok((await as('C', 'select * from public.friends_list()')).rows.length === 0, 'C не видит чужую дружбу');
   ok((await as('C', 'select * from public.friends')).rows.length === 0, 'C не видит строки дружбы A и B');
