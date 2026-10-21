@@ -155,6 +155,147 @@ grant select on public.friends to authenticated;   -- менять — толь�
 drop policy if exists "friends: read own" on public.friends;
 create policy "friends: read own" on public.friends for select to authenticated using ((select auth.uid()) in (a, b));
 
+-- ---- Пуш о заявках (21 октября 2026): очередь, её разбирает функция reminders раз в минуту ----
+-- req — «Имя зовёт вас в друзья», ok — «Имя теперь в друзьях». Пишут только функции ниже; читает и отмечает отправленным только сервер
+create table if not exists public.fr_notify (
+  id bigint generated always as identity primary key,
+  to_uid uuid not null references auth.users (id) on delete cascade,
+  from_uid uuid not null references auth.users (id) on delete cascade,
+  kind text not null check (kind in ('req', 'ok')),
+  created_at timestamptz not null default now(),
+  sent_at timestamptz
+);
+create index if not exists fr_notify_new on public.fr_notify (id) where sent_at is null;
+alter table public.fr_notify enable row level security;
+revoke all on public.fr_notify from anon, authenticated;
+-- Одно и то же — не чаще раза в час (позвал, отозвал, позвал снова — второй пуш не уйдёт)
+create or replace function public.fr_notify_add(p_to uuid, p_from uuid, p_kind text) returns void
+language sql security definer set search_path = '' as $$
+  insert into public.fr_notify (to_uid, from_uid, kind)
+  select p_to, p_from, p_kind
+  where not exists (select 1 from public.fr_notify n where n.to_uid = p_to and n.from_uid = p_from and n.kind = p_kind and n.created_at > now() - interval '1 hour')
+$$;
+revoke all on function public.fr_notify_add(uuid, uuid, text) from public, anon, authenticated;
+
+-- ---- Честные очки (21 октября 2026): сервер сам считает числа из записей человека (user_data) — подделать их приложением нельзя ----
+-- Те же правила, что в приложении: неделя — frWeekStats (js/friends.js), за всё время — profileStats, серия — habitStreaks (js/pages.js).
+-- Тест node tools/test-friends.mjs сверяет с кодом приложения на случайных записях. Правда в JS — «истина» (0, '', false, null — нет)
+create or replace function public.fr_truthy(j jsonb) returns boolean
+language sql immutable set search_path = '' as $$
+  select j is not null and j not in ('null'::jsonb, 'false'::jsonb, '0'::jsonb, '""'::jsonb)
+$$;
+create or replace function public.fr_calc(d jsonb, today date) returns jsonb
+language plpgsql immutable set search_path = '' as $$
+declare
+  mon date := today - ((extract(isodow from today)::int + 6) % 7);
+  ms text := mon::text; ts text := today::text;
+  e jsonb; h jsonb; lg jsonb; k text; v jsonb; dz jsonb;
+  wt int := 0; wh int := 0; tt int := 0; th int := 0;
+  hs jsonb[] := '{}'; st text[] := '{}'; first text := ts; m text;
+  dd date; dk text; pl int; dn int; run int := 0; best int := 0; i int;
+begin
+  -- Задачи: за неделю — без примеров; за всё время — все (как в профиле)
+  if jsonb_typeof(d->'events') = 'array' then
+    for e in select * from jsonb_array_elements(d->'events') loop
+      continue when jsonb_typeof(e) <> 'object' or not public.fr_truthy(e->'task');
+      if jsonb_typeof(e->'repeat') = 'object' and coalesce(e->'repeat'->>'type', '') not in ('', 'none') then
+        if jsonb_typeof(e->'doneDates') = 'array' then
+          tt := tt + jsonb_array_length(e->'doneDates');
+          if not public.fr_truthy(e->'demo') then
+            select wt + count(*) into wt from jsonb_array_elements(e->'doneDates') y
+              where jsonb_typeof(y) = 'string' and (y #>> '{}') collate "C" >= ms collate "C" and (y #>> '{}') collate "C" <= ts collate "C";
+          end if;
+        end if;
+      elsif public.fr_truthy(e->'done') then
+        tt := tt + 1;
+        if not public.fr_truthy(e->'demo') and jsonb_typeof(e->'date') = 'string' and (e->>'date') collate "C" >= ms collate "C" and (e->>'date') collate "C" <= ts collate "C" then wt := wt + 1; end if;
+      end if;
+    end loop;
+  end if;
+  -- Привычки: отметки за неделю (по дням, без примеров) и за всё время; ежедневные — для серии
+  if jsonb_typeof(d->'habits') = 'array' then
+    for h in select * from jsonb_array_elements(d->'habits') loop
+      continue when jsonb_typeof(h) <> 'object';
+      lg := case when jsonb_typeof(h->'log') = 'object' then h->'log' else '{}'::jsonb end;
+      th := th + (select count(*) from jsonb_object_keys(lg));
+      if not public.fr_truthy(h->'demo') then
+        for k, v in select * from jsonb_each(lg) loop
+          if public.fr_truthy(v) and k ~ '^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$' and k collate "C" >= ms collate "C" and k collate "C" <= ts collate "C" then wh := wh + 1; end if;
+        end loop;
+      end if;
+      if h->>'kind' = 'daily' then
+        m := coalesce(h->>'from', ts);
+        for k in select jsonb_object_keys(lg) loop
+          if k ~ '^\d{4}-\d{2}-\d{2}$' and k collate "C" < m collate "C" then m := k; end if;
+        end loop;
+        m := left(m, 8) || '01';
+        hs := hs || jsonb_build_object('log', lg, 'days', case when jsonb_typeof(h->'days') = 'array' then h->'days' else '[]'::jsonb end);
+        st := st || m;
+        if m collate "C" < first collate "C" then first := m; end if;
+      end if;
+    end loop;
+  end if;
+  -- Серия: дни подряд, когда выполнены все запланированные ежедневные привычки; сегодня серию не обрывает
+  if coalesce(array_length(hs, 1), 0) > 0 then
+    if first collate "C" < (today - 730)::text collate "C" then first := (today - 730)::text; end if;
+    begin dd := first::date; exception when others then dd := today; end;
+    while dd <= today loop
+      dk := dd::text; pl := 0; dn := 0;
+      for i in 1 .. array_length(hs, 1) loop
+        dz := hs[i]->'days';
+        if dk collate "C" >= st[i] collate "C" and (jsonb_array_length(dz) = 0 or dz @> jsonb_build_array((extract(isodow from dd)::int + 6) % 7)) then
+          pl := pl + 1;
+          if public.fr_truthy(hs[i]->'log'->dk) then dn := dn + 1; end if;
+        end if;
+      end loop;
+      if pl > 0 and dn = pl then run := run + 1; best := greatest(best, run);
+      elsif pl > 0 and dd <> today then run := 0; end if;
+      dd := dd + 1;
+    end loop;
+  end if;
+  return jsonb_build_object('w', ms, 't', wt, 'h', wh, 's', run, 'b', best, 'tt', tt, 'th', th, 'at', ts);
+end $$;
+revoke all on function public.fr_truthy(jsonb) from public, anon, authenticated;
+revoke all on function public.fr_calc(jsonb, date) from public, anon, authenticated;
+
+-- Посчитанное — в fr_stats (каждый видит только свою строку; друзьям — через функции ниже). Считается при каждом сохранении записей
+create table if not exists public.fr_stats (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  st jsonb not null,
+  updated_at timestamptz not null default now()
+);
+alter table public.fr_stats enable row level security;
+revoke all on public.fr_stats from anon, authenticated;
+grant select on public.fr_stats to authenticated;
+drop policy if exists "fr_stats: read own" on public.fr_stats;
+create policy "fr_stats: read own" on public.fr_stats for select to authenticated using ((select auth.uid()) = user_id);
+-- «Сегодня» — в часовом поясе человека (settings.tz); ошибка подсчёта никогда не мешает сохранить записи
+create or replace function public.fr_stats_set(p_user uuid, p_data jsonb) returns void
+language plpgsql security definer set search_path = '' as $$
+declare today date;
+begin
+  begin today := (now() at time zone coalesce(p_data->'settings'->>'tz', 'Europe/Moscow'))::date;
+  exception when others then today := (now() at time zone 'Europe/Moscow')::date; end;
+  insert into public.fr_stats (user_id, st, updated_at) values (p_user, public.fr_calc(p_data, today), now())
+    on conflict (user_id) do update set st = excluded.st, updated_at = excluded.updated_at;
+exception when others then null;
+end $$;
+revoke all on function public.fr_stats_set(uuid, jsonb) from public, anon, authenticated;
+create or replace function public.fr_stats_upd() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  perform public.fr_stats_set(new.user_id, new.data);
+  return null;
+end $$;
+revoke all on function public.fr_stats_upd() from public, anon, authenticated;
+drop trigger if exists fr_stats_upd on public.user_data;
+create trigger fr_stats_upd after insert or update of data on public.user_data
+  for each row execute function public.fr_stats_upd();
+-- Сразу посчитать для всех, у кого уже есть записи
+do $$ declare r record; begin
+  for r in select user_id, data from public.user_data loop perform public.fr_stats_set(r.user_id, r.data); end loop;
+end $$;
+
 -- Найти человека по нику: имя, значок и кто он мне ('me', 'ok' — друг, 'out' — я позвал, 'in' — позвали меня, '' — никто)
 create or replace function public.friend_find(p_nick text)
 returns table (nick text, name text, ava jsonb, rel text)
@@ -178,12 +319,14 @@ begin
   if them is null then return 'notfound'; end if;
   if them = me then return 'self'; end if;
   if exists (select 1 from public.friends where a = them and b = me and not ok) then
-    update public.friends set ok = true where a = them and b = me; return 'accepted';
+    update public.friends set ok = true where a = them and b = me;
+    perform public.fr_notify_add(them, me, 'ok'); return 'accepted';
   end if;
   if exists (select 1 from public.friends where (a = me and b = them) or (a = them and b = me)) then return 'already'; end if;
   if (select count(*) from public.friends where a = me and not ok) >= 30
      or (select count(*) from public.friends where me in (a, b)) >= 300 then return 'limit'; end if;
   insert into public.friends (a, b) values (me, them);
+  perform public.fr_notify_add(them, me, 'req');
   return 'sent';
 end $$;
 
@@ -211,6 +354,7 @@ begin
   if (select count(*) from public.friends where me in (a, b)) >= 300 then return 'limit'; end if;
   update public.friends set ok = true where (a = me and b = them) or (a = them and b = me);
   if not found then insert into public.friends (a, b, ok) values (them, me, true); end if;
+  perform public.fr_notify_add(them, me, 'ok');
   return 'accepted';
 end $$;
 -- Новая ссылка-приглашение (старая перестаёт работать)
@@ -224,7 +368,9 @@ create or replace function public.friend_accept(p_uid uuid) returns boolean
 language plpgsql security definer set search_path = '' as $$
 begin
   update public.friends set ok = true where a = p_uid and b = auth.uid() and not ok;
-  return found;
+  if not found then return false; end if;
+  perform public.fr_notify_add(p_uid, auth.uid(), 'ok');
+  return true;
 end $$;
 create or replace function public.friend_remove(p_uid uuid) returns boolean
 language plpgsql security definer set search_path = '' as $$
@@ -237,11 +383,12 @@ end $$;
 -- drop — потому что изменился состав столбцов (since, 21 октября 2026): create or replace так не умеет
 drop function if exists public.friends_list();
 create function public.friends_list()
-returns table (uid uuid, nick text, name text, ava jsonb, state text, feed jsonb, updated_at timestamptz, since timestamptz)
+returns table (uid uuid, nick text, name text, ava jsonb, state text, feed jsonb, updated_at timestamptz, since timestamptz, st jsonb)
 language sql stable security definer set search_path = '' as $$
   select o.uid, p.nick, p.name, p.ava,
     case when f.ok then 'ok' when f.a = auth.uid() then 'out' else 'in' end,
-    case when f.ok then p.feed end, case when f.ok then p.updated_at end, f.created_at
+    case when f.ok then p.feed end, case when f.ok then p.updated_at end, f.created_at,
+    case when f.ok then (select s.st from public.fr_stats s where s.user_id = o.uid) end
   from public.friends f
   cross join lateral (select case when f.a = auth.uid() then f.b else f.a end as uid) o
   left join public.profiles p on p.user_id = o.uid
@@ -257,14 +404,16 @@ revoke all on function public.friend_accept(uuid) from public, anon;
 revoke all on function public.friend_remove(uuid) from public, anon;
 -- Общий список: только те, кто включил rank; только ник, имя, значок и числа (неделя и за всё время) — календарей и профиля тут нет.
 -- uid — только у друзей и у себя (чтобы открыть страницу друга); 500 недавно обновлённых карточек
-create or replace function public.leaders_all()
-returns table (uid uuid, nick text, name text, ava jsonb, wk jsonb, tot jsonb, at text, me boolean, rel text)
+drop function if exists public.leaders_all();   -- st добавлен 21 октября 2026: состав столбцов изменился
+create function public.leaders_all()
+returns table (uid uuid, nick text, name text, ava jsonb, wk jsonb, tot jsonb, at text, me boolean, rel text, st jsonb)
 language sql stable security definer set search_path = '' as $$
   select case when f.ok or p.user_id = auth.uid() then p.user_id end, p.nick, p.name, p.ava,
     jsonb_build_object('w', p.feed->'wk'->'w', 't', p.feed->'wk'->'t', 'h', p.feed->'wk'->'h', 's', p.feed->'wk'->'s'),
     jsonb_build_object('t', p.feed->'tot'->'t', 'h', p.feed->'tot'->'h'),
     p.feed->>'at', p.user_id = auth.uid(),
-    case when p.user_id = auth.uid() then 'me' when f.ok then 'ok' when f.a = auth.uid() then 'out' when f.b = auth.uid() then 'in' else '' end
+    case when p.user_id = auth.uid() then 'me' when f.ok then 'ok' when f.a = auth.uid() then 'out' when f.b = auth.uid() then 'in' else '' end,
+    (select s.st from public.fr_stats s where s.user_id = p.user_id)
   from public.profiles p
   left join public.friends f on (f.a = auth.uid() and f.b = p.user_id) or (f.b = auth.uid() and f.a = p.user_id)
   where auth.uid() is not null and p.rank

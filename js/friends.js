@@ -99,12 +99,19 @@ async function frPublishNow(nick) {
   } finally { frSave(); }
   return res;
 }
+// Числа, которые посчитал сервер из записей друга (friends.sql: fr_calc) — честные; нет — берём присланные приложением (неделя ≤ 500)
+const frSt = s => {
+  if (!s || typeof s !== 'object' || !isDate(s.w) || !isDate(s.at)) return null;
+  const n = (v, max) => Math.max(0, Math.min(max, Math.round(Number(v) || 0)));
+  return { w: s.w, at: s.at, t: n(s.t, 99999), h: n(s.h, 99999), s: n(s.s, 99999), b: n(s.b, 99999), tt: n(s.tt, 9999999), th: n(s.th, 9999999) };
+};
+const frTot = f => f.st ? { t: f.st.tt, h: f.st.th, b: f.st.b } : f.feed ? f.feed.tot : { t: 0, h: 0, b: 0 };
 // Значок — только из набора профиля (AVA_EMOJI): другого приложение не позволяет выбрать
 const frAvaOk = a => ({ e: a && AVA_EMOJI.includes(a.e) ? a.e : '', c: safeColor(a && a.c), cv: a && typeof a.cv === 'string' && Object.hasOwn(COVERS, a.cv) ? a.cv : '' });   // обложка — только из набора
 const frRow = r => r && /^[0-9a-f-]{36}$/i.test(r.uid || '') && ['ok', 'in', 'out'].includes(r.state) ? {
   uid: r.uid, nick: FR_NICK.test(r.nick || '') ? r.nick : '', name: String(r.name || '').slice(0, 40),
   ava: frAvaOk(r.ava),
-  state: r.state, feed: r.state === 'ok' ? frClean(r.feed) : null, at: Date.parse(r.updated_at || '') || 0, since: Date.parse(r.since || '') || 0 } : null;
+  state: r.state, feed: r.state === 'ok' ? frClean(r.feed) : null, at: Date.parse(r.updated_at || '') || 0, since: Date.parse(r.since || '') || 0, st: r.state === 'ok' ? frSt(r.st) : null } : null;
 // Лента друга пришла извне — всё проверяем, как присланное по ссылке (fromShared в share.js)
 function frClean(f) {
   if (!f || typeof f !== 'object' || f.v !== 1) return null;
@@ -175,7 +182,7 @@ function frAva(f, size) {
 const frMe = () => ({ me: true, name: S.settings.name || 'Вы', ava: { e: (S.settings.avatar || {}).e, c: (S.settings.avatar || {}).c }, wk: frWeekStats() });
 // Числа друга за эту неделю: лента не обновлялась с прошлой недели — нули; серия — если заходил вчера или сегодня
 function frWk(f) {
-  const t = todayK(), w = f.feed && f.feed.wk || {}, cur = w.w === frMonday(t), live = f.feed && f.feed.at >= addDays(t, -1);
+  const t = todayK(), w = f.st || f.feed && f.feed.wk || {}, at = f.st ? f.st.at : f.feed && f.feed.at, cur = w.w === frMonday(t), live = at >= addDays(t, -1);
   return { t: cur ? w.t : 0, h: cur ? w.h : 0, s: live ? w.s : 0 };
 }
 const frScore = w => w.t + w.h;
@@ -196,9 +203,9 @@ const frMeRow = () => { const s = profileStats(); return Object.assign(frMe(), {
 // Строка общего списка — пришла извне: проверяем, как ленту друга
 const frAllRow = r => {
   if (!r || typeof r !== 'object') return null;
-  const fd = frClean({ v: 1, at: r.at, cs: [], ev: [], wk: r.wk, tot: r.tot });
+  const fd = frClean({ v: 1, at: r.at, cs: [], ev: [], wk: r.wk, tot: r.tot }), st = frSt(r.st);
   return { me: r.me === true, uid: /^[0-9a-f-]{36}$/i.test(r.uid || '') ? r.uid : '', nick: FR_NICK.test(r.nick || '') ? r.nick : '', name: String(r.name || '').slice(0, 40),
-    ava: frAvaOk(r.ava), rel: ['me', 'ok', 'in', 'out'].includes(r.rel) ? r.rel : '', wk: frWk({ feed: fd }), tot: fd.tot };
+    ava: frAvaOk(r.ava), rel: ['me', 'ok', 'in', 'out'].includes(r.rel) ? r.rel : '', wk: frWk({ st, feed: fd }), tot: st ? { t: st.tt, h: st.th } : fd.tot };
 };
 async function frLoadAll(force) {
   if (!signedIn() || (!force && frAll && Date.now() - frAll.at < 120000)) return;
@@ -209,7 +216,7 @@ async function frLoadAll(force) {
 function frRank(key, scope) {
   const b = FR_BOARDS.find(x => x[0] === key) || FR_BOARDS[0], me = frMeRow();
   const all = scope === 'all' ? (frAll ? frAll.rows : []).map(r => r.me ? Object.assign(me, { nick: r.nick }) : r)   // себя — по свежим числам с устройства
-    : [me, ...fr.list.filter(f => f.state === 'ok').map(f => Object.assign({ wk: frWk(f), tot: f.feed ? f.feed.tot : { t: 0, h: 0 } }, f))];
+    : [me, ...fr.list.filter(f => f.state === 'ok').map(f => Object.assign({ wk: frWk(f), tot: frTot(f) }, f))];
   return all.map(p => Object.assign({ v: b[2](p) }, p)).sort((a, c) => c.v - a.v || (a.me ? -1 : c.me ? 1 : 0));
 }
 const frWho = r => r.me ? (S.settings.name || '').trim() || 'Вы' : frName(r);
@@ -300,7 +307,7 @@ function frPageHTML() {
   const about = me && (me.m || me.ab || bd || me.city) ? `<div class="card frp-about"><div class="card-h"><b>Обо мне</b></div>
     ${me.m ? `<p class="frp-motto">${esc(me.m)}</p>` : ''}${me.ab ? `<p class="pf-about-t">${esc(me.ab)}</p>` : ''}
     <ul class="pf-det">${bd ? `<li>${I(IC.gift, 16)}<span>День рождения — ${bd.d.getDate()} ${MONG[bd.d.getMonth()]}${bd.days === 0 ? ' · сегодня! 🎉' : bd.days <= 30 ? ' · через ' + plural(bd.days, NDAY) : ''}</span></li>` : ''}${me.city ? `<li>${I(IC.globe, 16)}<span>${esc(me.city)}</span></li>` : ''}</ul></div>` : '';
-  const tot = fd && fd.tot, row = (n, v) => `<li><span>${n}</span><b>${v}</b></li>`;
+  const tot = fd && Object.assign({}, fd.tot, f.st ? frTot(f) : {}), row = (n, v) => `<li><span>${n}</span><b>${v}</b></li>`;
   const ach = fd ? ACH.filter(a => fd.ach.includes(a[1])) : [];
   return `<div class="card pf-card frp-card">
     <div class="pf-cover" style="background-image:${COVER_GLOW},${COVERS[f.ava.cv] || COVERS.dusk}"><button class="frp-back" data-act="sec" data-s="profile" aria-label="Назад к профилю" title="Назад к профилю">${I(IC.left, 18)}</button></div>
@@ -317,6 +324,7 @@ function frPageHTML() {
     <div class="frp-col">
       <div class="card frp-week"><div class="card-h"><b>Эта неделя ${hint('С понедельника: выполненные задачи и отметки привычек. Серия — дни подряд, когда выполнены все ежедневные привычки. Место — в таблице недели среди ваших друзей.', 'Как считается неделя')}</b></div>
         <div class="frp-st">${st('Задачи', w.t, 'выполнено', 'var(--c-blue)', I(IC.check, 18))}${st('Привычки', w.h, 'отметок', 'var(--c-green)', I(IC.spark, 18))}${st('Серия', w.s ? plural(w.s, NDAY) : '—', 'привычки подряд', 'var(--c-orange)', '🔥')}${st('Место', place + ' из ' + board.length, 'среди друзей', 'var(--c-violet)', I(IC.trophy, 18))}</div></div>
+      ${frFreeHTML(f)}
       <div class="card frp-cal"><div class="card-h"><b>${I(IC.cal, 17)} Календарь на две недели</b></div>
         ${!fd.cs.length ? '<p class="hm-empty">Друг пока не открыл вам ни одного календаря.</p>' : days || '<p class="hm-empty">На ближайшие две недели ничего не запланировано.</p>'}
         ${fd.cs.length ? `<p class="set-note">«Занят» — календарь, у которого друг показывает только время. Календари: ${fd.cs.map(c => `<span class="fr-cal"><i style="--c:${c.c}"></i>${c.n ? esc(c.n) : 'без названия'}</span>`).join(' ')}</p>` : ''}
@@ -361,6 +369,39 @@ ACT.frnsave = () => {
   snap(); if (n || st.r || t) S.frNotes[st.uid] = Object.assign({}, n ? { n } : {}, st.r ? { r: st.r } : {}, t ? { t } : {}); else delete S.frNotes[st.uid];
   save(); frNoteEd = null; shDirty = false; closeSheet(); render(); toast('Пометки сохранены', true);
 };
+// ---- Свободны вместе (просьба пользователя: «когда мы оба свободны») ----
+// Ближайшие 7 дней с 9:00 до 22:00: окна от часа, когда нет ни ваших событий со временем, ни событий друга из календарей, которые он вам открыл.
+// События на весь день не мешают (чаще это пометки: праздник, день рождения). Нажатие на окно — новое событие «Встреча: Имя» на час
+const FR_FREE = [9 * 60, 22 * 60], FR_FREE_MIN = 60;
+const frMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+const frHM = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+const frBusy = (list, k) => list.filter(e => isTime(e.time) && occurs(e, k)).map(e => { const a = frMin(e.time), b = isTime(e.time2) ? frMin(e.time2) : 0; return [a, b > a ? b : a + 60]; });
+function frFree(f) {
+  const t = todayK(), now = new Date(), nowM = now.getHours() * 60 + now.getMinutes(), mine = S.events.filter(e => !e.demo), out = [];
+  for (let i = 0; i < 7; i++) {
+    const k = addDays(t, i), busy = [...frBusy(mine, k), ...frBusy(f.feed.ev, k)].sort((a, b) => a[0] - b[0]), wins = [];
+    let from = i ? FR_FREE[0] : Math.max(FR_FREE[0], Math.ceil(nowM / 30) * 30);
+    busy.forEach(([a, b]) => { if (a > from) wins.push([from, Math.min(a, FR_FREE[1])]); from = Math.max(from, b); });
+    wins.push([from, FR_FREE[1]]);
+    const ok = wins.filter(([a, b]) => b - a >= FR_FREE_MIN);
+    if (ok.length) out.push({ k, wins: ok });
+  }
+  return out;
+}
+const frDayLbl = (k, i) => i < 2 ? relDay(k)[0].toUpperCase() + relDay(k).slice(1) : dowName(k) + ', ' + pd(k).getDate() + ' ' + MONS[pd(k).getMonth()];
+function frFreeHTML(f) {
+  const fd = f.feed, head = `<div class="card-h"><b>${I(IC.users, 17)} Свободны вместе ${hint('Ближайшие 7 дней с 9:00 до 22:00: окна от часа, когда нет ни ваших событий со временем, ни событий друга — по календарям, которые друг вам открыл. События на весь день не учитываются. Нажмите на окно — в вашем календаре появится встреча.', 'Как ищем свободное время')}</b></div>`;
+  if (!fd.cs.length) return `<div class="card frp-free">${head}<p class="hm-empty">Друг не открыл вам календари — общее время не посчитать.</p></div>`;
+  const t = todayK(), days = frFree(f);
+  return `<div class="card frp-free">${head}${days.length ? `<div class="frf-days">${days.slice(0, 5).map(d => `<div class="frf-day"><span class="frf-d">${frDayLbl(d.k, dayDiff(t, d.k))}</span><span class="frf-w">${d.wins.slice(0, 3).map(([a, b]) => `<button class="frf-slot" data-act="frmeet" data-u="${f.uid}" data-k="${d.k}" data-a="${a}" data-b="${b}" aria-label="Встреча ${frDayLbl(d.k, dayDiff(t, d.k))}, ${frHM(a)}–${frHM(b)}">${frHM(a)}–${frHM(b)}</button>`).join('')}</span></div>`).join('')}</div>`
+    : '<p class="hm-empty">На этой неделе общих свободных окон нет.</p>'}</div>`;
+}
+ACT.frmeet = el => {
+  const f = fr.list.find(x => x.uid === el.dataset.u); if (!f) return;
+  const a = +el.dataset.a, b = +el.dataset.b;
+  openEvent(null, { title: 'Встреча: ' + frName(f), date: el.dataset.k, time: frHM(a), time2: frHM(Math.min(a + 60, b)) });
+};
+
 SEC.friend = { name: 'Друг', icon: IC.users, noNav: true, title: () => 'Друзья', html: frPageHTML, move: () => {} };
 ACT.fropen = el => { fr.cur = el.dataset.u; frSave(); if (sec === 'friend') render(); else setSec('friend'); frLoad(true); };
 ACT.frmenu = el => {
@@ -467,7 +508,7 @@ ACT.frjoin = async () => {
 let frSet = null;   // { nick, lv: { id календаря: уровень }, err, busy, inv, first — карточки ещё не было }
 function openFrSet(invite) {
   if (!signedIn()) return ACT.login();
-  if (!frSet) frSet = { nick: fr.nick || S.settings.nick || '', lv: Object.fromEntries(S.cats.map(c => [c.id, frLvl(c)])), err: '', inv: !!invite, first: !S.settings.fr, show: Object.assign({}, S.settings.frShow) };
+  if (!frSet) frSet = { nick: fr.nick || S.settings.nick || '', lv: Object.fromEntries(S.cats.map(c => [c.id, frLvl(c)])), err: '', inv: !!invite, first: !S.settings.fr, show: Object.assign({}, S.settings.frShow), push: S.settings.frPush !== false };
   const st = frSet, first = st.first;
   sheet(`<div class="sh-head"><h3>${first ? 'Карточка для друзей' : 'Друзья: настройки'}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   ${st.inv ? '<p class="set-note">Вас позвали в друзья. Создайте карточку — и приглашение откроется само.</p>' : ''}
@@ -478,13 +519,15 @@ function openFrSet(invite) {
   ${S.cats.map(c => `<div class="fr-lv"><span class="fr-lv-n"><i style="--c:${safeColor(c.color)}"></i>${esc(c.name)}</span><div class="seg2" role="group" aria-label="${esc(c.name)}: что видят друзья">${FR_LVL.map(([v, n]) => `<button class="${st.lv[c.id] === v ? 'on' : ''}" data-act="frlv" data-c="${esc(c.id)}" data-v="${v}" aria-pressed="${st.lv[c.id] === v}">${n}</button>`).join('')}</div></div>`).join('')}
   <div class="set-sec">Из профиля</div>
   ${FR_SHOW.map(([k, n]) => `<div class="set-row"><span>${n}</span><input id="frsh_${k}" class="sw" type="checkbox"${st.show[k] ? ' checked' : ''}></div>`).join('')}
+  <div class="set-sec">Уведомления</div>
+  <div class="set-row"><span>Пуш о заявках в друзья</span><input id="frpush" class="sw" type="checkbox"${st.push ? ' checked' : ''}></div>
   <p class="set-note">Ещё друзья видят только числа: задачи и отметки привычек за неделю и за всё время, серию и полученные достижения.</p>
   <p class="fr-err" id="fr_err" aria-live="polite">${esc(st.err)}</p>
   ${first ? '' : `<div class="fr-more"><button class="btn" data-act="frinvnew">Новая ссылка-приглашение</button><button class="btn dng" data-act="froff">Удалить карточку</button></div>`}
   <div class="sh-foot"><button class="btn pri" data-act="frsave"${st.busy ? ' disabled' : ''}>${st.busy ? 'Сохраняю…' : first ? 'Создать карточку' : 'Сохранить'}</button></div>`, true);
 }
 ACT.frset = () => { frSet = null; openFrSet(); };
-const frSetRead = () => { const i = $('#fr_nick'); if (i) frSet.nick = i.value; FR_SHOW.forEach(([k]) => { const c = $('#frsh_' + k); if (c) frSet.show[k] = c.checked; }); };
+const frSetRead = () => { const i = $('#fr_nick'), p = $('#frpush'); if (i) frSet.nick = i.value; if (p) frSet.push = p.checked; FR_SHOW.forEach(([k]) => { const c = $('#frsh_' + k); if (c) frSet.show[k] = c.checked; }); };
 ACT.frlv = el => { frSetRead(); frSet.lv[el.dataset.c] = el.dataset.v; shDirty = true; openFrSet(); };
 ACT.frsave = async () => {
   const st = frSet; if (!st || st.busy) return;
@@ -497,6 +540,7 @@ ACT.frsave = async () => {
   const was = !st.first;
   snap(); S.cats.forEach(c => { const v = st.lv[c.id]; if (v === 'busy') delete c.fr; else if (v) c.fr = v; });
   const sh = {}; FR_SHOW.forEach(([k]) => { if (st.show[k]) sh[k] = 1; }); if (Object.keys(sh).length) S.settings.frShow = sh; else delete S.settings.frShow;
+  if (st.push) delete S.settings.frPush; else S.settings.frPush = false;   // пуш о заявках — по умолчанию включён (сервер: reminders)
   S.settings.fr = 1; save();
   st.busy = true; openFrSet();
   const res = await frPublish(nick);

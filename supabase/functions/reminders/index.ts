@@ -8,6 +8,7 @@
 //    Функция находит напоминания, время которых наступило за последние 10 минут, и шлёт пуш на устройства владельца записей.
 //    Так же — утренняя сводка «План на сегодня» и вечернее «Запишите задачи на завтра» (время — в S.settings.digest).
 //    Каждое напоминание уходит один раз: перед отправкой оно записывается в reminder_log (повтор ключа — пропуск).
+//    И пуши о заявках в друзья из очереди fr_notify (friendPushes, supabase/sql/friends.sql).
 // 2) Приложение с токеном пользователя и {"test":true} — проверочное уведомление на устройства этого человека
 //    (не чаще раза в минуту).
 // В настройках функции «Verify JWT» выключен: доступ проверяется здесь (секретный ключ или настоящий токен через auth.getUser).
@@ -153,11 +154,12 @@ async function tick(now) {
   if (error) throw error;
   const byUser = new Map();
   for (const s of subs || []) { if (!byUser.has(s.user_id)) byUser.set(s.user_id, []); byUser.get(s.user_id).push(s); }
-  let due = 0, sent = 0;
+  let due = 0, sent = 0, rows = [];
   if (byUser.size) {
-    const { data: rows, error: e2 } = await sb.from('user_data').select('user_id,data').in('user_id', [...byUser.keys()]);
+    const { data: rs, error: e2 } = await sb.from('user_data').select('user_id,data').in('user_id', [...byUser.keys()]);
     if (e2) throw e2;
-    for (const row of rows || []) {
+    rows = rs || [];
+    for (const row of rows) {
       const data = row.data || {}, tz = tzOf(data);
       for (const r of dueReminders(data, now - WINDOW, now)) {
         due++;
@@ -172,7 +174,29 @@ async function tick(now) {
     }
   }
   await sb.from('reminder_log').delete().lt('fire_at', new Date(now - 3 * DAY).toISOString());   // журнал за 3 дня, старше не нужен
+  sent += await friendPushes(byUser, rows, now);
   return { users: byUser.size, due, sent };
+}
+
+// Заявки в друзья (21 октября 2026; supabase/sql/friends.sql: очередь fr_notify): «Имя зовёт вас в друзья», «Имя теперь в друзьях».
+// Каждая уходит один раз (sent_at). Нет подписки или в приложении выключен «Пуш о заявках» (settings.frPush = false) — просто отмечаем.
+// Таблицы ещё нет (SQL не выполнен) — молча пропускаем, напоминания работают как раньше
+async function friendPushes(byUser, rows, now) {
+  const { data: nts, error } = await sb.from('fr_notify').select('id,to_uid,from_uid,kind').is('sent_at', null).order('id').limit(200);
+  if (error || !nts || !nts.length) return 0;
+  const { data: profs } = await sb.from('profiles').select('user_id,name,nick').in('user_id', [...new Set(nts.map(n => n.from_uid))]);
+  const who = id => { const p = (profs || []).find(x => x.user_id === id); return (p && (String(p.name || '').trim() || (p.nick ? '@' + p.nick : ''))) || 'Кто-то'; };
+  const dataOf = new Map(rows.map(r => [r.user_id, r.data || {}]));
+  let ok = 0;
+  for (const n of nts) {
+    const subs = byUser.get(n.to_uid), st = (dataOf.get(n.to_uid) || {}).settings || {};
+    if (!subs || st.frPush === false) continue;
+    const body = n.kind === 'req' ? `${who(n.from_uid)} зовёт вас в друзья` : `${who(n.from_uid)} теперь в друзьях`;
+    ok += (await sendTo(subs, JSON.stringify({ title: 'Parsimony', body, tag: 'fr-' + n.from_uid, url: './#s=profile', s: 'profile' }), 24 * 3600)).ok;
+  }
+  await sb.from('fr_notify').update({ sent_at: new Date(now).toISOString() }).in('id', nts.map(n => n.id));
+  await sb.from('fr_notify').delete().lt('created_at', new Date(now - 3 * DAY).toISOString());
+  return ok;
 }
 
 async function testPush(uid) {

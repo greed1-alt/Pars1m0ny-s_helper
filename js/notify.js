@@ -107,7 +107,7 @@ function openDay(k) {
   setSec('cal');
 }
 // Утренняя сводка открывает Главную (#s=home), напоминание и вечерняя — день в календаре (#d=…)
-const openSecFromPush = s => { if (s === 'home' && SEC.home) { if (typeof closeSheet === 'function') closeSheet(); setSec('home'); } };
+const openSecFromPush = s => { if ((s === 'home' || s === 'profile') && SEC[s]) { if (typeof closeSheet === 'function') closeSheet(); setSec(s); if (s === 'profile') frLoad(true); } };   // profile — пуш о заявке в друзья
 function checkDayHash() {
   const m = location.hash.match(/^#(d|s)=([\w-]{1,20})$/); if (!m) return;
   history.replaceState(null, '', location.pathname + location.search);

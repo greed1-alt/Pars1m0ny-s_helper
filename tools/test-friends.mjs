@@ -42,6 +42,7 @@ if (!pgEntry || !existsSync(pgEntry)) {
     grant usage on schema public to anon, authenticated;
     alter default privileges in schema public grant all on tables to anon, authenticated;
     alter default privileges in schema public grant all on functions to anon, authenticated;`);
+  await db.exec(read('supabase/sql/user_data.sql'));   // триггер честных очков висит на user_data
   await db.exec(sql);
   await db.exec(sql);   // повторный запуск безопасен
 
@@ -59,6 +60,49 @@ if (!pgEntry || !existsSync(pgEntry)) {
   let diff = 0;
   got.forEach(({ x, r }) => { const js = L.nameBad(x); if (js !== r && diff++ < 10) console.log(`  расхождение: «${x}» приложение «${js}», сервер «${r}»`); });
   ok(!diff, `проверка имени на сервере расходится с приложением в ${diff} из ${corpus.length} случаях`);
+
+  // Честные очки: сервер (fr_calc) считает так же, как приложение — frWeekStats (friends.js), habitStreaks и profileStats (pages.js).
+  // Код приложения берём из самих файлов: поменяли правило там — тест сразу покажет расхождение с сервером
+  const coreJs = read('js/core.js'), habitsJs = read('js/habits.js'), pagesJs = read('js/pages.js'), shareJs = read('js/share.js'), frJs = read('js/friends.js');
+  const line = (src, re) => { const m = src.match(re); if (!m) throw new Error('нет в коде приложения: ' + re); return m[0]; };
+  const block = (src, head) => { const i = src.indexOf(head); if (i < 0) throw new Error('нет в коде приложения: ' + head); return src.slice(i, src.indexOf('\n}\n', i) + 2); };
+  const expr = (src, key) => line(src, new RegExp('^\\s*' + key + ': .*,$', 'm')).replace(new RegExp('^\\s*' + key + ': '), '').replace(/,$/, '');
+  const appStats = new Function(`let S, TODAY = ''; const todayK = () => TODAY;
+${[/^const ds = .*$/m, /^const pd = .*$/m, /^const addDays = .*$/m, /^const dowIdx = .*$/m, /^const isRec = .*$/m].map(re => line(coreJs, re)).join('\n')}
+${line(shareJs, /^const isDate = .*$/m)}
+${[/^const hByKind = .*$/m, /^const hDow = .*$/m, /^const isDayKey = .*$/m, /^const hStart = .*$/m].map(re => line(habitsJs, re)).join('\n')}
+${block(habitsJs, 'function dayStat(')}
+${block(pagesJs, 'function habitStreaks(')}
+${line(frJs, /^const frMonday = .*$/m)}
+${block(frJs, 'function frWeekStats(')}
+return (data, today) => { S = data; TODAY = today; const w = frWeekStats(), hs = habitStreaks();
+  return { w: w.w, t: w.t, h: w.h, s: hs.cur, b: hs.best, tt: ${expr(pagesJs, 'tasksDone')}, th: ${expr(pagesJs, 'marks')} }; };`)();
+  const dAdd = (k, n) => new Date(Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10) + n)).toISOString().slice(0, 10);
+  const genData = today => {
+    const rdate = (span, past) => dAdd(today, -rnd(span) + (past ? 0 : rnd(10)));
+    const events = Array.from({ length: rnd(25) }, () => { const rec = rnd(3) === 0;
+      return { task: rnd(6) > 0, demo: rnd(9) === 0, date: rdate(30), done: rnd(2) === 0, title: 'x',
+        repeat: rec ? { type: pick(['daily', 'weekly', 'monthly']), days: [] } : { type: pick(['none', 'none', '']) }, doneDates: rec ? Array.from({ length: rnd(8) }, () => rdate(20)) : undefined }; });
+    const habits = Array.from({ length: rnd(5) }, () => { const log = {};
+      for (let i = rnd(45); i-- > 0;) log[rdate(70, true)] = pick([1, 1, 1, 0, true]);
+      if (rnd(3) === 0) log[today.slice(0, 7) + ':w' + (1 + rnd(4))] = 1;
+      if (rnd(2) === 0) { for (let i = 1 + rnd(18); i > 0; i--) log[dAdd(today, -i)] = 1; log[today] = pick([1, 0]); }   // серия до вчера, сегодня — как повезёт
+      return { kind: pick(['daily', 'daily', 'weekly', 'monthly']), days: rnd(2) ? [] : [0, 1, 2, 3, 4, 5, 6].filter(() => rnd(2)), from: rdate(120, true), demo: rnd(10) === 0, log }; });
+    return { events, habits, settings: { tz: 'Europe/Moscow' } };
+  };
+  let sdiff = 0, scount = 0, streaky = 0, open = 0;
+  for (const today of ['2026-10-21', '2026-10-19', '2026-10-25', '2026-03-01', '2027-01-03']) {
+    for (let n = 0; n < 80; n++) {
+      const data = genData(today), js = appStats(JSON.parse(JSON.stringify(data)), today);
+      const sv = (await db.query('select public.fr_calc($1::jsonb, $2::date) r', [data, today])).rows[0].r;
+      const a = JSON.stringify(js), b = JSON.stringify({ w: sv.w, t: sv.t, h: sv.h, s: sv.s, b: sv.b, tt: sv.tt, th: sv.th });
+      scount++; if (js.s > 0) streaky++; if (js.s > 0 && data.habits.some(h => h.kind === 'daily' && !h.log[today])) open++;
+      if (a !== b && sdiff++ < 5) console.log('  очки расходятся (' + today + '): приложение ' + a + ', сервер ' + b);
+    }
+  }
+  ok(!sdiff, `очки на сервере расходятся с приложением в ${sdiff} из ${scount} случаях`);
+  ok(streaky > 60 && open > 5, 'среди случайных записей есть серии, в том числе с неотмеченным сегодня (иначе проверка серии ничего не доказывает): ' + streaky + ' / ' + open);
+  ok(JSON.stringify((await db.query(`select public.fr_calc('[]'::jsonb, '2026-10-21') r`)).rows[0].r) === JSON.stringify({ b: 0, h: 0, s: 0, t: 0, w: '2026-10-19', at: '2026-10-21', th: 0, tt: 0 }), 'пустые и кривые записи — нули, без ошибки');
 
   // Люди: A, B, C, D
   const U = { A:'00000000-0000-4000-8000-00000000000a', B:'00000000-0000-4000-8000-00000000000b', C:'00000000-0000-4000-8000-00000000000c', D:'00000000-0000-4000-8000-00000000000d' };
@@ -137,6 +181,29 @@ if (!pgEntry || !existsSync(pgEntry)) {
   ok((await as('B', 'select * from public.leaders_all()')).rows[0].me === true, 'себя в общем списке видно как «я»');
   ok(/permission/.test((await as(null, 'select * from public.leaders_all()')).err || ''), 'без входа общий список закрыт');
   ok((await as('C', 'update public.profiles set rank = true where user_id = $1 returning 1', [U.B])).rows.length === 0, 'включить общий список за другого нельзя');
+
+  // Честные очки: при сохранении записей сервер сам пишет fr_stats; друзьям и в общем списке — st
+  const srvToday = (await db.query(`select (now() at time zone 'UTC')::date::text d`)).rows[0].d;
+  await db.query('insert into public.user_data (user_id, data) values ($1, $2)', [U.B, { events: [{ task: true, done: true, date: srvToday, title: 'x' }, { task: true, done: true, date: '2020-01-01', title: 'y' }], habits: [], settings: { tz: 'UTC' } }]);
+  const stB = (await as('A', 'select st from public.friends_list() where nick = $1', ['bob'])).rows[0].st;
+  ok(stB && stB.t === 1 && stB.tt === 2 && stB.at === srvToday, 'друг видит очки, посчитанные сервером из записей');
+  ok((await as('C', 'select st from public.leaders_all() where nick = $1', ['bob'])).rows[0].st.tt === 2, 'в общем списке — тоже очки сервера');
+  await db.query('update public.user_data set data = $1 where user_id = $2', [{ events: 'сломано', habits: [{ log: 5 }], settings: { tz: 'Марс/База' } }, U.B]);
+  ok((await db.query('select st from public.fr_stats where user_id = $1', [U.B])).rows[0].st.tt === 0, 'кривые записи и чужой часовой пояс сохранению не мешают');
+  ok((await as('C', 'select * from public.fr_stats')).rows.length === 0, 'чужие очки в таблице не видны');
+  ok(/permission/.test((await as('A', `select public.fr_calc('{}'::jsonb, '2026-10-21')`)).err || ''), 'считать очки за другого из приложения нельзя');
+  ok(/permission/.test((await as('A', 'insert into public.fr_stats (user_id, st) values ($1, $2)', [U.A, { tt: 999 }])).err || ''), 'подменить свои очки нельзя');
+
+  // Пуши о заявках: очередь fr_notify — кто кого позвал и кто принял; не чаще раза в час; из приложения не видна
+  const nt = async (to, from, kind) => (await db.query('select count(*)::int n from public.fr_notify where to_uid = $1 and from_uid = $2 and kind = $3', [U[to], U[from], kind])).rows[0].n;
+  ok(await nt('B', 'A', 'req') === 1, 'A позвал B — B получит пуш «зовёт в друзья»');
+  ok(await nt('A', 'B', 'ok') === 1, 'B принял — A получит пуш «теперь в друзьях»');
+  ok(await nt('C', 'D', 'ok') === 1, 'встречная заявка — пуш тому, кто звал первым');
+  ok(await nt('A', 'C', 'ok') === 1, 'по ссылке-приглашению — пуш тому, чья ссылка');
+  await as('C', 'select public.friend_remove($1)', [U.D]); await as('C', `select public.friend_add('dima')`);
+  ok(await nt('D', 'C', 'req') === 1, 'позвал, отозвал, позвал снова — второго пуша в течение часа нет');
+  ok(/permission/.test((await as('A', 'select * from public.fr_notify')).err || ''), 'очередь пушей из приложения не видна');
+  ok(/permission/.test((await as('A', 'select public.fr_notify_add($1, $2, $3)', [U.B, U.A, 'req'])).err || ''), 'слать пуши другим из приложения нельзя');
 
   // Размер ленты
   ok(/check|violates/.test((await as('B', 'update public.profiles set feed = $1 where user_id = $2', [{ x:'я'.repeat(200000) }, U.B])).err || ''), 'лента больше ~300 КБ не влезет');
