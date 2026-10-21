@@ -130,6 +130,17 @@ if (!pgEntry || !existsSync(pgEntry)) {
   // Размер ленты
   ok(/check|violates/.test((await as('B', 'update public.profiles set feed = $1 where user_id = $2', [{ x:'я'.repeat(200000) }, U.B])).err || ''), 'лента больше ~300 КБ не влезет');
 
+  // Админ: служебный ник и имя — можно, грубые — нет; себя админом не сделать, чужую строку admins не увидеть
+  ok(/permission/.test((await as('B', 'insert into public.admins (user_id) values ($1)', [U.B])).err || ''), 'стать админом из приложения нельзя');
+  await db.query('insert into public.admins (user_id) values ($1)', [U.B]);
+  ok((await as('B', 'select * from public.admins')).rows.length === 1, 'админ видит свою строку');
+  ok((await as('C', 'select * from public.admins')).rows.length === 0, 'не админ не видит, кто админ');
+  ok(/nick_bad/.test((await as('C', 'update public.profiles set nick = $1 where user_id = $2', ['parsimony', U.C])).err || ''), 'не админу ник parsimony нельзя');
+  ok((await as('B', 'update public.profiles set nick = $1, name = $2 where user_id = $3 returning nick, name', ['parsimony', 'PARSIMONY', U.B])).rows[0].name === 'PARSIMONY', 'админу служебные ник и имя можно');
+  ok(/nick_bad/.test((await as('B', 'update public.profiles set nick = $1 where user_id = $2', ['huy_admin', U.B])).err || ''), 'грубый ник нельзя и админу');
+  ok((await as('B', 'update public.profiles set name = $1 where user_id = $2 returning name', ['хуйло', U.B])).rows[0].name === '', 'грубое имя сервер стирает и у админа');
+  ok((await as('C', 'update public.profiles set name = $1 where user_id = $2 returning name', ['Admin', U.C])).rows[0].name === '', 'служебное имя не админа сервер стирает');
+
   // Удаление аккаунта — всё уходит
   await db.query('delete from auth.users where id = $1', [U.A]);
   ok((await db.query('select count(*)::int n from public.profiles where user_id = $1', [U.A])).rows[0].n === 0, 'удалили аккаунт — карточки нет');

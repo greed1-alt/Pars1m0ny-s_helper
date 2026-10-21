@@ -88,7 +88,7 @@ function openShare(c) {
 async function refreshShareLink() {
   const c = shareCtx; if (!c) return;
   const by = $('#sh_by'), nt = $('#sh_notes'), tok = ++c.tok;   // недоступное имя (js/names.js) не сохраняется — уходит прежняя подпись
-  if (by && by.value.trim() !== (S.settings.name || '') && !nameBad(by.value)) { S.settings.name = by.value.trim().slice(0, NAME_MAX).trim(); save(); }
+  if (by && by.value.trim() !== (S.settings.name || '') && !nameBadMsg(by.value)) { S.settings.name = by.value.trim().slice(0, NAME_MAX).trim(); save(); }
   if (nt) c.notes = nt.checked;
   const code = await packShare(sharePayload(c));
   if (shareCtx !== c || tok !== c.tok) return;

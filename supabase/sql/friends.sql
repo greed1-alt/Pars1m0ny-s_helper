@@ -101,16 +101,34 @@ create policy "profiles: insert own" on public.profiles for insert to authentica
 create policy "profiles: update own" on public.profiles for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 create policy "profiles: delete own" on public.profiles for delete to authenticated using ((select auth.uid()) = user_id);
 
--- Ник — проверка на сервере (обойти приложение не выйдет); недоступное имя друзья просто не увидят
+-- Админы (сам Parsimony): им можно служебные ники и имена — admin, parsimony, поддержка; грубые — никому.
+-- Добавляет только владелец проекта здесь, в SQL Editor (у приложения прав на запись нет):
+--   insert into public.admins (user_id) select id from auth.users where email = 'почта@пример.ru' on conflict do nothing;
+-- Каждый видит только свою строку — так приложение узнаёт, что вы админ, и не мешает вводить такой ник
+create table if not exists public.admins (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table public.admins enable row level security;
+revoke all on public.admins from anon, authenticated;
+grant select on public.admins to authenticated;
+drop policy if exists "admins: read own" on public.admins;
+create policy "admins: read own" on public.admins for select to authenticated using ((select auth.uid()) = user_id);
+
+-- Ник — проверка на сервере (обойти приложение не выйдет); недоступное имя друзья просто не увидят.
+-- Служебное (reserved) пропускается только админу: строку admins триггер видит по тем же правилам — только свою
 create or replace function public.profiles_check() returns trigger
 language plpgsql set search_path = '' as $$
+declare adm boolean := exists (select 1 from public.admins where user_id = auth.uid()); r text;
 begin
   new.updated_at := now();
-  if new.nick is not null and (tg_op = 'INSERT' or new.nick is distinct from old.nick) and public.name_bad(new.nick) <> '' then
-    raise exception 'nick_bad' using errcode = '22023';
+  if new.nick is not null and (tg_op = 'INSERT' or new.nick is distinct from old.nick) then
+    r := public.name_bad(new.nick);
+    if r = 'rude' or (r = 'reserved' and not adm) then raise exception 'nick_bad' using errcode = '22023'; end if;
   end if;
   if tg_op = 'INSERT' or new.name is distinct from old.name then
-    if public.name_bad(new.name) <> '' then new.name := ''; end if;
+    r := public.name_bad(new.name);
+    if r = 'rude' or (r = 'reserved' and not adm) then new.name := ''; end if;
   end if;
   return new;
 end $$;

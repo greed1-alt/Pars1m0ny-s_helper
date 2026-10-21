@@ -53,7 +53,10 @@ function nameBad(raw) {
   if (has(NB_RES_ANY) || words.some(w => NB_RES_EXACT.includes(w))) return 'reserved';
   return '';
 }
-const nameBadMsg = (s, nick) => { const r = nameBad(s); return !r ? '' : (nick ? 'Такой ник недоступен' : 'Такое имя недоступно')
+// Админы (сам Parsimony) могут брать служебные имена и ники; грубые — никто. Кто админ, решает сервер (таблица admins,
+// supabase/sql/friends.sql) — здесь только чтобы приложение не мешало. Ставит friends.js
+let NAME_ADMIN = false;
+const nameBadMsg = (s, nick) => { const r = nameBad(s); return !r || (r === 'reserved' && NAME_ADMIN) ? '' : (nick ? 'Такой ник недоступен' : 'Такое имя недоступно')
   + (r === 'rude' ? ' — в нём грубое или оскорбительное слово' : ' — похоже на служебное (admin, Parsimony, поддержка)'); };
 
 // ---- Поле ввода: подсказка прямо под полем, пока человек печатает (поля с data-nchk="name" или "nick") ----

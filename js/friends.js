@@ -10,6 +10,7 @@ const FR_LVL = [['hide', 'Скрыт'], ['busy', 'Только занят'], ['a
 // На устройстве (не синхронизируется): список друзей с их лентами, что уже отправлено, код приглашения, открытый друг
 let fr = Object.assign({ list: [], at: 0, pub: '', nick: '', invite: '', nameOff: false, cur: '', code: '', seen: [], err: '' }, lsGet(FR_LS) || {});
 const frSave = () => lsSet(FR_LS, fr);
+NAME_ADMIN = !!fr.admin;   // админ — служебные ники можно (names.js); проверяет сервер
 const frLvl = c => c && (c.fr === 'hide' || c.fr === 'all') ? c.fr : 'busy';
 const frOn = () => signedIn() && !!S.settings.fr;
 onMigrate(() => { S.cats.forEach(c => { if (c.fr !== undefined && c.fr !== 'hide' && c.fr !== 'all' && c.fr !== 'busy') delete c.fr; }); });
@@ -119,10 +120,16 @@ async function frMine() {
   fr.nick = FR_NICK.test(r.nick || '') ? r.nick : ''; fr.invite = /^[0-9a-f]{32}$/.test(r.invite || '') ? r.invite : ''; frSave();
   return r;
 }
-// Запуск и вход: список друзей, своя карточка, отложенное приглашение
+// Админ ли я (таблица admins: каждый видит только свою строку)
+async function frAdmin() {
+  try { const j = await api(`/rest/v1/admins?select=user_id&user_id=eq.${auth.uid}`, { user: true }); fr.admin = Array.isArray(j) && j.length > 0; }
+  catch (e) { if (!frNoSql(e)) return; fr.admin = false; }
+  NAME_ADMIN = !!fr.admin; frSave();
+}
+// Запуск и вход: админ ли, список друзей, своя карточка, отложенное приглашение
 function frStart() {
   if (!signedIn()) return;
-  setTimeout(() => { frLoad(true); frSoon(1500); if (fr.code) frInviteGo(); }, 2000);
+  setTimeout(() => { frAdmin(); frLoad(true); frSoon(1500); if (fr.code) frInviteGo(); }, 2000);
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && signedIn() && Date.now() - fr.at > 3 * 60000) frLoad(true); });
 // Новая заявка — тост один раз и точка на аватаре в шапке, пока не ответили
@@ -333,7 +340,7 @@ ACT.frsave = async () => {
   const i = $('#fr_nick'), nick = (i ? i.value : st.nick).trim().replace(/^@/, '').toLowerCase();
   st.nick = nick; st.err = '';
   if (nick && !FR_NICK.test(nick)) st.err = 'Ник — от 3 до 24 знаков: латинские буквы, цифры, точка и _';
-  else if (nick && nameBad(nick)) st.err = nameBadMsg(nick, true);
+  else if (nick && nameBadMsg(nick, true)) st.err = nameBadMsg(nick, true);
   if (st.err) return openFrSet();
   const was = !st.first;
   snap(); S.cats.forEach(c => { const v = st.lv[c.id]; if (v === 'busy') delete c.fr; else if (v) c.fr = v; });
