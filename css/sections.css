@@ -270,7 +270,15 @@ button.fr-who:hover{background:var(--hov)}
 .frp-tot span{color:var(--tx2)}
 .frp-ach{display:flex;flex-wrap:wrap;gap:8px}
 .frp-b{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:24px;background:var(--hov)}
-.frn-rel{margin-top:0}
+.frn-lock{display:flex;align-items:center;gap:6px;margin:0 0 12px;font-size:12.5px;color:var(--mut)}
+.frn-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.frn-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:74px;padding:10px 6px;border:1px solid var(--line);border-radius:var(--r3);font-size:13px;font-weight:500;color:var(--tx2);text-align:center;line-height:1.2}
+.frn-tile span{font-size:24px;line-height:1}
+.frn-tile.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 10%,transparent);color:var(--tx);font-weight:600}
+@media(hover:hover){.frn-tile:not(.on):hover{background:var(--hov)}}
+.frn-t{width:100%;min-height:84px;resize:vertical;font:inherit;line-height:1.45}
+.frp-lock{display:block;font-size:12px;color:var(--mut)}
+.frp-mine{order:2}
 @media(min-width:1600px){.frp-st{grid-template-columns:repeat(4,minmax(0,1fr))}}   /* на широком экране неделя — в один ряд */
 .plans{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
 .plan{border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px}

@@ -13,13 +13,16 @@ const frSave = () => lsSet(FR_LS, fr);
 NAME_ADMIN = !!fr.admin;   // админ — служебные ники можно (names.js); проверяет сервер
 const frLvl = c => c && (c.fr === 'hide' || c.fr === 'all') ? c.fr : 'busy';
 const frOn = () => signedIn() && !!S.settings.fr;
-// Заметки о друге (как в примере пользователя «Заметки о …»): своё имя для друга и отношения. Только у вас: S.frNotes = { uid: { n, r } }
-const FR_REL = [['best', '🤞', 'Лучший друг'], ['pair', '❤️', 'Пара'], ['family', '🏠', 'Семья'], ['work', '💼', 'Коллега'], ['study', '🎓', 'Учёба'], ['buddy', '🤝', 'Напарник']];
+// Пометки о друге — только у вас (S.frNotes = { uid: { n, r, t } }): как подписать, кто это для вас, «не забыть».
+// Свои, не как в примере пользователя (просьба: «сделай заметки не такими же»); «Пометки» — потому что «Заметки» в приложении уже есть (журнал)
+const FR_REL = [['close', '💛', 'Близкий друг'], ['love', '💞', 'Любимый человек'], ['family', '🏡', 'Семья'], ['work', '💼', 'Работа'], ['study', '📚', 'Учёба'], ['hobby', '⚽', 'Спорт и хобби']];
+const FR_REL_OLD = { best: 'close', pair: 'love', buddy: 'hobby' };   // первая проба (21 октября) — те же смыслы
 const frNote = uid => (uid && S.frNotes && S.frNotes[uid]) || {};
 onMigrate(() => {
   if (!S.frNotes || typeof S.frNotes !== 'object' || Array.isArray(S.frNotes)) S.frNotes = {};
   Object.keys(S.frNotes).forEach(k => { const x = S.frNotes[k]; if (!/^[0-9a-f-]{36}$/i.test(k) || !x || typeof x !== 'object') return delete S.frNotes[k];
-    x.n = String(x.n || '').slice(0, NAME_MAX); if (!FR_REL.some(r => r[0] === x.r)) delete x.r; if (!x.n) delete x.n; if (!x.n && !x.r) delete S.frNotes[k]; });
+    x.n = String(x.n || '').slice(0, NAME_MAX); x.t = String(x.t || '').slice(0, 500); if (FR_REL_OLD[x.r]) x.r = FR_REL_OLD[x.r];
+    if (!FR_REL.some(r => r[0] === x.r)) delete x.r; if (!x.n) delete x.n; if (!x.t) delete x.t; if (!x.n && !x.r && !x.t) delete S.frNotes[k]; });
 });
 const FR_SHOW = [['about', 'Девиз и «Обо мне»'], ['bd', 'День рождения — без года'], ['city', 'Город и страна']];   // что из профиля видят друзья (S.settings.frShow)
 onMigrate(() => { S.cats.forEach(c => { if (c.fr !== undefined && c.fr !== 'hide' && c.fr !== 'all' && c.fr !== 'busy') delete c.fr; }); });
@@ -235,7 +238,7 @@ function frPageHTML() {
         <div class="pf-tags">${note.n ? `<span class="pf-nick">${esc(frReal(f))}</span>` : ''}${f.nick && (!note.n || f.name) ? `<span class="pf-nick">@${esc(f.nick)}</span>` : ''}${rel ? `<span class="frp-rel">${rel[1]} ${rel[2]}</span>` : ''}</div>
         <small class="frp-since">${since ? 'В друзьях с ' + since.getDate() + ' ' + MONG[since.getMonth()] + ' ' + since.getFullYear() : 'В друзьях'}${f.at ? ' · обновлено ' + ago(f.at) : ''}</small>
       </div>
-      <div class="pf-acts"><span class="frp-ok">${I(IC.check, 15)} В друзьях</span><button class="btn" data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 15)} Заметки</button><button class="btn pf-more" data-act="frmenu" data-u="${f.uid}" aria-label="Ещё" title="Ещё">${I(IC.more, 18)}</button></div>
+      <div class="pf-acts"><span class="frp-ok">${I(IC.check, 15)} В друзьях</span><button class="btn" data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 15)} Пометки</button><button class="btn pf-more" data-act="frmenu" data-u="${f.uid}" aria-label="Ещё" title="Ещё">${I(IC.more, 18)}</button></div>
     </div>
   </div>
   ${!fd ? '<div class="card"><p class="hm-empty">Пока пусто — числа и календарь появятся, когда друг откроет приложение.</p></div>' : `<div class="frp-cols">
@@ -248,6 +251,7 @@ function frPageHTML() {
       </div>
     </div>
     <div class="frp-col">
+      ${note.t ? `<div class="card frp-mine"><div class="card-h"><b>${I(IC.lock, 16)} Не забыть</b><button class="pill sm" data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 13)} Изменить</button></div><p class="pf-about-t">${esc(note.t)}</p><small class="frp-lock">Видите только вы</small></div>` : ''}
       ${about}
       <div class="card frp-tot-c"><div class="card-h"><b>За всё время</b></div>
         <ul class="frp-tot">${row('Задач выполнено', NF0.format(tot.t))}${row('Отметок привычек', NF0.format(tot.h))}${row('Лучшая серия', tot.b ? plural(tot.b, NDAY) : '—')}${row('С ' + APP_NAME, tot.d ? plural(tot.d, NDAY) : '—')}</ul></div>
@@ -263,29 +267,33 @@ ACT.frach = el => {
   sheet(`<div class="sh-head"><h3>Достижения · ${esc(frName(f))}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   <div class="ach ach-all">${l.map(([e, n, dsc]) => `<div class="ach-i"><span class="ach-e" aria-hidden="true">${e}</span><span class="ach-t"><b>${esc(n)}</b><small>${esc(dsc)}</small><em>Получено</em></span></div>`).join('')}</div>`);
 };
-// Заметки о друге: своё имя и отношения — видите только вы
-let frNoteEd = null;   // { uid, n, r }
+// Пометки о друге: как подписать, кто это для вас, «не забыть» — видите только вы
+let frNoteEd = null;   // { uid, n, r, t }
 function openFrNotes() {
   const st = frNoteEd, f = fr.list.find(x => x.uid === st.uid); if (!f) return;
-  sheet(`<div class="sh-head"><h3>Заметки: ${esc(frReal(f))}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
-  <p class="set-note" style="margin:0 0 12px">Видите только вы — друг об этом не узнает.</p>
-  <div class="frow"><span class="fl">Своё имя для друга</span><input id="frn_n" class="fin" value="${esc(st.n)}" maxlength="${NAME_MAX}" placeholder="Как вы называете друга — или пусто" autocomplete="off"></div>
-  <div class="set-sec">Отношения</div>
-  <div class="chips frn-rel" role="group" aria-label="Отношения">${FR_REL.map(([k, e, n]) => `<button class="chip${st.r === k ? ' on' : ''}" data-act="frnrel" data-k="${k}" aria-pressed="${st.r === k}">${e} ${n}</button>`).join('')}</div>
+  sheet(`<div class="sh-head"><h3>Пометки · ${esc(frReal(f))}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  <p class="frn-lock">${I(IC.lock, 14)} Видите только вы — другу это не показывается</p>
+  <div class="frow"><span class="fl">Подпись</span><input id="frn_n" class="fin" value="${esc(st.n)}" maxlength="${NAME_MAX}" placeholder="Например, Саня с работы" autocomplete="off"></div>
+  <div class="set-sec">Кто это для вас</div>
+  <div class="frn-tiles" role="group" aria-label="Кто это для вас">${FR_REL.map(([k, e, n]) => `<button class="frn-tile${st.r === k ? ' on' : ''}" data-act="frnrel" data-k="${k}" aria-pressed="${st.r === k}"><span aria-hidden="true">${e}</span>${n}</button>`).join('')}</div>
+  <div class="set-sec">Не забыть</div>
+  <textarea id="frn_t" class="fin frn-t" maxlength="500" rows="3" aria-label="Не забыть" placeholder="Любимый кофе, идеи подарков, о чём договорились…">${esc(st.t)}</textarea>
   <div class="sh-foot"><button class="btn pri" data-act="frnsave">Сохранить</button></div>`, true);
 }
-ACT.frnotes = el => { closeQuick(); const n = frNote(el.dataset.u); frNoteEd = { uid: el.dataset.u, n: n.n || '', r: n.r || '' }; openFrNotes(); };
-ACT.frnrel = el => { const i = $('#frn_n'); if (i) frNoteEd.n = i.value; frNoteEd.r = frNoteEd.r === el.dataset.k ? '' : el.dataset.k; shDirty = true; openFrNotes(); };
+const frNoteRead = () => { const n = $('#frn_n'), t = $('#frn_t'); if (n) frNoteEd.n = n.value; if (t) frNoteEd.t = t.value; };
+ACT.frnotes = el => { closeQuick(); const n = frNote(el.dataset.u); frNoteEd = { uid: el.dataset.u, n: n.n || '', r: n.r || '', t: n.t || '' }; openFrNotes(); };
+ACT.frnrel = el => { frNoteRead(); frNoteEd.r = frNoteEd.r === el.dataset.k ? '' : el.dataset.k; shDirty = true; openFrNotes(); };
 ACT.frnsave = () => {
-  const st = frNoteEd; if (!st) return; const i = $('#frn_n'), n = (i ? i.value : st.n).trim().slice(0, NAME_MAX);
-  snap(); if (n || st.r) S.frNotes[st.uid] = Object.assign({}, n ? { n } : {}, st.r ? { r: st.r } : {}); else delete S.frNotes[st.uid];
-  save(); frNoteEd = null; shDirty = false; closeSheet(); render(); toast('Заметки сохранены', true);
+  const st = frNoteEd; if (!st) return; frNoteRead();
+  const n = st.n.trim().slice(0, NAME_MAX), t = st.t.trim().slice(0, 500);
+  snap(); if (n || st.r || t) S.frNotes[st.uid] = Object.assign({}, n ? { n } : {}, st.r ? { r: st.r } : {}, t ? { t } : {}); else delete S.frNotes[st.uid];
+  save(); frNoteEd = null; shDirty = false; closeSheet(); render(); toast('Пометки сохранены', true);
 };
 SEC.friend = { name: 'Друг', icon: IC.users, noNav: true, title: () => 'Друзья', html: frPageHTML, move: () => {} };
 ACT.fropen = el => { fr.cur = el.dataset.u; frSave(); if (sec === 'friend') render(); else setSec('friend'); frLoad(true); };
 ACT.frmenu = el => {
   const qc = $('#qc'), f = fr.list.find(x => x.uid === el.dataset.u); if (!f) return;
-  qc.innerHTML = `<div class="pmenu">${f.nick ? `<button data-act="frcopy" data-u="${f.uid}">${I(IC.copy, 16)} Скопировать ник</button>` : ''}<button data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 16)} Заметки</button><button data-act="frreload">${I(IC.down, 16)} Обновить</button><button class="dng" data-act="frrm" data-u="${f.uid}">${I(IC.x, 16)} Убрать из друзей</button></div>`;
+  qc.innerHTML = `<div class="pmenu">${f.nick ? `<button data-act="frcopy" data-u="${f.uid}">${I(IC.copy, 16)} Скопировать ник</button>` : ''}<button data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 16)} Пометки</button><button data-act="frreload">${I(IC.down, 16)} Обновить</button><button class="dng" data-act="frrm" data-u="${f.uid}">${I(IC.x, 16)} Убрать из друзей</button></div>`;
   qc.classList.add('show', 'menu');
   const r = el.getBoundingClientRect(), w = qc.offsetWidth;
   qc.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px'; qc.style.top = (r.bottom + 6) + 'px';

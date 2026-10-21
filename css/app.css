@@ -89,7 +89,7 @@ main.anim-f>*{animation:fadeIn .14s ease-out}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes popIn{from{opacity:0;transform:translateY(4px) scale(.98)}to{opacity:1;transform:none}}
 @keyframes sheetUp{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
-@keyframes sheetLeft{from{transform:translateX(30px);opacity:.4}to{transform:none;opacity:1}}
+@keyframes sheetPop{from{transform:translateY(8px) scale(.98);opacity:.4}to{transform:none;opacity:1}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ---- Сетка недели / дня ---- */
@@ -496,7 +496,8 @@ select.fin{padding-right:6px}
   .mmore{font-size:12px;color:var(--tx2);padding:0 6px;text-align:left;font-weight:600;line-height:18px;border-radius:5px}
   .mmore:hover{background:var(--hov)}
 
-  #ov{background:rgba(0,0,0,.12);align-items:stretch;justify-content:flex-end}
-  #sh{width:420px;max-width:420px;height:100vh;max-height:100vh;border-radius:0;box-shadow:-12px 0 40px rgba(0,0,0,.14);border-left:1px solid var(--line);padding:14px 22px 22px;animation:sheetLeft .18s cubic-bezier(.2,.8,.2,1)}
+  /* Окна — плашкой по центру экрана (просьба пользователя 21 октября 2026: «все открывающиеся боковые панельки отдельными (плашками по середине экрана)»); на телефоне — снизу, как было */
+  #ov{background:rgba(0,0,0,.35);align-items:center;justify-content:center;padding:24px}
+  #sh{width:520px;max-width:100%;max-height:min(88vh,880px);border-radius:16px;border:1px solid var(--line);box-shadow:0 24px 70px rgba(0,0,0,.3);padding:14px 22px 22px;animation:sheetPop .16s cubic-bezier(.2,.8,.2,1)}
   .grab{display:none}
 }
