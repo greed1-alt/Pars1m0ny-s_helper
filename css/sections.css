@@ -34,6 +34,36 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .hm-habs .hm-more{padding-left:10px}
 .qc.menu{width:auto;min-width:230px;padding:6px}
 .pmenu{display:flex;flex-direction:column}
+/* Меню профиля (шапка → имя и аватар) */
+.qc.acc{width:310px;padding:8px}
+.accm{display:flex;flex-direction:column;gap:8px}
+.accm button{font:inherit;color:var(--tx)}
+.accm-me{display:flex;align-items:center;gap:12px;padding:8px;border-radius:12px;text-align:left}
+.accm-who{flex:1;min-width:0;display:flex;flex-direction:column}
+.accm-me b{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.accm-me small{font-size:12.5px;color:var(--mut)}
+.accm-me>svg{color:var(--mut);flex:none}
+.accm-chips{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.accm-chip{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;padding:8px 10px;border-radius:12px;background:color-mix(in srgb,var(--c) 12%,var(--hov));min-width:0}
+.accm-chip>span{grid-row:1/3;font-size:20px;line-height:1}
+.accm-chip b{font-size:14px;font-weight:700;color:color-mix(in srgb,var(--c) 75%,var(--tx));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.accm-chip small{font-size:11.5px;color:var(--mut)}
+.accm-chip.c1{--c:var(--c-orange)}.accm-chip.c2{--c:var(--c-yellow)}
+.accm-prem{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;text-align:left;color:#fff!important;background:linear-gradient(120deg,color-mix(in srgb,var(--acc) 85%,#000),color-mix(in srgb,var(--acc) 55%,#a855f7));box-shadow:0 6px 18px color-mix(in srgb,var(--acc) 30%,transparent)}
+.accm-prem svg{flex:none;opacity:.9}
+.accm-prem span{display:flex;flex-direction:column;gap:2px}
+.accm-prem b{font-size:14.5px;font-weight:700}
+.accm-prem small{font-size:12px;opacity:.85;line-height:1.35}
+.accm-list{display:flex;flex-direction:column;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 0}
+.accm-list button,.accm-set{display:flex;align-items:center;gap:12px;padding:10px 8px;border-radius:10px;font-size:14px;text-align:left}
+.accm-list svg,.accm-set svg{color:var(--tx2);flex:none}
+.accm-list span{flex:1}
+.accm-badge{font-style:normal;min-width:20px;height:20px;padding:0 6px;border-radius:999px;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--acc);color:var(--accfg)}
+.accm-foot{display:flex;align-items:center;gap:4px}
+.accm-set{flex:1}
+.accm-foot .ic{width:38px;height:38px;color:var(--tx2)}
+.accm-out:hover{color:var(--dng)}
+@media(hover:hover){.accm-me:hover,.accm-list button:hover,.accm-set:hover,.accm-foot .ic:hover{background:var(--hov)}.accm-prem:hover{filter:brightness(1.07)}}
 .pmenu button{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:13.5px;text-align:left;white-space:nowrap}
 .pmenu button svg{color:var(--tx2)}
 .pmenu button:hover{background:var(--hov)}

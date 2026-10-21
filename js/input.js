@@ -2,7 +2,7 @@
 document.addEventListener('click', async ev => {
   if (Date.now() - lastDragEnd < 250) return;
   const el = ev.target.closest('[data-act]');
-  if (quickOpen() && !$('#qc').contains(ev.target) && !(el && (el.dataset.act === 'colclick' || el.dataset.act === 'quickadd'))) closeQuick();
+  if (quickOpen() && !$('#qc').contains(ev.target) && !(el && (el.dataset.act === 'colclick' || el.dataset.act === 'quickadd' || el.dataset.act === 'accmenu'))) closeQuick();   // accmenu — повторное нажатие на имя закрывает меню само
   if (ev.target.id === 'ov') return closeSheetAsk();   // вписано в окно с «Сохранить» — сначала вопрос (calendar.js)
   if (ev.target.id === 'cmd') return closeCmd();
   if (!el) return;

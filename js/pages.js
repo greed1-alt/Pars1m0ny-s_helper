@@ -256,6 +256,48 @@ function openAvatar() {
 const hdrAvaHTML = () => `<span class="hdr-name">${esc((S.settings.name || '').trim() || 'Профиль')}</span>${avatarHTML(28)}${frDot()}`;   // точка — новая заявка в друзья
 const profTouch = () => { S.settings.profUpd = Date.now(); save(); $('#side').innerHTML = sideHTML(); const h = $('.hdr-ava'); if (h) h.innerHTML = hdrAvaHTML(); const u = $('#pe_upd'); if (u) u.textContent = 'Обновлён: только что'; };
 ACT.pfava = openAvatar;
+
+// ---- Меню профиля по нажатию на имя и аватар в шапке (просьба пользователя 22 октября 2026: «добавь подобную плашку из файла при нажатии на имя») ----
+// Пример — меню сайта с уровнем, валютой, магазином и карточками; у нас: кто вы, серия и очки недели, Премиум (скоро), разделы профиля,
+// внизу — Настройки, светлая / тёмная тема и выход. Уровня нет — решение пользователя
+ACT.accmenu = el => {
+  const qc = $('#qc');
+  if (quickOpen() && qc.classList.contains('acc')) return closeQuick();
+  const st = S.settings, name = (st.name || '').trim(), on = signedIn(), wk = frWeekStats(), inc = on ? frIncoming().length : 0, dark = darkNow();
+  qc.innerHTML = `<div class="accm" role="menu" aria-label="Меню профиля">
+    <button class="accm-me" data-act="accgo" data-s="profile" role="menuitem">${avatarHTML(44)}<span class="accm-who"><b>${esc(name || 'Профиль')}</b><small>${fr.nick ? '@' + esc(fr.nick) : 'Открыть профиль'}</small></span>${I(IC.right, 18)}</button>
+    <div class="accm-chips"><span class="accm-chip c1"><span aria-hidden="true">🔥</span><b>${wk.s ? plural(wk.s, NDAY) : '—'}</b><small>серия</small></span><span class="accm-chip c2"><span aria-hidden="true">⭐</span><b>${plural(frScore(wk), FR_PTS)}</b><small>за неделю</small></span></div>
+    <button class="accm-prem" data-act="accgo" data-s="profile" data-to="pf-plans" role="menuitem">${I(IC.spark, 24)}<span><b>${APP_NAME} Премиум</b><small>Переливающееся имя и другие привилегии — скоро</small></span></button>
+    <div class="accm-list">
+      <button data-act="accgo" data-s="profile" data-to="pf-friends" role="menuitem">${I(IC.users, 18)}<span>Друзья</span>${inc ? `<em class="accm-badge" aria-label="Новых заявок: ${inc}">${inc}</em>` : ''}</button>
+      <button data-act="accgo" data-s="leaders" role="menuitem">${I(IC.trophy, 18)}<span>Лидеры</span></button>
+      <button data-act="accach" role="menuitem">${I(IC.check, 18)}<span>Достижения</span></button>
+      <button data-act="accgo" data-s="profedit" role="menuitem">${I(IC.edit, 18)}<span>Редактировать профиль</span></button>
+      <button data-act="accinv" role="menuitem">${I(IC.share, 18)}<span>Пригласить друга</span></button>
+    </div>
+    <div class="accm-foot"><button class="accm-set" data-act="accset" role="menuitem">${I(IC.gear, 18)}<span>Настройки</span></button>
+      <button class="ic" data-act="acctheme" role="menuitem" aria-label="${dark ? 'Светлая тема' : 'Тёмная тема'}" title="${dark ? 'Светлая тема' : 'Тёмная тема'}">${I(dark ? IC.sun : IC.moon, 18)}</button>
+      ${on ? `<button class="ic accm-out" data-act="accout" role="menuitem" aria-label="Выйти из аккаунта" title="Выйти из аккаунта">${I(IC.logout, 18)}</button>` : `<button class="ic" data-act="accin" role="menuitem" aria-label="Войти в аккаунт" title="Войти в аккаунт">${I(IC.user, 18)}</button>`}</div>
+  </div>`;
+  qc.classList.add('show', 'menu', 'acc');
+  const r = el.getBoundingClientRect(), w = qc.offsetWidth;
+  qc.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px'; qc.style.top = (r.bottom + 8) + 'px';
+  el.setAttribute('aria-expanded', 'true');
+  if (a11yKbd) { const b = qc.querySelector('button'); if (b) b.focus(); }   // с клавиатуры — фокус в меню
+};
+ACT.accgo = el => {
+  closeQuick(); const s = el.dataset.s, to = el.dataset.to;
+  if (s === 'profedit') peTab = 'main';
+  if (s === 'leaders') return ACT.frleaders();
+  if (sec === s) render(); else setSec(s);
+  if (to) setTimeout(() => { const c = $('.' + to); if (c) c.scrollIntoView({ block: 'start', behavior: smoothB() }); }, 60);
+};
+ACT.accach = () => { closeQuick(); openAchievements(); };
+ACT.accinv = () => { closeQuick(); ACT.invite(); };
+ACT.accset = () => { closeQuick(); openSettings(); };
+ACT.acctheme = () => { closeQuick(); setTheme(darkNow() ? 'light' : 'dark'); };
+ACT.accout = () => { closeQuick(); ACT.logout(); };
+ACT.accin = () => { closeQuick(); ACT.login(); };
 ACT.pfemoji = el => { S.settings.avatar = Object.assign({}, S.settings.avatar, { e: el.dataset.e, img: '' }); profTouch(); render(); openAvatar(); };
 ACT.pfcolor = el => { S.settings.avatar = Object.assign({}, S.settings.avatar, { c: el.dataset.c }); profTouch(); render(); if (sheetOpen()) openAvatar(); };
 

@@ -390,6 +390,7 @@ select.fin{padding-right:6px}
   .v-week .wg-hourrow span{right:5px;font-size:12px}
   .v-week .wg-num{width:26px;height:26px;font-size:14px}
   .qc{left:8px!important;right:8px;width:auto}
+  .qc.acc{left:auto!important;right:8px;width:min(320px,calc(100vw - 16px))}
   .frow{grid-template-columns:80px minmax(0,1fr)}
 }
 

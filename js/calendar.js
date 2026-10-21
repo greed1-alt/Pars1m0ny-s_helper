@@ -468,7 +468,7 @@ function openQuick(date, time, x, y, time2) {
   }
   setTimeout(() => $('#q_t') && $('#q_t').focus(), 30);
 }
-const closeQuick = () => { const q = $('#qc'); if (q) q.classList.remove('show', 'menu'); $$('.wg-ghost').forEach(g => g.remove()); };
+const closeQuick = () => { const q = $('#qc'), h = $('.hdr-ava'); if (q) q.classList.remove('show', 'menu', 'acc'); if (h) h.setAttribute('aria-expanded', 'false'); $$('.wg-ghost').forEach(g => g.remove()); };
 const quickOpen = () => $('#qc').classList.contains('show');
 
 function nlHint(p, id) {
