@@ -328,7 +328,7 @@ function render(dir) {
   $$('header [data-v]').forEach(b => b.classList.toggle('on', sec === 'tasks' ? b.dataset.v === 'tasks' : b.dataset.v === view));
   document.body.dataset.plan = planOn() && (cal || sec === 'tasks') ? '1' : '';   // «План» на телефоне: общий переключатель виден и в Задачах
   const bn = $('.btn-new'); if (bn) { bn.innerHTML = I(IC.plus, 17) + (S2.newLabel || ''); bn.setAttribute('aria-label', S2.newLabel || 'Создать'); bn.title = S2.newLabel || 'Создать'; }
-  const ha = $('.hdr-ava'); if (ha) { ha.innerHTML = hdrAvaHTML(); ha.classList.toggle('on', sec === 'profile' || sec === 'profedit' || sec === 'friend'); }
+  const ha = $('.hdr-ava'); if (ha) { ha.innerHTML = hdrAvaHTML(); ha.classList.toggle('on', sec === 'profile' || sec === 'profedit' || sec === 'friend' || sec === 'leaders'); }
   const si = $('#secinfo'); if (si) si.innerHTML = '';   // сводки в шапке убраны 6 октября 2026: они повторяли то, что видно на странице
   root.style.setProperty('--hh', $('header').offsetHeight + 'px');
   const main = $('#main'), oldW = $('.wgwrap'), oldTop = oldW ? oldW.scrollTop : null;
