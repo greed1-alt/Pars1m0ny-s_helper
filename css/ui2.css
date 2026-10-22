@@ -775,6 +775,7 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .ai-voice.talk .ai-wave{--k:1}
 .ai-wave i{flex:none;width:4px;height:100%;border-radius:4px;background:linear-gradient(180deg,#a855f7,var(--acc));transform:scaleY(.12);animation:aiWave 1.1s ease-in-out infinite;animation-delay:calc(var(--d) * -1.1s)}
 @keyframes aiWave{0%,100%{transform:scaleY(.12)}50%{transform:scaleY(calc(var(--h) * var(--k)))}}
+.ai-voice.live .ai-wave i{animation:none;transform:scaleY(var(--l,.1));transition:transform .08s linear}   /* громкость голоса (aiVoiceLevels) */
 .ai-voice.cancel{background:color-mix(in srgb,var(--dng) 12%,var(--sf));border-color:color-mix(in srgb,var(--dng) 45%,var(--line));box-shadow:0 10px 40px color-mix(in srgb,var(--dng) 22%,transparent)}
 .ai-voice.cancel .ai-wave i,.ai-voice.cancel .ai-vdot{background:var(--dng)}
 .ai-vfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:24px}
@@ -792,6 +793,11 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .ai-attx{position:absolute;top:-7px;right:-7px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--tx);color:var(--bg);box-shadow:0 1px 4px rgba(0,0,0,.3)}
 .ai-atts{flex:1;min-width:0;line-height:1.35}
 .ai-uimgs{display:flex;gap:6px;margin:2px 0 6px}
+/* голосовое: пока распознаётся — «Распознаю…» с переливом; после — значок микрофона перед текстом */
+.ai-vmsg{display:inline-flex;align-items:center;gap:8px}
+.ai-vmsg small{font-size:12.5px;opacity:.8;font-variant-numeric:tabular-nums}
+.ai-m.u .ai-shim{background-image:linear-gradient(90deg,color-mix(in srgb,var(--accfg) 55%,transparent) 0%,var(--accfg) 45%,color-mix(in srgb,var(--accfg) 55%,transparent) 90%)}
+.ai-uv{display:inline-flex;vertical-align:-2px;margin-right:6px;opacity:.85}
 .ai-uimg{display:block;max-width:200px;max-height:200px;border-radius:12px;object-fit:cover}
 .ai-uimgs.n2 .ai-uimg,.ai-uimgs.n3 .ai-uimg{width:76px;height:76px}
 /* Кнопка помощника в шапке: на телефоне — значок слева от настроек, на ПК — «Помощник» слева от имени */

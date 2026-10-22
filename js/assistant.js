@@ -14,8 +14,8 @@ const AI_MAX = 2000, AI_LS = 'remapp_chat', AI_KEEP = 40, AI_HIST = 8;
 // Картинок в одном сообщении и новых записей с одной картинки (22 октября 2026; функция assistant проверяет так же — IMG_MAX, IMG_ITEMS)
 const AI_IMGS = 3, AI_IMG_ITEMS = 7;
 const AI_CUT = `С одной картинки беру не больше ${AI_IMG_ITEMS} записей — остальное пришлите отдельно (например, обрезанным скриншотом) или допишите сами.`;
-const AI_SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let aiPtt = null, aiClearAsk = 0, aiSeen = 0;   // aiPtt — идёт запись голосом; aiSeen — сколько сообщений уже показано (новые появляются с анимацией)
+const AI_REC = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);   // своя запись голоса — без системного звука (aiVoiceStart)
+let aiPtt = null, aiClearAsk = 0, aiSeen = 0, aiVt = null;   // aiVt — только что распознанный голос: { t, vt, secs } (aiSttSend)   // aiPtt — идёт запись голосом; aiSeen — сколько сообщений уже показано (новые появляются с анимацией)
 
 const AI_T = { edit:[IC.edit, 'Изменить'], done:[IC.check, 'Отметить'], delete:[IC.trash, 'Удалить'], uncheck:[IC.undo, 'Снять отметку'], check:[IC.check, 'Отметить'], task:[IC.tasks, 'Задача'], event:[IC.cal, 'Событие'], habit:[IC.habit, 'Привычка'], expense:[IC.wallet, 'Расход'], income:[IC.wallet, 'Доход'], saving:[IC.wallet, 'Накопление'], goal:[IC.goal, 'Цель'], note:[IC.note, 'Заметка'] };
 const aiRep = r => !r ? '' : r.type === 'daily' ? 'каждый день' : r.type === 'weekdays' ? 'по будням' : r.type === 'monthly' ? 'каждый месяц' : r.type === 'yearly' ? 'каждый год'
@@ -172,7 +172,7 @@ function aiAskHTML(m, i) {
 const aiTxt = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
 function aiMsg(m, i) {
   if (m.r === 'u') { const th = (Array.isArray(m.imgs) ? m.imgs : [m.img]).filter(aiThumbOk).slice(0, AI_IMGS);   // imgs — с 22 октября 2026, раньше одна img
-    return `<div class="ai-m u${i >= aiSeen ? ' new' : ''}"><div class="ai-mb">${th.length ? `<div class="ai-uimgs n${th.length}">${th.map((s, k) => `<img class="ai-uimg" src="${s}" alt="Картинка${th.length > 1 ? ' ' + (k + 1) : ''}">`).join('')}</div>` : ''}${m.t ? aiTxt(m.t) : ''}</div></div>`; }
+    return `<div class="ai-m u${i >= aiSeen ? ' new' : ''}"><div class="ai-mb">${th.length ? `<div class="ai-uimgs n${th.length}">${th.map((s, k) => `<img class="ai-uimg" src="${s}" alt="Картинка${th.length > 1 ? ' ' + (k + 1) : ''}">`).join('')}</div>` : ''}${m.v ? `<span class="ai-uv" title="Сказано голосом">${I(IC.mic, 13)}</span>` : ''}${m.t ? aiTxt(m.t) : ''}</div></div>`; }
   const it = m.items || [], on = it.filter(x => x.on).length, added = m.added != null, okN = it.filter(x => x.st === 'ok').length;
   const list = m.auto && it.length ? `<div class="ai-list">${it.map((x, j) => aiRow(x, i + ':' + j, 'auto')).join('')}</div>
     ${okN > 1 ? `<button class="ai-undoall" data-act="aiundoall" data-i="${i}">${I(IC.undo, 14)} Отменить всё</button>` : ''}${aiAskHTML(m, i)}` : it.length ? `<div class="ai-list">${(added ? it.filter(x => x.on) : it).map((x, j) => aiRow(x, i + ':' + j, added ? 'done' : 'pick')).join('')}</div>
@@ -193,17 +193,19 @@ function aiLogHTML() {
     <p>Расскажите о планах и тратах — разложу по разделам. Спросите о делах, деньгах и целях или пришлите скриншот расписания.</p>
     <div class="ai-cards">${AI_CARDS.map(([ic, n, q]) => `<button class="ai-card" data-act="aiex" data-t="${esc(q)}">${I(ic, 18)}<b>${n}</b><small>${esc(q)}</small></button>`).join('')}</div></div>`; }
   ai.msgs.forEach((m, i) => { if (m.day && m.day !== day) { day = m.day; const d = relDay(day); out += `<div class="ai-day">${d[0].toUpperCase() + d.slice(1)}</div>`; } out += aiMsg(m, i); });
+  if (ai.stt) out += `<div class="ai-m u"><div class="ai-mb ai-vmsg">${I(IC.mic, 15)}<span class="ai-shim" role="status">Распознаю…</span><small>${aiDur(ai.stt.secs)}</small></div></div>`;   // голосовое ещё распознаётся
   if (ai.busy) out += `<div class="ai-m a think new"><span class="ai-orb xs" aria-hidden="true"></span><div class="ai-mb"><span class="ai-shim" role="status">Думаю…</span></div></div>`;
   if (ai.err) { const [msg, code] = ai.err.split('\n');   // понятный текст крупно, служебный код (aiErr) — мелкой строкой для отзыва
     out += `<div class="ai-err"><span>${esc(msg)}${code ? `<small class="ai-errc">Код для отзыва: ${esc(code)}</small>` : ''}</span><button class="btn" data-act="airetry">${I(IC.rep, 15)} Повторить</button></div>`; }
   aiSeen = ai.msgs.length;   // при следующих перерисовках уже показанное не анимируется
   return out;
 }
-const aiStateText = () => aiPtt ? 'Слушаю…' : ai && ai.busy ? 'Думаю…' : 'На связи';
+const aiStateText = () => aiPtt ? 'Слушаю…' : ai && ai.stt ? 'Распознаю…' : ai && ai.busy ? 'Думаю…' : 'На связи';
+const aiDur = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 // Полоски «волны» голосовой записи: у каждой своя высота и сдвиг — волна живая, а не одинаковая
 const AI_WAVE = Array.from({ length: 32 }, (_, i) => `<i style="--d:${((i * 37) % 100) / 100};--h:${(0.35 + ((i * 53) % 60) / 100).toFixed(2)}"></i>`).join('');
 const aiVoiceHTML = () => `<div class="ai-voice" id="ai_voice" hidden>
-  <div class="ai-vrow"><span class="ai-vdot" aria-hidden="true"></span><span class="ai-vtime" id="ai_vtime">0:00</span><p class="ai-vt" id="ai_vt" aria-live="polite">Говорите…</p></div>
+  <div class="ai-vrow"><span class="ai-vdot" aria-hidden="true"></span><span class="ai-vtime" id="ai_vtime">0:00</span><p class="ai-vt" id="ai_vt" aria-live="polite">Включаю микрофон…</p></div>
   <div class="ai-wave" aria-hidden="true">${AI_WAVE}</div>
   <div class="ai-vfoot"><span class="ai-vh" id="ai_vh"></span><span class="ai-vbtns"><button class="ai-ib" data-act="aivcancel" aria-label="Отменить запись" title="Отменить">${I(IC.x, 18)}</button><button class="ai-ib ai-send" data-act="aivsend" aria-label="Отправить сказанное" title="Отправить">${I(IC.send, 18)}</button></span></div>
 </div>`;
@@ -223,16 +225,16 @@ function aiDraw() {
       <div class="ai-in" id="ai_in">
         <button class="ai-ib" data-act="aiimg" title="Прикрепить картинки (до ${AI_IMGS}) — например, скриншоты расписания" aria-label="Прикрепить картинки">${I(IC.img, 20)}</button><input type="file" id="ai_file" accept="image/*" multiple hidden>
         <textarea id="ai_text" rows="1" maxlength="${AI_MAX}" placeholder="Спросите или запишите…" aria-label="Сообщение помощнику">${esc(ai.draft)}</textarea>
-        ${AI_SR ? `<button class="ai-ib ai-mic" id="ai_mic" aria-label="Сказать голосом: удерживайте и говорите" title="Удерживайте и говорите — отпустите, чтобы отправить">${I(IC.mic, 20)}</button>` : ''}
+        ${AI_REC ? `<button class="ai-ib ai-mic" id="ai_mic" aria-label="Сказать голосом: удерживайте и говорите" title="Удерживайте и говорите — отпустите, чтобы отправить">${I(IC.mic, 20)}</button>` : ''}
         <button class="ai-ib ai-send" id="ai_send" data-act="aigo" title="Отправить" aria-label="Отправить"${ai.busy ? ' disabled' : ''}>${I(IC.send, 18)}</button>
       </div>
-      ${AI_SR ? aiVoiceHTML() : ''}
+      ${AI_REC ? aiVoiceHTML() : ''}
       <p class="ai-note">Помощник Parsimony · нейросеть в России${hintK('aiData')}<span id="ai_left">${ai.left != null ? ' · осталось сегодня: ' + ai.left : ''}</span></p>
     </div></div>`);
   aiGrow(); aiMode(); aiScroll(); aiTypeRun();
 }
 // Поле пустое — справа микрофон, есть текст или картинка — «отправить» (как в DeepSeek); без распознавания речи — всегда «отправить»
-const aiMode = () => { const ta = $('#ai_text'), inn = $('#ai_in'); if (inn) inn.classList.toggle('has', !AI_SR || !!(ta && ta.value.trim()) || !!(ai && ai.imgs.length)); };
+const aiMode = () => { const ta = $('#ai_text'), inn = $('#ai_in'); if (inn) inn.classList.toggle('has', !AI_REC || !!(ta && ta.value.trim()) || !!(ai && ai.imgs.length)); };
 // Ответ печатается, как в чатах с нейросетью: не дольше ~1,2 с; «уменьшить движение» — сразу целиком. Записи и кнопки — после текста
 function aiTypeRun() {
   const el = $('#ai_log .ai-tw'); if (!el || !ai) return;
@@ -275,41 +277,74 @@ function aiVV() {
 if (window.visualViewport) { visualViewport.addEventListener('resize', aiVV); visualViewport.addEventListener('scroll', aiVV); }
 { const ov = $('#ov'), sh = $('#sh'); if (ov && sh && window.MutationObserver) { const mo = new MutationObserver(aiVV); mo.observe(ov, { attributes: true, attributeFilter: ['class'] }); mo.observe(sh, { childList: true }); } }
 
-// ---- Голосовой ввод: удерживать и говорить (просьба пользователя 22 октября 2026: «сделать голосовой ввод похожим хотя бы на то что у дип сика
-// (красивым и сразу отправляющимся)»). Зажали микрофон — запись с «волной» и текстом, который распознаётся; отпустили — сообщение сразу уходит;
-// смахнули вверх — отмена. Короткое нажатие (или Enter / пробел с клавиатуры) — запись до паузы 2,5 с, кнопки «отменить» и «отправить».
-// Распознаёт браузер (Web Speech API); где не умеет — микрофона нет, остаётся микрофон клавиатуры.
-// iPhone может не дать начать запись по нажатию (только по отпусканию пальца) — тогда она начнётся при отпускании и уйдёт после паузы (aiLate)
-const AI_HOLD = 350, AI_UP = 70, AI_QUIET = 2500;
-let aiLate = null;
+// ---- Голосовой ввод: удерживать и говорить (22 октября 2026: «сделать голосовой ввод похожим хотя бы на то что у дип сика (красивым и сразу
+// отправляющимся)»). С 23 октября 2026 — своя запись без звука («можно ли сделать так чтобы звука при записи не было … если нельзя пусть лучше
+// звука не будет»; выбор пользователя «Своя запись, без звука»): распознавание браузера (Web Speech) включало системный звук, а выключить его или
+// узнать про беззвучный режим сайт не может. Теперь приложение само пишет голос (getUserMedia + MediaRecorder — без звука), «волна» идёт по
+// громкости голоса (AnalyserNode, в динамик ничего не выводится), текст распознаёт нейросеть на сервере (aiSttSend → функция assistant, mode 'stt'),
+// и сообщение сразу уходит. Зажали микрофон — запись; отпустили — отправка; смахнули вверх — отмена. Короткое нажатие (или Enter / пробел) —
+// запись до паузы 2,5 с, кнопки «отменить» и «отправить». Не дольше минуты. Без записи в браузере — микрофона нет, остаётся микрофон клавиатуры
+const AI_HOLD = 350, AI_UP = 70, AI_QUIET = 2500, AI_WAIT = 6000, AI_VMAX = 60000, AI_VMIN = 600, AI_LOUD = 0.02;
+// Формат записи: Chrome и Android — webm, iPhone — mp4 (нейросеть понимает оба)
+const aiRecType = () => ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/webm'].find(t => { try { return MediaRecorder.isTypeSupported(t); } catch (e) { return false; } }) || '';
 function aiVoiceStart(pid, y, tap) {
-  if (!AI_SR || !ai || aiPtt || !$('#ai_voice')) return false;
-  const r = new AI_SR(), v = aiPtt = { r, pid, y0: y, t0: Date.now(), said: '', tmp: '', cancel: false, tap: !!tap, up: false, quiet: 0, tick: 0, talk: 0 };
-  r.lang = 'ru-RU'; r.interimResults = true; r.continuous = true;
-  r.onresult = ev => { v.tmp = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) { const t = ev.results[i][0].transcript; if (ev.results[i].isFinal) v.said += t + ' '; else v.tmp += t; }
-    v.talk = Date.now(); if (v.tap) aiVoiceArm(); aiVoiceUI(); };
-  r.onerror = ev => { if (ev.error === 'aborted' || ev.error === 'no-speech') return; v.cancel = true;
-    const deny = ev.error === 'not-allowed' || ev.error === 'service-not-allowed';
-    if (deny && !v.tap && !v.up && v.pid >= 0) { aiLate = v.pid; return; }   // начнём заново при отпускании пальца
-    toast(deny ? 'Нет доступа к микрофону — разрешите его в настройках браузера или нажмите микрофон на клавиатуре' : 'Голос не распознался — попробуйте ещё раз или напишите'); };
-  r.onend = () => aiVoiceEnd(v);
-  try { r.start(); } catch (e) { aiPtt = null; if (!tap && pid >= 0) { aiLate = pid; return false; } toast('Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре'); return false; }
+  if (!AI_REC || !ai || aiPtt || !$('#ai_voice')) return false;
+  const v = aiPtt = { pid, y0: y, t0: Date.now(), t1: 0, cancel: false, tap: !!tap, up: false, late: false, quiet: 0, tick: 0, talk: 0, spoke: 0, live: false, lvl: [], chunks: [], rec: null, stream: null, ac: null, raf: 0 };
   if (navigator.vibrate) navigator.vibrate(12);
-  v.tick = setInterval(aiVoiceUI, 200); if (v.tap) aiVoiceArm(); aiVoiceUI();
+  v.tick = setInterval(() => { if (v.rec && Date.now() - v.t1 > AI_VMAX) aiVoiceStop(false); aiVoiceUI(); }, 200);   // не дольше минуты — потом уходит само
+  aiVoiceUI();
+  navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }).then(stream => {
+    v.stream = stream;
+    if (v.done) { aiVoiceFree(v); if (v.late) toast('Микрофон включён — зажмите его и говорите'); return; }   // отпустили, пока телефон включал микрофон или спрашивал разрешение
+    const type = aiRecType(); let rec;
+    try { rec = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 48000 } : undefined); } catch (e) { rec = new MediaRecorder(stream); }
+    v.rec = rec; v.t1 = Date.now();
+    rec.ondataavailable = e => { if (e.data && e.data.size) v.chunks.push(e.data); };
+    rec.onstop = () => aiVoiceEnd(v);
+    rec.start(250);
+    aiVoiceLevels(v); aiVoiceUI();
+  }, err => {
+    aiVoiceEnd(v, true);
+    toast(err && (err.name === 'NotAllowedError' || err.name === 'SecurityError') ? 'Нет доступа к микрофону — разрешите его в настройках браузера' : 'Микрофон сейчас недоступен — напишите сообщение');
+  });
   return true;
 }
-const aiVoiceArm = () => { const v = aiPtt; if (!v) return; clearTimeout(v.quiet); v.quiet = setTimeout(() => aiVoiceStop(false), AI_QUIET); };
-// Остановить: cancel — без отправки; иначе браузер досылает последний распознанный кусок, и в onend сообщение уходит (aiVoiceEnd)
-function aiVoiceStop(cancel) { const v = aiPtt; if (!v) return; if (cancel) v.cancel = true; try { cancel ? v.r.abort() : v.r.stop(); } catch (e) { aiVoiceEnd(v); } }
+// Режим «до паузы»: тишина AI_QUIET после слов (или AI_WAIT, пока не начали говорить) — запись уходит. Только когда громкость видна (live)
+const aiVoiceArm = ms => { const v = aiPtt; if (!v || !v.tap || !v.live) return; clearTimeout(v.quiet); v.quiet = setTimeout(() => aiVoiceStop(false), ms || AI_QUIET); };
+// Остановить: cancel — без отправки; иначе запись дописывается, и в onstop она уходит на распознавание (aiVoiceEnd)
+function aiVoiceStop(cancel) { const v = aiPtt; if (!v) return; if (cancel) v.cancel = true;
+  if (!v.rec || v.rec.state === 'inactive') return aiVoiceEnd(v, !v.rec);   // микрофон ещё включается — записывать нечего
+  try { v.rec.stop(); } catch (e) { aiVoiceEnd(v); } }
 const aiVoiceAbort = () => aiVoiceStop(true);
-function aiVoiceEnd(v) {
-  if (v.done) return; v.done = true; clearInterval(v.tick); clearTimeout(v.quiet);
+const aiVoiceFree = v => { if (v.stream) v.stream.getTracks().forEach(t => t.stop()); v.stream = null;   // микрофон выключается сразу после записи
+  if (v.ac) { try { const p = v.ac.close(); if (p && p.catch) p.catch(() => {}); } catch (e) {} v.ac = null; } };
+function aiVoiceEnd(v, empty) {
+  if (v.done) return; v.done = true; clearInterval(v.tick); clearTimeout(v.quiet); cancelAnimationFrame(v.raf);
   if (aiPtt === v) aiPtt = null;
-  aiVoiceUI();
-  const said = (v.said + v.tmp).trim(), ta = $('#ai_text');
-  if (v.cancel || !said || !ai || !ta) return;
-  ta.value = (ta.value.trim() + ' ' + said).trim().slice(0, AI_MAX); ai.draft = ta.value; aiGrow(); aiMode();
-  aiSendWhenFree();   // помощник ещё отвечает — уйдёт, как только ответит
+  aiVoiceFree(v); aiVoiceUI();
+  if (empty || v.cancel || !ai || !v.chunks.length) return;
+  const ms = Date.now() - v.t1;
+  if (ms < AI_VMIN) return toast('Слишком коротко — зажмите микрофон и говорите');
+  aiSttSend(new Blob(v.chunks, { type: String(v.rec.mimeType || v.chunks[0].type || 'audio/webm').split(';')[0] }), Math.max(1, Math.round(ms / 1000)));
+}
+// Громкость голоса → «волна»: свежее справа, старое уезжает влево. Пока громкость не видна (браузер не дал её измерить) — прежняя анимация
+function aiVoiceLevels(v) {
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+  let an; try { v.ac = new AC(); an = v.ac.createAnalyser(); an.fftSize = 1024; v.ac.createMediaStreamSource(v.stream).connect(an); } catch (e) { return; }
+  if (v.ac.state === 'suspended' && v.ac.resume) v.ac.resume().catch(() => {});
+  const buf = new Float32Array(an.fftSize), bars = [...document.querySelectorAll('#ai_voice .ai-wave i')]; let last = 0;
+  const tick = t => {
+    if (v.done || !v.ac) return; v.raf = requestAnimationFrame(tick);
+    if (t - last < 50 || v.ac.state !== 'running') return; last = t;
+    if (!v.live) { v.live = true; aiVoiceArm(v.spoke ? AI_QUIET : AI_WAIT); aiVoiceUI(); }
+    an.getFloatTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+    const rms = Math.sqrt(s / buf.length);
+    if (rms > AI_LOUD) { v.spoke = v.spoke || Date.now(); v.talk = Date.now(); aiVoiceArm(AI_QUIET); }
+    v.lvl.push(Math.min(1, 0.1 + rms * 8)); if (v.lvl.length > bars.length) v.lvl.shift();
+    const off = bars.length - v.lvl.length;
+    bars.forEach((b, i) => b.style.setProperty('--l', i < off ? '0.1' : v.lvl[i - off].toFixed(2)));
+  };
+  v.raf = requestAnimationFrame(tick);
 }
 function aiVoiceUI() {
   const box = $('#ai_voice'), inn = $('#ai_in'), v = aiPtt; if (!box) return;
@@ -317,13 +352,12 @@ function aiVoiceUI() {
   const ch = $('.ai-chat'); if (ch) ch.classList.toggle('rec', !!v);   // пока идёт запись, текст в чате не выделяется
   const st = $('#ai_state'); if (st && ai) st.textContent = aiStateText();
   if (!v) return;
-  const sec = Math.floor((Date.now() - v.t0) / 1000), txt = (v.said + v.tmp).trim();
-  box.classList.toggle('talk', Date.now() - v.talk < 700); box.classList.toggle('cancel', v.cancel && !v.tap); box.classList.toggle('tap', v.tap);
-  $('#ai_vtime').textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
-  $('#ai_vt').textContent = txt ? (txt.length > 140 ? '…' + txt.slice(-140) : txt) : 'Говорите…';
-  $('#ai_vh').textContent = v.tap ? 'Пауза — и сообщение уйдёт само' : v.cancel ? 'Отпустите — запись отменится' : 'Отпустите — отправить · вверх — отмена';
+  box.classList.toggle('live', v.live); box.classList.toggle('talk', Date.now() - v.talk < 700); box.classList.toggle('cancel', v.cancel && !v.tap); box.classList.toggle('tap', v.tap);
+  $('#ai_vtime').textContent = aiDur(v.t1 ? Math.floor((Date.now() - v.t1) / 1000) : 0);
+  $('#ai_vt').textContent = !v.rec ? 'Включаю микрофон…' : v.cancel && !v.tap ? 'Запись отменится' : 'Говорите — я слушаю';
+  $('#ai_vh').textContent = v.tap ? (v.live ? 'Пауза — и сообщение уйдёт само' : 'Договорите и нажмите «отправить»') : v.cancel ? 'Отпустите — запись отменится' : 'Отпустите — отправить · вверх — отмена';
 }
-document.addEventListener('pointerdown', e => { const m = e.target.closest && e.target.closest('#ai_mic'); if (!m || e.button > 0) return; e.preventDefault(); try { getSelection().removeAllRanges(); } catch (x) {} aiLate = null; aiVoiceStart(e.pointerId, e.clientY, false); });
+document.addEventListener('pointerdown', e => { const m = e.target.closest && e.target.closest('#ai_mic'); if (!m || e.button > 0) return; e.preventDefault(); try { getSelection().removeAllRanges(); } catch (x) {} aiVoiceStart(e.pointerId, e.clientY, false); });
 // iPhone: при удержании микрофона выделялся текст под пальцем (просьба пользователя 22 октября 2026: «когда зажимаю микрофон … он начинает
 // выделяться») — касание микрофона системе не отдаём (ни выделения, ни лупы); запись идёт на событиях pointer, им это не мешает.
 // Меню по долгому нажатию (Android, ПК) — тоже нет
@@ -331,21 +365,34 @@ document.addEventListener('touchstart', e => { if (e.target.closest && e.target.
 document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('#ai_mic, .ai-voice')) e.preventDefault(); });
 document.addEventListener('pointermove', e => { const v = aiPtt; if (!v || v.tap || e.pointerId !== v.pid) return; const c = v.y0 - e.clientY > AI_UP; if (c !== v.cancel) { v.cancel = c; aiVoiceUI(); } });
 const aiUp = e => {
-  if (aiLate === e.pointerId) {   // нажатием запись не пустили — начинаем по отпусканию: до паузы, потом отправка
-    aiLate = null; if (aiPtt) { const o = aiPtt; aiPtt = null; o.cancel = true; try { o.r.abort(); } catch (x) {} }
-    if (e.type === 'pointerup') aiVoiceStart(-1, 0, true);
-    return;
-  }
   const v = aiPtt; if (!v || v.tap || e.pointerId !== v.pid) return;
   v.up = true;
-  if (e.type === 'pointercancel' || v.cancel) return aiVoiceStop(true);
-  if (Date.now() - v.t0 < AI_HOLD && !(v.said + v.tmp).trim()) { v.tap = true; aiVoiceArm(); return aiVoiceUI(); }   // короткое нажатие — запись до паузы
+  if (e.type === 'pointercancel' || v.cancel) { if (!v.rec) v.late = true; return aiVoiceStop(true); }   // pointercancel — например, телефон спросил разрешение на микрофон
+  if (Date.now() - v.t0 < AI_HOLD) { v.tap = true; aiVoiceArm(v.spoke ? AI_QUIET : AI_WAIT); return aiVoiceUI(); }   // короткое нажатие — запись до паузы (шум вокруг этому не мешает)
+  if (!v.rec) v.late = true;   // держали, пока микрофон включался, — записать ничего не успели
   aiVoiceStop(false);
 };
 document.addEventListener('pointerup', aiUp); document.addEventListener('pointercancel', aiUp);
 document.addEventListener('keydown', e => { if (e.target.id === 'ai_mic' && (e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); aiVoiceStart(-1, 0, true); } });
 ACT.aivcancel = () => aiVoiceStop(true);
 ACT.aivsend = () => aiVoiceStop(false);
+// Голос → текст: запись уходит на сервер (mode 'stt'), пока ждём — в ленте «голосовое» с «Распознаю…»; текст уходит обычным сообщением
+// (aiVt — подпись сервера: такое сообщение второй раз в дневной лимит не считается). Напечатанное в поле до записи — впереди сказанного
+async function aiSttSend(blob, secs) {
+  if (!ai) return;
+  if (blob.size > 3e6) return toast('Запись слишком длинная — скажите короче');
+  ai.stt = { secs }; ai.err = ''; ai.errV = null; aiRefresh(); aiScroll();
+  const audio = await new Promise(res => { const r = new FileReader(); r.onload = () => res(String(r.result || '')); r.onerror = () => res(''); r.readAsDataURL(blob); });
+  const j = audio ? await aiCall({ mode: 'stt', text: '', audio }) : { err: 'Не получилось прочитать запись — попробуйте ещё раз.' };
+  ai.stt = null;
+  if (j.err) { ai.err = j.err; ai.errV = { blob, secs }; return aiRefresh(); }
+  const said = String(j.text || '').trim().slice(0, AI_MAX);
+  if (!said) { aiRefresh(); return toast('Не расслышал — попробуйте ещё раз или напишите'); }
+  const ta = $('#ai_text'), typed = (ta ? ta.value : ai.draft || '').trim(), text = typed ? (typed + ' ' + said).slice(0, AI_MAX) : said;
+  aiVt = typed ? null : { t: said, vt: String(j.vt || ''), secs };
+  ai.draft = text; if (ta) { ta.value = text; aiGrow(); aiMode(); }
+  aiRefresh(); aiSendWhenFree();   // помощник ещё отвечает — уйдёт, как только ответит
+}
 
 // ---- Сервер ----
 // Понятная причина ошибки; в скобках — служебный код, по нему видно, где сбой (ответ сервера · что случилось · код нейросети · какая нейросеть)
@@ -360,6 +407,8 @@ function aiErr(st, j) {
   if (e === 'parse') return 'Нейросеть ответила непонятно — попробуйте ещё раз или напишите проще.' + tag;
   if (e === 'image') return 'Не получилось отправить картинку — попробуйте другую (JPG или PNG).' + tag;
   if (e === 'noimage') return 'Картинки пока не разбираю — опишите словами.' + tag;
+  if (e === 'audio') return 'Не получилось отправить запись — попробуйте ещё раз.' + tag;
+  if (e === 'noaudio') return 'Голос пока не распознаю — напишите сообщение.' + tag;
   return 'Ошибка на сервере помощника — попробуйте позже.' + tag;
 }
 async function aiCall(body) {
@@ -387,11 +436,12 @@ async function aiSend(text) {
   const prev = [...ai.msgs].reverse().find(m => m.r === 'a'), prevAct = !!(prev && prev.auto && (prev.items || []).some(x => AI_ACT.includes(x.type) && x.st === 'ok'));
   const edit = AI_EDIT.test(text) || (prevAct && text.length < 80 && /^\s*(?:нет|не\s|лучше|точнее|давай|а\s)/i.test(text));
   const ask = !edit && !imgs.length && (aiAsks(text) || !!(prev && prev.ask && !prev.hi && text.length < 60 && /^\s*(?:а|и|ещё|еще)(?=[\s,])/i.test(text)));
+  const vt = aiVt && aiVt.t === text ? aiVt : null; aiVt = null;   // текст — только что распознанный голос: такой запрос второй раз не считается
   const history = aiHist(), R = aiRefs();
-  ai.msgs.push({ r:'u', t:text, day: todayK(), ...(imgs.length ? { imgs: imgs.map(x => x.thumb) } : {}) }); ai.draft = ''; ai.err = ''; ai.errT = null; ai.busy = true; ai.imgs = []; aiClearAsk = 0; aiStore();
+  ai.msgs.push({ r:'u', t:text, day: todayK(), ...(imgs.length ? { imgs: imgs.map(x => x.thumb) } : {}), ...(vt ? { v: vt.secs } : {}) }); ai.draft = ''; ai.err = ''; ai.errT = null; ai.errV = null; ai.busy = true; ai.imgs = []; aiClearAsk = 0; aiStore();
   if (ta && text === ta.value.trim()) { ta.value = ''; aiGrow(); }
   aiRefresh();
-  const j = await aiCall({ mode:'chat', text: text || (imgs.length > 1 ? 'Разбери картинки и добавь в приложение, что на них' : 'Разбери картинку и добавь в приложение, что на ней'), ask, edit, history, ctx: aiCtx(ask || edit, R, edit ? text : ''),
+  const j = await aiCall({ mode:'chat', text: text || (imgs.length > 1 ? 'Разбери картинки и добавь в приложение, что на них' : 'Разбери картинку и добавь в приложение, что на ней'), ask, edit, history, ctx: aiCtx(ask || edit, R, edit ? text : ''), ...(vt ? { vt: vt.vt } : {}),
     // картинки — списком images; одна — ещё и в image: так её поймёт и прежняя версия функции assistant
     ...(imgs.length ? { images: imgs.map(x => x.data), ...(imgs.length === 1 ? { image: imgs[0].data } : {}) } : {}) });
   ai.busy = false;
@@ -420,7 +470,8 @@ function aiSendWhenFree(n = 0) {
 }
 ACT.aigo = () => aiSend();
 ACT.aiex = el => aiSend(el.dataset.t);
-ACT.airetry = () => { if (ai && ai.errT != null) { const t = ai.errT; ai.errT = null; ai.err = ''; return aiSend(t); }
+ACT.airetry = () => { if (ai && ai.errV) { const x = ai.errV; ai.errV = null; ai.err = ''; return aiSttSend(x.blob, x.secs); }   // голосовое не распозналось — ещё раз
+  if (ai && ai.errT != null) { const t = ai.errT; ai.errT = null; ai.err = ''; return aiSend(t); }
   const m = ai && ai.msgs[ai.msgs.length - 1]; if (!m || m.r !== 'u') return; ai.msgs.pop(); ai.err = ''; aiSend(m.t); };
 ACT.aiclear = () => {
   if (!ai) return;
