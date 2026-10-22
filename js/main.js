@@ -2,7 +2,6 @@
 // Иконки в статичной шапке
 $$('[data-act=prev]').forEach(b => b.innerHTML = I(IC.left, 20));
 $$('[data-act=next]').forEach(b => b.innerHTML = I(IC.right, 20));
-$('[data-act=settings]').innerHTML = I(IC.gear, 19);
 $('.hdr-ai').innerHTML = I(IC.spark, 19) + '<span>Помощник</span>';   // чат помощника (js/assistant.js); подпись — только на ПК
 $('.hdr-sr').innerHTML = I(IC.search, 19);   // поиск по всему — в шапке телефона на всех страницах (на ПК — в боковой панели)
 $('.btn-new').innerHTML = I(IC.plus, 17) + 'Создать';
