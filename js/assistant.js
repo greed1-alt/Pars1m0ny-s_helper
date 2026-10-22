@@ -12,7 +12,7 @@
 let ai = null;   // { msgs:[{ r:'u'|'a', t, day, imgs, items, added, nav, ask, hi }], hello, draft, busy, err, left, imgs }
 const AI_MAX = 2000, AI_LS = 'remapp_chat', AI_KEEP = 40, AI_HIST = 8;
 // Картинок в одном сообщении и новых записей с одной картинки (22 октября 2026; функция assistant проверяет так же — IMG_MAX, IMG_ITEMS)
-const AI_IMGS = 3, AI_IMG_ITEMS = 7;
+const AI_IMGS = 3, AI_IMG_ITEMS = 5;
 const AI_CUT = `С одной картинки беру не больше ${AI_IMG_ITEMS} записей — остальное пришлите отдельно (например, обрезанным скриншотом) или допишите сами.`;
 const AI_REC = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);   // своя запись голоса — без системного звука (aiVoiceStart)
 let aiPtt = null, aiClearAsk = 0, aiSeen = 0, aiVt = null;   // aiVt — только что распознанный голос: { t, vt, secs } (aiSttSend)   // aiPtt — идёт запись голосом; aiSeen — сколько сообщений уже показано (новые появляются с анимацией)

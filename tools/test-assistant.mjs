@@ -37,7 +37,7 @@ const ok = (c, msg, x) => { if (!c) { console.log('FAIL', msg, x === undefined ?
   // картинки: одна, несколько в одном запросе, по одной (part)
   ok(m.userMessage('x', {}, { image: true }).includes('К сообщению приложено изображение.') && !m.userMessage('x', {}, {}).includes('изображ'), 'one image note');
   ok(m.userMessage('x', {}, { images: 3 }).includes('«Картинка 1 из 3»') && m.userMessage('x', {}, { part: [1, 2] }).includes('Это — первое') && m.userMessage('x', {}, { part: [2, 2] }).includes('только то, что на этом изображении'), 'many images note');
-  ok(m.SYSTEM.includes('не больше 7 записей') && m.SYSTEM.includes('"img"'), 'image limits in prompt');
+  ok(m.SYSTEM.includes('не больше 5 записей') && m.SYSTEM.includes('"img"'), 'image limits in prompt');
   console.log('SYSTEM:', m.SYSTEM.length, 'знаков · HELLO:', m.HELLO.length);
 }
 // 2) запасная модель и повтор при «занято» (429)
@@ -65,19 +65,19 @@ x = await run('GigaChat-2', { 'GigaChat-2': 402 }); ok(x.r.code === 402 && x.cal
 {
   const mod = `const Deno = { env: { get: k => ({ AI_PROVIDER: 'gigachat' })[k] } };\n${cut('const env =', 'const sb =')}${cut('// ---- Проверка', '// ---- Нейросеть:')}\nexport { cleanItem, gateItems };`;
   const p = join(TMP, 'edit.mjs'); writeFileSync(p, mod.replace('export { cleanItem, gateItems };', 'export { cleanItem, gateItems, capImg, CUT_NOTE };')); const { cleanItem, gateItems, capImg, CUT_NOTE } = await import(pathToFileURL(p).href);
-  // С одной картинки — до 7 новых записей; изменения не считаются; одно и то же с разных картинок — один раз
+  // С одной картинки — до 5 новых записей; изменения не считаются; одно и то же с разных картинок — один раз
   const ev = (title, img) => ({ type: 'event', title, date: '2026-10-20', time: null, img });
   let c = capImg(Array.from({ length: 10 }, (_, k) => ev('Урок ' + k, 1)), 1);
-  ok(c.items.length === 7 && c.cut === 3 && c.items.every(x => !('img' in x)), 'one image → 7', c);
-  c = capImg([...Array.from({ length: 5 }, (_, k) => ev('A' + k, 1)), ...Array.from({ length: 9 }, (_, k) => ev('B' + k, 2))], 2);
-  ok(c.items.length === 12 && c.cut === 2, 'per image cap', c.cut);
-  c = capImg(Array.from({ length: 20 }, (_, k) => ev('C' + k)), 2); ok(c.items.length === 14 && c.cut === 6, 'untagged: 7 × images');
+  ok(c.items.length === 5 && c.cut === 5 && c.items.every(x => !('img' in x)), 'one image → 5', c);
+  c = capImg([...Array.from({ length: 3 }, (_, k) => ev('A' + k, 1)), ...Array.from({ length: 9 }, (_, k) => ev('B' + k, 2))], 2);
+  ok(c.items.length === 8 && c.cut === 4, 'per image cap', c.cut);
+  c = capImg(Array.from({ length: 20 }, (_, k) => ev('C' + k)), 2); ok(c.items.length === 10 && c.cut === 10, 'untagged: 5 × images');
   c = capImg([...Array.from({ length: 9 }, (_, k) => ev('D' + k, 1)), { type: 'edit', ref: 'e1', time: '10:00' }, { type: 'delete', ref: 'e2' }], 1);
-  ok(c.items.length === 9 && c.items.filter(x => x.type === 'event').length === 7, 'edits not counted');
+  ok(c.items.length === 7 && c.items.filter(x => x.type === 'event').length === 5, 'edits not counted');
   c = capImg([ev('Физика', 1), ev('физика', 2), ev('Химия', 2), { type: 'expense', amount: 350, date: null, img: 1 }, { type: 'expense', amount: 350, date: null, img: 1 }], 2);
   ok(c.items.length === 4 && c.cut === 0 && c.items.filter(x => x.type === 'expense').length === 2, 'same thing on two images once, same receipt line twice ok', c.items);
   c = capImg(Array.from({ length: 12 }, (_, k) => ev('E' + k, 1)), 0); ok(c.items.length === 12 && c.cut === 0 && c.items.every(x => !('img' in x)), 'no images — no cap');
-  ok(CUT_NOTE.includes('не больше 7 записей'), 'cut note');
+  ok(CUT_NOTE.includes('не больше 5 записей'), 'cut note');
   const e = cleanItem({ type: 'edit', ref: 'e3', time: '11:00', date: '2026-10-20', only_date: 'плохо', title: ' Стоматолог ', remind: [60, 'x'], all_day: 'да', junk: 1 });
   ok(JSON.stringify(e) === JSON.stringify({ type: 'edit', ref: 'e3', title: 'Стоматолог', date: '2026-10-20', time: '11:00', remind: [60] }), 'edit event', e);
   ok(cleanItem({ type: 'edit', ref: 'e3' }) === null && cleanItem({ type: 'edit', ref: 'x9', time: '10:00' }) === null && cleanItem({ type: 'edit', ref: 'e3; drop', time: '10:00' }) === null, 'edit needs ref and a change');
