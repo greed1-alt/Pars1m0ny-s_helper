@@ -314,6 +314,7 @@ function aiVoiceEnd(v) {
 function aiVoiceUI() {
   const box = $('#ai_voice'), inn = $('#ai_in'), v = aiPtt; if (!box) return;
   box.hidden = !v; if (inn) inn.classList.toggle('rec', !!v);
+  const ch = $('.ai-chat'); if (ch) ch.classList.toggle('rec', !!v);   // пока идёт запись, текст в чате не выделяется
   const st = $('#ai_state'); if (st && ai) st.textContent = aiStateText();
   if (!v) return;
   const sec = Math.floor((Date.now() - v.t0) / 1000), txt = (v.said + v.tmp).trim();
@@ -322,7 +323,12 @@ function aiVoiceUI() {
   $('#ai_vt').textContent = txt ? (txt.length > 140 ? '…' + txt.slice(-140) : txt) : 'Говорите…';
   $('#ai_vh').textContent = v.tap ? 'Пауза — и сообщение уйдёт само' : v.cancel ? 'Отпустите — запись отменится' : 'Отпустите — отправить · вверх — отмена';
 }
-document.addEventListener('pointerdown', e => { const m = e.target.closest && e.target.closest('#ai_mic'); if (!m || e.button > 0) return; e.preventDefault(); aiLate = null; aiVoiceStart(e.pointerId, e.clientY, false); });
+document.addEventListener('pointerdown', e => { const m = e.target.closest && e.target.closest('#ai_mic'); if (!m || e.button > 0) return; e.preventDefault(); try { getSelection().removeAllRanges(); } catch (x) {} aiLate = null; aiVoiceStart(e.pointerId, e.clientY, false); });
+// iPhone: при удержании микрофона выделялся текст под пальцем (просьба пользователя 22 октября 2026: «когда зажимаю микрофон … он начинает
+// выделяться») — касание микрофона системе не отдаём (ни выделения, ни лупы); запись идёт на событиях pointer, им это не мешает.
+// Меню по долгому нажатию (Android, ПК) — тоже нет
+document.addEventListener('touchstart', e => { if (e.target.closest && e.target.closest('#ai_mic')) e.preventDefault(); }, { passive: false });
+document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('#ai_mic, .ai-voice')) e.preventDefault(); });
 document.addEventListener('pointermove', e => { const v = aiPtt; if (!v || v.tap || e.pointerId !== v.pid) return; const c = v.y0 - e.clientY > AI_UP; if (c !== v.cancel) { v.cancel = c; aiVoiceUI(); } });
 const aiUp = e => {
   if (aiLate === e.pointerId) {   // нажатием запись не пустили — начинаем по отпусканию: до паузы, потом отправка
