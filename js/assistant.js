@@ -12,7 +12,7 @@
 let ai = null;   // { msgs:[{ r:'u'|'a', t, day, items, added, nav, ask, hi }], hello, draft, busy, err, left }
 const AI_MAX = 2000, AI_LS = 'remapp_chat', AI_KEEP = 40, AI_HIST = 8;
 const AI_SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let aiRec = null, aiClearAsk = 0;
+let aiPtt = null, aiClearAsk = 0, aiSeen = 0;   // aiPtt — идёт запись голосом; aiSeen — сколько сообщений уже показано (новые появляются с анимацией)
 
 const AI_T = { edit:[IC.edit, 'Изменить'], done:[IC.check, 'Отметить'], delete:[IC.trash, 'Удалить'], uncheck:[IC.undo, 'Снять отметку'], check:[IC.check, 'Отметить'], task:[IC.tasks, 'Задача'], event:[IC.cal, 'Событие'], habit:[IC.habit, 'Привычка'], expense:[IC.wallet, 'Расход'], income:[IC.wallet, 'Доход'], saving:[IC.wallet, 'Накопление'], goal:[IC.goal, 'Цель'], note:[IC.note, 'Заметка'] };
 const aiRep = r => !r ? '' : r.type === 'daily' ? 'каждый день' : r.type === 'weekdays' ? 'по будням' : r.type === 'monthly' ? 'каждый месяц' : r.type === 'yearly' ? 'каждый год'
@@ -114,10 +114,11 @@ ACT.ainav = el => { const n = AI_NAV[el.dataset.to]; if (!n) return; closeSheet(
 
 // ---- Окно ----
 function openAI(text) {
-  if (aiRec) aiRec.stop();
+  aiVoiceAbort();
   if (!ai) { const st = aiLoad(); ai = { msgs: st.msgs, hello: st.hello || '', draft: '', busy: false, err: '', left: null }; }
+  ai.msgs.forEach(m => { delete m.tw; });   // печатается только ответ, пришедший сейчас
   if (text) ai.draft = String(text).slice(0, AI_MAX);
-  ai.err = ''; aiClearAsk = 0;
+  ai.err = ''; aiClearAsk = 0; aiSeen = ai.msgs.length;
   aiDraw();
   if (text || matchMedia('(pointer:fine)').matches) setTimeout(() => { const t = $('#ai_text'); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30);
   if (!text) aiHello();
@@ -167,58 +168,93 @@ function aiAskHTML(m, i) {
 // Текст ответа: экранируется; **жирный** и переводы строк — как в чате
 const aiTxt = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
 function aiMsg(m, i) {
-  if (m.r === 'u') return `<div class="ai-m u"><div class="ai-mb">${aiThumbOk(m.img) ? `<img class="ai-uimg" src="${m.img}" alt="Картинка">` : ''}${m.t ? aiTxt(m.t) : ''}</div></div>`;
+  if (m.r === 'u') return `<div class="ai-m u${i >= aiSeen ? ' new' : ''}"><div class="ai-mb">${aiThumbOk(m.img) ? `<img class="ai-uimg" src="${m.img}" alt="Картинка">` : ''}${m.t ? aiTxt(m.t) : ''}</div></div>`;
   const it = m.items || [], on = it.filter(x => x.on).length, added = m.added != null, okN = it.filter(x => x.st === 'ok').length;
   const list = m.auto && it.length ? `<div class="ai-list">${it.map((x, j) => aiRow(x, i + ':' + j, 'auto')).join('')}</div>
     ${okN > 1 ? `<button class="ai-undoall" data-act="aiundoall" data-i="${i}">${I(IC.undo, 14)} Отменить всё</button>` : ''}${aiAskHTML(m, i)}` : it.length ? `<div class="ai-list">${(added ? it.filter(x => x.on) : it).map((x, j) => aiRow(x, i + ':' + j, added ? 'done' : 'pick')).join('')}</div>
     ${added ? `<p class="ai-ok">${I(IC.check, 14)} ${m.added ? 'Готово: ' + plural(m.added, ['запись', 'записи', 'записей']) : 'Ничего не изменилось — это уже было'}</p>`
       : `<button class="btn pri ai-add" data-act="aiapply" data-i="${i}"${on ? '' : ' disabled'}>${on ? (it.every(x => !x.on || x.type === 'check') ? 'Отметить' : `Добавить ${plural(on, ['запись', 'записи', 'записей'])}`) : 'Выберите, что добавить'}</button>`}` : '';
   const nav = (m.nav || []).filter(n => AI_NAV[n.to]).map(n => `<button class="ai-nav" data-act="ainav" data-to="${n.to}">${esc(n.label || AI_NAV[n.to][0])}${I(IC.right, 14)}</button>`).join('');
-  return `<div class="ai-m a"><span class="ai-av">${I(IC.spark, 14)}</span><div class="ai-mb">${m.t ? `<p>${aiTxt(m.t)}</p>` : ''}${list}${nav ? `<div class="ai-navs">${nav}</div>` : ''}</div></div>`;
+  // Ответ без «пузыря», со светящимся шаром; только что пришедший (tw) — печатается, записи и кнопки появляются после текста (aiTypeRun)
+  const more = list + (nav ? `<div class="ai-navs">${nav}</div>` : ''), tw = m.tw && m.t;
+  return `<div class="ai-m a${i >= aiSeen ? ' new' : ''}"><span class="ai-orb xs" aria-hidden="true"></span><div class="ai-mb">${m.t ? (tw ? `<p class="ai-tw" data-i="${i}"></p>` : `<p>${aiTxt(m.t)}</p>`) : ''}${more ? (tw ? `<div class="ai-later">${more}</div>` : more) : ''}</div></div>`;
 }
 const aiThumbOk = s => typeof s === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(s) && s.length < 80000;   // миниатюра — только своя JPEG
-const AI_EX = ['Что у меня завтра?', 'Сколько я потратил в этом месяце?', 'Как дела с моими целями?', 'Как поменять цвета приложения?', 'Завтра в 10 врач, кофе 350, каждый день пить воду'];
+// Пустой чат: приветствие, шар и подсказки карточками
+const AI_CARDS = [[IC.cal, 'План', 'Что у меня завтра?'], [IC.wallet, 'Деньги', 'Сколько я потратил в этом месяце?'], [IC.goal, 'Цели', 'Как дела с моими целями?'], [IC.spark, 'Записать', 'Завтра в 10 врач, кофе 350, каждый день пить воду']];
 function aiLogHTML() {
   let out = '', day = '';
-  if (!ai.msgs.length && !ai.busy) out = `<div class="ai-hi"><span class="ai-av big">${I(IC.spark, 20)}</span><b>Чем помочь?</b>
-    <p>Расскажите о планах и тратах — разложу по разделам. Могу перенести, отметить или удалить запись и разобрать скриншот расписания. Или спросите о делах, деньгах и целях.</p>
-    <div class="ai-ex">${AI_EX.map(x => `<button data-act="aiex" data-t="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>`;
+  if (!ai.msgs.length && !ai.busy) { const nm = (S.settings.name || '').trim();
+    out = `<div class="ai-hi"><span class="ai-orb lg" aria-hidden="true"></span><b>${greet()}${nm ? ', ' + esc(nm) : ''}!</b>
+    <p>Расскажите о планах и тратах — разложу по разделам. Спросите о делах, деньгах и целях или пришлите скриншот расписания.</p>
+    <div class="ai-cards">${AI_CARDS.map(([ic, n, q]) => `<button class="ai-card" data-act="aiex" data-t="${esc(q)}">${I(ic, 18)}<b>${n}</b><small>${esc(q)}</small></button>`).join('')}</div></div>`; }
   ai.msgs.forEach((m, i) => { if (m.day && m.day !== day) { day = m.day; const d = relDay(day); out += `<div class="ai-day">${d[0].toUpperCase() + d.slice(1)}</div>`; } out += aiMsg(m, i); });
-  if (ai.busy) out += `<div class="ai-m a"><span class="ai-av">${I(IC.spark, 14)}</span><div class="ai-mb ai-typing" aria-label="Помощник печатает"><i></i><i></i><i></i></div></div>`;
+  if (ai.busy) out += `<div class="ai-m a think new"><span class="ai-orb xs" aria-hidden="true"></span><div class="ai-mb"><span class="ai-shim" role="status">Думаю…</span></div></div>`;
   if (ai.err) { const [msg, code] = ai.err.split('\n');   // понятный текст крупно, служебный код (aiErr) — мелкой строкой для отзыва
     out += `<div class="ai-err"><span>${esc(msg)}${code ? `<small class="ai-errc">Код для отзыва: ${esc(code)}</small>` : ''}</span><button class="btn" data-act="airetry">${I(IC.rep, 15)} Повторить</button></div>`; }
+  aiSeen = ai.msgs.length;   // при следующих перерисовках уже показанное не анимируется
   return out;
 }
+const aiStateText = () => aiPtt ? 'Слушаю…' : ai && ai.busy ? 'Думаю…' : 'На связи';
+// Полоски «волны» голосовой записи: у каждой своя высота и сдвиг — волна живая, а не одинаковая
+const AI_WAVE = Array.from({ length: 32 }, (_, i) => `<i style="--d:${((i * 37) % 100) / 100};--h:${(0.35 + ((i * 53) % 60) / 100).toFixed(2)}"></i>`).join('');
+const aiVoiceHTML = () => `<div class="ai-voice" id="ai_voice" hidden>
+  <div class="ai-vrow"><span class="ai-vdot" aria-hidden="true"></span><span class="ai-vtime" id="ai_vtime">0:00</span><p class="ai-vt" id="ai_vt" aria-live="polite">Говорите…</p></div>
+  <div class="ai-wave" aria-hidden="true">${AI_WAVE}</div>
+  <div class="ai-vfoot"><span class="ai-vh" id="ai_vh"></span><span class="ai-vbtns"><button class="ai-ib" data-act="aivcancel" aria-label="Отменить запись" title="Отменить">${I(IC.x, 18)}</button><button class="ai-ib ai-send" data-act="aivsend" aria-label="Отправить сказанное" title="Отправить">${I(IC.send, 18)}</button></span></div>
+</div>`;
 function aiDraw() {
   if (!ai) return;
-  const head = `<div class="sh-head"><h3>${I(IC.spark, 18)} Помощник Parsimony <em class="beta">β</em></h3>`;
-  if (!signedIn()) return sheet(`${head}<button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  if (!signedIn()) return sheet(`<div class="sh-head"><h3>${I(IC.spark, 18)} Помощник Parsimony <em class="beta">β</em></h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
     <p class="set-note">Помощник работает через сервер, поэтому нужен вход в аккаунт.</p><button class="btn pri" style="width:100%" data-act="login">Войти по почте</button>`);
-  sheet(`<div class="ai-chat">${head}<button class="ai-clear" id="ai_clear" data-act="aiclear"${ai.msgs.length ? '' : ' hidden'} title="Очистить чат">${I(IC.trash, 16)}<span>Очистить?</span></button><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  // Чат (22 октября 2026, выбор пользователя «чистый и современный», на телефоне — на весь экран): шапка с шаром и состоянием,
+  // лента, снизу поле — пустое: справа микрофон (удерживать и говорить), есть текст или картинка: «отправить» (aiMode)
+  sheet(`<div class="ai-chat">
+    <div class="ai-top"><button class="ic ai-x" data-act="close" aria-label="Закрыть чат" title="Закрыть">${I(innerWidth < 900 ? IC.left : IC.x, 20)}</button>
+      <span class="ai-orb sm" aria-hidden="true"></span><span class="ai-tt"><h3>Помощник Parsimony <em class="beta">β</em></h3><small id="ai_state">${aiStateText()}</small></span>
+      <button class="ai-clear" id="ai_clear" data-act="aiclear"${ai.msgs.length ? '' : ' hidden'} title="Очистить чат" aria-label="Очистить чат">${I(IC.trash, 16)}<span>Очистить?</span></button></div>
     <div class="ai-log" id="ai_log" role="log" aria-live="polite" aria-label="Переписка с помощником">${aiLogHTML()}</div>
-    <div class="ai-att" id="ai_att">${aiAttHTML()}</div>
-    <div class="ai-in">
-      <button class="ai-ib" data-act="aiimg" title="Прикрепить картинку — например, скриншот расписания" aria-label="Прикрепить картинку">${I(IC.img, 18)}</button><input type="file" id="ai_file" accept="image/*" hidden>
-      <textarea id="ai_text" rows="1" maxlength="${AI_MAX}" placeholder="Напишите…" aria-label="Сообщение помощнику">${esc(ai.draft)}</textarea>
-      ${AI_SR ? `<button class="ai-ib ai-mic${aiRec ? ' rec' : ''}" id="ai_mic" data-act="aimic" aria-pressed="${!!aiRec}" title="${aiRec ? 'Остановить запись' : 'Сказать голосом'}" aria-label="Сказать голосом">${I(IC.mic, 18)}</button>` : ''}
-      <button class="ai-ib ai-send" id="ai_send" data-act="aigo" title="Отправить" aria-label="Отправить"${ai.busy ? ' disabled' : ''}>${I(IC.send, 18)}</button>
-    </div>
-    <p class="ai-note">Помощник Parsimony · нейросеть в России${hintK('aiData')}<span id="ai_left">${ai.left != null ? ' · осталось сегодня: ' + ai.left : ''}</span></p></div>`);
-  aiGrow(); aiScroll();
+    <div class="ai-dock">
+      <div class="ai-att" id="ai_att">${aiAttHTML()}</div>
+      <div class="ai-in" id="ai_in">
+        <button class="ai-ib" data-act="aiimg" title="Прикрепить картинку — например, скриншот расписания" aria-label="Прикрепить картинку">${I(IC.img, 20)}</button><input type="file" id="ai_file" accept="image/*" hidden>
+        <textarea id="ai_text" rows="1" maxlength="${AI_MAX}" placeholder="Спросите или запишите…" aria-label="Сообщение помощнику">${esc(ai.draft)}</textarea>
+        ${AI_SR ? `<button class="ai-ib ai-mic" id="ai_mic" aria-label="Сказать голосом: удерживайте и говорите" title="Удерживайте и говорите — отпустите, чтобы отправить">${I(IC.mic, 20)}</button>` : ''}
+        <button class="ai-ib ai-send" id="ai_send" data-act="aigo" title="Отправить" aria-label="Отправить"${ai.busy ? ' disabled' : ''}>${I(IC.send, 18)}</button>
+      </div>
+      ${AI_SR ? aiVoiceHTML() : ''}
+      <p class="ai-note">Помощник Parsimony · нейросеть в России${hintK('aiData')}<span id="ai_left">${ai.left != null ? ' · осталось сегодня: ' + ai.left : ''}</span></p>
+    </div></div>`);
+  aiGrow(); aiMode(); aiScroll(); aiTypeRun();
+}
+// Поле пустое — справа микрофон, есть текст или картинка — «отправить» (как в DeepSeek); без распознавания речи — всегда «отправить»
+const aiMode = () => { const ta = $('#ai_text'), inn = $('#ai_in'); if (inn) inn.classList.toggle('has', !AI_SR || !!(ta && ta.value.trim()) || !!(ai && ai.img)); };
+// Ответ печатается, как в чатах с нейросетью: не дольше ~1,2 с; «уменьшить движение» — сразу целиком. Записи и кнопки — после текста
+function aiTypeRun() {
+  const el = $('#ai_log .ai-tw'); if (!el || !ai) return;
+  const m = ai.msgs[+el.dataset.i]; if (!m) return;
+  delete m.tw; aiStore();
+  const full = String(m.t || ''), box = el.closest('.ai-mb');
+  const done = () => { if (!el.isConnected) return; el.innerHTML = aiTxt(full); el.classList.remove('ai-tw'); const l = box && box.querySelector('.ai-later'); if (l) l.classList.remove('ai-later'); aiScroll(); };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || full.length < 4) return done();
+  const step = Math.max(2, Math.ceil(full.length / 75)); let pos = 0;
+  const tick = () => { if (!el.isConnected) return; pos = Math.min(full.length, pos + step); el.textContent = full.slice(0, pos).replace(/\*\*/g, ''); if (pos < full.length) { aiScroll(); requestAnimationFrame(tick); } else done(); };
+  requestAnimationFrame(tick);
 }
 // Перерисовка только ленты и кнопок — поле ввода и клавиатура телефона не сбрасываются
 function aiRefresh() {
   const log = $('#ai_log'); if (!ai || !log) return;   // окно помощника закрыто или сменилось другим
   log.innerHTML = aiLogHTML(); aiScroll();
   const s = $('#ai_send'); if (s) s.disabled = ai.busy;
-  const m = $('#ai_mic'); if (m) { m.classList.toggle('rec', !!aiRec); m.setAttribute('aria-pressed', String(!!aiRec)); m.title = aiRec ? 'Остановить запись' : 'Сказать голосом'; }
+  const st = $('#ai_state'); if (st) st.textContent = aiStateText();
   const n = $('#ai_left'); if (n) n.textContent = ai.left != null ? ' · осталось сегодня: ' + ai.left : '';
   const at = $('#ai_att'); if (at) at.innerHTML = aiAttHTML();
   const c = $('#ai_clear'); if (c) { c.hidden = !ai.msgs.length; c.classList.toggle('ask', !!aiClearAsk); }
+  aiMode(); aiTypeRun();
 }
 const aiScroll = () => { const l = $('#ai_log'); if (l) l.scrollTop = l.scrollHeight; };
 const aiGrow = () => { const t = $('#ai_text'); if (!t) return; t.style.height = 'auto'; const h = t.scrollHeight; t.style.height = Math.min(h, 140) + 'px'; t.style.overflowY = h > 140 ? 'auto' : 'hidden'; };
-document.addEventListener('input', e => { if (e.target.id === 'ai_text' && ai) { ai.draft = e.target.value; aiGrow(); } });
+document.addEventListener('input', e => { if (e.target.id === 'ai_text' && ai) { ai.draft = e.target.value; aiGrow(); aiMode(); } });
 document.addEventListener('change', e => { const k = e.target.dataset && e.target.dataset.aion; if (k == null || !ai) return;
   const [i, j] = k.split(':').map(Number), m = ai.msgs[i]; if (!m || !m.items || !m.items[j] || m.added != null) return;
   m.items[j].on = e.target.checked; aiStore(); aiRefresh(); });
@@ -235,22 +271,71 @@ function aiVV() {
 if (window.visualViewport) { visualViewport.addEventListener('resize', aiVV); visualViewport.addEventListener('scroll', aiVV); }
 { const ov = $('#ov'), sh = $('#sh'); if (ov && sh && window.MutationObserver) { const mo = new MutationObserver(aiVV); mo.observe(ov, { attributes: true, attributeFilter: ['class'] }); mo.observe(sh, { childList: true }); } }
 
-// Голосовой ввод (Web Speech API): где браузер умеет — кнопка с микрофоном, иначе — микрофон клавиатуры
-ACT.aimic = () => {
-  if (!AI_SR || !ai) return;
-  if (aiRec) { aiRec.stop(); return; }
-  const ta = $('#ai_text'), r = new AI_SR(), base = ta && ta.value.trim() ? ta.value.trim() + ' ' : '';
-  let said = '', tmp = '', quiet = 0;
-  // 5 секунд тишины (ничего не распознано) — микрофон выключается сам (просьба пользователя 17 октября 2026)
-  const arm = () => { clearTimeout(quiet); quiet = setTimeout(() => { try { r.stop(); } catch (e) {} }, 5000); };
+// ---- Голосовой ввод: удерживать и говорить (просьба пользователя 22 октября 2026: «сделать голосовой ввод похожим хотя бы на то что у дип сика
+// (красивым и сразу отправляющимся)»). Зажали микрофон — запись с «волной» и текстом, который распознаётся; отпустили — сообщение сразу уходит;
+// смахнули вверх — отмена. Короткое нажатие (или Enter / пробел с клавиатуры) — запись до паузы 2,5 с, кнопки «отменить» и «отправить».
+// Распознаёт браузер (Web Speech API); где не умеет — микрофона нет, остаётся микрофон клавиатуры.
+// iPhone может не дать начать запись по нажатию (только по отпусканию пальца) — тогда она начнётся при отпускании и уйдёт после паузы (aiLate)
+const AI_HOLD = 350, AI_UP = 70, AI_QUIET = 2500;
+let aiLate = null;
+function aiVoiceStart(pid, y, tap) {
+  if (!AI_SR || !ai || aiPtt || !$('#ai_voice')) return false;
+  const r = new AI_SR(), v = aiPtt = { r, pid, y0: y, t0: Date.now(), said: '', tmp: '', cancel: false, tap: !!tap, up: false, quiet: 0, tick: 0, talk: 0 };
   r.lang = 'ru-RU'; r.interimResults = true; r.continuous = true;
-  r.onresult = ev => { arm(); tmp = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) { const t = ev.results[i][0].transcript; if (ev.results[i].isFinal) said += t + ' '; else tmp += t; }
-    ai.draft = (base + said + tmp).slice(0, AI_MAX); const t = $('#ai_text'); if (t) { t.value = ai.draft; aiGrow(); } };
-  r.onerror = ev => { if (ev.error !== 'aborted' && ev.error !== 'no-speech') toast(ev.error === 'not-allowed' || ev.error === 'service-not-allowed' ? 'Нет доступа к микрофону — разрешите его в настройках браузера или нажмите микрофон на клавиатуре' : 'Не получилось распознать речь — попробуйте ещё раз'); };
-  // Запись кончилась (тишина или нажали на микрофон) и что-то распознано — сразу отправить (просьба пользователя 17 октября 2026)
-  r.onend = () => { clearTimeout(quiet); aiRec = null; aiRefresh(); if ((said + tmp).trim()) aiSendWhenFree(); };
-  try { r.start(); aiRec = r; arm(); aiRefresh(); } catch (e) { aiRec = null; toast('Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре'); }
+  r.onresult = ev => { v.tmp = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) { const t = ev.results[i][0].transcript; if (ev.results[i].isFinal) v.said += t + ' '; else v.tmp += t; }
+    v.talk = Date.now(); if (v.tap) aiVoiceArm(); aiVoiceUI(); };
+  r.onerror = ev => { if (ev.error === 'aborted' || ev.error === 'no-speech') return; v.cancel = true;
+    const deny = ev.error === 'not-allowed' || ev.error === 'service-not-allowed';
+    if (deny && !v.tap && !v.up && v.pid >= 0) { aiLate = v.pid; return; }   // начнём заново при отпускании пальца
+    toast(deny ? 'Нет доступа к микрофону — разрешите его в настройках браузера или нажмите микрофон на клавиатуре' : 'Голос не распознался — попробуйте ещё раз или напишите'); };
+  r.onend = () => aiVoiceEnd(v);
+  try { r.start(); } catch (e) { aiPtt = null; if (!tap && pid >= 0) { aiLate = pid; return false; } toast('Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре'); return false; }
+  if (navigator.vibrate) navigator.vibrate(12);
+  v.tick = setInterval(aiVoiceUI, 200); if (v.tap) aiVoiceArm(); aiVoiceUI();
+  return true;
+}
+const aiVoiceArm = () => { const v = aiPtt; if (!v) return; clearTimeout(v.quiet); v.quiet = setTimeout(() => aiVoiceStop(false), AI_QUIET); };
+// Остановить: cancel — без отправки; иначе браузер досылает последний распознанный кусок, и в onend сообщение уходит (aiVoiceEnd)
+function aiVoiceStop(cancel) { const v = aiPtt; if (!v) return; if (cancel) v.cancel = true; try { cancel ? v.r.abort() : v.r.stop(); } catch (e) { aiVoiceEnd(v); } }
+const aiVoiceAbort = () => aiVoiceStop(true);
+function aiVoiceEnd(v) {
+  if (v.done) return; v.done = true; clearInterval(v.tick); clearTimeout(v.quiet);
+  if (aiPtt === v) aiPtt = null;
+  aiVoiceUI();
+  const said = (v.said + v.tmp).trim(), ta = $('#ai_text');
+  if (v.cancel || !said || !ai || !ta) return;
+  ta.value = (ta.value.trim() + ' ' + said).trim().slice(0, AI_MAX); ai.draft = ta.value; aiGrow(); aiMode();
+  aiSendWhenFree();   // помощник ещё отвечает — уйдёт, как только ответит
+}
+function aiVoiceUI() {
+  const box = $('#ai_voice'), inn = $('#ai_in'), v = aiPtt; if (!box) return;
+  box.hidden = !v; if (inn) inn.classList.toggle('rec', !!v);
+  const st = $('#ai_state'); if (st && ai) st.textContent = aiStateText();
+  if (!v) return;
+  const sec = Math.floor((Date.now() - v.t0) / 1000), txt = (v.said + v.tmp).trim();
+  box.classList.toggle('talk', Date.now() - v.talk < 700); box.classList.toggle('cancel', v.cancel && !v.tap); box.classList.toggle('tap', v.tap);
+  $('#ai_vtime').textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+  $('#ai_vt').textContent = txt ? (txt.length > 140 ? '…' + txt.slice(-140) : txt) : 'Говорите…';
+  $('#ai_vh').textContent = v.tap ? 'Пауза — и сообщение уйдёт само' : v.cancel ? 'Отпустите — запись отменится' : 'Отпустите — отправить · вверх — отмена';
+}
+document.addEventListener('pointerdown', e => { const m = e.target.closest && e.target.closest('#ai_mic'); if (!m || e.button > 0) return; e.preventDefault(); aiLate = null; aiVoiceStart(e.pointerId, e.clientY, false); });
+document.addEventListener('pointermove', e => { const v = aiPtt; if (!v || v.tap || e.pointerId !== v.pid) return; const c = v.y0 - e.clientY > AI_UP; if (c !== v.cancel) { v.cancel = c; aiVoiceUI(); } });
+const aiUp = e => {
+  if (aiLate === e.pointerId) {   // нажатием запись не пустили — начинаем по отпусканию: до паузы, потом отправка
+    aiLate = null; if (aiPtt) { const o = aiPtt; aiPtt = null; o.cancel = true; try { o.r.abort(); } catch (x) {} }
+    if (e.type === 'pointerup') aiVoiceStart(-1, 0, true);
+    return;
+  }
+  const v = aiPtt; if (!v || v.tap || e.pointerId !== v.pid) return;
+  v.up = true;
+  if (e.type === 'pointercancel' || v.cancel) return aiVoiceStop(true);
+  if (Date.now() - v.t0 < AI_HOLD && !(v.said + v.tmp).trim()) { v.tap = true; aiVoiceArm(); return aiVoiceUI(); }   // короткое нажатие — запись до паузы
+  aiVoiceStop(false);
 };
+document.addEventListener('pointerup', aiUp); document.addEventListener('pointercancel', aiUp);
+document.addEventListener('keydown', e => { if (e.target.id === 'ai_mic' && (e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); aiVoiceStart(-1, 0, true); } });
+ACT.aivcancel = () => aiVoiceStop(true);
+ACT.aivsend = () => aiVoiceStop(false);
 
 // ---- Сервер ----
 // Понятная причина ошибки; в скобках — служебный код, по нему видно, где сбой (ответ сервера · что случилось · код нейросети · какая нейросеть)
@@ -280,7 +365,7 @@ async function aiSend(text) {
   if (!ai) return;
   if (ai.busy) { if (text == null) aiSendWhenFree(); return; }   // Enter, пока помощник отвечает (например, на приветствие), — уйдёт, когда ответит
   // Запись голосом ещё идёт — выключить и отцепить: иначе её последний кусок после остановки отправил бы то же сообщение второй раз
-  if (aiRec) { const r = aiRec; aiRec = null; r.onresult = r.onend = null; try { r.stop(); } catch (e) {} }
+  if (aiPtt) aiVoiceAbort();   // запись голосом ещё идёт (например, нажали Enter) — без второй отправки того же
   const ta = $('#ai_text'); text = String(text != null ? text : ta ? ta.value : ai.draft).trim().slice(0, AI_MAX);
   const img = ai.img || null;
   if (!text && !img) { if (ta) ta.focus(); return; }
@@ -306,7 +391,7 @@ async function aiSend(text) {
     // Удаление и больше трёх изменений за раз — не сразу, а по кнопке под сообщением (aiPeek только описывает, что будет)
     const askAll = items.filter(x => AI_ACT.includes(x.type)).length > 3;
     items.forEach(x => x.type === 'delete' || (askAll && AI_ACT.includes(x.type)) ? aiPeek(x, refs) : aiDo(x, refs));
-    ai.msgs.push({ r:'a', t: String(j.reply || (items.length ? '' : 'Не понял, что сделать. Напишите подробнее.')), day: todayK(), ...(items.length ? { items, auto: 1 } : {}), ...(Object.keys(refs).length ? { refs } : {}), ...(nav.length ? { nav } : {}), ...(ask ? { ask: 1 } : {}) });
+    ai.msgs.push({ r:'a', t: String(j.reply || (items.length ? '' : 'Не понял, что сделать. Напишите подробнее.')), day: todayK(), tw: 1, ...(items.length ? { items, auto: 1 } : {}), ...(Object.keys(refs).length ? { refs } : {}), ...(nav.length ? { nav } : {}), ...(ask ? { ask: 1 } : {}) });
     if (items.length) { save(); render(); }
     const done = items.filter(x => x.st === 'ok').length, asks = items.filter(x => x.st === 'ask').length;   // окно чата закрыли до ответа — сказать, что сделано
     if ((done || asks) && !(sheetOpen() && $('#ai_log'))) toast(asks ? 'Помощник ждёт подтверждения в чате' : 'Помощник: ' + plural(done, ['изменение', 'изменения', 'изменений']) + ' — отменить можно в чате'); }
@@ -334,7 +419,7 @@ async function aiHello() {
   ai.hello = todayK(); ai.busy = true; aiStore(); aiRefresh();
   const j = await aiCall({ mode:'hello', text:'привет', ctx: aiCtx(true) });
   ai.busy = false;
-  if (!j.err && j.reply) ai.msgs.push({ r:'a', t: String(j.reply), day: todayK(), hi: 1, ask: 1 });   // ошибку приветствия не показываем
+  if (!j.err && j.reply) ai.msgs.push({ r:'a', t: String(j.reply), day: todayK(), hi: 1, ask: 1, tw: 1 });   // ошибку приветствия не показываем
   aiStore(); aiRefresh();
 }
 

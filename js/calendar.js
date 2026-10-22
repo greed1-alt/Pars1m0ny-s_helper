@@ -410,7 +410,7 @@ const sheet = (h, keep) => { tinvHide(); if (!keep) shDirty = false; shAskHide()
  sh.innerHTML = '<span class="grab" aria-hidden="true"></span>' + h; $('#ov').classList.remove('ov-light'); $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; shHistOpen();
  a11ySheet(was, fk); };   // js/a11y.js: заголовок для диктора, фон «заморожен», фокус внутрь окна
 // fromBack — окно закрыто кнопкой «Назад»: шаг в истории уже сделан
-const closeSheet = fromBack => { shAskHide(); $('#ov').classList.remove('show', 'ov-light'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; shHistClose(fromBack === true); a11yClose(); };
+const closeSheet = fromBack => { aiVoiceAbort(); shAskHide(); $('#ov').classList.remove('show', 'ov-light'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; shHistClose(fromBack === true); a11yClose(); };
 // «Назад» закрывает открытое окно (18 октября 2026: на Android «Назад» выходил из приложения, пока окно было открыто).
 // Открылось окно — в истории шаг вперёд (один на все окна подряд); закрыли крестиком или «Сохранить» — сами делаем шаг назад
 // и пропускаем его popstate (shBack). Пока этот шаг не дошёл, новое окно добавляет свой шаг — его закроет следующее «Назад».
@@ -426,7 +426,7 @@ addEventListener('popstate', () => {
 { const sh = $('#sh'); let d = null;
   sh.addEventListener('touchstart', e => {
     d = null; if (innerWidth >= 900 || e.touches.length !== 1 || sh.scrollTop > 0) return;
-    if (e.target.closest('input, textarea, select, [contenteditable], .f-map, .ai-log, .leaflet-container')) return;
+    if (e.target.closest('input, textarea, select, [contenteditable], .f-map, .ai-chat, .leaflet-container')) return;
     d = { y: e.touches[0].clientY, x: e.touches[0].clientX, t: Date.now(), dy: 0, on: false };
   }, { passive: true });
   sh.addEventListener('touchmove', e => {
