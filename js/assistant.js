@@ -5,12 +5,15 @@
 // подтверждения (с 17 октября 2026, просьба пользователя), у каждой записи в ответе — «Отменить» / «Вернуть» (aiDo / aiUndo); отвечает на вопросы о делах, деньгах, целях и привычках, подсказывает,
 // где что в приложении (кнопки перехода — AI_NAV), подначивает и хвалит (приветствие раз в день — aiHello).
 // С 18 октября 2026 — ещё меняет уже созданное (перенести, переименовать, отметить сделанным, удалить; записи в сводке со ссылками
-// [e3] / [m2] — aiData, aiRefs) и разбирает картинки: скриншот расписания — повторяющиеся события, чек — траты (aiPickImg).
+// [e3] / [m2] — aiData, aiRefs) и разбирает картинки: скриншот расписания — повторяющиеся события, чек — траты (aiPickImgs, до 3 за раз).
 // Нейросети уходят текст сообщения, несколько последних реплик и названия календарей, категорий, привычек и целей;
 // когда человек спрашивает — ещё короткая сводка записей (aiData): без заметок, мест и самочувствия (решение пользователя).
 // История чата — только на этом устройстве (remapp_chat), при выходе из аккаунта стирается (cloud.js → wipeDevice) ----
-let ai = null;   // { msgs:[{ r:'u'|'a', t, day, items, added, nav, ask, hi }], hello, draft, busy, err, left }
+let ai = null;   // { msgs:[{ r:'u'|'a', t, day, imgs, items, added, nav, ask, hi }], hello, draft, busy, err, left, imgs }
 const AI_MAX = 2000, AI_LS = 'remapp_chat', AI_KEEP = 40, AI_HIST = 8;
+// Картинок в одном сообщении и новых записей с одной картинки (22 октября 2026; функция assistant проверяет так же — IMG_MAX, IMG_ITEMS)
+const AI_IMGS = 3, AI_IMG_ITEMS = 7;
+const AI_CUT = `С одной картинки беру не больше ${AI_IMG_ITEMS} записей — остальное пришлите отдельно (например, обрезанным скриншотом) или допишите сами.`;
 const AI_SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let aiPtt = null, aiClearAsk = 0, aiSeen = 0;   // aiPtt — идёт запись голосом; aiSeen — сколько сообщений уже показано (новые появляются с анимацией)
 
@@ -115,7 +118,7 @@ ACT.ainav = el => { const n = AI_NAV[el.dataset.to]; if (!n) return; closeSheet(
 // ---- Окно ----
 function openAI(text) {
   aiVoiceAbort();
-  if (!ai) { const st = aiLoad(); ai = { msgs: st.msgs, hello: st.hello || '', draft: '', busy: false, err: '', left: null }; }
+  if (!ai) { const st = aiLoad(); ai = { msgs: st.msgs, hello: st.hello || '', draft: '', busy: false, err: '', left: null, imgs: [] }; }
   ai.msgs.forEach(m => { delete m.tw; });   // печатается только ответ, пришедший сейчас
   if (text) ai.draft = String(text).slice(0, AI_MAX);
   ai.err = ''; aiClearAsk = 0; aiSeen = ai.msgs.length;
@@ -168,7 +171,8 @@ function aiAskHTML(m, i) {
 // Текст ответа: экранируется; **жирный** и переводы строк — как в чате
 const aiTxt = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
 function aiMsg(m, i) {
-  if (m.r === 'u') return `<div class="ai-m u${i >= aiSeen ? ' new' : ''}"><div class="ai-mb">${aiThumbOk(m.img) ? `<img class="ai-uimg" src="${m.img}" alt="Картинка">` : ''}${m.t ? aiTxt(m.t) : ''}</div></div>`;
+  if (m.r === 'u') { const th = (Array.isArray(m.imgs) ? m.imgs : [m.img]).filter(aiThumbOk).slice(0, AI_IMGS);   // imgs — с 22 октября 2026, раньше одна img
+    return `<div class="ai-m u${i >= aiSeen ? ' new' : ''}"><div class="ai-mb">${th.length ? `<div class="ai-uimgs n${th.length}">${th.map((s, k) => `<img class="ai-uimg" src="${s}" alt="Картинка${th.length > 1 ? ' ' + (k + 1) : ''}">`).join('')}</div>` : ''}${m.t ? aiTxt(m.t) : ''}</div></div>`; }
   const it = m.items || [], on = it.filter(x => x.on).length, added = m.added != null, okN = it.filter(x => x.st === 'ok').length;
   const list = m.auto && it.length ? `<div class="ai-list">${it.map((x, j) => aiRow(x, i + ':' + j, 'auto')).join('')}</div>
     ${okN > 1 ? `<button class="ai-undoall" data-act="aiundoall" data-i="${i}">${I(IC.undo, 14)} Отменить всё</button>` : ''}${aiAskHTML(m, i)}` : it.length ? `<div class="ai-list">${(added ? it.filter(x => x.on) : it).map((x, j) => aiRow(x, i + ':' + j, added ? 'done' : 'pick')).join('')}</div>
@@ -217,7 +221,7 @@ function aiDraw() {
     <div class="ai-dock">
       <div class="ai-att" id="ai_att">${aiAttHTML()}</div>
       <div class="ai-in" id="ai_in">
-        <button class="ai-ib" data-act="aiimg" title="Прикрепить картинку — например, скриншот расписания" aria-label="Прикрепить картинку">${I(IC.img, 20)}</button><input type="file" id="ai_file" accept="image/*" hidden>
+        <button class="ai-ib" data-act="aiimg" title="Прикрепить картинки (до ${AI_IMGS}) — например, скриншоты расписания" aria-label="Прикрепить картинки">${I(IC.img, 20)}</button><input type="file" id="ai_file" accept="image/*" multiple hidden>
         <textarea id="ai_text" rows="1" maxlength="${AI_MAX}" placeholder="Спросите или запишите…" aria-label="Сообщение помощнику">${esc(ai.draft)}</textarea>
         ${AI_SR ? `<button class="ai-ib ai-mic" id="ai_mic" aria-label="Сказать голосом: удерживайте и говорите" title="Удерживайте и говорите — отпустите, чтобы отправить">${I(IC.mic, 20)}</button>` : ''}
         <button class="ai-ib ai-send" id="ai_send" data-act="aigo" title="Отправить" aria-label="Отправить"${ai.busy ? ' disabled' : ''}>${I(IC.send, 18)}</button>
@@ -228,7 +232,7 @@ function aiDraw() {
   aiGrow(); aiMode(); aiScroll(); aiTypeRun();
 }
 // Поле пустое — справа микрофон, есть текст или картинка — «отправить» (как в DeepSeek); без распознавания речи — всегда «отправить»
-const aiMode = () => { const ta = $('#ai_text'), inn = $('#ai_in'); if (inn) inn.classList.toggle('has', !AI_SR || !!(ta && ta.value.trim()) || !!(ai && ai.img)); };
+const aiMode = () => { const ta = $('#ai_text'), inn = $('#ai_in'); if (inn) inn.classList.toggle('has', !AI_SR || !!(ta && ta.value.trim()) || !!(ai && ai.imgs.length)); };
 // Ответ печатается, как в чатах с нейросетью: не дольше ~1,2 с; «уменьшить движение» — сразу целиком. Записи и кнопки — после текста
 function aiTypeRun() {
   const el = $('#ai_log .ai-tw'); if (!el || !ai) return;
@@ -367,8 +371,8 @@ async function aiSend(text) {
   // Запись голосом ещё идёт — выключить и отцепить: иначе её последний кусок после остановки отправил бы то же сообщение второй раз
   if (aiPtt) aiVoiceAbort();   // запись голосом ещё идёт (например, нажали Enter) — без второй отправки того же
   const ta = $('#ai_text'); text = String(text != null ? text : ta ? ta.value : ai.draft).trim().slice(0, AI_MAX);
-  const img = ai.img || null;
-  if (!text && !img) { if (ta) ta.focus(); return; }
+  const imgs = ai.imgs.slice(0, AI_IMGS);
+  if (!text && !imgs.length) { if (ta) ta.focus(); return; }
   if (!navigator.onLine) { ai.err = 'Нет интернета — помощнику нужен сервер.'; ai.errT = text; return aiRefresh(); }   // сообщение не ушло — «Повторить» отправит его
   // Вопрос — со сводкой записей; короткое уточнение после ответа по сводке («а послезавтра», «и в пятницу») — тоже
   // Просят изменить уже созданное — сводка со ссылками на записи и основная модель; картинка — тоже основная модель
@@ -376,22 +380,26 @@ async function aiSend(text) {
   // Флаг edit уходит и на сервер: там такие записи без просьбы тоже отбрасываются (аудит 18 октября 2026)
   const prev = [...ai.msgs].reverse().find(m => m.r === 'a'), prevAct = !!(prev && prev.auto && (prev.items || []).some(x => AI_ACT.includes(x.type) && x.st === 'ok'));
   const edit = AI_EDIT.test(text) || (prevAct && text.length < 80 && /^\s*(?:нет|не\s|лучше|точнее|давай|а\s)/i.test(text));
-  const ask = !edit && !img && (aiAsks(text) || !!(prev && prev.ask && !prev.hi && text.length < 60 && /^\s*(?:а|и|ещё|еще)(?=[\s,])/i.test(text)));
+  const ask = !edit && !imgs.length && (aiAsks(text) || !!(prev && prev.ask && !prev.hi && text.length < 60 && /^\s*(?:а|и|ещё|еще)(?=[\s,])/i.test(text)));
   const history = aiHist(), R = aiRefs();
-  ai.msgs.push({ r:'u', t:text, day: todayK(), ...(img ? { img: img.thumb } : {}) }); ai.draft = ''; ai.err = ''; ai.errT = null; ai.busy = true; ai.img = null; aiClearAsk = 0; aiStore();
+  ai.msgs.push({ r:'u', t:text, day: todayK(), ...(imgs.length ? { imgs: imgs.map(x => x.thumb) } : {}) }); ai.draft = ''; ai.err = ''; ai.errT = null; ai.busy = true; ai.imgs = []; aiClearAsk = 0; aiStore();
   if (ta && text === ta.value.trim()) { ta.value = ''; aiGrow(); }
   aiRefresh();
-  const j = await aiCall({ mode:'chat', text: text || 'Разбери картинку и добавь в приложение, что на ней', ask, edit, history, ctx: aiCtx(ask || edit, R, edit ? text : ''), ...(img ? { image: img.data } : {}) });
+  const j = await aiCall({ mode:'chat', text: text || (imgs.length > 1 ? 'Разбери картинки и добавь в приложение, что на них' : 'Разбери картинку и добавь в приложение, что на ней'), ask, edit, history, ctx: aiCtx(ask || edit, R, edit ? text : ''),
+    // картинки — списком images; одна — ещё и в image: так её поймёт и прежняя версия функции assistant
+    ...(imgs.length ? { images: imgs.map(x => x.data), ...(imgs.length === 1 ? { image: imgs[0].data } : {}) } : {}) });
   ai.busy = false;
-  if (j.err) { ai.err = j.err; if (img) ai.img = img; }   // «Повторить» отправит картинку ещё раз
-  else { const items = Array.isArray(j.items) ? j.items.filter(x => x && AI_T[x.type] && (edit || !AI_ACT.includes(x.type))) : [], nav = Array.isArray(j.nav) ? j.nav.filter(n => n && AI_NAV[n.to]) : [];
+  if (j.err) { ai.err = j.err; if (imgs.length) ai.imgs = imgs; }   // «Повторить» отправит картинки ещё раз
+  else { let items = Array.isArray(j.items) ? j.items.filter(x => x && AI_T[x.type] && (edit || !AI_ACT.includes(x.type))) : [], nav = Array.isArray(j.nav) ? j.nav.filter(n => n && AI_NAV[n.to]) : [];
+    // С одной картинки — до AI_IMG_ITEMS новых записей: функция assistant режет так же, здесь — на случай её прежней версии
+    let cut = 0; if (imgs.length) { let k = 0; items = items.filter(x => { if (AI_ACT.includes(x.type) || ++k <= AI_IMG_ITEMS * imgs.length) return true; cut++; return false; }); }
     const refs = {}; items.forEach(x => { if (x.ref && R.map[x.ref]) refs[x.ref] = R.map[x.ref]; });
     // Записи — сразу, без подтверждения; «нет, в 11» (fix) — исправленные прошлые записи отменяются, новые встают вместо них
     if (items.length && j.fix) aiFixPrev(items);
     // Удаление и больше трёх изменений за раз — не сразу, а по кнопке под сообщением (aiPeek только описывает, что будет)
     const askAll = items.filter(x => AI_ACT.includes(x.type)).length > 3;
     items.forEach(x => x.type === 'delete' || (askAll && AI_ACT.includes(x.type)) ? aiPeek(x, refs) : aiDo(x, refs));
-    ai.msgs.push({ r:'a', t: String(j.reply || (items.length ? '' : 'Не понял, что сделать. Напишите подробнее.')), day: todayK(), tw: 1, ...(items.length ? { items, auto: 1 } : {}), ...(Object.keys(refs).length ? { refs } : {}), ...(nav.length ? { nav } : {}), ...(ask ? { ask: 1 } : {}) });
+    ai.msgs.push({ r:'a', t: String(j.reply || (items.length ? '' : 'Не понял, что сделать. Напишите подробнее.')) + (cut ? '\n' + AI_CUT : ''), day: todayK(), tw: 1, ...(items.length ? { items, auto: 1 } : {}), ...(Object.keys(refs).length ? { refs } : {}), ...(nav.length ? { nav } : {}), ...(ask ? { ask: 1 } : {}) });
     if (items.length) { save(); render(); }
     const done = items.filter(x => x.st === 'ok').length, asks = items.filter(x => x.st === 'ask').length;   // окно чата закрыли до ответа — сказать, что сделано
     if ((done || asks) && !(sheetOpen() && $('#ai_log'))) toast(asks ? 'Помощник ждёт подтверждения в чате' : 'Помощник: ' + plural(done, ['изменение', 'изменения', 'изменений']) + ' — отменить можно в чате'); }
@@ -591,30 +599,38 @@ ACT.aiundoall = el => { const m = ai && ai.msgs[+el.dataset.i]; if (!m || !m.ite
   [...m.items].reverse().forEach(x => { if (x.st !== 'ok') return; const u = aiUsed(x); if (u) used = used || u; else aiUndo(x); });
   save(); aiStore(); render(); aiRefresh(); if (used) toast(used); };   // с конца: последнее сделанное — первым
 
-// ---- Картинка к сообщению (18 октября 2026: «скинуть скрин расписания, а помощник заполнит календарь»). Уменьшается до 1600 px
-// по большей стороне (JPEG), в сообщение — миниатюра 240 px (она и хранится в истории чата на устройстве). На ПК можно вставить Ctrl+V ----
-const aiAttHTML = () => ai && ai.img ? `<div class="ai-attc"><img src="${ai.img.thumb}" alt="Прикреплённая картинка"><span>Картинка прикреплена — напишите, что с ней сделать, или просто отправьте</span><button class="ic" data-act="aiimgx" aria-label="Убрать картинку">${I(IC.x, 16)}</button></div>` : '';
+// ---- Картинки к сообщению (18 октября 2026: «скинуть скрин расписания, а помощник заполнит календарь»; с 22 октября 2026 — до AI_IMGS
+// за раз: «чтобы можно было отправлять несколько файлов(2-3 максимум, больше не надо)»). Каждая уменьшается до 1600 px по большей стороне
+// (JPEG), в сообщение — миниатюра 200 px (она и хранится в истории чата на устройстве). На ПК можно вставить Ctrl+V ----
+const aiAttHTML = () => { const n = ai ? ai.imgs.length : 0; if (!n) return '';
+  return `<div class="ai-attc">${ai.imgs.map((x, k) => `<span class="ai-attt"><img src="${x.thumb}" alt="Картинка ${k + 1}"><button class="ai-attx" data-act="aiimgx" data-i="${k}" aria-label="Убрать картинку ${k + 1}" title="Убрать">${I(IC.x, 12)}</button></span>`).join('')}
+    <span class="ai-atts">${n === 1 ? 'Картинка прикреплена' : 'Картинок: ' + n} — напишите, что сделать, или просто отправьте${n < AI_IMGS ? ` · можно ещё ${AI_IMGS - n}` : ''}</span></div>`; };
 const aiScale = (img, max, q) => { const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
   c.width = Math.max(1, Math.round(img.naturalWidth * s)); c.height = Math.max(1, Math.round(img.naturalHeight * s));
   const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', q); };
-async function aiPickImg(file) {
-  if (!ai || !file) return;
-  if (!/^image\//.test(file.type || '')) return toast('Это не картинка — нужен скриншот или фото');
-  if (file.size > 30 * 1048576) return toast('Картинка слишком большая — больше 30 МБ');
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    ai.img = { data: aiScale(img, 1600, 0.85), thumb: aiScale(img, 240, 0.7) };
-    if (ai.img.data.length > 5.5e6) { ai.img = null; return toast('Картинка слишком большая — сделайте скриншот поменьше'); }
-  } catch (e) { ai.img = null; toast('Не получилось открыть картинку — сохраните её как JPG или PNG'); }
-  finally { URL.revokeObjectURL(url); }
+async function aiPickImgs(files) {
+  if (!ai || !files.length) return;
+  const room = AI_IMGS - ai.imgs.length;
+  if (files.length > room) toast(`Можно до ${AI_IMGS} картинок в одном сообщении${room > 0 ? ' — лишние не добавлены' : ''}`);
+  for (const file of files.slice(0, Math.max(0, room))) {
+    if (!/^image\//.test(file.type || '')) { toast('Это не картинка — нужен скриншот или фото'); continue; }
+    if (file.size > 30 * 1048576) { toast('Картинка слишком большая — больше 30 МБ'); continue; }
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const x = { data: aiScale(img, 1600, 0.85), thumb: aiScale(img, 200, 0.7) };
+      if (x.data.length > 5.5e6) toast('Картинка слишком большая — сделайте скриншот поменьше');
+      else if (ai.imgs.length < AI_IMGS) ai.imgs.push(x);
+    } catch (e) { toast('Не получилось открыть картинку — сохраните её как JPG или PNG'); }
+    finally { URL.revokeObjectURL(url); }
+  }
   aiRefresh(); const ta = $('#ai_text'); if (ta) ta.focus();
 }
-ACT.aiimg = () => { const f = $('#ai_file'); if (f) { f.value = ''; f.click(); } };
-ACT.aiimgx = () => { if (ai) { ai.img = null; aiRefresh(); } };
-document.addEventListener('change', e => { if (e.target.id === 'ai_file' && e.target.files && e.target.files[0]) aiPickImg(e.target.files[0]); });
+ACT.aiimg = () => { if (ai && ai.imgs.length >= AI_IMGS) return toast(`Можно до ${AI_IMGS} картинок в одном сообщении`); const f = $('#ai_file'); if (f) { f.value = ''; f.click(); } };
+ACT.aiimgx = el => { if (ai) { ai.imgs.splice(+el.dataset.i || 0, 1); aiRefresh(); const ta = $('#ai_text'); if (ta) ta.focus(); } };
+document.addEventListener('change', e => { if (e.target.id === 'ai_file' && e.target.files && e.target.files.length) aiPickImgs([...e.target.files]); });
 document.addEventListener('paste', e => { if (e.target.id !== 'ai_text' || !ai) return;
-  const f = [...((e.clipboardData && e.clipboardData.files) || [])].find(x => /^image\//.test(x.type)); if (f) { e.preventDefault(); aiPickImg(f); } });
+  const f = [...((e.clipboardData && e.clipboardData.files) || [])].filter(x => /^image\//.test(x.type)); if (f.length) { e.preventDefault(); aiPickImgs(f); } });
 
 // ---- Старые сообщения (до 17 октября 2026): добавить отмеченное кнопкой. Одно «Отменить» на всё ----
 const aiEmoji = (e, name) => e && /\p{Extended_Pictographic}/u.test(e) && e.length <= 8 ? e : ((HB_GUESS.find(([re]) => re.test(name.toLowerCase())) || [0, '🎯'])[1]);
