@@ -150,7 +150,7 @@ function msgPickHTML() {
   for (let i = 0; i < 14; i++) {
     const k = addDays(t, i), L = evOn(k).filter(e => !e.done); if (!L.length) continue;
     const d = relDay(k);
-    out += `<div class="ai-day">${d[0].toUpperCase() + d.slice(1)}</div>` + L.map(e => `<button class="mc-pk" data-act="msgpicked" data-id="${esc(e.id)}" data-d="${k}"><span class="mc-pkt">${e.time ? e.time + (e.time2 ? '–' + e.time2 : '') : 'весь день'}</span><b>${esc(e.title)}</b>${e.task ? '<small>дело</small>' : ''}</button>`).join('');
+    out += `<div class="ai-day">${d[0].toUpperCase() + d.slice(1)}</div>` + L.map(e => `<button class="mc-pk" data-act="msgpicked" data-id="${esc(e.id)}" data-d="${k}"><span class="mc-pkt">${e.time ? esc(e.time + (e.time2 ? '–' + e.time2 : '')) : 'весь день'}</span><b>${esc(e.title)}</b>${e.task ? '<small>дело</small>' : ''}</button>`).join('');
   }
   return `<p class="mc-empty">Что отправить? Друг увидит карточку и сможет добавить её к себе в календарь.</p>${out || '<p class="mc-empty">На две недели вперёд ничего нет.</p>'}`;
 }
