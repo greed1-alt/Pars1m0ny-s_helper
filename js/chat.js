@@ -22,18 +22,24 @@ function msgEv(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const s = (x, n) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, n) : '';
   const title = s(v.title, 200); if (!title) return null;
-  return { title, date: isDate(v.date) ? v.date : '', time: MSG_TIME.test(v.time || '') ? v.time : '', time2: MSG_TIME.test(v.time2 || '') ? v.time2 : '', loc: s(v.loc, 120), task: v.task === true };
+  return { title, date: isDate(v.date) ? v.date : '', time: MSG_TIME.test(v.time || '') ? v.time : '', time2: MSG_TIME.test(v.time2 || '') ? v.time2 : '', loc: s(v.loc, 120), task: v.task === true,
+    cat: s(v.cat, 60), cc: /^#[0-9a-f]{6}$/i.test(v.cc || '') ? v.cc : '' };   // cat, cc — календарь отправителя (тег: «Работа», «Прогулка»…) и его цвет
 }
+// Тот же календарь у меня — по названию (у каждого свои календари, общее у них только название)
+const msgMyCat = e => { const n = (e && e.cat || '').trim().toLowerCase(); return n ? S.cats.find(c => String(c.name || '').trim().toLowerCase() === n) : null; };
+const msgCatHTML = e => { if (!e.cat) return ''; const c = msgMyCat(e); return `<i class="mc-cat" style="--c:${safeColor(c ? c.color : e.cc || '')}">${esc(e.cat)}</i>`; };
 const msgRe = v => { const o = {}; if (v && typeof v === 'object' && !Array.isArray(v)) Object.keys(v).forEach(k => { if (MSG_UID.test(k) && MSG_REACT.includes(v[k])) o[k] = v[k]; }); return o; };
 const msgRow = r => r && Number.isFinite(+r.id) ? { id: +r.id, mine: r.mine === true, body: typeof r.body === 'string' ? r.body.slice(0, MSG_MAX) : '', ev: msgEv(r.ev), re: msgRe(r.re), at: String(r.at || ''), read: !!r.read_at } : null;
 
 // ---- Кнопка в шапке и число новых ----
+let msgHdrN = 0;
 function msgHdr() {
   const b = $('.hdr-msg'); if (!b) return;
   const on = msgOn(); b.hidden = !on; if (!on) return;
-  const n = msgUnread;
+  const n = msgUnread, up = n > msgHdrN; msgHdrN = n;
   b.innerHTML = I(IC.chat, 19) + (n ? `<em class="msg-badge" aria-hidden="true">${n > 9 ? '9+' : n}</em>` : '');
   b.setAttribute('aria-label', n ? 'Сообщения, новых: ' + n : 'Сообщения');
+  if (up) { b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump'); setTimeout(() => b.classList.remove('bump'), 900); }   // новое — значок качнулся, число подпрыгнуло
 }
 // Переписки: последнее сообщение и сколько новых. Новое от друга, пока окно с ним не открыто, — тост с началом сообщения
 async function msgThreadsLoad() {
@@ -66,7 +72,7 @@ function openMsgs(peer) {
   if (peer && !msgFriends().some(f => f.uid === peer) && !fr.at) msgWant = peer;   // друзья ещё не загрузились — откроем, когда загрузятся
   if (!mc) mc = { peer: null, list: [], more: false, act: 0, del: 0, pick: false, err: '', draft: {}, sig: '' };
   mc.peer = peer && msgFriends().some(f => f.uid === peer) ? peer : null;
-  Object.assign(mc, { list: [], more: false, act: 0, del: 0, pick: false, err: '', sig: '', loading: !!mc.peer });
+  Object.assign(mc, { list: [], more: false, act: 0, del: 0, pick: false, err: '', sig: '', loading: !!mc.peer, seen: null, fx: new Map() });
   msgDraw();
   if (mc.peer) msgPull(true); else msgThreadsLoad();
   msgPoll();
@@ -88,7 +94,7 @@ function msgDraw() {
   sheet(`<div class="ai-chat mchat"><div class="ai-top">${top}</div>
     <div class="ai-log mc-log${f && !mc.pick ? ' conv' : ''}" id="mc_log" role="log" aria-live="polite" aria-label="${f ? 'Переписка' : 'Список переписок'}">${f ? (mc.pick ? msgPickHTML() : msgConvHTML(f)) : msgListHTML()}</div>
     ${dock}</div>`);
-  msgGrow();
+  msgGrow(); msgSeen();
   const l = $('#mc_log'); if (l && f && !mc.pick) l.scrollTop = l.scrollHeight;
   const ta = $('#mc_text'); if (ta && !matchMedia('(pointer: coarse)').matches) ta.focus();   // на телефоне клавиатура не выскакивает сама
 }
@@ -99,7 +105,10 @@ function msgLog(stick) {
   const bottom = stick || l.scrollHeight - l.scrollTop - l.clientHeight < 80;
   l.innerHTML = !f ? msgListHTML() : mc.pick ? msgPickHTML() : msgConvHTML(f);
   if (bottom && f && !mc.pick) l.scrollTop = l.scrollHeight;
+  msgSeen();
 }
+// Что уже показано: при следующей перерисовке анимируется только новое (первая загрузка — без анимации)
+const msgSeen = () => { if (mc && mc.peer && !mc.loading) mc.seen = new Set(mc.list.map(m => m.id)); };
 
 function msgListHTML() {
   const F = msgFriends(); if (!F.length) return `<p class="mc-empty">Добавьте друзей в профиле — и переписывайтесь здесь.</p>`;
@@ -112,13 +121,16 @@ function msgListHTML() {
 const msgEvWhen = e => [e.date ? fmtLong(e.date) : '', e.time ? e.time + (e.time2 ? '–' + e.time2 : '') : ''].filter(Boolean).join(' · ');
 function msgItem(m, readMark) {
   const me = auth && auth.uid, cnt = {}; Object.values(m.re).forEach(e => { cnt[e] = (cnt[e] || 0) + 1; });
-  const my = m.re[me] || '', open = mc.act === m.id && m.id > 0;
+  // Пришло только что — въезжает (у входящего ещё вспышка). Когда показали впервые — fx; перерисовали раньше, чем анимация кончилась, —
+  // новая продолжает с того же места (--ad — отрицательная задержка), а не обрывается и не начинается заново
+  let t0 = mc.fx.get(m.id); if (!t0 && mc.seen && !mc.seen.has(m.id)) { t0 = Date.now(); mc.fx.set(m.id, t0); }
+  const my = m.re[me] || '', open = mc.act === m.id && m.id > 0, age = t0 ? Date.now() - t0 : Infinity, fresh = age < 1600;
   const re = Object.keys(cnt).length ? `<span class="mc-re">${MSG_REACT.filter(e => cnt[e]).map(e => `<button class="mc-rb${my === e ? ' on' : ''}" data-act="msgreact" data-id="${m.id}" data-e="${e}" aria-label="Реакция ${e}${cnt[e] > 1 ? ', ' + cnt[e] : ''}" aria-pressed="${my === e}">${e}${cnt[e] > 1 ? `<small>${cnt[e]}</small>` : ''}</button>`).join('')}</span>` : '';
   // Событие — карточкой внутри сообщения; «В календарь» — под ним (кнопку нельзя класть внутрь нажимаемого сообщения)
-  const ev = m.ev ? `<span class="mc-ev"><span class="mc-evi" aria-hidden="true">${I(m.ev.task ? IC.check : IC.cal, 18)}</span><span class="mc-evt"><b>${esc(m.ev.title)}</b><small>${esc(msgEvWhen(m.ev) || 'без даты')}${m.ev.loc ? ' · ' + esc(m.ev.loc) : ''}</small></span></span>` : '';
+  const ev = m.ev ? `<span class="mc-ev"><span class="mc-evi" aria-hidden="true">${I(m.ev.task ? IC.check : IC.cal, 18)}</span><span class="mc-evt"><b>${esc(m.ev.title)}</b><small>${msgCatHTML(m.ev)}${esc(msgEvWhen(m.ev) || 'без даты')}${m.ev.loc ? ' · ' + esc(m.ev.loc) : ''}</small></span></span>` : '';
   const add = m.ev && !m.mine ? `<button class="btn sm pri mc-evadd" data-act="msgevadd" data-id="${m.id}">${I(IC.plus, 15)} В мой календарь</button>` : '';
   const acts = !open ? '' : `<div class="mc-acts" role="group" aria-label="Реакции и действия">${MSG_REACT.map(e => `<button class="mc-ra${my === e ? ' on' : ''}" data-act="msgreact" data-id="${m.id}" data-e="${e}" aria-label="Реакция ${e}" aria-pressed="${my === e}">${e}</button>`).join('')}${m.body ? `<button class="mc-ab" data-act="msgcopy" data-id="${m.id}">${I(IC.copy, 15)}<span>Копировать</span></button>` : ''}${m.mine ? `<button class="mc-ab dng" data-act="msgdel" data-id="${m.id}">${I(IC.trash, 15)}<span>${mc.del === m.id ? 'Удалить у обоих?' : 'Удалить'}</span></button>` : ''}</div>`;
-  return `<div class="mc-m ${m.mine ? 'me' : 'them'}${m.wait ? ' wait' : ''}">
+  return `<div class="mc-m ${m.mine ? 'me' : 'them'}${m.wait ? ' wait' : ''}${fresh ? ` new" style="--ad:-${age}ms` : ''}">
     <div class="mc-b${open ? ' on' : ''}" role="button" tabindex="0" data-act="msgact" data-id="${m.id}" aria-expanded="${open}" title="Реакции и действия">${m.body ? `<p>${esc(m.body)}</p>` : ''}${ev}<time>${m.wait ? 'отправляю…' : msgHM(m.at)}</time></div>
     ${add}${re}${acts}${readMark ? '<small class="mc-read">Прочитано</small>' : ''}</div>`;
 }
@@ -153,7 +165,8 @@ async function msgPull(first) {
   const fresh = (Array.isArray(rows) ? rows : []).map(msgRow).filter(Boolean).reverse();
   const min = fresh.length ? fresh[0].id : Infinity, older = first ? [] : mc.list.filter(m => m.id > 0 && m.id < min), wait = mc.list.filter(m => m.wait);
   const next = [...older, ...fresh, ...wait], sig = JSON.stringify(next);
-  if (first) { mc.loading = false; mc.err = ''; mc.more = fresh.length >= MSG_PAGE; }
+  if (first) { mc.loading = false; mc.err = ''; mc.more = fresh.length >= MSG_PAGE; mc.seen = null; }
+  else if (mc.seen && fresh.some(m => !m.mine && !mc.seen.has(m.id)) && navigator.vibrate) navigator.vibrate(12);   // пришло новое, пока окно открыто, — лёгкая отдача (Android)
   if (first || sig !== mc.sig) { mc.sig = sig; mc.list = next; msgLog(first); }
   if (fresh.some(m => !m.mine && !m.read) && !document.hidden) frRpc('msg_read', { p_peer: peer }).then(() => msgThreadsLoad(), () => {});   // открыли — прочитано
 }
@@ -174,7 +187,8 @@ async function msgSend(ev) {
   mc.list.push(tmp); mc.act = 0;
   if (!ev && ta) { ta.value = ''; mc.draft[peer] = ''; msgGrow(); }
   msgLog(true);
-  try { const r = await frRpc('msg_send', { p_to: peer, p_body: text, p_ev: ev || null }); tmp.id = +(r && r.id) || tmp.id; tmp.at = (r && r.at) || tmp.at; delete tmp.wait; }
+  try { const r = await frRpc('msg_send', { p_to: peer, p_body: text, p_ev: ev || null }), was = tmp.id; tmp.id = +(r && r.id) || tmp.id; tmp.at = (r && r.at) || tmp.at; delete tmp.wait;
+    if (mc && mc.seen) mc.seen.add(tmp.id); if (mc && mc.fx.has(was)) mc.fx.set(tmp.id, mc.fx.get(was)); }   // уже въезжает — продолжает, а не начинает заново
   catch (e) {
     if (mc) mc.list = mc.list.filter(m => m !== tmp);
     const t2 = $('#mc_text'); if (!ev && t2 && !t2.value) { t2.value = text; if (mc) mc.draft[peer] = text; msgGrow(); }
@@ -192,7 +206,9 @@ ACT.msgretry = () => { if (!mc) return; mc.err = ''; mc.loading = true; msgLog()
 ACT.msgpick = () => { if (!mc) return; mc.pick = true; msgDraw(); };
 ACT.msgpickx = () => { if (!mc) return; mc.pick = false; msgDraw(); };
 ACT.msgpicked = el => { const e = S.events.find(x => x.id === el.dataset.id); if (!e || !mc) return; mc.pick = false; msgDraw();
-  msgSend({ title: String(e.title || '').slice(0, 200), date: el.dataset.d, time: e.time || '', time2: e.time2 || '', loc: String(e.loc || '').slice(0, 120), task: !!e.task }); };
+  const c = S.cats.find(x => x.id === e.cat);
+  msgSend({ title: String(e.title || '').slice(0, 200), date: el.dataset.d, time: e.time || '', time2: e.time2 || '', loc: String(e.loc || '').slice(0, 120), task: !!e.task,
+    cat: c ? String(c.name || '').slice(0, 60) : '', cc: c && /^#[0-9a-f]{6}$/i.test(c.color || '') ? c.color : '' }); };
 // Нажатие на сообщение — реакции, «Копировать», «Удалить» (своё); ещё раз — спрятать
 ACT.msgact = el => { const id = +el.dataset.id; if (!mc || !(id > 0)) return; mc.act = mc.act === id ? 0 : id; mc.del = 0; msgLog(); };
 ACT.msgreact = async el => {
@@ -224,8 +240,11 @@ ACT.msgmore = async () => {
   } catch (e) { toast(msgErrText(e)); }
 };
 // Событие из сообщения — в свой календарь: открывается карточка события с заполненными полями (календарь и напоминание — на выбор)
-ACT.msgevadd = el => { const m = mc && mc.list.find(x => x.id === +el.dataset.id); if (!m || !m.ev) return; const e = m.ev;
-  closeSheet(); openEvent(null, { title: e.title, date: e.date || todayK(), time: e.time, time2: e.time2, loc: e.loc, task: e.task }); };
+// Окно события сменяет окно переписки, не закрывая его: закрыть и сразу открыть — два шага в истории браузера, «Сохранить» уводило с сайта
+// (жалоба пользователя 23 октября 2026). Календарь — мой с тем же названием («Работа», «Прогулка»); такого нет — подсказка, выбрать в карточке
+ACT.msgevadd = el => { const m = mc && mc.list.find(x => x.id === +el.dataset.id); if (!m || !m.ev) return; const e = m.ev, c = msgMyCat(e);
+  openEvent(null, { title: e.title, date: e.date || todayK(), time: e.time, time2: e.time2, loc: e.loc, task: e.task, cat: c ? c.id : undefined });
+  if (e.cat && !c) toast(`Календаря «${e.cat}» у вас нет — выберите свой в карточке`); };
 document.addEventListener('input', e => { if (e.target.id === 'mc_text' && mc && mc.peer) { mc.draft[mc.peer] = e.target.value; msgGrow(); } });
 // Enter — отправить (на ПК; Shift+Enter — новая строка). На телефоне Enter — новая строка, отправка — кнопкой
 document.addEventListener('keydown', e => { if (e.target.id === 'mc_text' && e.key === 'Enter' && !e.shiftKey && !e.isComposing && !matchMedia('(pointer: coarse)').matches) { e.preventDefault(); msgSend(); } });

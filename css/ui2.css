@@ -798,6 +798,18 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .mc-evt b{font-size:14.5px;font-weight:700;overflow-wrap:anywhere}
 .mc-evt small{font-size:12.5px;opacity:.8}
 .mc-evadd{margin-top:6px}
+.mc-cat{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:999px;font-style:normal;font-size:12px;font-weight:600;color:#fff;background:var(--c)}
+/* новое сообщение въезжает (своё — справа, друга — слева), у входящего — мягкая вспышка; значок в шапке качается, число подпрыгивает */
+.mc-m.new{animation:mcIn .34s cubic-bezier(.2,.8,.2,1) var(--ad,0s) both}
+.mc-m.me.new{transform-origin:right bottom}.mc-m.them.new{transform-origin:left bottom}
+.mc-m.them.new .mc-b{animation:mcGlow 1.4s ease-out calc(var(--ad,0s) + .1s)}
+@keyframes mcIn{from{opacity:0;transform:translateY(14px) scale(.9)}to{opacity:1;transform:none}}
+@keyframes mcGlow{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc) 55%,transparent)}100%{box-shadow:0 0 0 12px transparent}}
+.hdr-msg.bump svg{animation:mcBell .7s ease-in-out}
+.hdr-msg.bump .msg-badge{animation:mcPop .45s cubic-bezier(.2,.8,.2,1)}
+@keyframes mcBell{0%,100%{transform:rotate(0)}20%{transform:rotate(-14deg)}40%{transform:rotate(11deg)}60%{transform:rotate(-7deg)}80%{transform:rotate(4deg)}}
+@keyframes mcPop{0%{transform:scale(.4)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.mc-m.new,.mc-m.them.new .mc-b,.hdr-msg.bump svg,.hdr-msg.bump .msg-badge{animation:none}}
 .mc-re{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
 .mc-rb{display:inline-flex;align-items:center;gap:3px;height:28px;padding:0 8px;border-radius:999px;border:1px solid var(--line);background:var(--sf);font-size:14px;color:var(--tx)}
 .mc-rb small{font-size:12px;color:var(--tx2)}

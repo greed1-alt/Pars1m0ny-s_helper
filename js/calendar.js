@@ -416,11 +416,13 @@ const closeSheet = fromBack => { aiVoiceAbort(); shAskHide(); $('#ov').classList
 // «Назад» закрывает открытое окно (18 октября 2026: на Android «Назад» выходил из приложения, пока окно было открыто).
 // Открылось окно — в истории шаг вперёд (один на все окна подряд); закрыли крестиком или «Сохранить» — сами делаем шаг назад
 // и пропускаем его popstate (shBack). Пока этот шаг не дошёл, новое окно добавляет свой шаг — его закроет следующее «Назад».
-let shHist = false, shBack = false;
-function shHistOpen() { if (shHist) return; shHist = true; try { history.pushState({ psh: 1 }, ''); } catch (e) {} }
-function shHistClose(fromBack) { if (!shHist) return; shHist = false; if (!fromBack) { shBack = true; try { history.back(); } catch (e) { shBack = false; } } }
+// Закрыли окно и сразу открыли другое (переписка → «В мой календарь»): шаг назад ещё не дошёл, а шаг вперёд браузер терял —
+// и «Сохранить» уводило с сайта (жалоба пользователя 23 октября 2026). Теперь новое окно ждёт, пока дойдёт шаг назад (shPend), и шагает после
+let shHist = false, shBack = false, shPend = false;
+function shHistOpen() { if (shHist) return; shHist = true; if (shBack) { shPend = true; return; } try { history.pushState({ psh: 1 }, ''); } catch (e) {} }
+function shHistClose(fromBack) { if (!shHist) return; shHist = false; if (shPend) { shPend = false; return; } if (!fromBack) { shBack = true; try { history.back(); } catch (e) { shBack = false; } } }
 addEventListener('popstate', () => {
-  if (shBack) { shBack = false; if (navPend) navGuard(); return; }
+  if (shBack) { shBack = false; if (navPend) navGuard(); if (shPend) { shPend = false; try { history.pushState({ psh: 1 }, ''); } catch (e) {} } return; }   // дошёл — шаг ждущего окна
   if (shHist && sheetOpen()) { shHist = false; if (shUnsaved()) { shHistOpen(); return shAsk(); } return closeSheet(true); }   // вписано — окно остаётся, шаг в истории возвращаем
   if (!location.hash) navPop();   // окна нет — «Назад» (Android) возвращает на прошлую страницу (sections.js); ссылки с # разбирают свои обработчики
 });
