@@ -17,7 +17,7 @@ const AI_CUT = `С одной картинки беру не больше ${AI_I
 const AI_REC = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);   // своя запись голоса — без системного звука (aiVoiceStart)
 let aiPtt = null, aiClearAsk = 0, aiSeen = 0, aiVt = null;   // aiVt — только что распознанный голос: { t, vt, secs } (aiSttSend)   // aiPtt — идёт запись голосом; aiSeen — сколько сообщений уже показано (новые появляются с анимацией)
 
-const AI_T = { edit:[IC.edit, 'Изменить'], done:[IC.check, 'Отметить'], delete:[IC.trash, 'Удалить'], uncheck:[IC.undo, 'Снять отметку'], check:[IC.check, 'Отметить'], task:[IC.tasks, 'Задача'], event:[IC.cal, 'Событие'], habit:[IC.habit, 'Привычка'], expense:[IC.wallet, 'Расход'], income:[IC.wallet, 'Доход'], saving:[IC.wallet, 'Накопление'], goal:[IC.goal, 'Цель'], note:[IC.note, 'Заметка'] };
+const AI_T = { edit:[IC.edit, 'Изменить'], done:[IC.check, 'Отметить'], delete:[IC.trash, 'Удалить'], uncheck:[IC.undo, 'Снять отметку'], check:[IC.check, 'Отметить'], task:[IC.tasks, 'Задача'], event:[IC.cal, 'Событие'], habit:[IC.habit, 'Привычка'], expense:[IC.wallet, 'Расход'], income:[IC.wallet, 'Доход'], saving:[IC.wallet, 'Накопление'], goal:[IC.goal, 'Цель'], note:[IC.note, 'Заметка'], plan:[IC.goal, 'План'] };
 const aiRep = r => !r ? '' : r.type === 'daily' ? 'каждый день' : r.type === 'weekdays' ? 'по будням' : r.type === 'monthly' ? 'каждый месяц' : r.type === 'yearly' ? 'каждый год'
   : 'по ' + (r.days.length ? r.days.map(d => DOW[d].toLowerCase()).join(', ') : 'неделям');
 const aiCat = name => { const n = String(name || '').toLowerCase(); return n && S.cats.find(c => c.name.toLowerCase() === n); };
@@ -100,7 +100,8 @@ const aiAsks = t => t.includes('?') || AI_ASK.test(t) || AI_ASK2.test(t);
 const aiLoad = () => { try { const j = JSON.parse(localStorage.getItem(AI_LS) || 'null'); if (j && Array.isArray(j.msgs)) return j; } catch (e) {} return { msgs: [], hello: '' }; };
 const aiStore = () => { if (!ai) return; ai.msgs = ai.msgs.slice(-AI_KEEP); try { localStorage.setItem(AI_LS, JSON.stringify({ msgs: ai.msgs, hello: ai.hello })); } catch (e) {} };
 // Что было в разговоре — коротко, вместе с предложенными записями: так нейросеть понимает «нет, в 11» и «а послезавтра?»
-const aiBrief = it => AI_ACT.includes(it.type) ? (AI_T[it.type] || [0, ''])[1] + ' «' + (it.lbl || it.habit || '') + '»' + (it.chg ? ' ' + it.chg : '') : (AI_T[it.type] || [0, 'Запись'])[1] + ' «' + (it.title || it.habit || it.text || it.note || '') + '»' + (it.date ? ' ' + it.date : '') + (it.time ? ' ' + it.time : '') + (it.amount ? ' ' + it.amount + ' ₽' : '');
+const aiBrief = it => it.type === 'plan' ? `План «${it.title}»: ${it.hours} ч, по ${it.min} мин, ${it.per_week} раз в неделю${AI_WHEN[it.when] ? ', ' + AI_WHEN[it.when] : ''}${it.due ? ', до ' + it.due : ''}${it.got ? ', поставлено занятий: ' + it.got.n : ''}`
+  : AI_ACT.includes(it.type) ? (AI_T[it.type] || [0, ''])[1] + ' «' + (it.lbl || it.habit || '') + '»' + (it.chg ? ' ' + it.chg : '') : (AI_T[it.type] || [0, 'Запись'])[1] + ' «' + (it.title || it.habit || it.text || it.note || '') + '»' + (it.date ? ' ' + it.date : '') + (it.time ? ' ' + it.time : '') + (it.amount ? ' ' + it.amount + ' ₽' : '');
 const AI_ACT = ['edit', 'done', 'delete', 'uncheck'];   // действия с тем, что уже есть
 const aiSt = x => x.st === 'ok' ? 'сделано' : x.st === 'undone' ? 'пользователь отменил' : x.st === 'ask' ? 'ждёт подтверждения' : x.st === 'no' ? 'пользователь не подтвердил' : 'не получилось' + (x.why ? ' — ' + x.why : '');
 const aiHist = () => ai.msgs.slice(-AI_HIST).map(m => ({ r: m.r, t: ((m.t || '') + (!m.items || !m.items.length ? '' : m.auto ? ` [${m.items.map(x => aiBrief(x) + ' — ' + aiSt(x)).join('; ')}]`
@@ -149,8 +150,9 @@ function aiRow(it, key, mode) {
   else if (it.type === 'habit') bits.push(it.kind === 'weekly' ? 'раз в неделю' : it.kind === 'monthly' ? 'раз в месяц' : it.days.length ? 'по ' + it.days.map(d => DOW[d].toLowerCase()).join(', ') : 'каждый день');
   else if (AI_KIND[it.type]) { const c = aiFin(it.category, AI_KIND[it.type], it.note, it.amount); bits.push(`<b>${it.type === 'income' ? '+' : it.type === 'expense' ? '−' : ''}${rub(it.amount)}</b>`, esc((c.emoji || '') + ' ' + c.name)); if (it.date && it.date !== todayK()) bits.push(relDay(it.date)); }
   else if (it.type === 'goal') { bits.push('до ' + shortDate(it.due || todayK().slice(0, 4) + '-12-31')); if (it.steps.length) bits.push(plural(it.steps.length, ['шаг', 'шага', 'шагов'])); }
+  else if (it.type === 'plan') bits.push(it.got ? plural(it.got.n, ['занятие', 'занятия', 'занятий']) + (it.got.steps ? ', ' + plural(it.got.steps, ['шаг', 'шага', 'шагов']) : '') + ' в календаре' : 'по ' + it.min + ' мин, ' + plural(it.per_week, ['раз', 'раза', 'раз']) + ' в неделю');
   const hb = it.type === 'check' && aiHab(it.habit);
-  const title = AI_ACT.includes(it.type) ? (it.lbl || it.habit || '—') : it.type === 'note' ? it.text : it.type === 'check' ? (hb ? (hb.emoji ? hb.emoji + ' ' : '') + hb.name : it.habit) : AI_KIND[it.type] ? (it.note || kind) : (it.type === 'habit' || it.type === 'goal') && it.emoji ? it.emoji + ' ' + it.title : it.title;
+  const title = AI_ACT.includes(it.type) ? (it.lbl || it.habit || '—') : it.type === 'note' ? it.text : it.type === 'check' ? (hb ? (hb.emoji ? hb.emoji + ' ' : '') + hb.name : it.habit) : AI_KIND[it.type] ? (it.note || kind) : (it.type === 'habit' || it.type === 'goal' || it.type === 'plan') && it.emoji ? it.emoji + ' ' + it.title : it.title;
   if (auto) {
     const st = it.st || 'skip', ico = st === 'ok' ? IC.check : st === 'undone' ? IC.undo : st === 'no' ? IC.x : IC.alert;
     if (it.why) bits.push(esc(it.why));
@@ -164,7 +166,7 @@ function aiRow(it, key, mode) {
 }
 // Удаление и больше трёх изменений за раз ждут подтверждения: «Удалить» / «Подтвердить» и «Не надо» под сообщением
 function aiAskHTML(m, i) {
-  const a = (m.items || []).filter(x => x.st === 'ask'); if (!a.length) return '';
+  const a = (m.items || []).filter(x => x.st === 'ask' && x.type !== 'plan'); if (!a.length) return '';
   const del = a.every(x => x.type === 'delete');
   return `<div class="ai-ask"><button class="btn pri" data-act="aiyes" data-i="${i}">${del ? I(IC.trash, 15) + ' Удалить' : 'Подтвердить'}${a.length > 1 ? ' (' + a.length + ')' : ''}</button><button class="btn" data-act="aino" data-i="${i}">Не надо</button></div>`;
 }
@@ -174,7 +176,7 @@ function aiMsg(m, i) {
   if (m.r === 'u') { const th = (Array.isArray(m.imgs) ? m.imgs : [m.img]).filter(aiThumbOk).slice(0, AI_IMGS);   // imgs — с 22 октября 2026, раньше одна img
     return `<div class="ai-m u${i >= aiSeen ? ' new' : ''}"><div class="ai-mb">${th.length ? `<div class="ai-uimgs n${th.length}">${th.map((s, k) => `<img class="ai-uimg" src="${s}" alt="Картинка${th.length > 1 ? ' ' + (k + 1) : ''}">`).join('')}</div>` : ''}${m.v ? `<span class="ai-uv" title="Сказано голосом">${I(IC.mic, 13)}</span>` : ''}${m.t ? aiTxt(m.t) : ''}</div></div>`; }
   const it = m.items || [], on = it.filter(x => x.on).length, added = m.added != null, okN = it.filter(x => x.st === 'ok').length;
-  const list = m.auto && it.length ? `<div class="ai-list">${it.map((x, j) => aiRow(x, i + ':' + j, 'auto')).join('')}</div>
+  const list = m.auto && it.length ? `<div class="ai-list">${it.map((x, j) => x.type === 'plan' && x.st === 'ask' ? aiPlanHTML(x, i + ':' + j) : aiRow(x, i + ':' + j, 'auto')).join('')}</div>
     ${okN > 1 ? `<button class="ai-undoall" data-act="aiundoall" data-i="${i}">${I(IC.undo, 14)} Отменить всё</button>` : ''}${aiAskHTML(m, i)}` : it.length ? `<div class="ai-list">${(added ? it.filter(x => x.on) : it).map((x, j) => aiRow(x, i + ':' + j, added ? 'done' : 'pick')).join('')}</div>
     ${added ? `<p class="ai-ok">${I(IC.check, 14)} ${m.added ? 'Готово: ' + plural(m.added, ['запись', 'записи', 'записей']) : 'Ничего не изменилось — это уже было'}</p>`
       : `<button class="btn pri ai-add" data-act="aiapply" data-i="${i}"${on ? '' : ' disabled'}>${on ? (it.every(x => !x.on || x.type === 'check') ? 'Отметить' : `Добавить ${plural(on, ['запись', 'записи', 'записей'])}`) : 'Выберите, что добавить'}</button>`}` : '';
@@ -454,7 +456,7 @@ async function aiSend(text) {
     if (items.length && j.fix) aiFixPrev(items);
     // Удаление и больше трёх изменений за раз — не сразу, а по кнопке под сообщением (aiPeek только описывает, что будет)
     const askAll = items.filter(x => AI_ACT.includes(x.type)).length > 3;
-    items.forEach(x => x.type === 'delete' || (askAll && AI_ACT.includes(x.type)) ? aiPeek(x, refs) : aiDo(x, refs));
+    items.forEach(x => x.type === 'plan' ? aiPlanAsk(x) : x.type === 'delete' || (askAll && AI_ACT.includes(x.type)) ? aiPeek(x, refs) : aiDo(x, refs));   // план — сначала показать
     ai.msgs.push({ r:'a', t: String(j.reply || (items.length ? '' : 'Не понял, что сделать. Напишите подробнее.')) + (cut ? '\n' + AI_CUT : ''), day: todayK(), tw: 1, ...(items.length ? { items, auto: 1 } : {}), ...(Object.keys(refs).length ? { refs } : {}), ...(nav.length ? { nav } : {}), ...(ask ? { ask: 1 } : {}) });
     if (items.length) { save(); render(); }
     const done = items.filter(x => x.st === 'ok').length, asks = items.filter(x => x.st === 'ask').length;   // окно чата закрыли до ответа — сказать, что сделано
@@ -519,6 +521,7 @@ function aiDo(it, refs) {
     it.steps.forEach(s => { if (s.date) { const e = aiEvent({ type: 'task', title: s.title, date: s.date, prio: 'mid' }, { goal: g.id }); S.events.push(e); ev.push(e.id); } else g.steps.push({ id: 's' + uid(), t: s.title, done: false }); });
     S.goals.push(g); it.res = { goal: g.id, ev };
   } else if (t === 'note') { const n = { id: 'n' + uid(), date: todayK(), text: it.text }; S.notes.push(n); it.res = { note: n.id }; }
+  else if (t === 'plan') { if (!aiPlanApply(it)) return; }   // цель, шаги и занятия в свободное время
   else { it.st = 'skip'; it.why = 'не умею такое'; return; }
   it.st = 'ok';
 }
@@ -631,7 +634,9 @@ function aiUndo(it) {
   if (r.opFields) { const o = S.fin.ops.find(x => x.id === r.opFields[0]); if (o) Object.assign(o, r.opFields[1]); }
   if (r.hb) S.habits = S.habits.filter(h => h.id !== r.hb);
   if (r.op) S.fin.ops = S.fin.ops.filter(o => o.id !== r.op);
-  if (r.goal) S.goals = S.goals.filter(g => g.id !== r.goal);
+  if (r.goal) { const g = S.goals.find(x => x.id === r.goal), pe = new Set(g && g.plan ? g.plan.ev || [] : []);   // и занятия, поставленные потом «продли план»
+    if (pe.size) S.events = S.events.filter(e => !pe.has(e.id) || e.done); S.goals = S.goals.filter(x => x.id !== r.goal); }
+  if (r.gprev) { const g = S.goals.find(x => x.id === r.gprev[0]); if (g) Object.assign(g, structuredClone(r.gprev[1])); }   // план той же цели — как был
   if (r.note) S.notes = S.notes.filter(n => n.id !== r.note);
   if (r.mark) { const h = S.habits.find(x => x.id === r.mark[0]); if (h) delete h.log[r.mark[1]]; }
   it.res = null; it.st = 'undone'; delete it.why;
@@ -655,6 +660,118 @@ ACT.aiundoall = el => { const m = ai && ai.msgs[+el.dataset.i]; if (!m || !m.ite
   let used = '';
   [...m.items].reverse().forEach(x => { if (x.st !== 'ok') return; const u = aiUsed(x); if (u) used = used || u; else aiUndo(x); });
   save(); aiStore(); render(); aiRefresh(); if (used) toast(used); };   // с конца: последнее сделанное — первым
+
+// ---- План к цели (23 октября 2026; просьба пользователя: «чтобы ассистент всячески помогал в исполнении целей … разбивал на шаги крупные
+// задачи, если пользователю нужно выучить что-то, ассистент ищет свободное время (сам понимает сколько примерно нужно времени …),
+// распределении задач по времени»). Выбор пользователя: начать с плана к цели; план сначала показывается — в календарь только по
+// «Поставить в календарь»; свободное время — в часы, которые человек задал сам (Настройки → «Календарь»), и только между его событиями.
+// Нейросеть оценивает объём (часы), разбивает на шаги, предлагает длину занятия и сколько раз в неделю (запись "plan", функция assistant);
+// даты и время занятий подбирает приложение по календарю (aiPlanFit) — сам календарь нейросети не уходит.
+// Цель — в «Целях», шаги — задачи со сроком (поле goal, сроки — по доле работы до срока цели), занятия — события в календаре (без goal,
+// иначе считались бы шагами). Занятия ставятся на AI_PLAN_WEEKS недель вперёд; дальше — «продли план» (extend: следующие недели той же цели)
+const AI_FREE_DEF = { wd: ['18:00', '22:00'], we: ['10:00', '20:00'] }, AI_PLAN_WEEKS = 8, AI_PLAN_MAX = 60;
+const AI_WHEN = { morning: 'утром', day: 'днём', evening: 'вечером' };
+const aiFreeHrs = () => { const f = S.settings.freeHrs || {}, ok = a => Array.isArray(a) && a.length === 2 && a.every(x => HM_RE.test(x || '')) && timeMin(a[0]) < timeMin(a[1]);
+  return { wd: ok(f.wd) ? f.wd : AI_FREE_DEF.wd, we: ok(f.we) ? f.we : AI_FREE_DEF.we }; };
+// Свободные отрезки дня (минуты): часы из настроек (будни / выходные) минус всё, у чего есть время, — и в скрытых календарях; сегодня — не раньше чем через полчаса
+function aiFreeGaps(k) {
+  const h = aiFreeHrs()[dowIdx(k) >= 5 ? 'we' : 'wd'], to = timeMin(h[1]);
+  let from = timeMin(h[0]); if (k === todayK()) from = Math.max(from, Math.ceil((nowMin() + 30) / 15) * 15);
+  const busy = S.events.filter(e => e.time && occurs(e, k)).map(e => { const a = timeMin(e.time), b = e.time2 ? timeMin(e.time2) : a + 60; return [a, Math.max(b, a + 15)]; }).sort((x, y) => x[0] - y[0]);
+  const gaps = []; let cur = from;
+  busy.forEach(([a, b]) => { if (a > cur) gaps.push([cur, Math.min(a, to)]); cur = Math.max(cur, b); });
+  if (cur < to) gaps.push([cur, to]);
+  return gaps.filter(([a, b]) => b > a);
+}
+// Место для занятия длиной L в день k: первое свободное с удобного часа (утро — с начала свободного времени, день — с 12:00, вечер — с 18:00);
+// в это время всё занято — ближайшее к нему (вечером — как можно позже, иначе — как можно раньше). Начало — кратно 15 минутам
+const AI_PREF = { morning: 0, day: 720, evening: 1080, any: 0 };
+const aiSlot = (k, L, when) => { const g = aiFreeGaps(k).filter(([a, b]) => b - a >= L); if (!g.length) return null;
+  for (const [a, b] of g) { const s = Math.ceil(Math.max(a, AI_PREF[when] || 0) / 15) * 15; if (s + L <= b) return { time: fmtMin(s), time2: fmtMin(s + L) }; }
+  const [a, b] = when === 'evening' ? g[g.length - 1] : g[0], s = when === 'evening' ? Math.floor((b - L) / 15) * 15 : Math.ceil(a / 15) * 15;
+  return s >= a && s + L <= b ? { time: fmtMin(s), time2: fmtMin(s + L) } : null; };
+// Расписание: занятий нужно = часы / длина; в неделю — per_week, по дням, разнесённым по неделе (не подряд), где есть место;
+// o.from / o.done — продолжение (продлить план); сроки шагов — по доле их часов между сегодня и сроком цели
+function aiPlanFit(p, o) {
+  o = o || {};
+  const t = todayK(), L = p.min, need = Math.max(1, Math.ceil(p.hours * 60 / L)), pw = Math.min(7, Math.max(1, p.per_week)), done = o.done || 0;
+  const due = o.due || (p.due && p.due > t ? p.due : addDays(t, Math.ceil(need / pw) * 7));
+  const from = o.from && o.from > t ? o.from : t, end = [due, addDays(from, AI_PLAN_WEEKS * 7 - 1)].sort()[0], out = [];
+  for (let k0 = from; k0 <= end && done + out.length < need && out.length < AI_PLAN_MAX; k0 = addDays(k0, 7)) {
+    const days = Array.from({ length: 7 }, (_, i) => addDays(k0, i)).filter(k => k <= end);
+    const order = [...new Set([...Array.from({ length: pw }, (_, i) => Math.round(i * 7 / pw)), 0, 1, 2, 3, 4, 5, 6])].filter(i => i < days.length);
+    let n = 0;
+    for (const i of order) { if (n >= pw || done + out.length >= need || out.length >= AI_PLAN_MAX) break; const s = aiSlot(days[i], L, p.when); if (s) { out.push({ date: days[i], ...s }); n++; } }
+  }
+  out.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+  const steps = p.steps.length ? p.steps : [{ title: p.title, hours: p.hours }], sum = steps.reduce((a, s) => a + s.hours, 0) || 1;
+  let acc = 0; const cut = steps.map(s => (acc += s.hours) / sum);
+  out.forEach((s, i) => { const x = (done + i + 1) / need, j = Math.max(0, cut.findIndex(c => c >= x - 1e-9));
+    s.title = (steps.length > 1 ? p.title + ' · ' + steps[j].title : p.title).slice(0, 140); });
+  const span = Math.max(1, dayDiff(t, due));
+  return { sessions: out, need, due, done, end,
+    steps: steps.map((s, j) => ({ title: s.title, hours: s.hours, date: j === steps.length - 1 ? due : addDays(t, Math.max(1, Math.round(span * cut[j]))) })),
+    short: due <= end && done + out.length < need ? need - done - out.length : 0, more: due > end && done + out.length < need };
+}
+// Цель с таким же планом (по названию): «продли план» продолжает её, новый план той же цели заменяет её будущие занятия
+const aiPlanGoal = it => { const n = String(it.title || '').trim().toLowerCase(); return S.goals.find(g => !g.done && g.plan && String(g.title).trim().toLowerCase() === n) || null; };
+const aiPlanOpts = it => { const g = it.extend && aiPlanGoal(it); return g ? { from: addDays(g.plan.last || todayK(), 1), done: g.plan.n || 0, due: g.due } : null; };
+function aiPlanApply(it) {
+  const t = todayK(), g0 = aiPlanGoal(it), ext = !!(g0 && it.extend), f = aiPlanFit(it, aiPlanOpts(it));
+  if (!f.sessions.length) { it.st = 'skip'; it.why = 'нет свободного времени — добавьте часы в настройках или сдвиньте срок'; return false; }
+  const ev = [], res = { ev }; let g = g0;
+  if (g && !ext) {   // новый план той же цели: её будущие занятия и несделанные будущие шаги заменяются (сделанное остаётся)
+    const old = new Set(g.plan.ev || []), gone = S.events.filter(e => !e.done && e.date >= t && (old.has(e.id) || e.goal === g.id));
+    res.prev = gone.map(e => structuredClone(e)); S.events = S.events.filter(e => !gone.includes(e));
+    res.gprev = [g.id, { due: g.due, plan: structuredClone(g.plan) }];
+  } else if (g) res.gprev = [g.id, { plan: structuredClone(g.plan) }];
+  else { g = { id: 'g' + uid(), title: it.title, emoji: aiEmoji(it.emoji, it.title), due: f.due, created: t, why: it.tip || '', done: false, steps: [] }; S.goals.push(g); res.goal = g.id; }
+  if (!ext) { g.due = f.due; f.steps.forEach(s => { const e = aiEvent({ type: 'task', title: s.title, date: s.date, prio: 'mid', cat: it.cat }, { goal: g.id }); S.events.push(e); ev.push(e.id); }); }
+  const ses = f.sessions.map(s => { const e = aiEvent({ type: 'event', title: s.title, date: s.date, time: s.time, time2: s.time2, cat: it.cat }); S.events.push(e); ev.push(e.id); return e.id; });
+  const was = ext ? g.plan : null;
+  g.plan = { min: it.min, pw: it.per_week, when: it.when, hours: it.hours, need: f.need, n: (was ? was.n || 0 : 0) + ses.length,
+    last: f.sessions[f.sessions.length - 1].date, ev: [...(was ? (was.ev || []).filter(id => S.events.some(e => e.id === id)) : []), ...ses] };
+  it.res = res; it.got = { n: ses.length, steps: ext ? 0 : f.steps.length };
+  return true;
+}
+const aiDayTime = s => DOW[dowIdx(s.date)].toLowerCase() + ' ' + shortDate(s.date) + ', ' + s.time;
+// Карточка плана, пока его не поставили: цель, объём, шаги со сроками, первые занятия, предупреждения, свободные часы, кнопки
+function aiPlanHTML(it, key) {
+  const ext = !!(it.extend && aiPlanGoal(it)), f = aiPlanFit(it, aiPlanOpts(it)), hrs = aiFreeHrs(), S2 = f.sessions;
+  const sum = [`≈ ${plural(it.hours, ['час', 'часа', 'часов'])}`, `по ${it.min} мин`, `${plural(it.per_week, ['раз', 'раза', 'раз'])} в неделю`, AI_WHEN[it.when] || ''].filter(Boolean).join(' · ');
+  // успеть к сроку: недель до срока × занятий в неделю — меньше, чем нужно занятий, — честно сказать, сколько часов выйдет
+  const cap = S2.length + Math.floor(Math.max(0, dayDiff(f.end, f.due)) / 7 * it.per_week), lack = f.need - f.done > cap * 1.05;
+  const warn = !S2.length ? 'Свободного времени не нашлось — добавьте часы ниже или сдвиньте срок.'
+    : lack ? `К сроку так выйдет около ${plural(Math.round(cap * it.min / 60), ['часа', 'часов', 'часов'])} из ${it.hours} — напишите «чаще», «дольше» или «сдвинь срок».`
+    : f.short ? `До срока помещается ${S2.length} из ${f.need - f.done} занятий — добавьте часы, занятия в неделю или сдвиньте срок.`
+    : f.more ? `Поставлю занятия на ${AI_PLAN_WEEKS} недель вперёд — ${plural(S2.length, ['занятие', 'занятия', 'занятий'])}. Ближе к концу скажите «продли план» — поставлю следующие.` : '';
+  return `<div class="ai-plan">
+    <div class="ai-plh"><span class="ai-ple" aria-hidden="true">${esc(it.emoji || '🎯')}</span><span><b>${esc(it.title)}</b><small>${ext ? 'продолжение плана · ' : ''}${it.due ? 'до ' + shortDate(f.due) : 'срок по расчёту — ' + shortDate(f.due)}</small></span></div>
+    <p class="ai-plsum">${sum}</p>${it.tip ? `<p class="ai-pltip">${esc(it.tip)}</p>` : ''}
+    ${ext ? '' : `<ol class="ai-pls">${f.steps.map(s => `<li>${esc(s.title)}<small>≈ ${plural(s.hours, ['час', 'часа', 'часов'])} · к ${shortDate(s.date)}</small></li>`).join('')}</ol>`}
+    ${S2.length ? `<p class="ai-plsc"><b>Занятия:</b> ${S2.slice(0, 4).map(aiDayTime).join('; ')}${S2.length > 4 ? ` и ещё ${S2.length - 4}` : ''}</p>` : ''}
+    ${warn ? `<p class="ai-plw">${warn}</p>` : ''}
+    <p class="ai-plf">Свободное время: будни ${hrs.wd.join('–')}, выходные ${hrs.we.join('–')}<button data-act="aifree">Изменить</button></p>
+    <div class="ai-plb"><button class="btn pri" data-act="aiplan" data-i="${key}"${S2.length ? '' : ' disabled'}>${I(IC.cal, 16)} Поставить в календарь</button><button class="btn" data-act="aiplanno" data-i="${key}">Не надо</button></div>
+    <p class="ai-plh2">Поправить — напишите: «по утрам», «по 30 минут», «4 раза в неделю», «до мая».</p></div>`;
+}
+const aiItemAt = el => { const [i, j] = String(el.dataset.i).split(':').map(Number), m = ai && ai.msgs[i], it = m && m.items && m.items[j]; return it ? { m, it } : null; };
+ACT.aiplan = el => { const x = aiItemAt(el); if (!x || x.it.st !== 'ask') return;
+  delete x.it.st; aiDo(x.it, x.m.refs); save(); aiStore(); render(); aiRefresh();
+  if (x.it.st === 'ok') toast(`План в календаре: ${plural(x.it.got.n, ['занятие', 'занятия', 'занятий'])}` + (x.it.got.steps ? `, ${plural(x.it.got.steps, ['шаг', 'шага', 'шагов'])} в «Целях»` : '')); };
+ACT.aiplanno = el => { const x = aiItemAt(el); if (!x || x.it.st !== 'ask') return; x.it.st = 'no'; x.it.why = 'не стали ставить'; aiStore(); aiRefresh(); };
+ACT.aifree = () => { closeSheet(); aiSet('cal')(); };
+// Новый план — прежние, ещё не поставленные, больше не нужны
+const aiPlanAsk = x => { ai.msgs.forEach(m => (m.items || []).forEach(y => { if (y.type === 'plan' && y.st === 'ask') { y.st = 'no'; y.why = 'заменён новым планом ниже'; } }));
+  x.st = 'ask'; delete x.why; x.res = null; };
+// Настройки → «Календарь»: когда помощник может ставить занятия и дела
+const aiFreeHTML = () => { const h = aiFreeHrs(), row = (k, n) => `<div class="set-row"><span>${n}</span><span class="ai-fh"><input id="fh_${k}0" class="fin" type="time" step="900" value="${h[k][0]}" aria-label="${n}: с"><span aria-hidden="true">–</span><input id="fh_${k}1" class="fin" type="time" step="900" value="${h[k][1]}" aria-label="${n}: до"></span></div>`;
+  return `<div class="set-sec">${withHint('Свободное время для помощника', 'freeHrs')}</div>${row('wd', 'Будни')}${row('we', 'Выходные')}`; };
+document.addEventListener('change', e => { const m = /^fh_(wd|we)([01])$/.exec(e.target.id || ''); if (!m) return;
+  const h = aiFreeHrs(), k = m[1], n = +m[2], v = e.target.value, r = [...h[k]];
+  if (!HM_RE.test(v)) { e.target.value = h[k][n]; return; }
+  r[n] = v; if (timeMin(r[0]) >= timeMin(r[1])) { e.target.value = h[k][n]; return toast('Начало должно быть раньше конца'); }
+  S.settings.freeHrs = Object.assign({}, h, { [k]: r }); save(); toast(`Свободное время: ${k === 'wd' ? 'будни' : 'выходные'} ${r[0]}–${r[1]}`); });
 
 // ---- Картинки к сообщению (18 октября 2026: «скинуть скрин расписания, а помощник заполнит календарь»; с 22 октября 2026 — до AI_IMGS
 // за раз: «чтобы можно было отправлять несколько файлов(2-3 максимум, больше не надо)»). Каждая уменьшается до 1600 px по большей стороне

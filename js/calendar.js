@@ -594,6 +594,7 @@ function settingsBlocks() {
   <div class="set-row"><span>${withHint('Номер недели', 'weekNums')}</span><input id="s_wn" class="sw" type="checkbox"${st.weekNums?' checked':''}></div>
   <div class="set-row"><span>${withHint('Приглушать прошедшие события', 'dimPast')}</span><input id="s_dim" class="sw" type="checkbox"${st.dimPast?' checked':''}></div>
   <div class="set-row"><span>${withHint('Сворачивать пустые часы в неделе', 'fold')}</span><input id="s_fold" class="sw" type="checkbox"${st.fold !== false?' checked':''}></div>
+  ${aiFreeHTML()}
   ${innerWidth >= 900 ? `<div class="set-row"><span>Горячие клавиши одной буквой <small class="set-note" style="display:block;margin:2px 0 0">N, T, M, W, D, L, «/» — выключите, если они срабатывают случайно. Ctrl+K работает всегда</small></span><input id="s_keys1" class="sw" type="checkbox"${st.keys1 !== false ? ' checked' : ''}></div>` : ''}`,
   cats: `<div class="set-sec">Календари (категории)</div>
   <div class="catlist">${S.cats.map(c => delAsk === c.id ? `<div class="catedit ask2">

@@ -749,6 +749,27 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .ai-ok{display:flex;align-items:center;gap:6px;margin:8px 0 0;font-size:13px;font-weight:600;color:var(--tx2)}
 .ai-ok svg{color:var(--good)}
 .ai-err{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:0 0 0 32px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--dng) 9%,transparent);font-size:14px}
+/* План к цели (assistant.js: aiPlanHTML) — пока не поставлен: цель, объём, шаги со сроками, первые занятия, кнопки */
+.ai-plan{margin-top:10px;padding:14px;border-radius:16px;border:1px solid color-mix(in srgb,var(--acc) 30%,var(--line));background:color-mix(in srgb,var(--acc) 5%,var(--sf))}
+.ai-plh{display:flex;align-items:center;gap:10px}
+.ai-ple{flex:none;font-size:26px;line-height:1}
+.ai-plh b{display:block;font-size:16px;font-weight:700;color:var(--tx)}
+.ai-plh small{font-size:12.5px;color:var(--tx2)}
+.ai-plsum{margin:10px 0 0;font-size:13.5px;font-weight:600;color:var(--tx2)}
+.ai-pltip{margin:6px 0 0;font-size:13px;font-style:italic;color:var(--tx2)}
+.ai-pls{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--tx)}
+.ai-pls small{display:block;font-size:12px;color:var(--mut)}
+.ai-plsc{margin:10px 0 0;font-size:13px;line-height:1.5;color:var(--tx2)}
+.ai-plsc b{color:var(--tx)}
+.ai-plw{margin:8px 0 0;padding:8px 10px;border-radius:10px;font-size:13px;line-height:1.45;color:var(--tx);background:color-mix(in srgb,#f59e0b 16%,transparent)}
+.ai-plf{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:10px 0 0;font-size:12.5px;color:var(--mut)}
+.ai-plf button{font-size:12.5px;font-weight:600;color:var(--acc);text-decoration:underline}
+.ai-plb{display:flex;gap:8px;margin-top:12px}
+.ai-plb .btn.pri{flex:1;justify-content:center}
+@media(max-width:520px){.ai-plb{flex-direction:column}.ai-plb .btn,.ai-plb .btn.pri{flex:none;width:100%;justify-content:center}}   /* на телефоне кнопки — одна под другой, без переноса строки */
+.ai-plh2{margin:8px 0 0;font-size:12.5px;color:var(--mut)}
+.ai-fh{display:inline-flex;align-items:center;gap:6px}
+.ai-fh .fin{min-width:0;width:96px}
 .ai-errc{display:block;margin-top:4px;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}   /* служебный код ошибки — для отзыва */
 /* Поле ввода: пустое — справа большой микрофон, есть текст — «отправить» */
 .ai-dock{position:relative;padding:8px 12px calc(10px + env(safe-area-inset-bottom))}

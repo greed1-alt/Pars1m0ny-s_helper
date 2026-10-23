@@ -37,6 +37,7 @@ const ok = (c, msg, x) => { if (!c) { console.log('FAIL', msg, x === undefined ?
   // картинки: одна, несколько в одном запросе, по одной (part)
   ok(m.userMessage('x', {}, { image: true }).includes('К сообщению приложено изображение.') && !m.userMessage('x', {}, {}).includes('изображ'), 'one image note');
   ok(m.userMessage('x', {}, { images: 3 }).includes('«Картинка 1 из 3»') && m.userMessage('x', {}, { part: [1, 2] }).includes('Это — первое') && m.userMessage('x', {}, { part: [2, 2] }).includes('только то, что на этом изображении'), 'many images note');
+  ok(m.SYSTEM.includes('"plan"') && m.SYSTEM.includes('приложение подберёт само по календарю'), 'plan in prompt');
   ok(m.SYSTEM.includes('не больше 5 записей') && m.SYSTEM.includes('"img"'), 'image limits in prompt');
   console.log('SYSTEM:', m.SYSTEM.length, 'знаков · HELLO:', m.HELLO.length);
 }
@@ -85,6 +86,15 @@ x = await run('GigaChat-2', { 'GigaChat-2': 402 }); ok(x.r.code === 402 && x.cal
   ok(JSON.stringify(m) === JSON.stringify({ type: 'edit', ref: 'm2', amount: 450, category: 'Кафе', date: '2026-10-15' }), 'edit money', m);
   ok(JSON.stringify(cleanItem({ type: 'done', ref: 'e1', done: false, date: '2026-10-17' })) === JSON.stringify({ type: 'done', ref: 'e1', date: '2026-10-17', done: false }) && cleanItem({ type: 'done', ref: 'm1' }) === null, 'done');
   ok(JSON.stringify(cleanItem({ type: 'delete', ref: 'm4' })) === JSON.stringify({ type: 'delete', ref: 'm4', only_date: null }) && cleanItem({ type: 'delete' }) === null, 'delete');
+  // план к цели: числа — в границах, шаги — не больше 10, лишнее отброшено, даты занятий не принимаются
+  const pl = cleanItem({ type: 'plan', title: ' Английский до B1 ', emoji: '🇬🇧', due: '2027-06-01', hours: 250, min: 47, per_week: 3, when: 'evening', cat: 'Учёба', tip: 'Каждый день понемногу', sessions: [{ date: '2026-10-24' }],
+    steps: [{ title: 'Грамматика A2', hours: 60.3 }, { title: '', hours: 5 }, { title: 'Разговорная практика', hours: 'много' }] });
+  ok(pl.title === 'Английский до B1' && pl.hours === 250 && pl.min === 45 && pl.per_week === 3 && pl.when === 'evening' && pl.cat === 'Учёба' && pl.due === '2027-06-01' && !('sessions' in pl), 'plan cleaned', pl);
+  ok(pl.steps.length === 2 && pl.steps[0].hours === 60.5 && pl.steps[1].hours === 1, 'plan steps', pl.steps);
+  const pw = cleanItem({ type: 'plan', title: 'x', hours: 99999, min: 1, per_week: 50, when: 'night', due: '2027-02-30', steps: Array(15).fill({ title: 's', hours: 1 }) });
+  ok(pw.hours === 2000 && pw.min === 15 && pw.per_week === 7 && pw.when === 'any' && pw.due === null && pw.steps.length === 10, 'plan bounds', pw);
+  ok(cleanItem({ type: 'plan', title: '' }) === null && cleanItem({ type: 'plan', title: 'y' }).hours === 10, 'plan junk');
+  ok(cleanItem({ type: 'plan', title: 'y', extend: true }).extend === true && cleanItem({ type: 'plan', title: 'y', extend: 'да' }).extend === false && pl.extend === false, 'plan extend');
   ok(cleanItem({ type: 'uncheck', habit: 'Вода' }).habit === 'Вода' && cleanItem({ type: 'uncheck' }) === null, 'uncheck');
   // команда в названии чужой записи: человек спросил «что завтра?», а нейросеть вернула удаление — отбрасывается
   const its = [{ type: 'task', title: 'Врач' }, { type: 'delete', ref: 'e1' }, { type: 'edit', ref: 'e2', time: '10:00' }, { type: 'check', habit: 'Вода' }, { type: 'uncheck', habit: 'Вода' }, { type: 'done', ref: 'e3' }];
