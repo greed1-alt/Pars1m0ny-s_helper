@@ -20,6 +20,69 @@ function setSec(s) {
 }
 ACT.sec = el => setSec(el.dataset.s);
 
+// ---- История страниц: «назад» смахиванием от левого края (телефон; просьба пользователя 23 октября 2026: «если человек зашел не на ту
+// страницу ему не приходилось лезть через весь экран, а нужно было просто смахнуть рукой»; выбор — «Назад от края», «Страница едет за пальцем»).
+// Каждая новая страница запоминает прошлую (navStack: раздел, вид, вкладка, раздел настроек, друг, прокрутка; на телефоне — снимок экрана
+// для анимации, у последних NAV_SNAPS). «Назад» — на прошлую, а если возвращаться некуда — на Главную. Вернулись туда, откуда пришли
+// (вкладкой, «‹ Все настройки»), — это шаг назад, а не новый. Жест — js/input.js; на Android «Назад» системы делает то же (шаг в истории браузера)
+const NAV_MAX = 20, NAV_SNAPS = 5;
+let navStack = [], navCur = null, navRestoring = false, navHist = false, navPend = false;
+// Одна страница — раздел (Календарь и Задачи при «Плане» — одна), раздел настроек на телефоне, друг; вид и вкладка внутри — та же страница
+const navKey = () => (planOn() && (sec === 'cal' || sec === 'tasks') ? 'plan' : sec) + '|' + (sec === 'settings' && stPhone() ? stOpen || '' : '') + '|' + (sec === 'friend' ? fr.cur || '' : '');
+const navLoc = () => ({ s: sec, v: view, t: tView, st: stOpen, fr: fr.cur, pe: peTab, y: scrollY });
+const navCanBack = () => navStack.length > 0 || sec !== 'home';
+const navOk = s => !!SEC[s] && secOn(s);   // раздел с тех пор выключили — туда не возвращаемся
+addEventListener('scroll', () => { if (navCur) navCur.loc.y = scrollY; }, { passive: true });
+// Снимок страницы для жеста: копия .app; шапка зависит от страницы (body[data-…]) — то, что в ней видно сейчас, переносим прямо в копию
+function navSnap() {
+  const app = $('.app'); if (!app) return null;
+  const c = app.cloneNode(true), lh = app.querySelector('header'), ch = c.querySelector('header');
+  if (lh && ch) { const L = [lh, ...lh.querySelectorAll('*')], C = [ch, ...ch.querySelectorAll('*')];
+    L.forEach((el, i) => { const s = getComputedStyle(el), x = C[i]; if (!x) return; x.style.setProperty('display', s.display, 'important');
+      if (el.id === 'ttl') { x.style.textAlign = s.textAlign; x.style.paddingLeft = s.paddingLeft; } }); }
+  return c;
+}
+// render() в начале: открылась другая страница — прошлая уходит в историю
+function navTrack() {
+  const k = navKey();
+  if (!navCur || k === navCur.k) { navCur = { k, loc: navLoc() }; if (!navStack.length) navGuard(); return; }
+  if (!navRestoring) {
+    const top = navStack[navStack.length - 1];
+    if (top && top.k === k) navStack.pop();
+    else {
+      navStack.push({ k: navCur.k, loc: navCur.loc, snap: innerWidth < 900 ? navSnap() : null });
+      if (navStack.length > NAV_MAX) navStack.shift();
+      navStack.slice(0, -NAV_SNAPS).forEach(x => { x.snap = null; });
+    }
+  }
+  navCur = { k, loc: navLoc() };
+  if (!navRestoring) navGuard();
+}
+// Назад: прошлая страница целиком, как её оставили (вид, вкладка, прокрутка); anim — страница въезжает слева («Назад» Android)
+function navBack(anim) {
+  let it = navStack.pop(); while (it && !navOk(it.loc.s)) it = navStack.pop();
+  const L = it ? it.loc : sec !== 'home' ? { s: 'home', y: 0 } : null;
+  if (!L) return false;
+  navRestoring = true;
+  try {
+    if (L.v) view = L.v; if (L.t) tView = L.t; if (L.fr) fr.cur = L.fr; if (L.pe) peTab = L.pe;
+    if (L.s !== sec) { sec = L.s; S.settings.sec = sec; save(); if (sec === 'habits' || sec === 'fin') miniAnchor = pd(secYM + '-01'); else syncMini(); }
+    if (sec === 'settings') stOpen = L.st || null;
+    closeQuick(); if (sheetOpen()) closeSheet();
+    render(anim ? -1 : 0);
+  } finally { navRestoring = false; }
+  window.scrollTo(0, L.y || 0); if (navCur) navCur.loc.y = L.y || 0;
+  navGuard();
+  return true;
+}
+// Android: «Назад» системы — шаг в истории браузера. Пока есть куда вернуться, в истории лежит один свой шаг (как у окон — shHistOpen)
+function navGuard() {
+  if (navHist || !navCanBack()) return;
+  if (shBack) { navPend = true; return; }   // окно ещё закрывается и его шаг назад не дошёл — свой шаг добавим после (calendar.js, popstate)
+  navPend = false; navHist = true; try { history.pushState({ pnav: 1 }, ''); } catch (e) {}
+}
+const navPop = () => { navHist = false; navBack(true); };
+
 // Месяц как строка «2026-10»
 const ymOf = k => k.slice(0, 7);
 const ymAdd = (ym, n) => { const [y, m] = ym.split('-').map(Number), d = new Date(y, m - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };

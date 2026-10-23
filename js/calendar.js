@@ -311,6 +311,7 @@ function titleHTML() {
 
 let lastGridView = null;
 function render(dir) {
+  navTrack();   // js/sections.js: открылась другая страница — прошлая уходит в историю «назад»
   evCache.clear();
   const fk = focSave();   // js/a11y.js: фокус клавиатуры вернётся на ту же кнопку после перерисовки
   closeQuick();
@@ -418,8 +419,9 @@ let shHist = false, shBack = false;
 function shHistOpen() { if (shHist) return; shHist = true; try { history.pushState({ psh: 1 }, ''); } catch (e) {} }
 function shHistClose(fromBack) { if (!shHist) return; shHist = false; if (!fromBack) { shBack = true; try { history.back(); } catch (e) { shBack = false; } } }
 addEventListener('popstate', () => {
-  if (shBack) { shBack = false; return; }
-  if (shHist && sheetOpen()) { shHist = false; if (shUnsaved()) { shHistOpen(); return shAsk(); } closeSheet(true); }   // вписано — окно остаётся, шаг в истории возвращаем
+  if (shBack) { shBack = false; if (navPend) navGuard(); return; }
+  if (shHist && sheetOpen()) { shHist = false; if (shUnsaved()) { shHistOpen(); return shAsk(); } return closeSheet(true); }   // вписано — окно остаётся, шаг в истории возвращаем
+  if (!location.hash) navPop();   // окна нет — «Назад» (Android) возвращает на прошлую страницу (sections.js); ссылки с # разбирают свои обработчики
 });
 // Свайп вниз закрывает окно на телефоне (полоска сверху — за неё и тянут; можно и за любое место, пока окно прокручено к началу).
 // Не мешает: полям ввода, карте, ленте чата и рядам, которые листаются вбок

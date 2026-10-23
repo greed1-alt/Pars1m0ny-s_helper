@@ -360,3 +360,61 @@ document.addEventListener('touchend', e => {
   const dx = e.changedTouches[0].clientX - tsx, dy = e.changedTouches[0].clientY - tsy;
   if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5) (SEC[sec].swipe || move)(dx < 0 ? 1 : -1);   // раздел может листать иначе: «Задачи» на телефоне — по дням
 }, {passive:true});
+
+// ---- Назад смахиванием от левого края (телефон, 23 октября 2026; история страниц — navStack, navBack в sections.js) ----
+// Палец лёг у самого левого края и повёл вправо — страница едет за ним, под ней снимок прошлой (сдвинут и затемнён, по мере движения
+// встаёт на место). Отпустили дальше трети экрана или быстрым движением — назад; раньше — страница возвращается. Месяцы и дни этим
+// касанием не листаются (tsIn). Окна, поиск, перетаскивание и знакомство жест не включают
+const NAV_EDGE = 24, NAV_MS = 230;
+let nsw = null, nUnder = null;
+document.addEventListener('touchstart', e => {
+  nsw = null;
+  if (innerWidth >= 900 || nUnder || e.touches.length !== 1 || sheetOpen() || cmdOpen() || quickOpen() || drag || tour || !navCanBack()) return;
+  const t = e.touches[0]; if (t.clientX > NAV_EDGE) return;
+  nsw = { x0: t.clientX, y0: t.clientY, x: t.clientX, t: Date.now(), v: 0, dx: 0, on: false };
+  tsIn = true;   // обычное смахивание (месяцы, дни) этим касанием не срабатывает
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+  const n = nsw; if (!n) return;
+  const t = e.touches[0], dx = t.clientX - n.x0, dy = t.clientY - n.y0, now = Date.now();
+  if (!n.on) {
+    if (Math.abs(dy) > 10 && Math.abs(dy) > dx) { nsw = null; return; }   // повели вверх-вниз — это прокрутка
+    if (dx < 8) return;
+    n.on = navSwipeStart(); if (!n.on) { nsw = null; return; }
+  }
+  e.preventDefault();
+  if (now > n.t) { n.v = (t.clientX - n.x) / (now - n.t); n.x = t.clientX; n.t = now; }
+  n.dx = Math.max(0, dx); navSwipeMove(n.dx);
+}, { passive: false });
+const nswEnd = e => { const n = nsw; nsw = null; if (!n || !n.on) return;
+  const v = Date.now() - n.t > 100 ? 0 : n.v;   // задержали палец перед тем, как отпустить, — скорость не считается
+  navSwipeEnd(e.type === 'touchend' && (n.dx > innerWidth / 3 || (v > 0.35 && n.dx > 30))); };
+document.addEventListener('touchend', nswEnd); document.addEventListener('touchcancel', nswEnd);
+function navSwipeStart() {
+  const app = $('.app'); if (!app) return false;
+  const top = navStack[navStack.length - 1], u = document.createElement('div'), y = top ? top.loc.y || 0 : 0;
+  u.id = 'navunder'; u.setAttribute('aria-hidden', 'true'); u.inert = true;
+  let inner = null;
+  if (top && top.snap) { inner = top.snap.cloneNode(true); const h = inner.querySelector('header'); if (h) h.style.transform = `translateY(${y}px)`; u.appendChild(inner); }   // шапка — сверху, страница — как её прокрутили
+  const dim = document.createElement('i'); dim.className = 'nav-dim'; u.appendChild(dim);
+  app.after(u);   // после .app: поиск по id находит настоящую страницу, а не снимок
+  app.classList.add('nav-sw'); document.documentElement.classList.add('nav-swiping');
+  nUnder = { u, app, inner, dim, y };
+  return true;
+}
+function navSwipeMove(dx) {
+  const n = nUnder; if (!n) return;
+  const w = innerWidth, p = Math.min(1, dx / w);
+  n.app.style.transform = `translateX(${dx}px)`;
+  n.dim.style.opacity = (1 - p).toFixed(3);
+  if (n.inner) n.inner.style.transform = `translate(${(-0.3 * w * (1 - p)).toFixed(1)}px, ${-n.y}px)`;
+}
+function navSwipeEnd(go) {
+  const n = nUnder; if (!n) return;
+  const fin = () => { nUnder = null; n.app.classList.remove('nav-sw'); n.app.style.transform = n.app.style.transition = ''; document.documentElement.classList.remove('nav-swiping'); n.u.remove(); };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { if (go) navBack(); return fin(); }
+  const tr = `transform ${NAV_MS}ms cubic-bezier(.2,.8,.2,1)`;
+  n.app.style.transition = tr; if (n.inner) n.inner.style.transition = tr; n.dim.style.transition = `opacity ${NAV_MS}ms ease-out`;
+  navSwipeMove(go ? innerWidth : 0);
+  setTimeout(() => { if (go) navBack(); fin(); }, NAV_MS + 20);   // настоящая прошлая страница рисуется за уехавшей текущей — без мигания
+}

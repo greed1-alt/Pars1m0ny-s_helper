@@ -763,6 +763,12 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .ai-mic{color:var(--accfg);background:linear-gradient(135deg,var(--acc),color-mix(in srgb,var(--acc) 60%,#a855f7));touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 .ai-in.rec{visibility:hidden}
 .ai-chat.rec,.ai-voice{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}   /* удержание микрофона не выделяет текст (iPhone) */
+/* Назад смахиванием от левого края (телефон, js/input.js): страница едет за пальцем, под ней снимок прошлой с затемнением; нижние вкладки на месте */
+#navunder{position:fixed;inset:0;z-index:1;overflow:hidden;background:var(--bg);pointer-events:none}
+#navunder>.app{will-change:transform}
+.nav-dim{position:absolute;inset:0;background:rgba(0,0,0,.16)}
+.app.nav-sw{position:relative;z-index:2;min-height:100vh;background:var(--bg);box-shadow:-12px 0 32px rgba(0,0,0,.22);will-change:transform}
+html.nav-swiping body{overflow-x:clip}
 /* Голос: плашка поверх поля — время, распознанный текст, «волна»; смахнули вверх — красная, отпустите — отмена */
 .ai-voice{position:absolute;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:2;display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:24px;background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 22%,var(--sf)),var(--sf));border:1px solid color-mix(in srgb,var(--acc) 35%,var(--line));box-shadow:0 10px 40px color-mix(in srgb,var(--acc) 28%,transparent);animation:aiIn .18s ease-out}
 @media(min-width:900px){.ai-voice{bottom:12px}}
