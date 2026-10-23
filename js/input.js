@@ -361,72 +361,60 @@ document.addEventListener('touchend', e => {
   if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5) (SEC[sec].swipe || move)(dx < 0 ? 1 : -1);   // раздел может листать иначе: «Задачи» на телефоне — по дням
 }, {passive:true});
 
-// ---- Назад смахиванием от левого края, вперёд — от правого (телефон, 23 октября 2026; история — navStack, navFwd в sections.js) ----
-// Назад: палец лёг у самого левого края и повёл вправо — страница едет за ним, под ней снимок прошлой (сдвинут и затемнён, по мере
-// движения встаёт на место). Вперёд — зеркально: от правого края влево, страница, с которой ушли назад, въезжает справа поверх текущей.
-// Отпустили дальше трети экрана или быстрым движением — переход; раньше — всё возвращается. Месяцы и дни этим касанием не листаются
-// (tsIn). Окна, поиск, перетаскивание и знакомство жест не включают
+// ---- Назад смахиванием от левого края (телефон, 23 октября 2026; история страниц — navStack, navBack в sections.js) ----
+// Палец лёг у самого левого края и повёл вправо — страница едет за ним, под ней снимок прошлой (сдвинут и затемнён, по мере движения
+// встаёт на место). Отпустили дальше трети экрана или быстрым движением — назад; раньше — страница возвращается. Месяцы и дни этим
+// касанием не листаются (tsIn). Окна, поиск, перетаскивание и знакомство жест не включают
 const NAV_EDGE = 24, NAV_MS = 230;
 let nsw = null, nUnder = null;
 document.addEventListener('touchstart', e => {
   nsw = null;
-  if (innerWidth >= 900 || nUnder || e.touches.length !== 1 || sheetOpen() || cmdOpen() || quickOpen() || drag || tour) return;
-  const t = e.touches[0], dir = t.clientX <= NAV_EDGE && navCanBack() ? 1 : t.clientX >= innerWidth - NAV_EDGE && navFwd.length ? -1 : 0;   // 1 — назад, −1 — вперёд
-  if (!dir) return;
-  nsw = { dir, x0: t.clientX, y0: t.clientY, x: t.clientX, t: Date.now(), v: 0, dx: 0, on: false };
+  if (innerWidth >= 900 || nUnder || e.touches.length !== 1 || sheetOpen() || cmdOpen() || quickOpen() || drag || tour || !navCanBack()) return;
+  const t = e.touches[0]; if (t.clientX > NAV_EDGE) return;
+  nsw = { x0: t.clientX, y0: t.clientY, x: t.clientX, t: Date.now(), v: 0, dx: 0, on: false };
   tsIn = true;   // обычное смахивание (месяцы, дни) этим касанием не срабатывает
 }, { passive: true });
 document.addEventListener('touchmove', e => {
   const n = nsw; if (!n) return;
-  const t = e.touches[0], dx = (t.clientX - n.x0) * n.dir, dy = t.clientY - n.y0, now = Date.now();   // dx — сдвиг в сторону жеста
+  const t = e.touches[0], dx = t.clientX - n.x0, dy = t.clientY - n.y0, now = Date.now();
   if (!n.on) {
     if (Math.abs(dy) > 10 && Math.abs(dy) > dx) { nsw = null; return; }   // повели вверх-вниз — это прокрутка
     if (dx < 8) return;
-    n.on = navSwipeStart(n.dir); if (!n.on) { nsw = null; return; }
+    n.on = navSwipeStart(); if (!n.on) { nsw = null; return; }
   }
   e.preventDefault();
-  if (now > n.t) { n.v = (t.clientX - n.x) * n.dir / (now - n.t); n.x = t.clientX; n.t = now; }
+  if (now > n.t) { n.v = (t.clientX - n.x) / (now - n.t); n.x = t.clientX; n.t = now; }
   n.dx = Math.max(0, dx); navSwipeMove(n.dx);
 }, { passive: false });
 const nswEnd = e => { const n = nsw; nsw = null; if (!n || !n.on) return;
   const v = Date.now() - n.t > 100 ? 0 : n.v;   // задержали палец перед тем, как отпустить, — скорость не считается
   navSwipeEnd(e.type === 'touchend' && (n.dx > innerWidth / 3 || (v > 0.35 && n.dx > 30))); };
 document.addEventListener('touchend', nswEnd); document.addEventListener('touchcancel', nswEnd);
-// Снимок страницы, куда идём: назад — под текущей (#navunder ниже .app), вперёд — поверх неё (.nav-page въезжает справа, текущая затемняется)
-function navSwipeStart(dir) {
+function navSwipeStart() {
   const app = $('.app'); if (!app) return false;
-  const top = dir > 0 ? navStack[navStack.length - 1] : navFwd[navFwd.length - 1], u = document.createElement('div'), y = top ? top.loc.y || 0 : 0;
+  const top = navStack[navStack.length - 1], u = document.createElement('div'), y = top ? top.loc.y || 0 : 0;
   u.id = 'navunder'; u.setAttribute('aria-hidden', 'true'); u.inert = true;
-  let inner = null, page = null;
-  if (top && top.snap) { inner = top.snap.cloneNode(true); const h = inner.querySelector('header'); if (h) h.style.transform = `translateY(${y}px)`; }   // шапка — сверху, страница — как её прокрутили
-  const dim = document.createElement('i'); dim.className = 'nav-dim';
-  if (dir > 0) { if (inner) u.appendChild(inner); u.appendChild(dim); }
-  else { u.className = 'fwd'; page = document.createElement('div'); page.className = 'nav-page'; if (inner) { inner.style.transform = `translateY(${-y}px)`; page.appendChild(inner); } u.append(dim, page); }
+  let inner = null;
+  if (top && top.snap) { inner = top.snap.cloneNode(true); const h = inner.querySelector('header'); if (h) h.style.transform = `translateY(${y}px)`; u.appendChild(inner); }   // шапка — сверху, страница — как её прокрутили
+  const dim = document.createElement('i'); dim.className = 'nav-dim'; u.appendChild(dim);
   app.after(u);   // после .app: поиск по id находит настоящую страницу, а не снимок
-  app.classList.add('nav-sw'); if (dir < 0) app.classList.add('nav-sw-f'); document.documentElement.classList.add('nav-swiping');
-  nUnder = { dir, u, app, inner, page, dim, y };
+  app.classList.add('nav-sw'); document.documentElement.classList.add('nav-swiping');
+  nUnder = { u, app, inner, dim, y };
   return true;
 }
 function navSwipeMove(dx) {
   const n = nUnder; if (!n) return;
   const w = innerWidth, p = Math.min(1, dx / w);
-  if (n.dir > 0) {
-    n.app.style.transform = `translateX(${dx}px)`;
-    n.dim.style.opacity = (1 - p).toFixed(3);
-    if (n.inner) n.inner.style.transform = `translate(${(-0.3 * w * (1 - p)).toFixed(1)}px, ${-n.y}px)`;
-  } else {
-    n.page.style.transform = `translateX(${(w - dx).toFixed(1)}px)`;
-    n.app.style.transform = `translateX(${(-0.3 * dx).toFixed(1)}px)`;
-    n.dim.style.opacity = p.toFixed(3);
-  }
+  n.app.style.transform = `translateX(${dx}px)`;
+  n.dim.style.opacity = (1 - p).toFixed(3);
+  if (n.inner) n.inner.style.transform = `translate(${(-0.3 * w * (1 - p)).toFixed(1)}px, ${-n.y}px)`;
 }
 function navSwipeEnd(go) {
   const n = nUnder; if (!n) return;
-  const fin = () => { nUnder = null; n.app.classList.remove('nav-sw', 'nav-sw-f'); n.app.style.transform = n.app.style.transition = ''; document.documentElement.classList.remove('nav-swiping'); n.u.remove(); };
-  const run = () => { if (go) { if (n.dir > 0) navBack(); else navForward(); } };
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { run(); return fin(); }
+  const fin = () => { nUnder = null; n.app.classList.remove('nav-sw'); n.app.style.transform = n.app.style.transition = ''; document.documentElement.classList.remove('nav-swiping'); n.u.remove(); };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { if (go) navBack(); return fin(); }
   const tr = `transform ${NAV_MS}ms cubic-bezier(.2,.8,.2,1)`;
-  n.app.style.transition = tr; if (n.inner && n.dir > 0) n.inner.style.transition = tr; if (n.page) n.page.style.transition = tr; n.dim.style.transition = `opacity ${NAV_MS}ms ease-out`;
+  n.app.style.transition = tr; if (n.inner) n.inner.style.transition = tr; n.dim.style.transition = `opacity ${NAV_MS}ms ease-out`;
   navSwipeMove(go ? innerWidth : 0);
-  setTimeout(() => { run(); fin(); }, NAV_MS + 20);   // настоящая страница рисуется под снимком — без мигания
+  setTimeout(() => { if (go) navBack(); fin(); }, NAV_MS + 20);   // настоящая прошлая страница рисуется за уехавшей текущей — без мигания
 }

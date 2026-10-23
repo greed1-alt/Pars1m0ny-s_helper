@@ -768,11 +768,6 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 #navunder>.app{will-change:transform}
 .nav-dim{position:absolute;inset:0;background:rgba(0,0,0,.16)}
 .app.nav-sw{position:relative;z-index:2;min-height:100vh;background:var(--bg);box-shadow:-12px 0 32px rgba(0,0,0,.22);will-change:transform}
-/* вперёд (от правого края): страница въезжает справа поверх текущей, текущая чуть уходит влево и затемняется */
-#navunder.fwd{z-index:3;background:none}
-#navunder.fwd .nav-dim{opacity:0}
-.nav-page{position:absolute;inset:0;overflow:hidden;background:var(--bg);box-shadow:-12px 0 32px rgba(0,0,0,.22);transform:translateX(100%);will-change:transform}
-.app.nav-sw-f{box-shadow:none}
 /* Переписка с друзьями (js/chat.js): окно — как чат помощника; свои сообщения справа цветом акцента, друга — слева серым; нажатие — реакции и действия */
 .hdr-msg{position:relative;color:var(--tx2)}
 .hdr-msg[hidden]{display:none}
