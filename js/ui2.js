@@ -271,7 +271,7 @@ function homePlan(t) {
   return `${all.length ? `${tShow.length && uShow.length ? '<div class="pl-sub">По времени</div>' : ''}${tShow.map(row).join('')}
       ${uShow.length && tShow.length ? '<div class="pl-sub">Без времени</div>' : ''}${uShow.map(row).join('')}${rest > 0 ? `<button class="hm-more" data-act="pick" data-d="${t}">Ещё ${plural(rest, NEV)} →</button>` : ''}`
       : '<p class="h2-empty">На сегодня пусто. Напишите в строке выше — например, «позвонить маме в 18» или «купить продукты».</p>'}
-    <div class="hm-foot"><span>${tm ? 'Завтра: ' + plural(tm, NEV) : 'На завтра пока пусто'}</span><span>${secLink('tasks', 'Задачи')}${secLink('cal', 'Календарь')}</span></div>`;
+    ${aiDayBtn(t, 'hm-aid')}<div class="hm-foot"><span>${tm ? 'Завтра: ' + plural(tm, NEV) : 'На завтра пока пусто'}</span><span>${secLink('tasks', 'Задачи')}${secLink('cal', 'Календарь')}</span></div>`;
 }
 function homeHabits(t) {
   const habs = todayHabs(t), sk = habitStreaks(), show = habs.slice(0, homeTight ? 4 : 12);   // «Плотнее» — две строки «таблеток» и «ещё N»
@@ -383,7 +383,7 @@ function tasksWeekStrip() {
 function tasksDayList(k) {
   const t = todayK(), l = daySort(dayTasks(k)), dn = l.filter(e => e.done).length, d = pd(k);
   const ttl = `${DOWF[dowIdx(k)]}, ${d.getDate()} ${MONG[d.getMonth()]}${k === t ? ' · сегодня' : k === addDays(t, 1) ? ' · завтра' : ''}`;
-  return `${t3Head(withHint(ttl, 'taskDay'), l.length ? `${dn} из ${l.length}` : '')}${l.length ? l.map(e => t3Row(e, k, e.time ? esc(e.time) : '')).join('')
+  return `${t3Head(withHint(ttl, 'taskDay'), l.length ? `${dn} из ${l.length}` : '', '', aiDayBtn(k))}${l.length ? l.map(e => t3Row(e, k, e.time ? esc(e.time) : '')).join('')
     : `<p class="t3-empty">${k < t ? 'В этот день задач не было.' : 'Свободный день — задачу можно добавить выше.'}</p>`}`;
 }
 ACT.t3day = el => { sel = el.dataset.d; syncMini(); render(); };
@@ -411,7 +411,7 @@ function t4Hero(k) {
       <span class="t4-cnt">${l.length ? withHint(`${done.length} из ${l.length} сделано`, 'focusDay') : hintK('focusDay')}</span></div>
     ${l.length ? `<div class="ds-bar t4-prog"><i style="width:${Math.round(done.length / l.length * 100)}%"></i></div>` : ''}
     ${omniHTML('omt', 'tasks')}
-    ${open.length ? `<div class="t4-cards">${open.map(e => t4Card(e, k)).join('')}</div>`
+    ${aiDayBtn(k, 'hm-aid t4-aid')}${open.length ? `<div class="t4-cards">${open.map(e => t4Card(e, k)).join('')}</div>`
       : `<p class="t4-empty">${l.length ? 'Всё на этот день сделано. Можно взять что-нибудь из «Дальше».' : k < t ? 'В этот день задач не было.' : 'На этот день задач нет — напишите в строке выше.'}</p>`}
     ${done.length ? `${t3Head('Сделано', String(done.length))}${done.map(e => t3Row(e, k, e.time ? esc(e.time) : '')).join('')}` : ''}
   </div>`;

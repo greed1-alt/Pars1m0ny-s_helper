@@ -228,7 +228,7 @@ const nextCard = n => n ? `<button class="nextcard" data-act="edit" data-id="${n
 function phoneDayHTML() {
   const t = todayK(), st = omSt('omc'); st.base = sel !== t ? sel : null; st.ph = st.base ? `Добавить на ${relDay(sel)}…` : null;
   const plan = planOn(), tl = plan ? daySort(dayTasks(sel).filter(e => !e.time)) : [], dn = tl.filter(e => e.done).length, show = cdTasksAll ? tl : tl.slice(0, 6);
-  const tasks = tl.length ? `<div class="card t3-list cd-tasks">${t3Head(withHint('Задачи', 'taskRing'), `${dn} из ${tl.length}`)}${show.map(e => t3Row(e, sel, '')).join('')}
+  const tasks = tl.length ? `<div class="card t3-list cd-tasks">${t3Head(withHint('Задачи', 'taskRing'), `${dn} из ${tl.length}`, '', aiDayBtn(sel))}${show.map(e => t3Row(e, sel, '')).join('')}
     ${tl.length > 6 ? `<button class="t3-more" data-act="cdtasks">${cdTasksAll ? 'Свернуть' : `Ещё ${tl.length - 6}`}</button>` : ''}</div>` : '';
   return `<div class="cd-wrap">${missedBar(false, true)}${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>${tasks}<div class="card cd-grid">${gridHTML([sel], { noTasks: plan })}</div></div>`;
 }
