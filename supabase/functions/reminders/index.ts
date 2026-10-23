@@ -10,6 +10,7 @@
 //    Каждое напоминание уходит один раз: перед отправкой оно записывается в reminder_log (повтор ключа — пропуск).
 //    И пуши о заявках в друзья из очереди fr_notify (friendPushes, supabase/sql/friends.sql) и о новых сообщениях друзей
 //    из очереди msg_notify (msgPushes, supabase/sql/messages.sql, с 23 октября 2026).
+//    И помощник пишет сам — до 3 раз в день, только по делу, ночью тихо (nudgeCands / pickNudge / nudgePayload, с 23 октября 2026).
 // 2) Приложение с токеном пользователя и {"test":true} — проверочное уведомление на устройства этого человека
 //    (не чаще раза в минуту).
 // В настройках функции «Verify JWT» выключен: доступ проверяется здесь (секретный ключ или настоящий токен через auth.getUser).
@@ -125,6 +126,130 @@ function digestPayload(d, data) {
   if (left) body = `Не сделано сегодня: ${left} · ${body}`;
   return { title: 'Запишите задачи на завтра', body, k: next, url: `./#d=${next}`, tag: 'pm' };
 }
+
+// ---- Помощник пишет сам (23 октября 2026; выбор пользователя: «До 3 в день. Только по делу: пропущен срок, шаг цели завис, есть свободное
+// окно для плана. Ночью тихо»). Поводы (nudgeCands) — по записям человека в его часовом поясе, с 9:30 до 21:30:
+// late — пропущен срок разовой задачи за последнюю неделю (с 10:00; сначала шаги целей, потом важные, потом свежие);
+// plan — занятия по плану к цели (g.plan, js/assistant.js) заканчиваются в ближайшие 3 дня, а нужно ещё (с 12:00) — «продли план»;
+// goal — цель отстаёт от темпа или её срок прошёл (с 14:00; темп — как goalStat в js/goals.js);
+// free — сегодня есть свободное окно (часы S.settings.freeHrs, между событиями) для отстающей цели с планом и занятия сегодня нет (за 30 минут).
+// Выбор (pickNudge): не больше 3 за день, не чаще раза в 2 часа, один и тот же повод — не чаще раза в 3 дня. Подначка — из тех же фраз,
+// что в «Целях» (TAUNTS — копия из js/goals.js, тест сверяет) и своих фраз человека, если подначки включены. Выключатель — S.settings.nudge;
+// пишем только при nudge === true: его ставит приложение с выключателем (js/notify.js), на старой версии без выключателя — тихо
+const NUDGE_MAX = 3, NUDGE_GAP = 2 * 3600e3, NUDGE_FROM = 9 * 60 + 30, NUDGE_TO = 21 * 60 + 30, NUDGE_COOL = 3, NUDGE_ORDER = ['late', 'goal', 'free', 'plan'];
+const TAUNTS = [
+  '«{step}» сам себя не сделает. Удивительно, правда?',
+  'Цель «{goal}» скучает. Вы, судя по всему, нет.',
+  'Ещё один день без шага к «{goal}». Мечта терпеливая, но не бесконечно.',
+  'Дедлайн не двигается сам. В отличие от ваших оправданий.',
+  'Вчера вы собирались. Сегодня снова собираетесь. Классика.',
+  '«Начну с понедельника» — самая популярная цель в мире. Не будьте как все.',
+  'Если откладывать дальше, «{goal}» станет целью на следующий год. Или на следующую жизнь.',
+  'Шаг «{step}» всё ещё ждёт. Он вежливый, но уже нервничает.',
+  'Время идёт. Прогресс — нет.',
+  'Мотивация не придёт. Придёт только дедлайн.',
+  'Вы обещали себе. Себе! Неловко получилось.',
+  'Даже улитка уже доползла бы. А «{step}» всё ещё не сделан.',
+  'Пропустить один раз — случайность. Два — уже новая привычка. Плохая.',
+  'Будущий вы смотрит на это с грустью.',
+  'Мечтать приятно. Делать — эффективно. Попробуйте второе.',
+  '«Потом» — это не дата.',
+  'Прогресс-бар цели «{goal}» выглядит одиноко.',
+  'Список шагов есть. Шагов нет.',
+  'Самое время перестать планировать и начать делать.',
+  'Цели без действий называются мечтами. А мечты — это для сна.',
+  'Вы же не для красоты записали «{goal}»?',
+  'Где-то сейчас кто-то делает ваш шаг «{step}». Только для своей цели.',
+  'Отложенное дело весит больше сделанного. Проверено.',
+  'Это ваша самая грандиозная цель, вы же не будете жалеть потом?)',
+];
+const hashS = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) >>> 0; return h; };   // как hashStr в js/goals.js
+const fillS = (s, v) => s.replace(/\{(\w+)\}/g, (m, k) => v[k] != null ? v[k] : '');
+const dd = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / DAY);   // дней от a до b
+const hmS = m => pad(Math.floor(m / 60)) + ':' + pad(m % 60);
+const dmon = k => +k.slice(8) + ' ' + MONG[+k.slice(5, 7) - 1];
+const qS = s => '«' + String(s).slice(0, 60) + '»';
+const agoS = n => n === 1 ? 'вчера' : plural(n, ['день', 'дня', 'дней']) + ' назад';
+const PRI_N = { urgent: 3, high: 2, mid: 1, low: 0 };
+// Свободное время — как в приложении (aiFreeGaps): часы из настроек (будни / выходные) минус всё, у чего есть время
+const FREE_DEF = { wd: ['18:00', '22:00'], we: ['10:00', '20:00'] };
+const freeOf = data => { const f = (data.settings && data.settings.freeHrs) || {}, ok = a => Array.isArray(a) && a.length === 2 && a.every(x => TIME_RE.test(x || '')) && tmin(a[0]) < tmin(a[1]);
+  return { wd: ok(f.wd) ? f.wd : FREE_DEF.wd, we: ok(f.we) ? f.we : FREE_DEF.we }; };
+function freeGaps(data, evs, k) {
+  const h = freeOf(data)[dowOf(k) >= 5 ? 'we' : 'wd'], to = tmin(h[1]), gaps = []; let cur = tmin(h[0]);
+  evs.filter(e => TIME_RE.test(e.time || '') && occurs(e, k)).map(e => { const a = tmin(e.time), b = TIME_RE.test(e.time2 || '') ? tmin(e.time2) : a + 60; return [a, Math.max(b, a + 15)]; })
+    .sort((x, y) => x[0] - y[0]).forEach(([a, b]) => { if (a > cur) gaps.push([cur, Math.min(a, to)]); cur = Math.max(cur, b); });
+  if (cur < to) gaps.push([cur, to]);
+  return gaps.filter(([a, b]) => b > a);
+}
+// Темп цели — как goalStat (js/goals.js): шаги — задачи с полем goal и шаги без срока; отстаёт — есть просроченный шаг или сделано заметно меньше, чем прошло времени
+function goalPace(evs, g, k) {
+  const st = [...evs.filter(e => e.goal === g.id && !isRec(e)).map(e => ({ t: e.title, date: e.date, done: !!e.done })),
+    ...(Array.isArray(g.steps) ? g.steps : []).filter(s => s && typeof s === 'object').map(s => ({ t: String(s.t || ''), date: '', done: !!s.done }))];
+  const n = st.length, d = st.filter(x => x.done).length, late = st.filter(x => !x.done && x.date && x.date < k);
+  const next = st.filter(x => !x.done).sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'))[0] || null;
+  const passed = Math.min(1, Math.max(0, dd(g.created, k) / Math.max(1, dd(g.created, g.due)))), pct = n ? d / n : 0;
+  return { n, d, next, passed, pace: !n ? '' : dd(k, g.due) < 0 ? 'late' : late.length || pct + .15 < passed ? 'behind' : 'ok' };
+}
+function nudgeCands(data, now) {
+  const out = []; if (!data || typeof data !== 'object' || !data.settings || data.settings.nudge !== true) return out;
+  const tz = tzOf(data), k = dayIn(now, tz), p = partsIn(now, tz), min = p.h * 60 + p.mi;
+  if (min < NUDGE_FROM || min > NUDGE_TO) return out;   // ночью тихо
+  const evs = (Array.isArray(data.events) ? data.events : []).filter(e => okEv(e) && !e.demo);
+  const goals = (Array.isArray(data.goals) ? data.goals : []).filter(g => g && typeof g === 'object' && typeof g.id === 'string' && typeof g.title === 'string' && !g.done && !g.demo
+    && DATE_RE.test(g.due || '') && DATE_RE.test(g.created || ''));
+  const gTitle = id => (goals.find(g => g.id === id) || {}).title || '';
+  if (min >= 600) {   // пропущен срок
+    const late = evs.filter(e => e.task && !isRec(e) && !e.done && e.date < k && e.date >= addD(k, -7))
+      .sort((a, b) => (!!b.goal - !!a.goal) || (PRI_N[b.prio] || 0) - (PRI_N[a.prio] || 0) || b.date.localeCompare(a.date));
+    if (late.length) { const e = late[0], g = gTitle(e.goal);
+      out.push({ kind: 'late', id: String(e.id), goal: g || e.title, step: e.title,
+        text: `Срок ${qS(e.title)}${g ? ' (цель ' + qS(g) + ')' : ''} прошёл ${agoS(dd(e.date, k))}.` + (late.length > 1 ? ` Ещё просрочено: ${late.length - 1}.` : '') }); }
+  }
+  if (min >= 720) for (const g of goals) {   // занятия по плану заканчиваются
+    const pl = g.plan; if (!pl || typeof pl !== 'object' || !DATE_RE.test(pl.last || '') || !(+pl.n < +pl.need)) continue;
+    const left = dd(k, pl.last); if (left < 0 || left > 3) continue;
+    out.push({ kind: 'plan', id: g.id, goal: g.title, step: g.title, quiet: true,
+      text: `Занятия по цели ${qS(g.title)} поставлены до ${dmon(pl.last)}. Скажите помощнику «продли план» — поставлю следующие недели.` });
+  }
+  if (min >= 840) {   // цель отстаёт
+    const bad = goals.map(g => ({ g, s: goalPace(evs, g, k) })).filter(x => x.s.pace === 'behind' || x.s.pace === 'late')
+      .sort((a, b) => (b.s.pace === 'late') - (a.s.pace === 'late') || a.g.due.localeCompare(b.g.due));
+    if (bad.length) { const { g, s } = bad[0];
+      out.push({ kind: 'goal', id: g.id, goal: g.title, step: s.next ? s.next.t : g.title,
+        text: s.pace === 'late' ? `Срок цели ${qS(g.title)} прошёл, а сделано шагов: ${s.d} из ${s.n}.` : `Цель ${qS(g.title)} отстаёт: сделано ${s.d} из ${s.n} шагов, а прошло ${Math.round(s.passed * 100)}% срока.` }); }
+  }
+  for (const g of goals) {   // свободное окно сегодня для отстающей цели с планом — за 30 минут до начала, если занятия сегодня нет
+    const pl = g.plan; if (!pl || typeof pl !== 'object' || !(+pl.min > 0)) continue;
+    const s = goalPace(evs, g, k); if (s.pace !== 'behind') continue;
+    const ids = new Set(Array.isArray(pl.ev) ? pl.ev : []); if (evs.some(e => ids.has(e.id) && occurs(e, k))) continue;
+    const gap = freeGaps(data, evs, k).find(([a, b]) => b - Math.ceil(a / 15) * 15 >= +pl.min); if (!gap) continue;
+    const start = Math.ceil(gap[0] / 15) * 15; if (min < Math.max(NUDGE_FROM, start - 30) || min >= start) continue;
+    out.push({ kind: 'free', id: g.id, goal: g.title, step: s.next ? s.next.t : g.title, text: `Сегодня с ${hmS(start)} свободно — позанимайтесь целью ${qS(g.title)} ${+pl.min} мин: она отстаёт.` });
+    break;
+  }
+  return out;
+}
+// Какой повод отправить сейчас. log — что уже отправлено за 3 дня: [{ key: 'nudge|день|вид|id', at: мс }]
+function pickNudge(cands, log, now, tz) {
+  const k = dayIn(now, tz);
+  if (log.filter(x => x.key.startsWith(`nudge|${k}|`)).length >= NUDGE_MAX || log.some(x => now - x.at < NUDGE_GAP)) return null;
+  const days = Array.from({ length: NUDGE_COOL }, (_, i) => addD(k, -i)), recent = c => days.some(d => log.some(x => x.key === `nudge|${d}|${c.kind}|${c.id}`));
+  const c = [...cands].sort((a, b) => NUDGE_ORDER.indexOf(a.kind) - NUDGE_ORDER.indexOf(b.kind)).find(x => !recent(x));
+  return c ? Object.assign({ key: `nudge|${k}|${c.kind}|${c.id}` }, c) : null;
+}
+// Текст пуша: повод + подначка (если включены; одна и та же весь день для повода); нажатие — сообщение появится в чате помощника
+// (текст ai service worker кладёт в кэш, чат забирает — aiNudgeOpen в js/assistant.js; в адресе только «#ai»)
+function nudgePayload(data, n, now) {
+  const P = data.settings && data.settings.phr, k = dayIn(now, tzOf(data));
+  let body = n.text;
+  if (!n.quiet && (!P || P.taunts !== false)) {
+    const own = P && Array.isArray(P.custom) ? P.custom.filter(x => x && x.kind === 'taunt' && typeof x.t === 'string' && x.t.trim()).map(x => x.t.slice(0, 200)) : [];
+    const l = [...TAUNTS, ...own]; body += ' ' + fillS(l[hashS(k + n.id) % l.length], { goal: n.goal, step: n.step });
+  }
+  body = body.slice(0, 300);
+  return { title: 'Помощник Parsimony', body, tag: 'nudge', ai: body, url: './#ai' };
+}
 // ==== CORE end ====
 
 const clean = v => (v ?? '').trim().replace(/^["']|["']$/g, '');
@@ -171,6 +296,13 @@ async function tick(now) {
         due++;
         if (!(await once(row.user_id, d.key, d.fire))) continue;
         sent += (await sendTo(byUser.get(row.user_id), JSON.stringify(digestPayload(d, data)), 3 * 3600)).ok;
+      }
+      // Помощник пишет сам: есть повод — смотрим, что уже отправлено за 3 дня (журнал reminder_log, ключи nudge|…), и шлём не больше одного
+      const nc = nudgeCands(data, now);
+      if (nc.length) {
+        const { data: lg } = await sb.from('reminder_log').select('key,fire_at').eq('user_id', row.user_id).like('key', 'nudge|%').gte('fire_at', new Date(now - 3 * DAY).toISOString());
+        const n = pickNudge(nc, (lg || []).map(x => ({ key: x.key, at: Date.parse(x.fire_at) })), now, tz);
+        if (n && await once(row.user_id, n.key, now)) sent += (await sendTo(byUser.get(row.user_id), JSON.stringify(nudgePayload(data, n, now)), 6 * 3600)).ok;
       }
     }
   }

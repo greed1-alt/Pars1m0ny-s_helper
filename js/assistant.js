@@ -127,6 +127,16 @@ function openAI(text) {
   if (text || matchMedia('(pointer:fine)').matches) setTimeout(() => { const t = $('#ai_text'); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30);
   if (!text) aiHello();
 }
+// Помощник пишет сам (пуш функции reminders): нажали — его текст репликой помощника в чате, можно сразу ответить. Текст берём из кэша,
+// куда его положил service worker (sw.js: NUDGE_C), а не из адреса — ссылкой «#ai» чужой текст в чат не подложить
+async function aiNudgeOpen() {
+  let t = '';
+  try { const c = await caches.open('rem-nudge'), u = new URL('nudge', document.baseURI).href, r = await c.match(u); if (r) { t = (await r.text()).trim().slice(0, 300); await c.delete(u); } } catch (e) {}
+  if (!ai) { const st = aiLoad(); ai = { msgs: st.msgs, hello: st.hello || '', draft: '', busy: false, err: '', left: null, imgs: [] }; }
+  if (t && !ai.msgs.some(m => m.nudge && m.t === t)) ai.msgs.push({ r:'a', t, day: todayK(), nudge: 1 });
+  if (t) { ai.hello = todayK(); aiStore(); }   // вместо приветствия дня
+  openAI();
+}
 ACT.aiopen = el => { const i = el.dataset.om && $('#' + el.dataset.om), t = i ? i.value : ''; if (i) { i.value = ''; omUpdate(i.id); } openAI(t); };
 
 // Строка записи. mode: 'auto' — уже сделано (с «Отменить» / «Вернуть»); 'pick' — с галочкой и 'done' — добавлено:

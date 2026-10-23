@@ -90,7 +90,12 @@ const digestRow = (k, label, hint) => { const d = S.settings.digest;
   return `<div class="set-row dg-row"><span>${label}<small>${hint}</small></span><span class="dg-r"><input class="fin dg-t" type="time" data-dg="${k}T" value="${esc(d[k + 'T'])}" aria-label="Время"${d[k] ? '' : ' disabled'}><input class="sw" type="checkbox" data-dg="${k}" aria-label="${label}"${d[k] ? ' checked' : ''}></span></div>`; };
 const digestHTML = () => `<div class="set-sub">Сводки</div>
   ${digestRow('am', 'Утром — план на день', 'дела на сегодня и пропущенные')}
-  ${digestRow('pm', 'Вечером — «запишите задачи на завтра»', 'что уже есть на завтра')}`;
+  ${digestRow('pm', 'Вечером — «запишите задачи на завтра»', 'что уже есть на завтра')}
+  <div class="set-row"><span>${withHint('Помощник пишет сам', 'nudge')}<small>до 3 раз в день, только по делу, ночью тихо</small></span><input id="s_nudge" class="sw" type="checkbox"${S.settings.nudge ? ' checked' : ''}></div>`;
+// Помощник пишет сам (функция reminders: nudgeCands): по умолчанию включено; сервер пишет только при nudge === true — так старая версия приложения без выключателя молчит
+onMigrate(() => { if (typeof S.settings.nudge !== 'boolean') S.settings.nudge = true; });
+document.addEventListener('change', e => { if (e.target.id !== 's_nudge') return;
+  S.settings.nudge = e.target.checked; save(); toast(e.target.checked ? 'Помощник будет писать сам — до 3 раз в день' : 'Помощник больше не пишет сам'); });
 document.addEventListener('change', e => {
   const t = e.target, k = t.dataset && t.dataset.dg; if (!k) return;
   const d = S.settings.digest;
@@ -109,6 +114,7 @@ function openDay(k) {
 // Утренняя сводка открывает Главную (#s=home), напоминание и вечерняя — день в календаре (#d=…)
 const openSecFromPush = s => { if ((s === 'home' || s === 'profile') && SEC[s]) { if (typeof closeSheet === 'function') closeSheet(); setSec(s); if (s === 'profile') frLoad(true); } };   // profile — пуш о заявке в друзья
 function checkDayHash() {
+  if (location.hash === '#ai') { history.replaceState(null, '', location.pathname + location.search); return aiNudgeOpen(); }   // помощник пишет сам — его сообщение в чате
   const mm = location.hash.match(/^#m=([0-9a-f-]{36})$/i);   // пуш о сообщении друга — его переписка (js/chat.js)
   if (mm) { history.replaceState(null, '', location.pathname + location.search); return openMsgs(mm[1]); }
   const m = location.hash.match(/^#(d|s)=([\w-]{1,20})$/); if (!m) return;
@@ -116,7 +122,7 @@ function checkDayHash() {
   m[1] === 'd' ? openDay(m[2]) : openSecFromPush(m[2]);
 }
 addEventListener('hashchange', checkDayHash);
-if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { const d = e.data || {}; if (d.msg) openMsgs(String(d.msg)); else if (d.open) openDay(d.open); else if (d.sec) openSecFromPush(d.sec); });
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { const d = e.data || {}; if (d.ai) aiNudgeOpen(); else if (d.msg) openMsgs(String(d.msg)); else if (d.open) openDay(d.open); else if (d.sec) openSecFromPush(d.sec); });
 // Часовой пояс устройства — по нему сервер считает время напоминаний
 try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (tz && S.settings.tz !== tz) S.settings.tz = tz; } catch (e) {}
 

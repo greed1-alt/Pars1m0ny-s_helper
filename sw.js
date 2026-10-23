@@ -1,4 +1,5 @@
-const CACHE = 'rem-v134';
+const CACHE = 'rem-v135';
+const NUDGE_C = 'rem-nudge', NUDGE_URL = new URL('nudge', self.registration.scope).href;   // помощник пишет сам: текст пуша до открытия чата (aiNudgeOpen в assistant.js)
 const FILES = ['./', './index.html', './beta.html', './privacy.html', './consent.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png', './favicon.png',
   './css/fonts.css', './css/app.css', './css/sections.css', './css/ui2.css',
   ...['inter-cyrillic', 'inter-latin', 'inter-latin-ext', 'inter-greek', 'josefin-sans-300-latin'].map(n => './fonts/' + n + '.woff2'),   // свои шрифты (css/fonts.css) — работают и без интернета
@@ -10,7 +11,7 @@ self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => P
   fetch(new Request(u + '?v=' + CACHE, { cache:'reload' })).then(r => { if (!r.ok) throw new Error(u + ': ' + r.status); return c.put(u, r); }))))
   .then(() => self.skipWaiting(), err => caches.delete(CACHE).then(() => { throw err; }))));   // не скачалось — без половинчатого кэша, попытка при следующем запуске
 self.addEventListener('activate', e => e.waitUntil(
-  caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
+  caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== NUDGE_C).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 // Скорость (rem-v95): файлы приложения — сразу из кэша этой версии, без ожидания сети (раньше каждый запуск ждал ответа сервера
 // по всем ~30 файлам — при слабой связи это секунды). Кэш одной версии целиком: index.html, стили и скрипты всегда из одного выпуска.
 // Новая версия: браузер при запуске сам сверяет sw.js; изменился CACHE — новый service worker скачивает FILES в фоне (install),
@@ -39,15 +40,16 @@ self.addEventListener('push', e => {
   let d = { title: 'Parsimony', body: 'Напоминание' };
   try { if (e.data) d = Object.assign(d, e.data.json()); } catch (x) {}
   e.waitUntil(self.registration.showNotification(String(d.title), { body: String(d.body), icon: 'icon-192.png', badge: 'icon-192.png',
-    tag: d.tag || undefined, renotify: !!d.tag, data: { url: d.url || './', k: d.k || '', s: d.s || '', m: d.m || '' } }));
+    tag: d.tag || undefined, renotify: !!d.tag, data: { url: d.url || './', k: d.k || '', s: d.s || '', m: d.m || '', ai: d.ai ? String(d.ai).slice(0, 300) : '' } }));
 });
 // Нажатие: открытое приложение — показать в нём нужный день; закрытое — открыть сразу на этом дне
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   const d = e.notification.data || {}, url = new URL(d.url || './', self.registration.scope).href;
-  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+  e.waitUntil((d.ai ? caches.open(NUDGE_C).then(c => c.put(NUDGE_URL, new Response(d.ai))).catch(() => {}) : Promise.resolve())   // ai — помощник пишет сам
+    .then(() => clients.matchAll({ type: 'window', includeUncontrolled: true })).then(list => {
     const c = list.find(w => w.url.startsWith(self.registration.scope));
-    if (c) { if (d.m) c.postMessage({ msg: d.m }); else if (d.k) c.postMessage({ open: d.k }); else if (d.s) c.postMessage({ sec: d.s }); return c.focus(); }   // m — сообщение друга (chat.js)
+    if (c) { if (d.ai) c.postMessage({ ai: 1 }); else if (d.m) c.postMessage({ msg: d.m }); else if (d.k) c.postMessage({ open: d.k }); else if (d.s) c.postMessage({ sec: d.s }); return c.focus(); }   // m — сообщение друга (chat.js)
     return clients.openWindow(url);
   }));
 });

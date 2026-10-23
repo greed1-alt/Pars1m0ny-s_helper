@@ -3,6 +3,7 @@
 // 1) occurs / isDone / remOffs сервера совпадают с приложением (js/core.js) на тысячах случайных событий;
 // 2) перевод «день + время в поясе» → момент времени верен для Москвы, Нью-Йорка (летнее время) и др.;
 // 3) dueReminders при запуске раз в минуту даёт каждое напоминание ровно один раз и в нужную минуту.
+// 4) помощник пишет сам (nudge*): поводы, ночью тихо, не больше 3 в день, раз в 2 часа, один повод — раз в 3 дня; подначки — как в js/goals.js.
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 
@@ -12,7 +13,7 @@ const root = new URL('..', import.meta.url);
 const rd = f => readFileSync(new URL(f, root), 'utf8').replace(/\r\n/g, '\n');
 const fn = rd('supabase/functions/reminders/index.ts');
 const core = fn.slice(fn.indexOf('// ==== CORE start ===='), fn.indexOf('// ==== CORE end ===='));
-const srv = new Function(core + '\nreturn { occurs, isDone, remOffs, dueReminders, remPayload, dueDigests, digestPayload, zoned, dayIn, addD, tzOf, WINDOW };')();
+const srv = new Function(core + '\nreturn { occurs, isDone, remOffs, dueReminders, remPayload, dueDigests, digestPayload, zoned, dayIn, addD, tzOf, WINDOW, nudgeCands, pickNudge, nudgePayload, TAUNTS, hashS, freeGaps, NUDGE_MAX };')();
 
 // Функции приложения — прямо из js/core.js
 const app = rd('js/core.js');
@@ -172,5 +173,62 @@ const day = (k, o) => Object.assign({ id: 'd' + Math.random(), title: 'Дело'
   assert.equal(empty.title, 'На сегодня дел не запланировано');
   assert.equal(srv.digestPayload({ kind: 'pm', k: '2026-10-18' }, {}).body, 'На завтра пока ничего нет');
   assert.equal(srv.digestPayload({ kind: 'am', k: '2026-10-18' }, { events: [day('2026-10-18', { title: 'Одно' })] }).title, 'План на сегодня: 1 дело');
+}
+// ---- Помощник пишет сам (nudge*): поводы, тишина ночью, не больше 3 в день, раз в 2 часа, один повод — раз в 3 дня ----
+{
+  const goalsJs = rd('js/goals.js'), tl = goalsJs.match(/const TAUNTS = (\[[\s\S]*?\]);/);
+  assert.ok(tl, 'нет TAUNTS в js/goals.js');
+  assert.deepEqual(srv.TAUNTS, new Function('return ' + tl[1])(), 'подначки на сервере не совпадают с js/goals.js — скопируйте TAUNTS');
+  const hs = new Function(goalsJs.match(/const hashStr = s => .*\n/)[0] + 'return hashStr;')();
+  ['2026-10-23g1', 'abc', ''].forEach(s => assert.equal(srv.hashS(s), hs(s), 'hashS как hashStr'));
+  const tz = 'Europe/Moscow', at = (k, hm) => srv.zoned(k, +hm.slice(0, 2) * 60 + +hm.slice(3), tz), k = '2026-10-23';   // пятница
+  const ev = o => Object.assign({ id: 'e' + Math.random().toString(36).slice(2, 7), title: 'Дело', date: k, done: false }, o);
+  const base = () => ({ settings: { tz, nudge: true, phr: { taunts: true, custom: [] } }, events: [], goals: [] });
+  // пропущен срок: шаг цели — первым, вчера
+  const d1 = base(); d1.goals.push({ id: 'g1', title: 'Английский', due: '2026-12-01', created: '2026-10-01', done: false, steps: [] });
+  d1.events.push(ev({ id: 'a', title: 'Купить хлеб', task: true, date: '2026-10-20' }), ev({ id: 'b', title: 'Грамматика', task: true, goal: 'g1', date: '2026-10-22' }), ev({ id: 'c', title: 'Сделано', task: true, done: true, date: '2026-10-21' }));
+  assert.equal(srv.nudgeCands(d1, at(k, '08:00')).length, 0, 'ночью и рано утром — тихо');
+  assert.equal(srv.nudgeCands(d1, at(k, '22:00')).length, 0, 'поздно вечером — тихо');
+  const c1 = srv.nudgeCands(d1, at(k, '10:05')), late = c1.find(x => x.kind === 'late');
+  assert.ok(late && late.id === 'b' && /Грамматика.*Английский.*вчера/.test(late.text) && /Ещё просрочено: 1/.test(late.text), 'просроченный шаг цели — первым: ' + (late && late.text));
+  assert.equal(srv.nudgeCands(d1, at(k, '09:50')).filter(x => x.kind === 'late').length, 0, 'о просроченном — с 10:00');
+  d1.settings.nudge = false; assert.equal(srv.nudgeCands(d1, at(k, '10:05')).length, 0, 'выключено в настройках — ничего');
+  delete d1.settings.nudge; assert.equal(srv.nudgeCands(d1, at(k, '10:05')).length, 0, 'старая версия приложения (нет выключателя) — тихо'); d1.settings.nudge = true;
+  // цель отстаёт (с 14:00): прошло больше половины срока, шаг не сделан и просрочен
+  const c2 = srv.nudgeCands(d1, at(k, '14:10')).find(x => x.kind === 'goal');
+  assert.ok(c2 && c2.id === 'g1' && /отстаёт: сделано 0 из 1/.test(c2.text), 'цель отстаёт: ' + (c2 && c2.text));
+  // план заканчивается (с 12:00), без подначки
+  const d3 = base(); d3.goals.push({ id: 'g2', title: 'Физика', due: '2027-01-30', created: '2026-10-20', done: false, steps: [], plan: { min: 60, n: 10, need: 30, last: '2026-10-25', ev: [] } });
+  const c3 = srv.nudgeCands(d3, at(k, '12:30')).find(x => x.kind === 'plan');
+  assert.ok(c3 && /до 25 октября.*продли план/.test(c3.text), 'занятия заканчиваются: ' + (c3 && c3.text));
+  const p3 = srv.nudgePayload(d3, srv.pickNudge([c3], [], at(k, '12:30'), tz), at(k, '12:30'));
+  assert.ok(p3.body === c3.text && p3.ai === p3.body && p3.url === './#ai' && p3.title === 'Помощник Parsimony', 'о плане — без подначки');
+  d3.goals[0].plan.n = 30; assert.equal(srv.nudgeCands(d3, at(k, '12:30')).filter(x => x.kind === 'plan').length, 0, 'всё нужное уже поставлено — не просим продлить');
+  // свободное окно для отстающей цели с планом: будни 18–22, встреча 18:00–19:00 → свободно с 19:00, напоминаем с 18:30
+  const d4 = base(); d4.goals.push({ id: 'g3', title: 'Гитара', due: '2026-11-10', created: '2026-10-01', done: false, steps: [{ id: 's', t: 'Аккорды', done: false }], plan: { min: 45, n: 6, need: 30, last: '2026-12-01', ev: ['s1'] } });
+  d4.events.push(ev({ id: 'm', title: 'Встреча', time: '18:00', time2: '19:00' }), ev({ id: 's1', title: 'Гитара', time: '19:00', time2: '19:45', date: '2026-10-24' }));
+  assert.deepEqual(srv.freeGaps(d4, d4.events, k), [[1140, 1320]], 'свободно с 19:00 до 22:00');
+  assert.equal(srv.nudgeCands(d4, at(k, '18:20')).filter(x => x.kind === 'free').length, 0, 'рано — ещё не пора');
+  const c4 = srv.nudgeCands(d4, at(k, '18:35')).find(x => x.kind === 'free');
+  assert.ok(c4 && /Сегодня с 19:00 свободно.*Гитара.*45 мин/.test(c4.text), 'свободное окно: ' + (c4 && c4.text));
+  d4.events.push(ev({ id: 's2', title: 'Гитара', time: '20:00', time2: '20:45' })); d4.goals[0].plan.ev.push('s2');
+  assert.equal(srv.nudgeCands(d4, at(k, '18:35')).filter(x => x.kind === 'free').length, 0, 'занятие сегодня уже есть — не зовём');
+  // выбор: не больше 3 в день, раз в 2 часа, один повод — раз в 3 дня, порядок late → goal → free → plan
+  const cs = [{ kind: 'plan', id: 'p' }, { kind: 'goal', id: 'g' }, { kind: 'late', id: 'l' }], now = at(k, '15:00');
+  assert.equal(srv.pickNudge(cs, [], now, tz).kind, 'late', 'сначала пропущенный срок');
+  assert.equal(srv.pickNudge(cs, [{ key: 'nudge|2026-10-22|late|l', at: now - 20 * 3600e3 }], now, tz).kind, 'goal', 'тот же повод вчера — не повторяем');
+  assert.equal(srv.pickNudge(cs, [{ key: 'nudge|2026-10-20|late|l', at: now - 72 * 3600e3 }], now, tz).kind, 'late', 'через 3 дня — можно снова');
+  assert.equal(srv.pickNudge(cs, [{ key: 'nudge|2026-10-23|x|1', at: now - 3600e3 }], now, tz), null, 'меньше 2 часов с прошлого — ждём');
+  const three = [1, 2, 3].map(i => ({ key: 'nudge|2026-10-23|x|' + i, at: now - (3 + i) * 3600e3 }));
+  assert.equal(srv.pickNudge(cs, three, now, tz), null, 'три за день — хватит');
+  assert.equal(srv.pickNudge(cs, three.slice(0, 2), now, tz).key, 'nudge|2026-10-23|late|l', 'ключ — день, вид и id');
+  // подначка: включены — добавляется (одна и та же весь день), выключены — нет; свои фразы человека — тоже в ходу
+  const n1 = srv.pickNudge(c1, [], at(k, '10:05'), tz), b1 = srv.nudgePayload(d1, n1, at(k, '10:05')).body;
+  assert.ok(b1.startsWith(late.text + ' ') && b1.length > late.text.length + 5 && b1 === srv.nudgePayload(d1, n1, at(k, '18:00')).body, 'подначка добавлена и не меняется за день');
+  d1.settings.phr.taunts = false; assert.equal(srv.nudgePayload(d1, n1, at(k, '10:05')).body, late.text, 'подначки выключены — только повод');
+  d1.settings.phr = { taunts: true, custom: Array.from({ length: 400 }, () => ({ kind: 'taunt', t: 'СВОЯ {goal}' })) };
+  ['b', 'x1', 'x2', 'x3'].forEach(id => { const n = Object.assign({}, n1, { id }), i = srv.hashS(k + id) % (srv.TAUNTS.length + 400), body = srv.nudgePayload(d1, n, at(k, '10:05')).body;
+    assert.ok(body.endsWith(i < srv.TAUNTS.length ? srv.TAUNTS[i].replace(/\{goal\}/g, 'Английский').replace(/\{step\}/g, 'Грамматика') : 'СВОЯ Английский'), 'свои фразы человека — в общем списке: ' + body); });
+  checks += 30;
 }
 console.log(`Все проверки прошли (${checks} сравнений с приложением и часовых поясов + сценарии напоминаний и сводок)`);
