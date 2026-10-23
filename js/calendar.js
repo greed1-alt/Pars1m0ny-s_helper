@@ -330,6 +330,7 @@ function render(dir) {
   document.body.dataset.plan = planOn() && (cal || sec === 'tasks') ? '1' : '';   // «План» на телефоне: общий переключатель виден и в Задачах
   const bn = $('.btn-new'); if (bn) { bn.innerHTML = I(IC.plus, 17) + (S2.newLabel || ''); bn.setAttribute('aria-label', S2.newLabel || 'Создать'); bn.title = S2.newLabel || 'Создать'; }
   const ha = $('.hdr-ava'); if (ha) { ha.innerHTML = hdrAvaHTML(); ha.classList.toggle('on', sec === 'profile' || sec === 'profedit' || sec === 'friend' || sec === 'leaders'); }
+  msgHdr();   // js/chat.js: кнопка «Сообщения» и число новых
   const si = $('#secinfo'); if (si) si.innerHTML = '';   // сводки в шапке убраны 6 октября 2026: они повторяли то, что видно на странице
   root.style.setProperty('--hh', $('header').offsetHeight + 'px');
   const main = $('#main'), oldW = $('.wgwrap'), oldTop = oldW ? oldW.scrollTop : null;
@@ -483,7 +484,7 @@ function openEvent(id, preset, instDate) {
   const p = preset || {};
   const src = id ? S.events.find(x => x.id === id) : null;
   if (id && !src) return;
-  const e = src || { title:p.title||'', date:p.date||sel, time:p.time||'', time2:p.time2||'', cat:validCat(p.cat), note:'', loc:'', repeat:{type:'none'}, reminder:{enabled:false, offset:15, repeat:'none', days:[]}, task: !!p.task, prio: p.prio || 'mid' };
+  const e = src || { title:p.title||'', date:p.date||sel, time:p.time||'', time2:p.time2||'', cat:validCat(p.cat), note:'', loc:p.loc||'', repeat:{type:'none'}, reminder:{enabled:false, offset:15, repeat:'none', days:[]}, task: !!p.task, prio: p.prio || 'mid' };   // loc — событие из переписки (chat.js)
   const rep = e.repeat || {type:'none'};
   window._fe = { rems: new Set(remOffs(e)), id, cat: validCat(e.cat), days: new Set(rep.days && rep.days.length ? rep.days : [dowIdx(e.date)]), inst: instDate || e.date, nl:null, nlOff: !!id, daysTouched: !!(rep.days && rep.days.length), prio: PRIO[e.prio] ? e.prio : 'mid', geo: geoOk(e.geo) ? [e.geo[0], e.geo[1]] : null, memUsed: '', base: e.date };
   const rec = isRec(e);

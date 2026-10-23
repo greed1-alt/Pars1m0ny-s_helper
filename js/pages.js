@@ -269,6 +269,7 @@ ACT.accmenu = el => {
     <div class="accm-chips"><span class="accm-chip c1"><span aria-hidden="true">🔥</span><b>${wk.s ? plural(wk.s, NDAY) : '—'}</b><small>серия</small></span><span class="accm-chip c2"><span aria-hidden="true">⭐</span><b>${plural(frScore(wk), FR_PTS)}</b><small>за неделю</small></span></div>
     <button class="accm-prem" data-act="accgo" data-s="profile" data-to="pf-plans" role="menuitem">${I(IC.spark, 24)}<span><b>${APP_NAME} Премиум</b><small>Переливающееся имя и другие привилегии — скоро</small></span></button>
     <div class="accm-list">
+      ${msgOn() ? `<button data-act="accmsg" role="menuitem">${I(IC.chat, 18)}<span>Сообщения</span>${msgUnread ? `<em class="accm-badge" aria-label="Новых: ${msgUnread}">${msgUnread > 99 ? '99+' : msgUnread}</em>` : ''}</button>` : ''}
       <button data-act="accgo" data-s="profile" data-to="pf-friends" role="menuitem">${I(IC.users, 18)}<span>Друзья</span>${inc ? `<em class="accm-badge" aria-label="Новых заявок: ${inc}">${inc}</em>` : ''}</button>
       <button data-act="accgo" data-s="leaders" role="menuitem">${I(IC.trophy, 18)}<span>Лидеры</span></button>
       <button data-act="accach" role="menuitem">${I(IC.check, 18)}<span>Достижения</span></button>
@@ -293,6 +294,7 @@ ACT.accgo = el => {
   if (to) setTimeout(() => { const c = $('.' + to); if (c) c.scrollIntoView({ block: 'start', behavior: smoothB() }); }, 60);
 };
 ACT.accach = () => { closeQuick(); openAchievements(); };
+ACT.accmsg = () => { closeQuick(); openMsgs(); };   // переписка с друзьями (chat.js)
 ACT.accinv = () => { closeQuick(); ACT.invite(); };
 ACT.accset = () => { closeQuick(); openSettings(); };
 ACT.acctheme = () => { closeQuick(); setTheme(darkNow() ? 'light' : 'dark'); };

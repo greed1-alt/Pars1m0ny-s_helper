@@ -136,7 +136,7 @@ async function frLoad(quiet) {
   try {
     const j = await api('/rest/v1/rpc/friends_list', { method: 'POST', user: true, body: {} });
     fr.list = (Array.isArray(j) ? j : []).map(frRow).filter(Boolean); fr.at = Date.now(); if (fr.err === 'nosql') fr.err = '';
-    frSave(); frNotify();
+    frSave(); frNotify(); msgSync();   // js/chat.js: кнопка «Сообщения», переписки
     if (sec === 'profile' || sec === 'friend') render();
   } catch (e) {
     if (frNoSql(e)) { fr.err = 'nosql'; frSave(); } else if (!quiet) toast(cloudErrText(e));
@@ -317,7 +317,7 @@ function frPageHTML() {
         <div class="pf-tags">${note.n ? `<span class="pf-nick">${esc(frReal(f))}</span>` : ''}${f.nick && (!note.n || f.name) ? `<span class="pf-nick">@${esc(f.nick)}</span>` : ''}${rel ? `<span class="frp-rel">${rel[1]} ${rel[2]}</span>` : ''}</div>
         <small class="frp-since">${since ? 'В друзьях с ' + since.getDate() + ' ' + MONG[since.getMonth()] + ' ' + since.getFullYear() : 'В друзьях'}${f.at ? ' · обновлено ' + ago(f.at) : ''}</small>
       </div>
-      <div class="pf-acts"><span class="frp-ok">${I(IC.check, 15)} В друзьях</span><button class="btn" data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 15)} Пометки</button><button class="btn pf-more" data-act="frmenu" data-u="${f.uid}" aria-label="Ещё" title="Ещё">${I(IC.more, 18)}</button></div>
+      <div class="pf-acts"><span class="frp-ok">${I(IC.check, 15)} В друзьях</span>${msgErr !== 'nosql' ? `<button class="btn pri" data-act="msgto" data-u="${f.uid}">${I(IC.chat, 15)} Написать</button>` : ''}<button class="btn" data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 15)} Пометки</button><button class="btn pf-more" data-act="frmenu" data-u="${f.uid}" aria-label="Ещё" title="Ещё">${I(IC.more, 18)}</button></div>
     </div>
   </div>
   ${!fd ? '<div class="card"><p class="hm-empty">Пока пусто — числа и календарь появятся, когда друг откроет приложение.</p></div>' : `<div class="frp-cols">
@@ -508,7 +508,7 @@ ACT.frjoin = async () => {
 let frSet = null;   // { nick, lv: { id календаря: уровень }, err, busy, inv, first — карточки ещё не было }
 function openFrSet(invite) {
   if (!signedIn()) return ACT.login();
-  if (!frSet) frSet = { nick: fr.nick || S.settings.nick || '', lv: Object.fromEntries(S.cats.map(c => [c.id, frLvl(c)])), err: '', inv: !!invite, first: !S.settings.fr, show: Object.assign({}, S.settings.frShow), push: S.settings.frPush !== false };
+  if (!frSet) frSet = { nick: fr.nick || S.settings.nick || '', lv: Object.fromEntries(S.cats.map(c => [c.id, frLvl(c)])), err: '', inv: !!invite, first: !S.settings.fr, show: Object.assign({}, S.settings.frShow), push: S.settings.frPush !== false, mpush: S.settings.msgPush !== false };
   const st = frSet, first = st.first;
   sheet(`<div class="sh-head"><h3>${first ? 'Карточка для друзей' : 'Друзья: настройки'}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   ${st.inv ? '<p class="set-note">Вас позвали в друзья. Создайте карточку — и приглашение откроется само.</p>' : ''}
@@ -521,13 +521,14 @@ function openFrSet(invite) {
   ${FR_SHOW.map(([k, n]) => `<div class="set-row"><span>${n}</span><input id="frsh_${k}" class="sw" type="checkbox"${st.show[k] ? ' checked' : ''}></div>`).join('')}
   <div class="set-sec">Уведомления</div>
   <div class="set-row"><span>Пуш о заявках в друзья</span><input id="frpush" class="sw" type="checkbox"${st.push ? ' checked' : ''}></div>
+  <div class="set-row"><span>Пуш о сообщениях друзей</span><input id="msgpush" class="sw" type="checkbox"${st.mpush ? ' checked' : ''}></div>
   <p class="set-note">Ещё друзья видят только числа: задачи и отметки привычек за неделю и за всё время, серию и полученные достижения.</p>
   <p class="fr-err" id="fr_err" aria-live="polite">${esc(st.err)}</p>
   ${first ? '' : `<div class="fr-more"><button class="btn" data-act="frinvnew">Новая ссылка-приглашение</button><button class="btn dng" data-act="froff">Удалить карточку</button></div>`}
   <div class="sh-foot"><button class="btn pri" data-act="frsave"${st.busy ? ' disabled' : ''}>${st.busy ? 'Сохраняю…' : first ? 'Создать карточку' : 'Сохранить'}</button></div>`, true);
 }
 ACT.frset = () => { frSet = null; openFrSet(); };
-const frSetRead = () => { const i = $('#fr_nick'), p = $('#frpush'); if (i) frSet.nick = i.value; if (p) frSet.push = p.checked; FR_SHOW.forEach(([k]) => { const c = $('#frsh_' + k); if (c) frSet.show[k] = c.checked; }); };
+const frSetRead = () => { const i = $('#fr_nick'), p = $('#frpush'), mp = $('#msgpush'); if (i) frSet.nick = i.value; if (p) frSet.push = p.checked; if (mp) frSet.mpush = mp.checked; FR_SHOW.forEach(([k]) => { const c = $('#frsh_' + k); if (c) frSet.show[k] = c.checked; }); };
 ACT.frlv = el => { frSetRead(); frSet.lv[el.dataset.c] = el.dataset.v; shDirty = true; openFrSet(); };
 ACT.frsave = async () => {
   const st = frSet; if (!st || st.busy) return;
@@ -541,6 +542,7 @@ ACT.frsave = async () => {
   snap(); S.cats.forEach(c => { const v = st.lv[c.id]; if (v === 'busy') delete c.fr; else if (v) c.fr = v; });
   const sh = {}; FR_SHOW.forEach(([k]) => { if (st.show[k]) sh[k] = 1; }); if (Object.keys(sh).length) S.settings.frShow = sh; else delete S.settings.frShow;
   if (st.push) delete S.settings.frPush; else S.settings.frPush = false;   // пуш о заявках — по умолчанию включён (сервер: reminders)
+  if (st.mpush) delete S.settings.msgPush; else S.settings.msgPush = false;   // пуш о сообщениях друзей — тоже (reminders: msgPushes)
   S.settings.fr = 1; save();
   st.busy = true; openFrSet();
   const res = await frPublish(nick);

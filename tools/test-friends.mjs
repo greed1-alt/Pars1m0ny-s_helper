@@ -2,7 +2,8 @@
 // 1. Списки недоступных ников в supabase/sql/friends.sql — те же, что в js/names.js.
 // 2. Если есть PGlite (настоящий Postgres внутри Node: PGLITE_DIR=папка, где выполнен `npm i @electric-sql/pglite@0.2.17`) —
 //    SQL выполняется целиком: проверка ника на сервере совпадает с приложением, каждый видит только своё, заявки, приглашения,
-//    удаление аккаунта. Без PGlite эта часть пропускается (с пометкой).
+//    удаление аккаунта; переписка (supabase/sql/messages.sql): писать — только другу, видят только двое, прочитано, реакции, удалить своё,
+//    очередь пушей, удалили друга — переписки нет. Без PGlite эта часть пропускается (с пометкой).
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -45,6 +46,8 @@ if (!pgEntry || !existsSync(pgEntry)) {
   await db.exec(read('supabase/sql/user_data.sql'));   // триггер честных очков висит на user_data
   await db.exec(sql);
   await db.exec(sql);   // повторный запуск безопасен
+  const msql = read('supabase/sql/messages.sql');
+  await db.exec(msql); await db.exec(msql);   // переписка — после друзей, тоже повторно
 
   // Ник и имя: сервер решает так же, как приложение
   const tn = read('tools/test-names.mjs'), lst = k => new Function('return ' + tn.match(new RegExp('const ' + k + ' = (\\[[\\s\\S]*?\\]);'))[1])();
@@ -219,11 +222,56 @@ return (data, today) => { S = data; TODAY = today; const w = frWeekStats(), hs =
   ok((await as('B', 'update public.profiles set name = $1 where user_id = $2 returning name', ['хуйло', U.B])).rows[0].name === '', 'грубое имя сервер стирает и у админа');
   ok((await as('C', 'update public.profiles set name = $1 where user_id = $2 returning name', ['Admin', U.C])).rows[0].name === '', 'служебное имя не админа сервер стирает');
 
+  // Переписка (messages.sql). Сейчас друзья только A–B; C позвал D, D не ответил
+  const send = (w, to, body, ev) => as(w, 'select public.msg_send($1, $2, $3) r', [U[to], body, ev === undefined ? null : ev]);
+  const m1 = await send('A', 'B', '  Привет!  ');
+  ok(m1.rows && m1.rows[0].r.id > 0, 'A пишет другу B');
+  ok(/notfriend/.test((await send('C', 'D', 'эй')).err || ''), 'не другу (заявку не приняли) писать нельзя');
+  ok(/notfriend/.test((await send('B', 'C', 'эй')).err || ''), 'чужому писать нельзя');
+  ok(/permission/.test((await as(null, 'select public.msg_send($1, $2, $3)', [U.B, 'x', null])).err || ''), 'без входа писать нельзя');
+  ok(/empty/.test((await send('A', 'B', '   ')).err || ''), 'пустое не отправить');
+  ok(/long/.test((await send('A', 'B', 'я'.repeat(2001))).err || ''), 'длиннее 2000 знаков не отправить');
+  ok(/ev/.test((await send('A', 'B', '', [1, 2])).err || '') && /ev/.test((await send('A', 'B', '', { title: 'x'.repeat(3000) })).err || ''), 'событие — только объект и не больше 2 КБ');
+  const m2 = await send('B', 'A', '', { title: 'Кино', date: '2026-10-25', time: '19:00' });
+  ok(m2.rows && m2.rows[0].r.id > m1.rows[0].r.id, 'B отправляет событие');
+  const mlb = (await as('B', 'select * from public.msg_list($1)', [U.A])).rows;
+  ok(mlb.length === 2 && mlb[0].ev.title === 'Кино' && mlb[0].mine === true && mlb[1].body === 'Привет!' && mlb[1].mine === false, 'переписка у B: новое сверху, своё помечено, пробелы по краям срезаны');
+  ok((await as('C', 'select * from public.msg_list($1)', [U.B])).rows.length === 0 && (await as('C', 'select * from public.msg_list($1)', [U.A])).rows.length === 0, 'третий не видит чужую переписку');
+  ok(/permission/.test((await as('B', 'select * from public.messages')).err || '') && /permission/.test((await as('A', 'insert into public.messages (a, b, body) values ($1, $2, $3)', [U.A, U.B, 'x'])).err || ''), 'таблицу напрямую — ни читать, ни писать');
+  ok(/permission/.test((await as('A', 'select * from public.msg_notify')).err || ''), 'очередь пушей переписки из приложения не видна');
+  const thA = (await as('A', 'select * from public.msg_threads()')).rows;
+  ok(thA.length === 1 && thA[0].peer === U.B && thA[0].ev === true && thA[0].unread === 1 && thA[0].mine === false, 'переписки A: с B, последнее — событие, одно новое');
+  ok(await one('B', 'select public.msg_unread()') === 1, 'у B одно непрочитанное');
+  const nq = async (to, from) => (await db.query('select n, body from public.msg_notify where to_uid = $1 and from_uid = $2', [U[to], U[from]])).rows[0];
+  await send('A', 'B', 'Ты где?');
+  const q1 = await nq('B', 'A');
+  ok(q1 && q1.n === 2 && q1.body === 'Ты где?', 'очередь пушей: два сообщения — одна строка, с последним');
+  ok((await nq('A', 'B')).body === '📅 Кино', 'событие в пуше — с названием');
+  ok(await one('B', 'select public.msg_read($1)', [U.A]) === 2 && !(await nq('B', 'A')) && await one('B', 'select public.msg_unread()') === 0, 'B прочитал — непрочитанных нет, пуша не будет');
+  ok((await as('A', 'select read_at from public.msg_list($1)', [U.B])).rows.filter(r => r.read_at).length === 2, 'A видит, что прочитано');
+  const id1 = m1.rows[0].r.id, reOf = async w => JSON.stringify((await as(w, 'select re from public.msg_list($1) where id = $2', [w === 'A' ? U.B : U.A, id1])).rows[0].re);
+  ok(await one('B', 'select public.msg_react($1, $2)', [id1, '❤️']) === true && await reOf('A') === JSON.stringify({ [U.B]: '❤️' }), 'B ставит ❤️ — A её видит');
+  ok(/emoji/.test((await as('B', 'select public.msg_react($1, $2)', [id1, '<b>'])).err || ''), 'реакции — только из набора');
+  ok(await one('C', 'select public.msg_react($1, $2)', [id1, '👍']) === false, 'на чужую переписку реакцию не поставить');
+  await as('B', 'select public.msg_react($1, $2)', [id1, '']);
+  ok(await reOf('A') === '{}', 'реакцию можно снять');
+  ok(await one('B', 'select public.msg_delete($1)', [id1]) === false, 'чужое сообщение не удалить');
+  ok(await one('A', 'select public.msg_delete($1)', [id1]) === true && (await as('B', 'select id from public.msg_list($1)', [U.A])).rows.every(r => r.id !== id1), 'своё удалил — пропало у обоих');
+  let rateErr = ''; for (let i = 0; i < 31 && !rateErr; i++) rateErr = (await send('A', 'B', 'm' + i)).err || '';
+  ok(/rate/.test(rateErr), 'больше 30 сообщений в минуту — нельзя');
+  await as('D', 'select public.friend_accept($1)', [U.C]);
+  ok(!(await send('C', 'D', 'Привет, D')).err, 'D принял заявку C — теперь им можно переписываться');
+  await as('B', 'select public.friend_remove($1)', [U.A]);
+  ok((await as('A', 'select * from public.msg_list($1)', [U.B])).rows.length === 0 && (await db.query('select count(*)::int n from public.msg_notify where $1 in (to_uid, from_uid) and $2 in (to_uid, from_uid)', [U.A, U.B])).rows[0].n === 0, 'удалили из друзей — переписки и пушей нет');
+  ok((await as('D', 'select * from public.msg_list($1)', [U.C])).rows.length === 1, 'переписка других друзей осталась');
+
   // Удаление аккаунта — всё уходит
   await db.query('delete from auth.users where id = $1', [U.A]);
   ok((await db.query('select count(*)::int n from public.profiles where user_id = $1', [U.A])).rows[0].n === 0, 'удалили аккаунт — карточки нет');
   ok((await db.query('select count(*)::int n from public.friends where $1 in (a, b)', [U.A])).rows[0].n === 0, 'удалили аккаунт — дружб нет');
   ok((await as('B', 'select * from public.friends_list()')).rows.length === 0, 'у B удалённый друг пропал');
+  await db.query('delete from auth.users where id = $1', [U.D]);
+  ok((await db.query('select count(*)::int n from public.messages where $1 in (a, b)', [U.D])).rows[0].n === 0 && (await as('C', 'select * from public.msg_threads()')).rows.length === 0, 'удалили аккаунт — его переписки нет и у друга');
   console.log(`SQL в Postgres: ${corpus.length} имён сверено с приложением`);
 }
 console.log(bad ? `есть ошибки: ${bad} из ${n}` : `Друзья: всё прошло (${n} проверок)`);

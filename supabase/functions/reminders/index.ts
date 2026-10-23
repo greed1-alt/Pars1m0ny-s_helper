@@ -8,7 +8,8 @@
 //    Функция находит напоминания, время которых наступило за последние 10 минут, и шлёт пуш на устройства владельца записей.
 //    Так же — утренняя сводка «План на сегодня» и вечернее «Запишите задачи на завтра» (время — в S.settings.digest).
 //    Каждое напоминание уходит один раз: перед отправкой оно записывается в reminder_log (повтор ключа — пропуск).
-//    И пуши о заявках в друзья из очереди fr_notify (friendPushes, supabase/sql/friends.sql).
+//    И пуши о заявках в друзья из очереди fr_notify (friendPushes, supabase/sql/friends.sql) и о новых сообщениях друзей
+//    из очереди msg_notify (msgPushes, supabase/sql/messages.sql, с 23 октября 2026).
 // 2) Приложение с токеном пользователя и {"test":true} — проверочное уведомление на устройства этого человека
 //    (не чаще раза в минуту).
 // В настройках функции «Verify JWT» выключен: доступ проверяется здесь (секретный ключ или настоящий токен через auth.getUser).
@@ -175,6 +176,7 @@ async function tick(now) {
   }
   await sb.from('reminder_log').delete().lt('fire_at', new Date(now - 3 * DAY).toISOString());   // журнал за 3 дня, старше не нужен
   sent += await friendPushes(byUser, rows, now);
+  sent += await msgPushes(byUser, rows);
   return { users: byUser.size, due, sent };
 }
 
@@ -184,8 +186,7 @@ async function tick(now) {
 async function friendPushes(byUser, rows, now) {
   const { data: nts, error } = await sb.from('fr_notify').select('id,to_uid,from_uid,kind').is('sent_at', null).order('id').limit(200);
   if (error || !nts || !nts.length) return 0;
-  const { data: profs } = await sb.from('profiles').select('user_id,name,nick').in('user_id', [...new Set(nts.map(n => n.from_uid))]);
-  const who = id => { const p = (profs || []).find(x => x.user_id === id); return (p && (String(p.name || '').trim() || (p.nick ? '@' + p.nick : ''))) || 'Кто-то'; };
+  const who = await whoOf(nts.map(n => n.from_uid));
   const dataOf = new Map(rows.map(r => [r.user_id, r.data || {}]));
   let ok = 0;
   for (const n of nts) {
@@ -196,6 +197,32 @@ async function friendPushes(byUser, rows, now) {
   }
   await sb.from('fr_notify').update({ sent_at: new Date(now).toISOString() }).in('id', nts.map(n => n.id));
   await sb.from('fr_notify').delete().lt('created_at', new Date(now - 3 * DAY).toISOString());
+  return ok;
+}
+
+// Имя для пуша: имя из карточки друга, иначе @ник
+async function whoOf(ids) {
+  const { data: profs } = await sb.from('profiles').select('user_id,name,nick').in('user_id', [...new Set(ids)]);
+  return id => { const p = (profs || []).find(x => x.user_id === id); return (p && (String(p.name || '').trim() || (p.nick ? '@' + p.nick : ''))) || 'Кто-то'; };
+}
+
+// Сообщения друзей (23 октября 2026; supabase/sql/messages.sql: очередь msg_notify — одна строка «кому — от кого», n — сколько новых,
+// body — начало последнего). Прочитал раньше, чем дошла очередь, — строки уже нет, пуша не будет. Заголовок — имя друга, текст — сообщение;
+// новый пуш от того же друга заменяет прошлый (tag). Нет подписки или выключен «Пуш о сообщениях» (settings.msgPush = false) — просто снимаем.
+// Строку снимаем, только если с тех пор не пришло новое (тот же at). Таблицы ещё нет (SQL не выполнен) — молча пропускаем
+async function msgPushes(byUser, rows) {
+  const { data: q, error } = await sb.from('msg_notify').select('to_uid,from_uid,n,body,at').order('at').limit(300);
+  if (error || !q || !q.length) return 0;
+  const who = await whoOf(q.map(x => x.from_uid)), dataOf = new Map(rows.map(r => [r.user_id, r.data || {}]));
+  let ok = 0;
+  for (const x of q) {
+    const subs = byUser.get(x.to_uid), st = (dataOf.get(x.to_uid) || {}).settings || {};
+    if (subs && st.msgPush !== false) {
+      const body = String(x.body || '').slice(0, 120) + (x.n > 1 ? ` · ещё ${x.n - 1}` : '');
+      ok += (await sendTo(subs, JSON.stringify({ title: who(x.from_uid), body, tag: 'msg-' + x.from_uid, url: './#m=' + x.from_uid, m: x.from_uid }), 24 * 3600)).ok;
+    }
+    await sb.from('msg_notify').delete().eq('to_uid', x.to_uid).eq('from_uid', x.from_uid).eq('at', x.at);
+  }
   return ok;
 }
 

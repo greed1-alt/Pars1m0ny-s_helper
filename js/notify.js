@@ -109,12 +109,14 @@ function openDay(k) {
 // Утренняя сводка открывает Главную (#s=home), напоминание и вечерняя — день в календаре (#d=…)
 const openSecFromPush = s => { if ((s === 'home' || s === 'profile') && SEC[s]) { if (typeof closeSheet === 'function') closeSheet(); setSec(s); if (s === 'profile') frLoad(true); } };   // profile — пуш о заявке в друзья
 function checkDayHash() {
+  const mm = location.hash.match(/^#m=([0-9a-f-]{36})$/i);   // пуш о сообщении друга — его переписка (js/chat.js)
+  if (mm) { history.replaceState(null, '', location.pathname + location.search); return openMsgs(mm[1]); }
   const m = location.hash.match(/^#(d|s)=([\w-]{1,20})$/); if (!m) return;
   history.replaceState(null, '', location.pathname + location.search);
   m[1] === 'd' ? openDay(m[2]) : openSecFromPush(m[2]);
 }
 addEventListener('hashchange', checkDayHash);
-if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { const d = e.data || {}; if (d.open) openDay(d.open); else if (d.sec) openSecFromPush(d.sec); });
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { const d = e.data || {}; if (d.msg) openMsgs(String(d.msg)); else if (d.open) openDay(d.open); else if (d.sec) openSecFromPush(d.sec); });
 // Часовой пояс устройства — по нему сервер считает время напоминаний
 try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (tz && S.settings.tz !== tz) S.settings.tz = tz; } catch (e) {}
 

@@ -1,8 +1,8 @@
-const CACHE = 'rem-v129';
+const CACHE = 'rem-v130';
 const FILES = ['./', './index.html', './beta.html', './privacy.html', './consent.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png', './favicon.png',
   './css/fonts.css', './css/app.css', './css/sections.css', './css/ui2.css',
   ...['inter-cyrillic', 'inter-latin', 'inter-latin-ext', 'inter-greek', 'josefin-sans-300-latin'].map(n => './fonts/' + n + '.woff2'),   // свои шрифты (css/fonts.css) — работают и без интернета
-  ...['core', 'names', 'a11y', 'look', 'help', 'calendar', 'charts', 'sections', 'tasks', 'habits', 'finance', 'goals', 'pages', 'timer', 'ui2', 'layout', 'tour', 'input', 'share', 'cloud', 'friends', 'notify', 'assistant', 'map', 'main'].map(n => './js/' + n + '.js')];
+  ...['core', 'names', 'a11y', 'look', 'help', 'calendar', 'charts', 'sections', 'tasks', 'habits', 'finance', 'goals', 'pages', 'timer', 'ui2', 'layout', 'tour', 'input', 'share', 'cloud', 'friends', 'chat', 'notify', 'assistant', 'map', 'main'].map(n => './js/' + n + '.js')];
 // cache:'reload' / 'no-cache' — мимо кэша браузера: GitHub Pages разрешает хранить файлы 10 минут, и без этого новая версия приходила с опозданием
 // С меткой версии в адресе (?v=rem-vN): сразу после выпуска сервер GitHub (CDN) ещё может отдавать старые копии по обычным адресам,
 // а кэш теперь — единственный источник файлов до следующей версии, поэтому в него должны попасть именно файлы этого выпуска. Хранятся под обычным адресом
@@ -39,7 +39,7 @@ self.addEventListener('push', e => {
   let d = { title: 'Parsimony', body: 'Напоминание' };
   try { if (e.data) d = Object.assign(d, e.data.json()); } catch (x) {}
   e.waitUntil(self.registration.showNotification(String(d.title), { body: String(d.body), icon: 'icon-192.png', badge: 'icon-192.png',
-    tag: d.tag || undefined, renotify: !!d.tag, data: { url: d.url || './', k: d.k || '', s: d.s || '' } }));
+    tag: d.tag || undefined, renotify: !!d.tag, data: { url: d.url || './', k: d.k || '', s: d.s || '', m: d.m || '' } }));
 });
 // Нажатие: открытое приложение — показать в нём нужный день; закрытое — открыть сразу на этом дне
 self.addEventListener('notificationclick', e => {
@@ -47,7 +47,7 @@ self.addEventListener('notificationclick', e => {
   const d = e.notification.data || {}, url = new URL(d.url || './', self.registration.scope).href;
   e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
     const c = list.find(w => w.url.startsWith(self.registration.scope));
-    if (c) { if (d.k) c.postMessage({ open: d.k }); else if (d.s) c.postMessage({ sec: d.s }); return c.focus(); }
+    if (c) { if (d.m) c.postMessage({ msg: d.m }); else if (d.k) c.postMessage({ open: d.k }); else if (d.s) c.postMessage({ sec: d.s }); return c.focus(); }   // m — сообщение друга (chat.js)
     return clients.openWindow(url);
   }));
 });

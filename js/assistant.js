@@ -258,7 +258,7 @@ function aiRefresh() {
   const c = $('#ai_clear'); if (c) { c.hidden = !ai.msgs.length; c.classList.toggle('ask', !!aiClearAsk); }
   aiMode(); aiTypeRun();
 }
-const aiScroll = () => { const l = $('#ai_log'); if (l) l.scrollTop = l.scrollHeight; };
+const aiScroll = () => { const l = $('#ai_log') || $('#mc_log.conv'); if (l) l.scrollTop = l.scrollHeight; };   // и переписка с другом (chat.js)
 const aiGrow = () => { const t = $('#ai_text'); if (!t) return; t.style.height = 'auto'; const h = t.scrollHeight; t.style.height = Math.min(h, 140) + 'px'; t.style.overflowY = h > 140 ? 'auto' : 'hidden'; };
 document.addEventListener('input', e => { if (e.target.id === 'ai_text' && ai) { ai.draft = e.target.value; aiGrow(); aiMode(); } });
 document.addEventListener('change', e => { const k = e.target.dataset && e.target.dataset.aion; if (k == null || !ai) return;
