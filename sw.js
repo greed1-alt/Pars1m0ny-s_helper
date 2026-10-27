@@ -1,4 +1,4 @@
-const CACHE = 'rem-v138';
+const CACHE = 'rem-v139';
 const NUDGE_C = 'rem-nudge', NUDGE_URL = new URL('nudge', self.registration.scope).href;   // помощник пишет сам: текст пуша до открытия чата (aiNudgeOpen в assistant.js)
 const FILES = ['./', './index.html', './beta.html', './privacy.html', './consent.html', './terms.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png', './favicon.png',
   './css/fonts.css', './css/app.css', './css/sections.css', './css/ui2.css',
@@ -40,13 +40,13 @@ self.addEventListener('push', e => {
   let d = { title: 'Parsimony', body: 'Напоминание' };
   try { if (e.data) d = Object.assign(d, e.data.json()); } catch (x) {}
   e.waitUntil(self.registration.showNotification(String(d.title), { body: String(d.body), icon: 'icon-192.png', badge: 'icon-192.png',
-    tag: d.tag || undefined, renotify: !!d.tag, data: { url: d.url || './', k: d.k || '', s: d.s || '', m: d.m || '', ai: d.ai ? String(d.ai).slice(0, 300) : '' } }));
+    tag: d.tag || undefined, renotify: !!d.tag, data: { url: d.url || './', k: d.k || '', s: d.s || '', m: d.m || '', ai: d.ai ? String(d.ai).slice(0, 300) : '', act: d.act === 'week' ? 'week' : '' } }));
 });
 // Нажатие: открытое приложение — показать в нём нужный день; закрытое — открыть сразу на этом дне
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   const d = e.notification.data || {}, url = new URL(d.url || './', self.registration.scope).href;
-  e.waitUntil((d.ai ? caches.open(NUDGE_C).then(c => c.put(NUDGE_URL, new Response(d.ai))).catch(() => {}) : Promise.resolve())   // ai — помощник пишет сам
+  e.waitUntil((d.ai ? caches.open(NUDGE_C).then(c => c.put(NUDGE_URL, new Response(JSON.stringify({ t: d.ai, a: d.act || '' })))).catch(() => {}) : Promise.resolve())   // ai — помощник пишет сам
     .then(() => clients.matchAll({ type: 'window', includeUncontrolled: true })).then(list => {
     const c = list.find(w => w.url.startsWith(self.registration.scope));
     if (c) { if (d.ai) c.postMessage({ ai: 1 }); else if (d.m) c.postMessage({ msg: d.m }); else if (d.k) c.postMessage({ open: d.k }); else if (d.s) c.postMessage({ sec: d.s }); return c.focus(); }   // m — сообщение друга (chat.js)

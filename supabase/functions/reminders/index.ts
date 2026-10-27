@@ -11,6 +11,7 @@
 //    И пуши о заявках в друзья из очереди fr_notify (friendPushes, supabase/sql/friends.sql) и о новых сообщениях друзей
 //    из очереди msg_notify (msgPushes, supabase/sql/messages.sql, с 23 октября 2026).
 //    И помощник пишет сам — до 3 раз в день, только по делу, ночью тихо (nudgeCands / pickNudge / nudgePayload, с 23 октября 2026).
+//    В воскресенье вечерняя сводка — итоги недели (weekPayload, с 27 октября 2026); повтор «через неделю» — repeat.every = 2 (wkNum).
 // 2) Приложение с токеном пользователя и {"test":true} — проверочное уведомление на устройства этого человека
 //    (не чаще раза в минуту).
 // В настройках функции «Verify JWT» выключен: доступ проверяется здесь (секретный ключ или настоящий токен через auth.getUser).
@@ -33,6 +34,8 @@ const zoned = (k, min, tz) => { const [y, m, d] = k.split('-').map(Number); cons
 const dayIn = (ts, tz) => { const p = partsIn(ts, tz); return ymd(p.y, p.m, p.d); };
 const addD = (k, n) => { const [y, m, d] = k.split('-').map(Number); const t = new Date(Date.UTC(y, m - 1, d + n)); return ymd(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()); };
 const dowOf = k => { const [y, m, d] = k.split('-').map(Number); return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7; };   // 0 = понедельник
+// Номер недели (с понедельника) от 1 января 1970 — для повтора «через неделю» (repeat.every = 2: числитель / знаменатель, 27 октября 2026)
+const wkNum = k => Math.floor((Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10)) / 864e5 + 3) / 7);
 const tzOf = data => { const tz = data && data.settings && data.settings.tz; try { if (typeof tz === 'string' && tz.length < 64) { fmtOf(tz); return tz; } } catch (e) {} return 'Europe/Moscow'; };
 const tmin = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
 const isRec = e => !!(e.repeat && e.repeat.type && e.repeat.type !== 'none');
@@ -43,7 +46,7 @@ function occurs(e, k) {
   switch (r.type) {
     case 'daily': return true;
     case 'weekdays': return dowOf(k) < 5;
-    case 'weekly': return (Array.isArray(r.days) && r.days.length ? r.days : [dowOf(e.date)]).includes(dowOf(k));
+    case 'weekly': return (Array.isArray(r.days) && r.days.length ? r.days : [dowOf(e.date)]).includes(dowOf(k)) && (r.every !== 2 || (wkNum(k) - wkNum(e.date)) % 2 === 0);
     case 'monthly': return e.date.slice(8) === k.slice(8);
     case 'yearly': return e.date.slice(5) === k.slice(5);
   }
@@ -114,6 +117,21 @@ const itemText = e => (TIME_RE.test(e.time || '') ? e.time + ' ' : '') + String(
 const listText = (items, n) => items.slice(0, n).map(itemText).join(', ') + (items.length > n ? ` и ещё ${items.length - n}` : '');
 // «Вы пропустили» — как в приложении (missedList): разовые дела за 30 дней до сегодня без галочки
 const missedCount = (data, k) => (data && Array.isArray(data.events) ? data.events : []).filter(e => okEv(e) && !isRec(e) && !e.done && e.date < k && e.date >= addD(k, -30)).length;
+// Воскресенье вечером вместо «Запишите задачи на завтра» — итоги недели (выбор пользователя 27 октября 2026): сколько задач сделано
+// с понедельника (разовые — по галочке, повторяющиеся — по дням), сколько отметок привычек, сколько разовых дел на следующей неделе и сколько
+// из них без времени. Есть такие — в чате помощника кнопка «Разложить дела на неделю» (act 'week'); нажатие — сообщение в чате, как у nudge
+function weekPayload(d, data) {
+  const all = data && Array.isArray(data.events) ? data.events.filter(e => okEv(e) && !e.demo) : [];
+  const wk = Array.from({ length: 7 }, (_, i) => addD(d.k, i - 6)), nx = Array.from({ length: 7 }, (_, i) => addD(d.k, i + 1));
+  let n = 0, done = 0;
+  for (const e of all) if (e.task) for (const k of wk) if (occurs(e, k)) { n++; if (isDone(e, k)) done++; }
+  const marks = (data && Array.isArray(data.habits) ? data.habits : []).reduce((s, h) => s + (h && h.log && typeof h.log === 'object' ? Object.keys(h.log).filter(k => h.log[k] && wk.includes(k)).length : 0), 0);
+  const next = all.filter(e => !isRec(e) && !e.done && nx.includes(e.date)), free = next.filter(e => e.task && !TIME_RE.test(e.time || '')).length;
+  const done1 = [n ? `Сделано задач: ${done} из ${n}` : 'Задач на этой неделе не было', ...(marks ? [`отметок привычек: ${marks}`] : [])].join(', ');
+  const body = (done1 + '. ' + (next.length ? `На следующей неделе — ${plural(next.length, DELO)}` + (free ? `, без времени — ${free}. Разложить их по свободному времени?` : '.')
+    : 'На следующую неделю пока ничего нет — запишите планы.')).slice(0, 280);
+  return { title: 'Итоги недели', body, tag: 'pm', ai: 'Итоги недели. ' + body, act: free ? 'week' : '', url: './#ai' };
+}
 function digestPayload(d, data) {
   if (d.kind === 'am') {
     const items = dayItems(data, d.k), missed = missedCount(data, d.k);
@@ -121,6 +139,7 @@ function digestPayload(d, data) {
     if (missed) body += ` · пропущено: ${missed}`;
     return { title: items.length ? `План на сегодня: ${plural(items.length, DELO)}` : 'На сегодня дел не запланировано', body, s: 'home', url: './#s=home', tag: 'am' };
   }
+  if (dowOf(d.k) === 6) return weekPayload(d, data);   // воскресенье — итоги недели
   const next = addD(d.k, 1), items = dayItems(data, next), left = dayItems(data, d.k).filter(e => e.task).length;
   let body = items.length ? `На завтра уже ${plural(items.length, DELO)}: ${listText(items, 2)}` : 'На завтра пока ничего нет';
   if (left) body = `Не сделано сегодня: ${left} · ${body}`;

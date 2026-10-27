@@ -503,6 +503,7 @@ function openEvent(id, preset, instDate) {
   <div class="frow"><span class="fl">Повтор</span><div><select id="f_rep" class="fin">${Object.entries(REP).map(([k,v]) => `<option value="${k}"${rep.type===k?' selected':''}>${v}</option>`).join('')}</select>
     <div id="f_repx" style="display:${rep.type && rep.type!=='none'?'block':'none'}">
       <div id="f_days" class="chips" style="display:${rep.type==='weekly'?'flex':'none'}">${DOW.map((d,i) => `<button type="button" class="chip${window._fe.days.has(i)?' on':''}" data-act="repday" data-d="${i}">${d}</button>`).join('')}</div>
+      <label id="f_ev2l" class="swl" style="display:${rep.type==='weekly'?'inline-flex':'none'}"><input id="f_ev2" class="sw" type="checkbox"${rep.every===2?' checked':''}> Через неделю (числитель / знаменатель)</label>
       <div class="until">до <input id="f_until" class="fin" type="date" value="${rep.until||''}" aria-label="Повторять до"></div></div></div></div>
   <div class="frow"><span class="fl">Календарь</span><div class="ccats" id="f_cats">${catChips(window._fe.cat, 'fcat')}</div></div>
   <div class="frow"><span class="fl">Задача</span><div><div class="f-hrow" style="margin-top:9px"><label class="swl" style="margin-top:0"><input id="f_task" class="sw" type="checkbox"${e.task?' checked':''}> Показывать в «Задачах»</label>${hintK('task')}</div>

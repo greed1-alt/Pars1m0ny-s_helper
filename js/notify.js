@@ -90,7 +90,7 @@ const digestRow = (k, label, hint) => { const d = S.settings.digest;
   return `<div class="set-row dg-row"><span>${label}<small>${hint}</small></span><span class="dg-r"><input class="fin dg-t" type="time" data-dg="${k}T" value="${esc(d[k + 'T'])}" aria-label="Время"${d[k] ? '' : ' disabled'}><input class="sw" type="checkbox" data-dg="${k}" aria-label="${label}"${d[k] ? ' checked' : ''}></span></div>`; };
 const digestHTML = () => `<div class="set-sub">Сводки</div>
   ${digestRow('am', 'Утром — план на день', 'дела на сегодня и пропущенные')}
-  ${digestRow('pm', 'Вечером — «запишите задачи на завтра»', 'что уже есть на завтра')}
+  ${digestRow('pm', 'Вечером — «запишите задачи на завтра»', 'что уже есть на завтра; в воскресенье — итоги недели')}
   <div class="set-row"><span>${withHint('Помощник пишет сам', 'nudge')}<small>до 3 раз в день, только по делу, ночью тихо</small></span><input id="s_nudge" class="sw" type="checkbox"${S.settings.nudge ? ' checked' : ''}></div>`;
 // Помощник пишет сам (функция reminders: nudgeCands): по умолчанию включено; сервер пишет только при nudge === true — так старая версия приложения без выключателя молчит
 onMigrate(() => { if (typeof S.settings.nudge !== 'boolean') S.settings.nudge = true; });

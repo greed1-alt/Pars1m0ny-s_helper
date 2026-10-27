@@ -33,7 +33,7 @@ const shareListHTML = (list, max) => list.length ? `<div class="shlist">${list.s
 const fromShared = o => ({
   title: String(o.t || 'Без названия').slice(0, 200), date: isDate(o.d) ? o.d : todayK(),
   time: isTime(o.s) ? o.s : '', time2: isTime(o.s) && isTime(o.e) ? o.e : '',
-  repeat: o.r && o.r.type !== 'none' && REP[o.r.type] ? { type:o.r.type, until: isDate(o.r.until) ? o.r.until : '', days: Array.isArray(o.r.days) ? o.r.days.filter(d => Number.isInteger(d) && d >= 0 && d <= 6) : [] } : { type:'none' },
+  repeat: o.r && o.r.type !== 'none' && REP[o.r.type] ? { type:o.r.type, until: isDate(o.r.until) ? o.r.until : '', days: Array.isArray(o.r.days) ? o.r.days.filter(d => Number.isInteger(d) && d >= 0 && d <= 6) : [], ...(o.r.type === 'weekly' && o.r.every === 2 ? { every: 2 } : {}) } : { type:'none' },
   skip: Array.isArray(o.k) ? o.k.filter(isDate) : [], loc: String(o.l || '').slice(0, 500), note: String(o.n || '').slice(0, 5000),
   reminder: (() => { const l = (Array.isArray(o.ms) ? o.ms : o.m != null ? [o.m] : []).map(Number).filter(v => Number.isFinite(v) && v >= 0 && v <= 525600).slice(0, 10).sort((a, b) => b - a);
     return { enabled: l.length > 0, offsets: l, offset: l.length ? l[l.length - 1] : 15, repeat:'none', days:[] }; })() });
@@ -137,7 +137,7 @@ function icsText(list, calName, notes) {
     else L.push('DTSTART;VALUE=DATE:' + dt(d0), 'DTEND;VALUE=DATE:' + dt(addDays(d0, 1)));
     if (isRec(e)) {
       const r = e.repeat;
-      let rule = { daily:'FREQ=DAILY', weekdays:'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', weekly:'FREQ=WEEKLY;BYDAY=' + (r.days && r.days.length ? r.days : [dowIdx(e.date)]).map(i => BY[i]).join(','), monthly:'FREQ=MONTHLY', yearly:'FREQ=YEARLY' }[r.type];
+      let rule = { daily:'FREQ=DAILY', weekdays:'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', weekly:'FREQ=WEEKLY;' + (r.every === 2 ? 'INTERVAL=2;' : '') + 'BYDAY=' + (r.days && r.days.length ? r.days : [dowIdx(e.date)]).map(i => BY[i]).join(','), monthly:'FREQ=MONTHLY', yearly:'FREQ=YEARLY' }[r.type];
       if (rule) { if (r.until) rule += ';UNTIL=' + dt(r.until) + (e.time ? 'T235959' : ''); L.push('RRULE:' + rule); }
       (e.skip || []).forEach(k => L.push(e.time ? 'EXDATE:' + dt(k, e.time) : 'EXDATE;VALUE=DATE:' + dt(k)));
     }

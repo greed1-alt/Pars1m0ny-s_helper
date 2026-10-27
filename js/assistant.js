@@ -17,7 +17,7 @@ const AI_CUT = `С одной картинки беру не больше ${AI_I
 const AI_REC = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);   // своя запись голоса — без системного звука (aiVoiceStart)
 let aiPtt = null, aiClearAsk = 0, aiSeen = 0, aiVt = null;   // aiVt — только что распознанный голос: { t, vt, secs } (aiSttSend)   // aiPtt — идёт запись голосом; aiSeen — сколько сообщений уже показано (новые появляются с анимацией)
 
-const AI_T = { edit:[IC.edit, 'Изменить'], done:[IC.check, 'Отметить'], delete:[IC.trash, 'Удалить'], uncheck:[IC.undo, 'Снять отметку'], check:[IC.check, 'Отметить'], task:[IC.tasks, 'Задача'], event:[IC.cal, 'Событие'], habit:[IC.habit, 'Привычка'], expense:[IC.wallet, 'Расход'], income:[IC.wallet, 'Доход'], saving:[IC.wallet, 'Накопление'], goal:[IC.goal, 'Цель'], note:[IC.note, 'Заметка'], plan:[IC.goal, 'План'], day:[IC.clock, 'День'] };
+const AI_T = { edit:[IC.edit, 'Изменить'], done:[IC.check, 'Отметить'], delete:[IC.trash, 'Удалить'], uncheck:[IC.undo, 'Снять отметку'], check:[IC.check, 'Отметить'], task:[IC.tasks, 'Задача'], event:[IC.cal, 'Событие'], habit:[IC.habit, 'Привычка'], expense:[IC.wallet, 'Расход'], income:[IC.wallet, 'Доход'], saving:[IC.wallet, 'Накопление'], goal:[IC.goal, 'Цель'], note:[IC.note, 'Заметка'], plan:[IC.goal, 'План'], day:[IC.clock, 'День'], schedule:[IC.cal, 'Расписание'] };
 const aiRep = r => !r ? '' : r.type === 'daily' ? 'каждый день' : r.type === 'weekdays' ? 'по будням' : r.type === 'monthly' ? 'каждый месяц' : r.type === 'yearly' ? 'каждый год'
   : 'по ' + (r.days.length ? r.days.map(d => DOW[d].toLowerCase()).join(', ') : 'неделям');
 const aiCat = name => { const n = String(name || '').toLowerCase(); return n && S.cats.find(c => c.name.toLowerCase() === n); };
@@ -100,7 +100,8 @@ const aiAsks = t => t.includes('?') || AI_ASK.test(t) || AI_ASK2.test(t);
 const aiLoad = () => { try { const j = JSON.parse(localStorage.getItem(AI_LS) || 'null'); if (j && Array.isArray(j.msgs)) return j; } catch (e) {} return { msgs: [], hello: '' }; };
 const aiStore = () => { if (!ai) return; ai.msgs = ai.msgs.slice(-AI_KEEP); try { localStorage.setItem(AI_LS, JSON.stringify({ msgs: ai.msgs, hello: ai.hello })); } catch (e) {} };
 // Что было в разговоре — коротко, вместе с предложенными записями: так нейросеть понимает «нет, в 11» и «а послезавтра?»
-const aiBrief = it => it.type === 'day' ? `Разложить дела на сегодня (${it.list.length})${it.got ? ': поставлено по времени — ' + it.got.n + (it.got.mv ? ', на завтра — ' + it.got.mv : '') : ''}`
+const aiBrief = it => it.type === 'schedule' ? `Расписание «${it.title}»: ${it.lessons.length} занятий${it.got ? ', поставлено в календарь: ' + it.got.n : ''}`
+  : it.type === 'day' ? `Разложить дела на ${it.wk ? 'неделю' : 'сегодня'} (${it.list.length})${it.got ? ': поставлено по времени — ' + it.got.n + (it.got.mv ? ', на завтра — ' + it.got.mv : '') : ''}`
   : it.type === 'plan' ? `План «${it.title}»: ${it.hours} ч, по ${it.min} мин, ${it.per_week} раз в неделю${AI_WHEN[it.when] ? ', ' + AI_WHEN[it.when] : ''}${it.due ? ', до ' + it.due : ''}${it.got ? ', поставлено занятий: ' + it.got.n : ''}`
   : AI_ACT.includes(it.type) ? (AI_T[it.type] || [0, ''])[1] + ' «' + (it.lbl || it.habit || '') + '»' + (it.chg ? ' ' + it.chg : '') : (AI_T[it.type] || [0, 'Запись'])[1] + ' «' + (it.title || it.habit || it.text || it.note || '') + '»' + (it.date ? ' ' + it.date : '') + (it.time ? ' ' + it.time : '') + (it.amount ? ' ' + it.amount + ' ₽' : '');
 const AI_ACT = ['edit', 'done', 'delete', 'uncheck'];   // действия с тем, что уже есть
@@ -114,8 +115,9 @@ const aiSet = k => () => stJump(k);   // pages.js: на телефоне — о�
 const AI_NAV = { home:['Главная', aiSec('home')], cal:['Календарь', aiSec('cal')], tasks:['Задачи', aiSec('tasks')], goals:['Цели', () => goGoals()], habits:['Привычки', aiSec('habits')], fin:['Финансы', aiSec('fin')],
   budget:['Бюджет на месяц', () => openBudget()], missed:['Вы пропустили', () => ACT.missopen()], profile:['Профиль', () => setSec('profile')], settings:['Настройки', () => { if (sec !== 'settings') return setSec('settings'); stOpen = null; render(); window.scrollTo(0, 0); }],
   set_look:['Оформление', aiSet('look')], set_cal:['Настройки календаря', aiSet('cal')], set_cats:['Календари', aiSet('cats')], set_layout:['Расположение', aiSet('secs')], sections:['Разделы и вкладки', () => openSecs()],
-  set_notif:['Напоминания', aiSet('notif')], set_data:['Аккаунт и данные', aiSet('data')], tour:['Знакомство с приложением', () => openTourMenu()], feedback:['Отзыв', () => ACT.feedback()] };
-ACT.ainav = el => { const n = AI_NAV[el.dataset.to]; if (!n) return; closeSheet(); n[1](); };
+  set_notif:['Напоминания', aiSet('notif')], set_data:['Аккаунт и данные', aiSet('data')], tour:['Знакомство с приложением', () => openTourMenu()], feedback:['Отзыв', () => ACT.feedback()],
+  weekplan:['Разложить дела на неделю', () => aiDayRun(AI_WEEK_TXT, '', true)] };   // из итогов недели (пуш в воскресенье) — в том же чате
+ACT.ainav = el => { const n = AI_NAV[el.dataset.to]; if (!n) return; if (el.dataset.to === 'weekplan') return n[1](); closeSheet(); n[1](); };
 
 // ---- Окно ----
 const aiInit = () => { if (!ai) { const st = aiLoad(); ai = { msgs: st.msgs, hello: st.hello || '', draft: '', busy: false, err: '', left: null, imgs: [] }; } };
@@ -133,9 +135,13 @@ function openAI(text) {
 // куда его положил service worker (sw.js: NUDGE_C), а не из адреса — ссылкой «#ai» чужой текст в чат не подложить
 async function aiNudgeOpen() {
   let t = '';
-  try { const c = await caches.open('rem-nudge'), u = new URL('nudge', document.baseURI).href, r = await c.match(u); if (r) { t = (await r.text()).trim().slice(0, 300); await c.delete(u); } } catch (e) {}
+  let a = '';   // итоги недели: { t, a: 'week' } — с кнопкой «Разложить дела на неделю» (sw.js кладёт JSON с 27 октября 2026; раньше — просто текст)
+  try { const c = await caches.open('rem-nudge'), u = new URL('nudge', document.baseURI).href, r = await c.match(u);
+    if (r) { const raw = (await r.text()).trim(); let j = null; try { j = JSON.parse(raw); } catch (e) {}
+      if (j && typeof j.t === 'string') { t = j.t; a = j.a === 'week' ? 'week' : ''; } else t = raw;
+      t = t.trim().slice(0, 300); await c.delete(u); } } catch (e) {}
   aiInit();
-  if (t && !ai.msgs.some(m => m.nudge && m.t === t)) ai.msgs.push({ r:'a', t, day: todayK(), nudge: 1 });
+  if (t && !ai.msgs.some(m => m.nudge && m.t === t)) ai.msgs.push({ r:'a', t, day: todayK(), nudge: 1, ...(a ? { nav: [{ to: 'weekplan', label: 'Разложить дела на неделю' }] } : {}) });
   if (t) { ai.hello = todayK(); aiStore(); }   // вместо приветствия дня
   openAI();
 }
@@ -162,10 +168,11 @@ function aiRow(it, key, mode) {
   else if (it.type === 'habit') bits.push(it.kind === 'weekly' ? 'раз в неделю' : it.kind === 'monthly' ? 'раз в месяц' : it.days.length ? 'по ' + it.days.map(d => DOW[d].toLowerCase()).join(', ') : 'каждый день');
   else if (AI_KIND[it.type]) { const c = aiFin(it.category, AI_KIND[it.type], it.note, it.amount); bits.push(`<b>${it.type === 'income' ? '+' : it.type === 'expense' ? '−' : ''}${rub(it.amount)}</b>`, esc((c.emoji || '') + ' ' + c.name)); if (it.date && it.date !== todayK()) bits.push(relDay(it.date)); }
   else if (it.type === 'goal') { bits.push('до ' + shortDate(it.due || todayK().slice(0, 4) + '-12-31')); if (it.steps.length) bits.push(plural(it.steps.length, ['шаг', 'шага', 'шагов'])); }
+  else if (it.type === 'schedule') bits.push(it.got ? plural(it.got.n, ['занятие', 'занятия', 'занятий']) + ' в календаре' : plural(it.lessons.length, ['занятие', 'занятия', 'занятий']));
   else if (it.type === 'day') { if (it.got) bits.push(plural(it.got.n, ['дело', 'дела', 'дел']) + ' по времени' + (it.got.mv ? ', ' + it.got.mv + ' на завтра' : '')); else if (it.st === 'ask') bits.push('план на ' + shortDate(it.k) + ' — устарел'); }
   else if (it.type === 'plan') bits.push(it.got ? plural(it.got.n, ['занятие', 'занятия', 'занятий']) + (it.got.steps ? ', ' + plural(it.got.steps, ['шаг', 'шага', 'шагов']) : '') + ' в календаре' : 'по ' + it.min + ' мин, ' + plural(it.per_week, ['раз', 'раза', 'раз']) + ' в неделю');
   const hb = it.type === 'check' && aiHab(it.habit);
-  const title = it.type === 'day' ? 'Дела на сегодня по времени' : AI_ACT.includes(it.type) ? (it.lbl || it.habit || '—') : it.type === 'note' ? it.text : it.type === 'check' ? (hb ? (hb.emoji ? hb.emoji + ' ' : '') + hb.name : it.habit) : AI_KIND[it.type] ? (it.note || kind) : (it.type === 'habit' || it.type === 'goal' || it.type === 'plan') && it.emoji ? it.emoji + ' ' + it.title : it.title;
+  const title = it.type === 'schedule' ? it.title : it.type === 'day' ? (it.wk ? 'Дела на неделю по времени' : 'Дела на сегодня по времени') : AI_ACT.includes(it.type) ? (it.lbl || it.habit || '—') : it.type === 'note' ? it.text : it.type === 'check' ? (hb ? (hb.emoji ? hb.emoji + ' ' : '') + hb.name : it.habit) : AI_KIND[it.type] ? (it.note || kind) : (it.type === 'habit' || it.type === 'goal' || it.type === 'plan') && it.emoji ? it.emoji + ' ' + it.title : it.title;
   if (auto) {
     const st = it.st || 'skip', ico = st === 'ok' ? IC.check : st === 'undone' ? IC.undo : st === 'no' ? IC.x : IC.alert;
     if (it.why) bits.push(esc(it.why));
@@ -179,7 +186,7 @@ function aiRow(it, key, mode) {
 }
 // Удаление и больше трёх изменений за раз ждут подтверждения: «Удалить» / «Подтвердить» и «Не надо» под сообщением
 function aiAskHTML(m, i) {
-  const a = (m.items || []).filter(x => x.st === 'ask' && x.type !== 'plan' && x.type !== 'day'); if (!a.length) return '';
+  const a = (m.items || []).filter(x => x.st === 'ask' && x.type !== 'plan' && x.type !== 'day' && x.type !== 'schedule'); if (!a.length) return '';
   const del = a.every(x => x.type === 'delete');
   return `<div class="ai-ask"><button class="btn pri" data-act="aiyes" data-i="${i}">${del ? I(IC.trash, 15) + ' Удалить' : 'Подтвердить'}${a.length > 1 ? ' (' + a.length + ')' : ''}</button><button class="btn" data-act="aino" data-i="${i}">Не надо</button></div>`;
 }
@@ -189,7 +196,7 @@ function aiMsg(m, i) {
   if (m.r === 'u') { const th = (Array.isArray(m.imgs) ? m.imgs : [m.img]).filter(aiThumbOk).slice(0, AI_IMGS);   // imgs — с 22 октября 2026, раньше одна img
     return `<div class="ai-m u${i >= aiSeen ? ' new' : ''}"><div class="ai-mb">${th.length ? `<div class="ai-uimgs n${th.length}">${th.map((s, k) => `<img class="ai-uimg" src="${s}" alt="Картинка${th.length > 1 ? ' ' + (k + 1) : ''}">`).join('')}</div>` : ''}${m.v ? `<span class="ai-uv" title="Сказано голосом">${I(IC.mic, 13)}</span>` : ''}${m.t ? aiTxt(m.t) : ''}</div></div>`; }
   const it = m.items || [], on = it.filter(x => x.on).length, added = m.added != null, okN = it.filter(x => x.st === 'ok').length;
-  const list = m.auto && it.length ? `<div class="ai-list">${it.map((x, j) => x.type === 'plan' && x.st === 'ask' ? aiPlanHTML(x, i + ':' + j) : x.type === 'day' && x.st === 'ask' && x.k === todayK() ? aiDayHTML(x, i + ':' + j) : aiRow(x, i + ':' + j, 'auto')).join('')}</div>
+  const list = m.auto && it.length ? `<div class="ai-list">${it.map((x, j) => x.type === 'plan' && x.st === 'ask' ? aiPlanHTML(x, i + ':' + j) : x.type === 'day' && x.st === 'ask' && x.k === todayK() ? aiDayHTML(x, i + ':' + j) : x.type === 'schedule' && x.st === 'ask' ? aiSchedHTML(x, i + ':' + j) : aiRow(x, i + ':' + j, 'auto')).join('')}</div>
     ${okN > 1 ? `<button class="ai-undoall" data-act="aiundoall" data-i="${i}">${I(IC.undo, 14)} Отменить всё</button>` : ''}${aiAskHTML(m, i)}` : it.length ? `<div class="ai-list">${(added ? it.filter(x => x.on) : it).map((x, j) => aiRow(x, i + ':' + j, added ? 'done' : 'pick')).join('')}</div>
     ${added ? `<p class="ai-ok">${I(IC.check, 14)} ${m.added ? 'Готово: ' + plural(m.added, ['запись', 'записи', 'записей']) : 'Ничего не изменилось — это уже было'}</p>`
       : `<button class="btn pri ai-add" data-act="aiapply" data-i="${i}"${on ? '' : ' disabled'}>${on ? (it.every(x => !x.on || x.type === 'check') ? 'Отметить' : `Добавить ${plural(on, ['запись', 'записи', 'записей'])}`) : 'Выберите, что добавить'}</button>`}` : '';
@@ -470,7 +477,7 @@ async function aiSend(text) {
     if (items.length && j.fix) aiFixPrev(items);
     // Удаление и больше трёх изменений за раз — не сразу, а по кнопке под сообщением (aiPeek только описывает, что будет)
     const askAll = items.filter(x => AI_ACT.includes(x.type)).length > 3;
-    items.forEach(x => x.type === 'plan' ? aiPlanAsk(x) : x.type === 'delete' || (askAll && AI_ACT.includes(x.type)) ? aiPeek(x, refs) : aiDo(x, refs));   // план — сначала показать
+    items.forEach(x => x.type === 'plan' ? aiPlanAsk(x) : x.type === 'schedule' ? aiSchedAsk(x) : x.type === 'delete' || (askAll && AI_ACT.includes(x.type)) ? aiPeek(x, refs) : aiDo(x, refs));   // план — сначала показать
     ai.msgs.push({ r:'a', t: String(j.reply || (items.length ? '' : 'Не понял, что сделать. Напишите подробнее.')) + (cut ? '\n' + AI_CUT : ''), day: todayK(), tw: 1, ...(items.length ? { items, auto: 1 } : {}), ...(Object.keys(refs).length ? { refs } : {}), ...(nav.length ? { nav } : {}), ...(ask ? { ask: 1 } : {}) });
     if (items.length) { save(); render(); }
     const done = items.filter(x => x.st === 'ok').length, asks = items.filter(x => x.st === 'ask').length;   // окно чата закрыли до ответа — сказать, что сделано
@@ -515,7 +522,7 @@ const aiCanMark = it => { const h = aiHab(it.habit), d = it.date && it.date <= t
 // ---- Сделать одну запись сразу (теми же записями, что создаёт приложение) и запомнить, что сделано, — чтобы отменить ----
 // it.st: 'ok' — сделано (it.res — что именно), 'undone' — отменено, 'skip' — не получилось (it.why — почему)
 function aiDo(it, refs) {
-  delete it.why; it.res = null;
+  delete it.why; it.res = null; aiMadeCat = null;
   const t = it.type;
   if (AI_ACT.includes(t)) return aiChange(it, refs);
   if (t === 'check') {
@@ -537,7 +544,9 @@ function aiDo(it, refs) {
   } else if (t === 'note') { const n = { id: 'n' + uid(), date: todayK(), text: it.text }; S.notes.push(n); it.res = { note: n.id }; }
   else if (t === 'plan') { if (!aiPlanApply(it)) return; }   // цель, шаги и занятия в свободное время
   else if (t === 'day') { if (!aiDayApply(it)) return; }   // дела на сегодня — по времени
+  else if (t === 'schedule') { if (!aiSchedApply(it)) return; }   // расписание — повторяющимися событиями
   else { it.st = 'skip'; it.why = 'не умею такое'; return; }
+  if (aiMadeCat && it.res) it.res.cat = aiMadeCat;   // календарь, который помощник создал для этой записи
   it.st = 'ok';
 }
 // Исправление прошлого ответа: для каждой новой записи отменяется прошлая того же вида с тем же (или похожим) названием,
@@ -655,6 +664,7 @@ function aiUndo(it) {
   if (r.gprev) { const g = S.goals.find(x => x.id === r.gprev[0]); if (g) Object.assign(g, structuredClone(r.gprev[1])); }   // план той же цели — как был
   if (r.note) S.notes = S.notes.filter(n => n.id !== r.note);
   if (r.mark) { const h = S.habits.find(x => x.id === r.mark[0]); if (h) delete h.log[r.mark[1]]; }
+  if (r.cat && !S.events.some(e => e.cat === r.cat)) S.cats = S.cats.filter(c => c.id !== r.cat);   // созданный помощником календарь — если в нём пусто
   it.res = null; it.st = 'undone'; delete it.why;
 }
 // Созданную помощником привычку или цель, которой с тех пор пользовались (есть отметки, сделанные шаги), «Отменить» не удаляет:
@@ -795,24 +805,26 @@ document.addEventListener('change', e => { const m = /^fh_(wd|we)([01])$/.exec(e
 // с галочками, выключенными по умолчанию. Время подбирает приложение (aiDayFit): свободные часы из настроек (aiFreeGaps) между событиями,
 // важные — первыми, начало кратно 5 минутам. Сначала карточка в чате (aiDayHTML), в календарь — по «Поставить» (у дел меняются только
 // дата и время, «Отменить» возвращает как было); не влезло — «перенести на завтра». Запись в чате: { type:'day', k, list:[{ id, t, min, miss, on }], mv }
-const AI_DAY_MAX = 20, AI_DAY_TXT = 'Разложи дела на сегодня по времени';
-const AI_DAY = /(?:^|[\s,.!?])(?:(?:распредел|разлож|раскида|расстав|распиш)\S*[^.!?]{0,40}?(?:дел|задач|день|дня|сегодн|врем)|(?:спланир\S*|состав\S*\s+(?:мне\s+)?(?:план|расписание|график))[^.!?]{0,30}?(?:день|дня|сегодн|дел|задач))/i;
+const AI_DAY_MAX = 30, AI_DAY_TXT = 'Разложи дела на сегодня по времени', AI_WEEK_TXT = 'Разложи дела на неделю по времени';
+const AI_DAY = /(?:^|[\s,.!?])(?:(?:распредел|разлож|раскида|расстав|распиш)\S*[^.!?]{0,40}?(?:дел|задач|день|дня|сегодн|врем|недел)|(?:спланир\S*|состав\S*\s+(?:мне\s+)?(?:план|расписание|график))[^.!?]{0,30}?(?:день|дня|сегодн|дел|задач|недел))/i;
 const aiDayAsk = t => t.length < 120 && !/\d/.test(t) && AI_DAY.test(t);   // с числами («в 15», «на 25-е») — обычная запись, не раскладка дня
 const aiMin = v => Number.isFinite(+v) && +v > 0 ? Math.min(480, Math.max(5, Math.round(+v / 5) * 5)) : 30;
 const aiHM = m => m < 60 ? m + ' мин' : Math.floor(m / 60) + ' ч' + (m % 60 ? ' ' + m % 60 + ' мин' : '');
 // Что раскладывать: сегодняшние задачи без времени (важные — первыми) и пропущенные задачи за 30 дней; повторяющиеся — нет, у них свой распорядок
-const aiDayOpen = (e, k) => e.task && !e.demo && !isRec(e) && !e.done && !e.time && e.date === k;
-const aiDayTasks = () => { const t = todayK(), now = S.events.filter(e => aiDayOpen(e, t)).sort((a, b) => prioRank(a) - prioRank(b));
+const aiDayOpen = (e, k, to) => e.task && !e.demo && !isRec(e) && !e.done && !e.time && e.date >= k && e.date <= (to || k);
+const aiDayTo = (k, wk) => wk ? addDays(k, dowIdx(k) === 6 ? 7 : 6) : k;   // неделя — 7 дней с сегодня; в воскресенье — ещё и вся следующая
+const aiDayTasks = to => { const t = todayK(), now = S.events.filter(e => aiDayOpen(e, t, to)).sort((a, b) => a.date.localeCompare(b.date) || prioRank(a) - prioRank(b));
   return [...now.map(e => ({ e, miss: false })), ...missedList().filter(e => e.task && !e.demo).map(e => ({ e, miss: true }))].slice(0, AI_DAY_MAX); };
 // Кнопка у задач дня — только сегодня, со входом и если есть что раскладывать
 const aiDayBtn = (k, cls) => k === todayK() && signedIn() && S.events.some(e => aiDayOpen(e, k))
   ? `<button class="${cls || 't3-gbtn'} ai-dgo" data-act="aidaygo" title="Помощник оценит, сколько займёт каждое дело, и предложит время в свободных часах">${I(IC.spark, 13)} Разложить по времени</button>` : '';
 ACT.aidaygo = () => { aiInit(); if (signedIn()) ai.hello = todayK(); openAI(); aiDayRun(AI_DAY_TXT); };   // приветствие дня не нужно — человек пришёл за планом
-async function aiDayRun(text, vt) {
+async function aiDayRun(text, vt, wk) {
   if (!ai || ai.busy || !signedIn()) return;
-  const l = aiDayTasks(), t = todayK();
+  if (wk == null) wk = /недел/i.test(text);   // «распредели дела на неделю» (27 октября 2026)
+  const t = todayK(), to = aiDayTo(t, wk), l = aiDayTasks(to);
   ai.msgs.push({ r:'u', t: text, day: t }); ai.err = ''; ai.errT = null; aiClearAsk = 0;
-  if (!l.length) { ai.msgs.push({ r:'a', t: 'На сегодня нет задач без времени и пропущенных — раскладывать нечего. Запишите дела (например, «купить продукты»), и я разложу их по свободному времени.', day: t, tw: 1 }); aiStore(); return aiRefresh(); }
+  if (!l.length) { ai.msgs.push({ r:'a', t: `${wk ? 'На неделе' : 'На сегодня'} нет задач без времени и пропущенных — раскладывать нечего. Запишите дела (например, «купить продукты»), и я разложу их по свободному времени.`, day: t, tw: 1 }); aiStore(); return aiRefresh(); }
   if (!navigator.onLine) { ai.err = 'Нет интернета — помощнику нужен сервер.'; aiStore(); return aiRefresh(); }   // «Повторить» отправит фразу ещё раз
   ai.busy = true; aiStore(); aiRefresh();
   const j = await aiCall({ mode:'day', text, tasks: l.map(y => ({ t: y.e.title, p: y.e.prio || 'mid' })), ...(vt ? { vt } : {}) });
@@ -821,41 +833,49 @@ async function aiDayRun(text, vt) {
   const est = new Map((Array.isArray(j.est) ? j.est : []).map(x => [x && x.ref, x && x.min]));
   const list = l.map((y, i) => ({ id: y.e.id, t: y.e.title, min: aiMin(est.get('t' + (i + 1))), miss: y.miss, on: false }));
   ai.msgs.forEach(m => (m.items || []).forEach(x => { if (x.type === 'day' && x.st === 'ask') { x.st = 'no'; x.why = 'заменён новым планом ниже'; } }));
-  ai.msgs.push({ r:'a', t: String(j.reply || '') || 'Вот как можно разложить дела на сегодня:', day: t, tw: 1, auto: 1, items: [{ type:'day', k: t, list, st:'ask' }] });
+  ai.msgs.push({ r:'a', t: String(j.reply || '') || `Вот как можно разложить дела на ${wk ? 'неделю' : 'сегодня'}:`, day: t, tw: 1, auto: 1, items: [{ type:'day', k: t, ...(wk ? { wk: 1, to } : {}), list, st:'ask' }] });
   aiStore(); aiRefresh();
 }
-// Раскладка: дела списка, которые всё ещё ждут (не сделаны, без времени; пропущенные — отмеченные и ещё не перенесённые), важные — первыми;
-// каждое — в первое свободное окно, где помещается целиком
+// Раскладка: дела списка, которые всё ещё ждут (не сделаны, без времени; пропущенные — отмеченные и ещё не перенесённые); по дням, в дне
+// важные — первыми; каждое — в первое свободное окно своего дня (пропущенные — с сегодня), на неделе не влезло — в ближайший следующий день с местом
 function aiDayFit(it) {
-  const k = todayK(), gaps = aiFreeGaps(k).map(g => [...g]), put = [], over = [];
+  const k = todayK(), to = it.wk ? it.to || aiDayTo(k, true) : k, days = [], gaps = {}, put = [], over = [];
+  for (let d = k; d <= to; d = addDays(d, 1)) { days.push(d); gaps[d] = aiFreeGaps(d).map(g => [...g]); }
+  const slot = (d, L) => gaps[d].find(([a, b]) => Math.ceil(a / 5) * 5 + L <= b);
   it.list.map((x, n) => ({ x, n, e: S.events.find(v => v.id === x.id) }))
-    .filter(y => y.e && !y.e.done && !isRec(y.e) && (y.x.miss ? y.x.on && y.e.date < k : y.e.date === k && !y.e.time))
-    .sort((a, b) => prioRank(a.e) - prioRank(b.e) || a.x.miss - b.x.miss)
-    .forEach(y => { const g = gaps.find(([a, b]) => Math.ceil(a / 5) * 5 + y.x.min <= b); if (!g) return over.push(y);
-      const s = Math.ceil(g[0] / 5) * 5; g[0] = s + y.x.min; put.push(Object.assign(y, { time: fmtMin(s), time2: fmtMin(s + y.x.min) })); });
-  put.sort((a, b) => a.time.localeCompare(b.time));
+    .filter(y => y.e && !y.e.done && !isRec(y.e) && (y.x.miss ? y.x.on && y.e.date < k : y.e.date >= k && y.e.date <= to && !y.e.time))
+    .map(y => Object.assign(y, { from: y.x.miss ? k : y.e.date }))
+    .sort((a, b) => a.from.localeCompare(b.from) || prioRank(a.e) - prioRank(b.e) || a.x.miss - b.x.miss)
+    .forEach(y => { const d = days.find(x => x >= y.from && slot(x, y.x.min)); if (!d) return over.push(y);
+      const g = slot(d, y.x.min), s = Math.ceil(g[0] / 5) * 5; g[0] = s + y.x.min; put.push(Object.assign(y, { date: d, time: fmtMin(s), time2: fmtMin(s + y.x.min) })); });
+  put.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
   return { put, over };
 }
 function aiDayApply(it) {
-  const k = todayK(), f = aiDayFit(it), mv = it.mv !== false ? f.over : [], prev = [];
+  const k = todayK(), f = aiDayFit(it), mv = !it.wk && it.mv !== false ? f.over : [], prev = [];
   const keep = e => prev.push([e.id, { date: e.date, time: e.time || '', time2: e.time2 || '' }]);
-  f.put.forEach(y => { keep(y.e); Object.assign(y.e, { date: k, time: y.time, time2: y.time2 }); });
+  f.put.forEach(y => { keep(y.e); Object.assign(y.e, { date: y.date, time: y.time, time2: y.time2 }); });
   mv.forEach(y => { keep(y.e); Object.assign(y.e, { date: addDays(k, 1), time: '', time2: '' }); });
-  if (!prev.length) { it.st = 'skip'; it.why = 'нечего ставить — свободного времени сегодня нет'; return false; }
+  if (!prev.length) { it.st = 'skip'; it.why = `нечего ставить — свободного времени ${it.wk ? 'на неделе' : 'сегодня'} нет`; return false; }
   it.res = { dprev: prev }; it.got = { n: f.put.length, mv: mv.length };
   return true;
 }
-// Карточка, пока не поставили: дела по времени (пропущенное можно убрать), что не влезло (перенести на завтра), пропущенное галочками
+const aiDayLbl = d => DOWF[dowIdx(d)] + ', ' + shortDate(d) + (d === todayK() ? ' · сегодня' : '');
+// Карточка, пока не поставили: дела по времени (на неделе — по дням; пропущенное можно убрать), что не влезло (сегодня — «перенести на завтра»), пропущенное галочками
 function aiDayHTML(it, key) {
-  const f = aiDayFit(it), h = aiFreeHrs()[dowIdx(it.k) >= 5 ? 'we' : 'wd'], sum = f.put.reduce((a, y) => a + y.x.min, 0), mv = it.mv !== false;
+  const f = aiDayFit(it), hrs = aiFreeHrs(), sum = f.put.reduce((a, y) => a + y.x.min, 0), mv = !it.wk && it.mv !== false;
   const miss = it.list.map((x, n) => ({ x, n, e: S.events.find(v => v.id === x.id) })).filter(y => y.x.miss && !y.x.on && y.e && !y.e.done && y.e.date < it.k);
+  const x1 = y => `<button class="ai-dlx" data-act="aidayx" data-i="${key}:${y.n}">Убрать</button>`;
+  let last = '';
+  const rows = f.put.map(y => (it.wk && y.date !== last ? `<li class="ai-dh">${aiDayLbl(last = y.date)}</li>` : '')
+    + `<li><span class="ai-dt">${y.time}–${y.time2}</span><span class="ai-dn">${esc(y.e.title)}<small>${aiHM(y.x.min)}${y.x.miss ? ' · пропущено ' + relDay(y.e.date) : y.date !== y.e.date ? ' · перенесено с ' + shortDate(y.e.date) : ''}</small></span>${y.x.miss ? x1(y) : ''}</li>`).join('');
   return `<div class="ai-plan ai-dplan">
-    <div class="ai-plh"><span class="ai-ple" aria-hidden="true">🗓</span><span><b>Дела на сегодня по времени</b><small>${withHint(f.put.length ? plural(f.put.length, ['дело', 'дела', 'дел']) + ' · ' + aiHM(sum) : 'в свободное время ничего не помещается', 'aiDay')}</small></span></div>
-    ${f.put.length ? `<ul class="ai-dl">${f.put.map(y => `<li><span class="ai-dt">${y.time}–${y.time2}</span><span class="ai-dn">${esc(y.e.title)}<small>${aiHM(y.x.min)}${y.x.miss ? ' · пропущено ' + relDay(y.e.date) : ''}</small></span>${y.x.miss ? `<button class="ai-dlx" data-act="aidayx" data-i="${key}:${y.n}">Убрать</button>` : ''}</li>`).join('')}</ul>` : ''}
-    ${f.over.length ? `<p class="ai-plw">Не влезло в свободное время: ${f.over.map(y => '«' + esc(y.e.title) + '»' + (y.x.miss ? ` <button class="ai-dlx" data-act="aidayx" data-i="${key}:${y.n}">убрать</button>` : '')).join(', ')}.</p>
-      <label class="ai-dck"><input type="checkbox" data-aidmv="${key}"${mv ? ' checked' : ''}><span>Перенести ${f.over.length > 1 ? 'их' : 'его'} на завтра</span></label>` : ''}
-    ${miss.length ? `<p class="ai-plsc"><b>Пропущенное</b> — отметьте, что поставить на сегодня:</p>${miss.map(y => `<label class="ai-dck"><input type="checkbox" data-aidm="${key}:${y.n}"><span>${esc(y.e.title)}<small>${relDay(y.e.date)} · ${aiHM(y.x.min)}</small></span></label>`).join('')}` : ''}
-    <p class="ai-plf">Свободное время сегодня: ${h.join('–')}, между событиями<button data-act="aifree">Изменить</button></p>
+    <div class="ai-plh"><span class="ai-ple" aria-hidden="true">🗓</span><span><b>Дела на ${it.wk ? 'неделю' : 'сегодня'} по времени</b><small>${withHint(f.put.length ? plural(f.put.length, ['дело', 'дела', 'дел']) + ' · ' + aiHM(sum) : 'в свободное время ничего не помещается', 'aiDay')}</small></span></div>
+    ${f.put.length ? `<ul class="ai-dl">${rows}</ul>` : ''}
+    ${f.over.length ? `<p class="ai-plw">Не влезло в свободное время${it.wk ? ' на этой неделе' : ''}: ${f.over.map(y => '«' + esc(y.e.title) + '»' + (y.x.miss ? ' ' + x1(y).replace('>Убрать<', '>убрать<') : '')).join(', ')}.</p>
+      ${it.wk ? '' : `<label class="ai-dck"><input type="checkbox" data-aidmv="${key}"${mv ? ' checked' : ''}><span>Перенести ${f.over.length > 1 ? 'их' : 'его'} на завтра</span></label>`}` : ''}
+    ${miss.length ? `<p class="ai-plsc"><b>Пропущенное</b> — отметьте, что поставить в план:</p>${miss.map(y => `<label class="ai-dck"><input type="checkbox" data-aidm="${key}:${y.n}"><span>${esc(y.e.title)}<small>${relDay(y.e.date)} · ${aiHM(y.x.min)}</small></span></label>`).join('')}` : ''}
+    <p class="ai-plf">Свободное время${it.wk ? ` — будни ${hrs.wd.join('–')}, выходные ${hrs.we.join('–')}` : ' сегодня: ' + hrs[dowIdx(it.k) >= 5 ? 'we' : 'wd'].join('–')}, между событиями<button data-act="aifree">Изменить</button></p>
     <div class="ai-plb"><button class="btn pri" data-act="aidayset" data-i="${key}"${f.put.length || (f.over.length && mv) ? '' : ' disabled'}>${I(IC.cal, 16)} ${f.put.length ? 'Поставить в календарь' : 'Перенести на завтра'}</button><button class="btn" data-act="aiplanno" data-i="${key}">Не надо</button></div></div>`;
 }
 ACT.aidayset = el => { const x = aiItemAt(el); if (!x || x.it.st !== 'ask') return;
@@ -869,6 +889,52 @@ document.addEventListener('change', e => { const ds = e.target.dataset || {}; if
   const d = aiDayItem(ds.aidm || ds.aidmv + ':-1'); if (!d) return;
   if (ds.aidmv) d.it.mv = e.target.checked; else if (d.x) d.x.on = e.target.checked;
   aiStore(); aiRefresh(); });
+
+// ---- Расписание на неделю (27 октября 2026; выбор пользователя: «Учёба: расписание», «Да, нужно „через неделю“»). Скриншот или список пар,
+// уроков, смен → запись "schedule" (функция assistant): занятия по дням недели, числитель / знаменатель (weeks: odd / even), до какого числа.
+// Сначала карточка (aiSchedHTML: по дням, календарь, «Эта неделя — числитель / знаменатель», «Повторять до»), в календарь — по «Поставить»
+// (aiSchedApply): каждое занятие — повторяющееся событие (weekly; через неделю — every 2); такие же, что уже есть, не дублируются
+const aiSemEnd = k => { const y = k.slice(0, 4), m = +k.slice(5, 7); return y + (m >= 9 ? '-12-31' : m === 1 ? '-01-31' : m <= 6 ? '-06-30' : '-08-31'); };   // конец семестра
+const aiSchedAsk = x => { ai.msgs.forEach(m => (m.items || []).forEach(y => { if (y.type === 'schedule' && y.st === 'ask') { y.st = 'no'; y.why = 'заменено новым расписанием ниже'; } }));
+  x.st = 'ask'; delete x.why; x.res = null; if (!x.until || x.until < todayK()) x.until = aiSemEnd(todayK()); x.cur = 'odd'; };
+// Первое занятие — ближайший такой день недели начиная с сегодня; через неделю — в «свою» неделю (cur — какая идёт сейчас: odd числитель / even знаменатель)
+function aiSchedDate(l, cur) {
+  const t = todayK(); let d = addDays(t, l.dow - dowIdx(t) + (l.weeks !== 'all' && l.weeks !== cur ? 7 : 0));
+  while (d < t) d = addDays(d, l.weeks === 'all' ? 7 : 14);
+  return d;
+}
+const aiSchedSame = l => S.events.some(e => isRec(e) && e.repeat.type === 'weekly' && e.title.toLowerCase() === l.title.toLowerCase() && (e.time || '') === l.time && (e.repeat.days || []).includes(l.dow) && !(e.repeat.until && e.repeat.until < todayK()));
+function aiSchedApply(it) {
+  const until = it.until && it.until >= todayK() ? it.until : aiSemEnd(todayK()), ev = []; let skip = 0;
+  it.lessons.forEach(l => { const d = aiSchedDate(l, it.cur || 'odd'); if (d > until) return; if (aiSchedSame(l)) { skip++; return; }
+    const e = aiEvent({ type: 'event', title: l.title, date: d, time: l.time, time2: l.time2, loc: l.loc, cat: it.cat, new_cat: it.new_cat, repeat: { type: 'weekly', days: [l.dow], until, ...(l.weeks !== 'all' ? { every: 2 } : {}) } });
+    S.events.push(e); ev.push(e.id); });
+  if (!ev.length) { it.st = 'skip'; it.why = skip ? 'такие занятия уже есть в календаре' : 'нечего ставить — проверьте «Повторять до»'; return false; }
+  it.res = { ev }; it.got = { n: ev.length, skip };
+  return true;
+}
+const AI_WEEKS = { odd: 'по числителю', even: 'по знаменателю' };
+function aiSchedHTML(it, key) {
+  const c = aiCat(it.cat), g = !c && !(it.cat && it.new_cat) && S.cats.find(x => x.id === validCat(guessCat(it.title))), cur = it.cur || 'odd';
+  const cal = c ? `в календарь «${esc(c.name)}»` : it.cat && it.new_cat ? `в новый календарь «${esc(it.cat)}»` : g ? `в календарь «${esc(g.name)}»` : '';
+  const days = [0, 1, 2, 3, 4, 5, 6].map(d => [d, it.lessons.filter(l => l.dow === d).sort((a, b) => a.time.localeCompare(b.time))]).filter(([, l]) => l.length);
+  return `<div class="ai-plan ai-sched">
+    <div class="ai-plh"><span class="ai-ple" aria-hidden="true">📚</span><span><b>${esc(it.title)}</b><small>${withHint(plural(it.lessons.length, ['занятие', 'занятия', 'занятий']) + (cal ? ' · ' + cal : ''), 'aiSched')}</small></span></div>
+    <ul class="ai-dl">${days.map(([d, l]) => `<li class="ai-dh">${DOWF[d]}</li>${l.map(x => `<li><span class="ai-dt">${x.time}${x.time2 ? '–' + x.time2 : ''}</span><span class="ai-dn">${esc(x.title)}${x.loc || x.weeks !== 'all' ? `<small>${[x.loc ? esc(x.loc) : '', AI_WEEKS[x.weeks] || ''].filter(Boolean).join(' · ')}</small>` : ''}</span></li>`).join('')}`).join('')}</ul>
+    ${it.lessons.some(l => l.weeks !== 'all') ? `<div class="ai-scw"><span>Эта неделя —</span>${['odd', 'even'].map(w => `<button class="${cur === w ? 'on' : ''}" data-act="aischw" data-w="${w}" data-i="${key}" aria-pressed="${cur === w}">${w === 'odd' ? 'числитель' : 'знаменатель'}</button>`).join('')}</div>` : ''}
+    <label class="ai-scu"><span>Повторять до</span><input class="fin" type="date" data-aisu="${key}" value="${esc(it.until || '')}"></label>
+    <div class="ai-plb"><button class="btn pri" data-act="aisched" data-i="${key}">${I(IC.cal, 16)} Поставить в календарь</button><button class="btn" data-act="aiplanno" data-i="${key}">Не надо</button></div>
+    <p class="ai-plh2">Поправить — напишите: «без физкультуры», «математика в 10:40», «до 25 декабря».</p></div>`;
+}
+const aiSchedItem = el => { const x = aiItemAt(el); return x && x.it.type === 'schedule' && x.it.st === 'ask' ? x : null; };
+ACT.aisched = el => { const x = aiSchedItem(el); if (!x) return;
+  delete x.it.st; aiDo(x.it, x.m.refs); save(); aiStore(); render(); aiRefresh();
+  if (x.it.st === 'ok') toast(`В календаре: ${plural(x.it.got.n, ['занятие', 'занятия', 'занятий'])}` + (x.it.got.skip ? `, уже были: ${x.it.got.skip}` : ''));
+  else if (x.it.why) toast('Не получилось: ' + x.it.why); };
+ACT.aischw = el => { const x = aiSchedItem(el); if (!x) return; x.it.cur = el.dataset.w === 'even' ? 'even' : 'odd'; aiStore(); aiRefresh(); };
+document.addEventListener('change', e => { const k = e.target.dataset && e.target.dataset.aisu; if (!k) return;
+  const x = aiSchedItem({ dataset: { i: k } }), v = e.target.value; if (!x) return;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v) && v >= todayK()) { x.it.until = v; aiStore(); } else e.target.value = x.it.until || ''; });
 
 // ---- Картинки к сообщению (18 октября 2026: «скинуть скрин расписания, а помощник заполнит календарь»; с 22 октября 2026 — до AI_IMGS
 // за раз: «чтобы можно было отправлять несколько файлов(2-3 максимум, больше не надо)»). Каждая уменьшается до 1600 px по большей стороне
@@ -905,12 +971,26 @@ document.addEventListener('paste', e => { if (e.target.id !== 'ai_text' || !ai) 
 
 // ---- Старые сообщения (до 17 октября 2026): добавить отмеченное кнопкой. Одно «Отменить» на всё ----
 const aiEmoji = (e, name) => e && /\p{Extended_Pictographic}/u.test(e) && e.length <= 8 ? e : ((HB_GUESS.find(([re]) => re.test(name.toLowerCase())) || [0, '🎯'])[1]);
+// Календарь записи (27 октября 2026; просьба пользователя: «чтобы он сам думал над тем какую категорию выбрать (если скидываю учебу должна
+// быть учеба, если скинул график работы должна быть работа)»): как назвала нейросеть — точно из списка; такого нет, а нейросеть просит создать
+// (new_cat) — создаём со свободным цветом (выбор пользователя «Создать сам»); «Отменить» уберёт и его, если в нём больше ничего нет
+// (aiMadeCat → res.cat); иначе — по словам названия (guessCat)
+let aiMadeCat = null;
+function aiCatId(it) {
+  const c = aiCat(it.cat); if (c) return c.id;
+  const n = String(it.cat || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+  if (it.new_cat && n && nameBad(n) !== 'rude') {
+    const used = S.cats.map(x => x.color), nc = { id: 'c' + uid(), name: n[0].toUpperCase() + n.slice(1), color: PALETTE.find(x => !used.includes(x)) || PALETTE[S.cats.length % PALETTE.length] };
+    S.cats.push(nc); aiMadeCat = aiMadeCat || nc.id; return nc.id;
+  }
+  return guessCat(it.title || '');
+}
 function aiEvent(it, extra) {
   const date = it.date || todayK(), r = it.repeat;
-  const repeat = r ? { type: r.type, days: r.type === 'weekly' ? (r.days.length ? r.days : [dowIdx(date)]) : [], ...(r.until && r.until >= date ? { until: r.until } : {}) } : { type: 'none' };
+  const repeat = r ? { type: r.type, days: r.type === 'weekly' ? (r.days.length ? r.days : [dowIdx(date)]) : [], ...(r.until && r.until >= date ? { until: r.until } : {}), ...(r.type === 'weekly' && r.every === 2 ? { every: 2 } : {}) } : { type: 'none' };
   const time2 = it.time && it.time2 && timeMin(it.time2) > timeMin(it.time) ? it.time2 : '';
   const offs = it.time && it.remind && it.remind.length ? it.remind : [];
-  return Object.assign({ id: uid(), done: false, doneDates: [], skip: [], title: it.title, date, time: it.time || '', time2, cat: validCat((aiCat(it.cat) || {}).id || guessCat(it.title)),
+  return Object.assign({ id: uid(), done: false, doneDates: [], skip: [], title: it.title, date, time: it.time || '', time2, cat: validCat(aiCatId(it)),
     note: '', loc: it.loc || '', repeat, reminder: offs.length ? { enabled: true, offsets: offs, offset: Math.min(...offs), repeat: 'none', days: [] } : { enabled: false, offset: 15, repeat: 'none', days: [] },
     task: it.type === 'task' || (it.type === 'event' && !it.time), prio: it.prio || 'mid' }, extra || {});
 }

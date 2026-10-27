@@ -3,6 +3,7 @@
 // 1) occurs / isDone / remOffs сервера совпадают с приложением (js/core.js) на тысячах случайных событий;
 // 2) перевод «день + время в поясе» → момент времени верен для Москвы, Нью-Йорка (летнее время) и др.;
 // 3) dueReminders при запуске раз в минуту даёт каждое напоминание ровно один раз и в нужную минуту.
+// 5) итоги недели в воскресенье вечером (weekPayload); повтор «через неделю» сверяется с приложением в п. 1.
 // 4) помощник пишет сам (nudge*): поводы, ночью тихо, не больше 3 в день, раз в 2 часа, один повод — раз в 3 дня; подначки — как в js/goals.js.
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
@@ -20,7 +21,7 @@ const app = rd('js/core.js');
 const pick = re => { const m = app.match(re); assert.ok(m, 'не нашёл в core.js: ' + re); return m[0]; };
 const cli = new Function([
   pick(/const ds = d => .*\n/), pick(/const pd = s => .*\n/), pick(/const dowIdx = s => .*\n/),
-  pick(/const isRec = e => .*\n/), pick(/function occurs\(e, k\) \{[\s\S]*?\n\}\n/),
+  pick(/const isRec = e => .*\n/), pick(/const wkNum = .*\n/), pick(/function occurs\(e, k\) \{[\s\S]*?\n\}\n/),
   pick(/const isDone = .*\n/), pick(/const remOffs = e => [\s\S]*?\n  return [^\n]*\n/),
   'return { occurs, isDone, remOffs, ds, pd };'].join('\n'))();
 
@@ -34,6 +35,7 @@ for (let i = 0; i < 3000; i++) {
   const date = rk(800), type = TYPES[rnd(6)];
   const e = { id: 'e' + i, date, title: 'T' + i };
   if (type !== 'none') e.repeat = { type, days: rnd(2) ? [...new Set([rnd(7), rnd(7)])] : [], until: rnd(3) ? null : rk(900) };
+  if (type === 'weekly' && i % 2) e.repeat.every = 2;   // через неделю (числитель / знаменатель)
   if (rnd(2)) e.skip = [rk(800), rk(800)];
   if (rnd(2)) e.doneDates = [rk(800), rk(800)];
   e.done = !!rnd(2);
@@ -171,7 +173,7 @@ const day = (k, o) => Object.assign({ id: 'd' + Math.random(), title: 'Дело'
   assert.equal(pm.url, './#d=2026-10-13'); assert.equal(pm.k, '2026-10-13');
   const empty = srv.digestPayload({ kind: 'am', k: '2026-10-18' }, { events: [] });
   assert.equal(empty.title, 'На сегодня дел не запланировано');
-  assert.equal(srv.digestPayload({ kind: 'pm', k: '2026-10-18' }, {}).body, 'На завтра пока ничего нет');
+  assert.equal(srv.digestPayload({ kind: 'pm', k: '2026-10-17' }, {}).body, 'На завтра пока ничего нет');
   assert.equal(srv.digestPayload({ kind: 'am', k: '2026-10-18' }, { events: [day('2026-10-18', { title: 'Одно' })] }).title, 'План на сегодня: 1 дело');
 }
 // ---- Помощник пишет сам (nudge*): поводы, тишина ночью, не больше 3 в день, раз в 2 часа, один повод — раз в 3 дня ----
@@ -230,5 +232,24 @@ const day = (k, o) => Object.assign({ id: 'd' + Math.random(), title: 'Дело'
   ['b', 'x1', 'x2', 'x3'].forEach(id => { const n = Object.assign({}, n1, { id }), i = srv.hashS(k + id) % (srv.TAUNTS.length + 400), body = srv.nudgePayload(d1, n, at(k, '10:05')).body;
     assert.ok(body.endsWith(i < srv.TAUNTS.length ? srv.TAUNTS[i].replace(/\{goal\}/g, 'Английский').replace(/\{step\}/g, 'Грамматика') : 'СВОЯ Английский'), 'свои фразы человека — в общем списке: ' + body); });
   checks += 30;
+}
+// ---- Итоги недели: в воскресенье вечером вместо «Запишите задачи на завтра»; «через неделю» — по чётности недели ----
+{
+  const sun = '2026-10-18', mon = '2026-10-12';
+  const data = { events: [day('2026-10-13', { title: 'Отчёт', task: true, done: true }), day('2026-10-14', { title: 'Звонок', task: true }),
+    day(mon, { title: 'Зарядка', task: true, repeat: { type: 'daily' }, doneDates: ['2026-10-12', '2026-10-13'] }),
+    day('2026-10-20', { title: 'Купить', task: true }), day('2026-10-21', { title: 'Врач', time: '10:00' })],
+    habits: [{ log: { '2026-10-15': 1, '2026-10-16': 1, '2026-10:w3': 1, '2026-10-05': 1 } }] };
+  const p = srv.digestPayload({ kind: 'pm', k: sun }, data);   // задачи 12–18 октября: Отчёт (сделано), Звонок, Зарядка × 7 (2 сделано) — 3 из 9
+  assert.equal(p.title, 'Итоги недели');
+  assert.ok(/^Сделано задач: 3 из 9, отметок привычек: 2\. На следующей неделе — 2 дела, без времени — 1\. Разложить/.test(p.body), p.body);
+  assert.ok(p.act === 'week' && p.url === './#ai' && p.ai === 'Итоги недели. ' + p.body, 'кнопка «Разложить на неделю»');
+  assert.equal(srv.digestPayload({ kind: 'pm', k: mon }, data).title, 'Запишите задачи на завтра', 'в будни — как раньше');
+  const p2 = srv.digestPayload({ kind: 'pm', k: sun }, { events: [] });
+  assert.ok(p2.body === 'Задач на этой неделе не было. На следующую неделю пока ничего нет — запишите планы.' && p2.act === '', p2.body);
+  // через неделю: с понедельника 12 октября по понедельникам — 12-го и 26-го, не 19-го
+  const bi = { date: mon, title: 'Физика', repeat: { type: 'weekly', days: [0], every: 2 } };
+  assert.deepEqual(['2026-10-12', '2026-10-19', '2026-10-26', '2026-11-02'].map(k => srv.occurs(bi, k)), [true, false, true, false], 'через неделю');
+  checks += 8;
 }
 console.log(`Все проверки прошли (${checks} сравнений с приложением и часовых поясов + сценарии напоминаний и сводок)`);

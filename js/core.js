@@ -151,6 +151,8 @@ const rowH = () => ({compact:44, normal:56, large:72})[S.settings.density] || 56
 // ---- Повторяющиеся события ----
 const REP = {none:'Не повторять', daily:'Каждый день', weekdays:'По будням (пн–пт)', weekly:'Каждую неделю', monthly:'Каждый месяц', yearly:'Каждый год'};
 const isRec = e => !!(e.repeat && e.repeat.type && e.repeat.type !== 'none');
+// Номер недели (с понедельника) от 1 января 1970 — для повтора «через неделю» (repeat.every = 2: числитель / знаменатель, 27 октября 2026)
+const wkNum = k => Math.floor((Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10)) / 864e5 + 3) / 7);
 function occurs(e, k) {
   if (!isRec(e)) return e.date === k;
   const r = e.repeat;
@@ -159,14 +161,14 @@ function occurs(e, k) {
   switch (r.type) {
     case 'daily': return true;
     case 'weekdays': return dowIdx(k) < 5;
-    case 'weekly': return (r.days && r.days.length ? r.days : [dowIdx(e.date)]).includes(dowIdx(k));
+    case 'weekly': return (r.days && r.days.length ? r.days : [dowIdx(e.date)]).includes(dowIdx(k)) && (r.every !== 2 || (wkNum(k) - wkNum(e.date)) % 2 === 0);
     case 'monthly': return a.getDate() === b.getDate();
     case 'yearly': return a.getDate() === b.getDate() && a.getMonth() === b.getMonth();
   }
   return false;
 }
 const repText = e => { if (!isRec(e)) return ''; const r = e.repeat;
-  let t = r.type === 'weekly' && r.days && r.days.length ? 'По дням: ' + [...r.days].sort().map(d => DOW[d]).join(', ') : REP[r.type];
+  let t = r.type === 'weekly' && r.days && r.days.length ? (r.every === 2 ? 'Через неделю: ' : 'По дням: ') + [...r.days].sort().map(d => DOW[d]).join(', ') : r.type === 'weekly' && r.every === 2 ? 'Раз в две недели' : REP[r.type];
   return t + (r.until ? ', до ' + pd(r.until).getDate() + ' ' + MONG[pd(r.until).getMonth()] : ''); };
 const isDone = (e, k) => isRec(e) ? (e.doneDates||[]).includes(k) : !!e.done;
 function evOn(k) {

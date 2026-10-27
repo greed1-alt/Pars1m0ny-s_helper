@@ -138,7 +138,7 @@ function saveEvent() {
   let t1 = all ? '' : $('#f_tm').value, t2 = all || !t1 ? '' : $('#f_tm2').value;
   if (t1 && t2 && timeMin(t2) <= timeMin(t1)) t2 = fmtMin(Math.min(1439, timeMin(t1) + 60));
   const date = $('#f_d').value || sel, rt = $('#f_rep').value;
-  const repeat = rt === 'none' ? {type:'none'} : { type:rt, until: $('#f_until').value || '', days: rt === 'weekly' ? [...fe.days].sort() : [] };
+  const repeat = rt === 'none' ? {type:'none'} : { type:rt, until: $('#f_until').value || '', days: rt === 'weekly' ? [...fe.days].sort() : [], ...(rt === 'weekly' && $('#f_ev2') && $('#f_ev2').checked ? { every: 2 } : {}) };
   const offs = [...fe.rems].sort((a, b) => b - a);
   const data = { title: titleFromForm(raw), date, time:t1, time2:t2, cat:fe.cat, note:$('#f_n').value.trim(), loc:$('#f_loc').value.trim(), repeat,
     reminder:{ enabled: offs.length > 0, offsets: offs, offset: offs.length ? offs[offs.length - 1] : 15, repeat:'none', days:[] }, task: $('#f_task').checked, prio: fe.prio };
@@ -191,7 +191,7 @@ document.addEventListener('change', e => {
   else if (t.id === 'f_tm2') timeOn();
   else if (t.id === 'f_d') syncRepDays();
   else if (t.id === 'f_task') $('#f_prio').style.display = t.checked ? 'flex' : 'none';
-  else if (t.id === 'f_rep') { syncRepDays(); $('#f_repx').style.display = t.value === 'none' ? 'none' : 'block'; $('#f_days').style.display = t.value === 'weekly' ? 'flex' : 'none'; }
+  else if (t.id === 'f_rep') { syncRepDays(); $('#f_repx').style.display = t.value === 'none' ? 'none' : 'block'; $('#f_days').style.display = t.value === 'weekly' ? 'flex' : 'none'; $('#f_ev2l').style.display = t.value === 'weekly' ? 'inline-flex' : 'none'; }
   else if (t.id === 'imp_file') importData(t);
   else if (t.id === 'sh_notes') refreshShareLink();
 });
