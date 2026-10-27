@@ -16,21 +16,24 @@
 // 6) отвечает только сайтам Parsimony (CORS), тело запроса — до 4 КБ, все поля проверяются, ответы не кэшируются.
 // С 27 октября 2026 (часть 2) — настройки приложения без переопубликации (cfg / setcfg, таблица app_config — supabase/sql/admin2.sql):
 // объявление всем (ann), плашка «идут работы» (maint), лимит помощника (ai_limit), «помощник пишет сам» для всех (nudge).
+// С 28 октября 2026 — подписки (supabase/sql/subscriptions.sql): выдать Плюс или Премиум на N дней (grant) и отменить (revoke), тариф в списке людей,
+// число подписчиков в сводке; в настройках — включить тарифы (tiers_on) и лимиты помощника по тарифам (limits).
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 // ==== ADMIN start ==== (тест: tools/test-admin.mjs; db — доступ к базе, в тесте — подделка)
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@<>"'`,;:()[\]\\]{1,64}@[^\s@<>"'`,;:()[\]\\]+\.[a-zа-яё0-9-]{2,}$/i;
-const ACTIONS = ['stats', 'users', 'invite', 'ban', 'unban', 'nick', 'name', 'del', 'feedback', 'fbdone', 'log', 'cfg', 'setcfg'];
-const CFG_KEYS = ['ann', 'maint', 'ai_limit', 'nudge'];
+const ACTIONS = ['stats', 'users', 'invite', 'ban', 'unban', 'nick', 'name', 'del', 'feedback', 'fbdone', 'log', 'cfg', 'setcfg', 'grant', 'revoke'];
+const CFG_KEYS = ['ann', 'maint', 'ai_limit', 'nudge', 'tiers_on', 'limits'], PLANS = ['plus', 'premium'];
 // Значение настройки — только известного вида; null — убрать объявление или плашку. У объявления id и время ставит сервер,
 // pushed: false — уведомление ещё не отправлено (его отправит функция reminders один раз)
 function cfgClean(k, v) {
   if (v === null) return k === 'ann' || k === 'maint' ? { v: null } : null;
   if (k === 'ai_limit') return Number.isInteger(v) && v >= 1 && v <= 500 ? { v } : null;
-  if (k === 'nudge') return typeof v === 'boolean' ? { v } : null;
+  if (k === 'nudge' || k === 'tiers_on') return typeof v === 'boolean' ? { v } : null;
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const line = (s, n) => typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '';
+  if (k === 'limits') { const o = {}; for (const p of ['free', 'plus', 'premium']) { if (!Number.isInteger(v[p]) || v[p] < 1 || v[p] > 1000) return null; o[p] = v[p]; } return { v: o }; }
   if (k === 'maint') return typeof v.on === 'boolean' ? { v: { on: v.on, text: line(v.text, 200) } } : null;
   if (k === 'ann') {
     const text = typeof v.text === 'string' ? v.text.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 600) : '';
@@ -72,6 +75,20 @@ async function adminHandle(db, token, body) {
     await db.log(uid, 'invite', email, { result: r });
     return [200, { result: r }];
   }
+  // Подписка: выдать на N дней (добавляется к оставшемуся сроку) или отменить — кому угодно, в том числе себе (для проверки)
+  if (a === 'grant' || a === 'revoke') {
+    const id = typeof body.id === 'string' && UUID_RE.test(body.id) ? body.id.toLowerCase() : '';
+    if (!id) return [400, { error: 'id' }];
+    const who = await db.email(id);
+    if (!who) return [404, { error: 'none' }];
+    if (a === 'revoke') { await db.revoke(id); await db.log(uid, 'revoke', who); return [200, { ok: true }]; }
+    if (!PLANS.includes(body.plan)) return [400, { error: 'plan' }];
+    if (!Number.isInteger(body.days) || body.days < 1 || body.days > 3660) return [400, { error: 'days' }];
+    const note = typeof body.note === 'string' ? body.note.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+    const until = await db.grant(id, body.plan, body.days, note);
+    await db.log(uid, 'grant', who, { plan: body.plan, days: body.days });
+    return [200, { ok: true, until }];
+  }
   // Действия над человеком: ban, unban, nick, name, del
   const id = typeof body.id === 'string' && UUID_RE.test(body.id) ? body.id.toLowerCase() : '';
   if (!id) return [400, { error: 'id' }];
@@ -112,21 +129,25 @@ const db = {
       sb.from('user_data').select('user_id,updated_at'), sb.from('push_subscriptions').select('user_id'), sb.from('ai_usage').select('day,n').gte('day', from),
       sb.from('profiles').select('user_id', { count: 'exact', head: true }), sb.from('feedback').select('id', { count: 'exact', head: true }).is('done_at', null),
       sb.from('messages').select('id', { count: 'exact', head: true }).gte('at', d7), sb.from('friends').select('a', { count: 'exact', head: true }).eq('ok', true)]);
+    const subNow = rows(await sb.from('subscriptions').select('plan,until')).filter(x => Date.parse(x.until) > now);
     const act = t => rows(ud).filter(r => r.updated_at >= t).length, byDay = {};
     rows(ai).forEach(r => { byDay[r.day] = (byDay[r.day] || 0) + (r.n || 0); });
     return { users: users.length, new7: users.filter(u => u.created_at >= d7).length, act1: act(d1), act7: act(d7),
       push: new Set(rows(subs).map(r => r.user_id)).size, banned: users.filter(banned).length,
       cards: prof.count || 0, friends: frs.count || 0, msg7: msg.count || 0, fbNew: fb.error ? null : fb.count || 0, aiToday: byDay[today] || 0,
+      plus: subNow.filter(x => x.plan === 'plus').length, premium: subNow.filter(x => x.plan === 'premium').length,
       ai: Array.from({ length: 14 }, (_, i) => { const k = iso(now - (13 - i) * DAY).slice(0, 10); return [k, byDay[k] || 0]; }) };
   },
   async users() {
     const users = await allUsers(), today = iso(Date.now()).slice(0, 10);
     const [ud, subs, prof, adm, ai] = await Promise.all([sb.from('user_data').select('user_id,updated_at'), sb.from('push_subscriptions').select('user_id'),
       sb.from('profiles').select('user_id,nick,name'), sb.from('admins').select('user_id'), sb.from('ai_usage').select('user_id,n').eq('day', today)]);
-    const m = (r, k) => new Map(rows(r).map(x => [x.user_id, k ? x[k] : x])), sync = m(ud, 'updated_at'), pr = m(prof), ad = m(adm), aiN = m(ai, 'n'), dev = {};
+    const sub = await sb.from('subscriptions').select('user_id,plan,until,source,note');
+    const m = (r, k) => new Map(rows(r).map(x => [x.user_id, k ? x[k] : x])), sync = m(ud, 'updated_at'), pr = m(prof), ad = m(adm), aiN = m(ai, 'n'), sp = m(sub), dev = {};
     rows(subs).forEach(r => { dev[r.user_id] = (dev[r.user_id] || 0) + 1; });
     return users.map(u => ({ id: u.id, email: u.email || '', created: u.created_at, seen: u.last_sign_in_at || null, sync: sync.get(u.id) || null,
-      nick: (pr.get(u.id) || {}).nick || '', name: (pr.get(u.id) || {}).name || '', dev: dev[u.id] || 0, ai: aiN.get(u.id) || 0, admin: ad.has(u.id), banned: banned(u) }))
+      nick: (pr.get(u.id) || {}).nick || '', name: (pr.get(u.id) || {}).name || '', dev: dev[u.id] || 0, ai: aiN.get(u.id) || 0, admin: ad.has(u.id), banned: banned(u),
+      ...(sp.has(u.id) ? { plan: Date.parse(sp.get(u.id).until) > Date.now() ? sp.get(u.id).plan : '', until: sp.get(u.id).until, subSrc: sp.get(u.id).source, subNote: sp.get(u.id).note || '' } : {}) }))
       .sort((a, b) => String(b.sync || b.seen || b.created).localeCompare(String(a.sync || a.seen || a.created)));
   },
   // Как Authentication → Add user с Auto Confirm: пароль — длинный случайный (входят по коду из письма, пароль никому не нужен)
@@ -150,6 +171,14 @@ const db = {
     const { data, error } = await sb.from('feedback').update({ done_at: done ? iso(Date.now()) : null }).eq('id', id).select('id');
     if (error) throw error; return !!(data && data.length);
   },
+  // Срок добавляется к оставшемуся (или с сегодняшнего дня); смена тарифа — оставшиеся дни переходят на новый
+  async grant(id, plan, days, note) {
+    const { data: s } = await sb.from('subscriptions').select('until,source').eq('user_id', id).maybeSingle();
+    const until = iso(Math.max(Date.now(), s ? Date.parse(s.until) : 0) + days * DAY);
+    const { error } = await sb.from('subscriptions').upsert({ user_id: id, plan, until, source: s && s.source === 'pay' ? 'pay' : 'gift', note: note || null, updated_at: iso(Date.now()) });
+    if (error) throw error; return until;
+  },
+  async revoke(id) { const { error } = await sb.from('subscriptions').delete().eq('user_id', id); if (error) throw error; },
   async cfgGet() { const { data, error } = await sb.from('app_config').select('k,v'); if (error) throw error; return Object.fromEntries((data || []).map(x => [x.k, x.v])); },
   async cfgSet(k, v) {
     const { error } = v === null ? await sb.from('app_config').delete().eq('k', k) : await sb.from('app_config').upsert({ k, v, updated_at: new Date().toISOString() });

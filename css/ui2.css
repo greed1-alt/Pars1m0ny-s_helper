@@ -878,6 +878,37 @@ button.adm-t:hover{border-color:color-mix(in srgb,var(--acc) 50%,var(--line))}
 .adm-lim{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:14px;color:var(--tx)}
 .adm-lim span{flex:1 1 100%}
 .adm-lim .fin{width:96px;min-width:0}
+.adm-tag.p{background:color-mix(in srgb,#a855f7 18%,transparent);color:var(--tx)}
+.adm-pf{margin:10px 0 0}
+.adm-gc{margin-top:10px}
+.adm-gl{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:14px;color:var(--tx2)}
+.adm-gl .fin{width:110px}
+.adm-ask #adm_gn{margin-top:10px}
+.adm-lims{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.adm-lims label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:600;color:var(--tx2)}
+.adm-lims .fin{width:100%;min-width:0}
+/* Тарифы (plans.js) */
+.pl-page{display:flex;flex-direction:column;gap:14px}
+.pl-top h2{margin:0 0 4px;font-size:24px;letter-spacing:-.01em;color:var(--tx)}
+.pl-cur{display:flex;align-items:center;gap:6px;margin:0 0 10px;font-size:14px;font-weight:600;color:var(--acc)}
+.pl-per{display:inline-flex;max-width:100%}
+.pl-per button{white-space:nowrap}
+.pl-grid{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:900px){.pl-grid{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}}
+.pl-card{position:relative;display:flex;flex-direction:column;gap:10px;padding:18px}
+.pl-card.best{border-color:color-mix(in srgb,var(--acc) 55%,var(--line));box-shadow:0 0 0 1px color-mix(in srgb,var(--acc) 30%,transparent)}
+.pl-card.cur{background:color-mix(in srgb,var(--acc) 6%,var(--card))}
+.pl-badge{align-self:flex-start;font-style:normal;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--acc);color:var(--accfg)}
+.pl-card h3{margin:0;font-size:18px;color:var(--tx)}
+.pl-price b{font-size:28px;font-weight:800;letter-spacing:-.02em;color:var(--tx);font-variant-numeric:tabular-nums}
+.pl-price small{display:block;font-size:12.5px;color:var(--mut)}
+.pl-card ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.pl-card li{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.4;color:var(--tx2)}
+.pl-card li svg{flex:none;margin-top:3px;color:var(--acc)}
+.pl-card .btn{justify-content:center;margin-top:4px}
+.pl-on{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;padding:10px;border-radius:12px;background:color-mix(in srgb,var(--acc) 12%,transparent);color:var(--acc);font-weight:700;font-size:14px}
+.pl-note{text-align:center}
+.pf-plan-now{margin:6px 0 12px;font-size:14px;color:var(--tx2)}
 /* Для всех: объявление и «идут работы» на Главной (admin.js: cfgHomeHTML) */
 .cfg-maint{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:color-mix(in srgb,#f59e0b 16%,var(--card));border-color:color-mix(in srgb,#f59e0b 40%,var(--line));font-size:14px;line-height:1.45;color:var(--tx)}
 .cfg-maint svg{flex:none;margin-top:2px}

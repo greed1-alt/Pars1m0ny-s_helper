@@ -27,7 +27,8 @@ const fake = () => {
     async invite(e) { calls.push('invite:' + e); return 'new'; },
     async cfgGet() { calls.push('cfgGet'); return { ai_limit: 30 }; }, async cfgSet(k, v) { calls.push('cfgSet:' + k + ':' + JSON.stringify(v)); },
   };
-  for (const a of ['ban', 'unban', 'nick', 'name', 'del']) db[a] = async id => { calls.push(a + ':' + id); };
+  for (const a of ['ban', 'unban', 'nick', 'name', 'del', 'revoke']) db[a] = async id => { calls.push(a + ':' + id); };
+  db.grant = async (id, plan, days, note) => { calls.push(`grant:${id}:${plan}:${days}:${note}`); return '2027-01-01T00:00:00.000Z'; };
   return db;
 };
 const run = async (tok, body) => { const db = fake(); const [st, out] = await adminHandle(db, tok, body); return { st, out, db }; };
@@ -81,6 +82,21 @@ r = await run('tok-me', { action: 'setcfg', k: 'ann', v: { title: 'Что нов
 ok(r.st === 200 && r.out.v.text === 'Строка 1\n\nСтрока 2 <b>' && r.out.v.push === true && r.out.v.pushed === false && r.out.v.id > 1e12 && r.out.v.title === 'Что нового', 'объявление — id и pushed ставит сервер', r.out.v);
 r = await run('tok-me', { action: 'setcfg', k: 'ann', v: { text: 'Без уведомления' } }); ok(r.out.v.push === false && r.out.v.pushed === true, 'объявление без уведомления — pushed сразу');
 r = await run('tok-me', { action: 'setcfg', k: 'ann', v: null }); ok(r.st === 200 && r.db.calls.includes('cfgSet:ann:null'), 'снять объявление');
+// тарифы и подписки (28 октября 2026)
+for (const v of [1, 'да', null]) { r = await run('tok-me', { action: 'setcfg', k: 'tiers_on', v }); ok(r.st === 400, 'включить тарифы — только да/нет: ' + v); }
+r = await run('tok-me', { action: 'setcfg', k: 'tiers_on', v: true }); ok(r.st === 200 && r.db.calls.includes('cfgSet:tiers_on:true'), 'тарифы включены');
+for (const v of [{ free: 5, plus: 20 }, { free: 0, plus: 20, premium: 60 }, { free: 5, plus: 20, premium: 1001 }, { free: '5', plus: 20, premium: 60 }, [5, 20, 60]]) {
+  r = await run('tok-me', { action: 'setcfg', k: 'limits', v }); ok(r.st === 400, 'лимиты по тарифам — плохие: ' + JSON.stringify(v)); }
+r = await run('tok-me', { action: 'setcfg', k: 'limits', v: { free: 5, plus: 20, premium: 60, vip: 999 } }); ok(r.st === 200 && JSON.stringify(r.out.v) === '{"free":5,"plus":20,"premium":60}', 'лимиты по тарифам');
+r = await run('tok-eve', { action: 'grant', id: BOB, plan: 'premium', days: 365 }); ok(r.st === 403 && !r.db.calls.some(c => c.startsWith('grant')), 'выдать подписку — не админ: 403');
+for (const [plan, days] of [['vip', 30], ['free', 30], ['plus', 0], ['plus', 3661], ['plus', 1.5], ['plus', '30'], [undefined, 30]]) {
+  r = await run('tok-me', { action: 'grant', id: BOB, plan, days }); ok(r.st === 400 && !r.db.calls.some(c => c.startsWith('grant')), 'выдать подписку — плохие поля: ' + plan + ' ' + days); }
+r = await run('tok-me', { action: 'grant', id: 'bob', plan: 'plus', days: 30 }); ok(r.st === 400 && r.out.error === 'id', 'выдать — плохой id');
+r = await run('tok-me', { action: 'grant', id: '55555555-5555-4555-8555-555555555555', plan: 'plus', days: 30 }); ok(r.st === 404, 'выдать — нет такого');
+r = await run('tok-me', { action: 'grant', id: BOB, plan: 'premium', days: 365, note: '  тестер\n беты ' });
+ok(r.st === 200 && r.out.until && r.db.calls.includes(`grant:${BOB}:premium:365:тестер беты`) && r.db.logs[0].action === 'grant' && r.db.logs[0].info.plan === 'premium', 'выдать Премиум на год — и в журнал');
+r = await run('tok-me', { action: 'grant', id: ME, plan: 'plus', days: 7 }); ok(r.st === 200, 'себе — можно (проверить тарифы)');
+r = await run('tok-me', { action: 'revoke', id: BOB }); ok(r.st === 200 && r.db.calls.includes('revoke:' + BOB) && r.db.logs[0].action === 'revoke', 'отменить подписку');
 
 // 3) по тексту функции
 ok(!/select\(\s*['"]\*/.test(src), 'нет select *');

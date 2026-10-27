@@ -45,13 +45,18 @@ const IMG_MAX = 3, IMG_ITEMS = 5, SCHED_MAX = 40;   // картинок в од�
 const NAV = ['home', 'cal', 'tasks', 'goals', 'habits', 'fin', 'budget', 'missed', 'profile', 'settings', 'set_look', 'set_cal', 'set_cats', 'set_layout', 'sections', 'set_notif', 'set_data', 'tour', 'feedback'];
 
 const sb = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
-// Лимит в сутки можно поменять в админке без переопубликации (app_config.ai_limit, 27 октября 2026); иначе — AI_DAILY_LIMIT. Читаем не чаще раза в минуту
-let limCache = { at: 0, v: DAILY };
-async function dailyLimit() {
-  if (Date.now() - limCache.at < 60e3) return limCache.v;
-  const { data, error } = await sb.from('app_config').select('v').eq('k', 'ai_limit').maybeSingle(), n = Number(data && data.v);
-  limCache = { at: Date.now(), v: !error && Number.isInteger(n) && n >= 1 && n <= 500 ? n : DAILY };
-  return limCache.v;
+// Лимит в сутки (27–28 октября 2026): пока тарифы выключены в админке — один для всех (app_config.ai_limit, иначе AI_DAILY_LIMIT);
+// включены (app_config.tiers_on) — по тарифу человека (subscriptions: бесплатно 5, Плюс 20, Премиум 60; поменять — app_config.limits).
+// Настройки читаем не чаще раза в минуту, тариф — при каждом запросе (его может выдать админ)
+const TIER_LIM = { free: 5, plus: 20, premium: 60 };
+let cfgCache = { at: 0, v: {} };
+async function dailyLimit(uid) {
+  if (Date.now() - cfgCache.at > 60e3) { const { data, error } = await sb.from('app_config').select('k,v'); cfgCache = { at: Date.now(), v: error ? {} : Object.fromEntries((data || []).map(x => [x.k, x.v])) }; }
+  const c = cfgCache.v, ok = n => Number.isInteger(n) && n >= 1 && n <= 1000;
+  if (c.tiers_on !== true) return ok(c.ai_limit) ? c.ai_limit : DAILY;
+  const { data: s } = await sb.from('subscriptions').select('plan,until').eq('user_id', uid).maybeSingle();
+  const plan = s && Date.parse(s.until) > Date.now() && TIER_LIM[s.plan] ? s.plan : 'free', L = c.limits && typeof c.limits === 'object' ? c.limits : {};
+  return ok(L[plan]) ? L[plan] : TIER_LIM[plan];
 }
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
@@ -521,7 +526,7 @@ Deno.serve(async req => {
     const ctx = body.ctx && typeof body.ctx === 'object' ? body.ctx : {};
     const hello = body.mode === 'hello';
     // Лимит на человека в сутки (по UTC; сколько — dailyLimit); счётчик — в ai_usage (supabase/sql/assistant.sql)
-    const LIM = await dailyLimit();
+    const LIM = await dailyLimit(u.user.id);
     const day = new Date().toISOString().slice(0, 10);
     // Сообщение с только что распознанным голосом (подпись vt от mode 'stt') — уже посчитано при распознавании
     const free = !hello && !stt && typeof body.vt === 'string' && body.vt.length < 100 && body.vt === await vtSign(u.user.id, day, text);

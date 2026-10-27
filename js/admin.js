@@ -8,10 +8,10 @@ const ADM_KEY = { sum: 'stats', ppl: 'users', fb: 'fbs', set: 'cfg', log: 'log' 
 const ADM_ERR = { auth: 'Войдите в аккаунт заново', forbidden: 'Нет доступа: этот аккаунт не админ', email: 'Это не похоже на почту',
   admin: 'Себя и других админов здесь менять нельзя — только в SQL Editor', none: 'Такого уже нет — обновите список', confirm: 'Почта для подтверждения не совпала',
   server: 'Сервер не ответил — попробуйте ещё раз' };
-const ADM_DONE = { nick: 'Ник сброшен', name: 'Имя сброшено', ban: 'Вход заблокирован', unban: 'Вход разблокирован', del: 'Аккаунт удалён' };
+const ADM_DONE = { nick: 'Ник сброшен', name: 'Имя сброшено', ban: 'Вход заблокирован', unban: 'Вход разблокирован', del: 'Аккаунт удалён', grant: 'Подписка выдана', revoke: 'Подписка отменена' };
 const ADM_ACT = { invite: 'Приглашение', ban: 'Блокировка входа', unban: 'Разблокировка', nick: 'Сброс ника', name: 'Сброс имени', del: 'Удаление аккаунта',
-  fb_done: 'Отзыв разобран', fb_undone: 'Отзыв — снова новый', denied: 'Попытка открыть без прав', cfg: 'Настройка' };
-const ADM_CFG = { ann: 'объявление', maint: 'плашка «идут работы»', ai_limit: 'лимит помощника', nudge: 'помощник пишет сам' };
+  fb_done: 'Отзыв разобран', fb_undone: 'Отзыв — снова новый', denied: 'Попытка открыть без прав', cfg: 'Настройка', grant: 'Выдана подписка', revoke: 'Отменена подписка' };
+const ADM_CFG = { ann: 'объявление', maint: 'плашка «идут работы»', ai_limit: 'лимит помощника', nudge: 'помощник пишет сам', tiers_on: 'тарифы', limits: 'лимиты по тарифам' };
 const ADM_KIND = Object.fromEntries([...FB_KINDS, ['other', 'Другое']]);
 async function admCall(body) {
   let r;
@@ -34,6 +34,8 @@ ACT.admopen = () => { if (typeof closeQuick === 'function') closeQuick(); setSec
 ACT.admtab = el => { adm.tab = ADM_KEY[el.dataset.k] ? el.dataset.k : 'sum'; adm.err = ''; render(); admLoad(adm.tab); };
 ACT.admref = () => admLoad(adm.tab, true);
 ACT.admfbf = el => { adm.fb = el.dataset.k; render(); };
+ACT.admpf = el => { adm.pf = el.dataset.k; render(); };
+document.addEventListener('input', e => { if (e.target.id === 'adm_gd' && adm.g) adm.g.days = Math.round(Number(e.target.value)) || adm.g.days; });
 SEC.admin = { name: 'Админка', icon: IC.lock, noNav: true, title: () => 'Админка', html: admHTML, move: () => {} };
 
 function admHTML() {
@@ -55,14 +57,14 @@ function admSum() {
   const t = (n, label, sub, go) => `<${go ? `button data-act="admtab" data-k="${go}"` : 'div'} class="adm-t"><b>${n == null ? '—' : n}</b><span>${label}</span>${sub ? `<small>${sub}</small>` : ''}</${go ? 'button' : 'div'}>`;
   const max = Math.max(0, ...s.ai.map(x => x[1])), sum = s.ai.reduce((a, x) => a + x[1], 0), dm = k => +k.slice(8) + ' ' + MONS[+k.slice(5, 7) - 1];
   return `<div class="adm-tiles">
-    ${t(s.users, 'Всего людей', s.new7 ? '+' + s.new7 + ' за неделю' : 'новых за неделю нет', 'ppl')}
+    ${t(s.users, 'Всего людей', (s.new7 ? '+' + s.new7 + ' за неделю' : 'новых за неделю нет') + (s.banned ? ' · заблокировано ' + s.banned : ''), 'ppl')}
     ${t(s.act1, 'Заходили за сутки', 'за неделю — ' + s.act7)}
     ${t(s.push, 'С уведомлениями', 'включены на устройстве')}
     ${t(s.aiToday, 'Помощник сегодня', 'запросов; за 14 дней — ' + sum)}
     ${t(s.fbNew, 'Новых отзывов', 'нажмите, чтобы разобрать', 'fb')}
     ${t(s.cards, 'Карточек друзей', 'пар друзей — ' + s.friends)}
     ${t(s.msg7, 'Сообщений', 'между друзьями за неделю')}
-    ${t(s.banned, 'Заблокировано', s.banned ? 'вход запрещён' : 'никого')}</div>
+    ${t(s.plus == null ? null : s.plus + s.premium, 'Подписчиков', s.plus == null ? 'выполните subscriptions.sql' : 'Плюс ' + s.plus + ' · Премиум ' + s.premium)}</div>
     <div class="card adm-chart"><b class="adm-h">Запросы к помощнику, 14 дней</b>
       <div class="adm-bars" role="img" aria-label="Запросов за 14 дней: ${sum}">${s.ai.map(([k, n]) => `<i class="${n ? '' : 'z'}" style="height:${Math.max(2, Math.round(n / Math.max(1, max) * 100))}%" title="${dm(k)}: ${n}"></i>`).join('')}</div>
       <div class="adm-bx"><span>${dm(s.ai[0][0])}</span><span>больше всего за день — ${max}</span><span>${dm(s.ai[s.ai.length - 1][0])}</span></div></div>`;
@@ -81,50 +83,75 @@ function admPpl() {
       <blockquote>${esc(admInvText(r.email))}</blockquote>
       <div class="adm-invb"><button class="btn" data-act="admcopy">${I(IC.copy, 15)} Скопировать</button>${navigator.share ? `<button class="btn" data-act="admshare">${I(IC.share, 15)} Отправить</button>` : ''}</div></div>` : ''}</div>
   ${adm.users ? `<div class="card adm-ppl"><label class="adm-srch">${I(IC.search, 16)}<input id="adm_q" class="fin" type="search" placeholder="Почта, ник или имя" aria-label="Поиск людей" value="${esc(adm.q)}"></label>
+    <div class="frl-tabs adm-pf" role="group" aria-label="Кого показать">${[['all', 'Все'], ['sub', 'С подпиской']].map(([k, n]) => `<button class="${(adm.pf || 'all') === k ? 'on' : ''}" aria-pressed="${(adm.pf || 'all') === k}" data-act="admpf" data-k="${k}">${n}</button>`).join('')}</div>
     <div id="adm_list">${admList()}</div></div>` : ''}`;
 }
 function admList() {
-  const q = adm.q.trim().toLowerCase(), l = adm.users.filter(u => !q || [u.email, u.nick, u.name].some(x => String(x || '').toLowerCase().includes(q)));
+  const q = adm.q.trim().toLowerCase(), l = adm.users.filter(u => (adm.pf !== 'sub' || u.plan) && (!q || [u.email, u.nick, u.name].some(x => String(x || '').toLowerCase().includes(q))));
   if (!l.length) return `<p class="set-note adm-empty">${q ? 'Никого не нашлось.' : 'Пока никого.'}</p>`;
   return `<p class="adm-cnt">${plural(l.length, ['человек', 'человека', 'человек'])}</p>` + l.map(u => {
     const last = u.sync || u.seen, ch = String(u.name || u.email || '?').trim().charAt(0).toUpperCase() || '?';
     return `<button class="adm-u" data-act="admuser" data-id="${esc(u.id)}"><span class="adm-av" aria-hidden="true">${esc(ch)}</span>
       <span class="adm-ub"><b>${esc(u.email)}</b><small>${[u.nick ? '@' + esc(u.nick) : '', u.name ? esc(u.name) : '', last ? 'активность ' + ago(Date.parse(last)) : 'ещё не входили'].filter(Boolean).join(' · ')}</small></span>
-      <span class="adm-tags">${u.admin ? '<em class="adm-tag a">админ</em>' : ''}${u.banned ? '<em class="adm-tag b">заблокирован</em>' : ''}${u.dev ? `<em class="adm-tag" title="Устройств с уведомлениями">${I(IC.bell, 12)} ${u.dev}</em>` : ''}</span></button>`;
+      <span class="adm-tags">${u.plan ? `<em class="adm-tag p">${PLAN_NAME[u.plan]}</em>` : ''}${u.admin ? '<em class="adm-tag a">админ</em>' : ''}${u.banned ? '<em class="adm-tag b">заблокирован</em>' : ''}${u.dev ? `<em class="adm-tag" title="Устройств с уведомлениями">${I(IC.bell, 12)} ${u.dev}</em>` : ''}</span></button>`;
   }).join('');
 }
 const admDT = t => t ? new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 function admUser(id, ask) {
   const u = (adm.users || []).find(x => x.id === id); if (!u) return;
-  const lock = u.admin || u.id === auth.uid, b = (a, label, cls) => `<button class="btn${cls ? ' ' + cls : ''}" data-act="admdo" data-a="${a}" data-id="${esc(u.id)}">${label}</button>`;
-  const info = [['Ник', u.nick ? '@' + esc(u.nick) : '—'], ['Имя', u.name ? esc(u.name) : '—'], ['Аккаунт с', admDT(u.created)], ['Последний вход', admDT(u.seen)],
+  const lock = u.admin || u.id === auth.uid, uid = esc(u.id), b = (a, label, cls) => `<button class="btn${cls ? ' ' + cls : ''}" data-act="admdo" data-a="${a}" data-id="${uid}">${label}</button>`;
+  const yes = (a, label, cls) => `<button class="btn ${cls || 'pri'}" data-act="admyes" data-a="${a}" data-id="${uid}">${label}</button>`, no = `<button class="btn" data-act="admno" data-id="${uid}">Отмена</button>`;
+  const sub = u.plan ? `${PLAN_NAME[u.plan]} до ${admDT(u.until)}${u.subSrc === 'pay' ? ' · оплата' : ' · подарок'}${u.subNote ? ' · ' + esc(u.subNote) : ''}` : u.until ? 'закончилась ' + admDT(u.until) : 'нет';
+  const info = [['Ник', u.nick ? '@' + esc(u.nick) : '—'], ['Имя', u.name ? esc(u.name) : '—'], ['Подписка', sub], ['Аккаунт с', admDT(u.created)], ['Последний вход', admDT(u.seen)],
     ['Синхронизация', admDT(u.sync)], ['Уведомления', u.dev ? plural(u.dev, ['устройство', 'устройства', 'устройств']) : 'выключены'], ['Помощник сегодня', plural(u.ai, ['запрос', 'запроса', 'запросов'])],
     ['Вход', u.banned ? 'заблокирован' : 'разрешён']];
+  const g = ask === 'grant' ? adm.g || (adm.g = { plan: u.plan || 'premium', days: 30 }) : null;
   const askHTML = ask === 'ban' ? `<div class="adm-ask"><p><b>Заблокировать вход?</b> Человек не сможет войти, уведомления перестанут приходить; уже открытое приложение отключится в течение часа. Записи останутся — вход можно вернуть.</p>
-      <div class="adm-acts"><button class="btn dng" data-act="admyes" data-a="ban" data-id="${esc(u.id)}">Заблокировать</button><button class="btn" data-act="admno" data-id="${esc(u.id)}">Отмена</button></div></div>`
+      <div class="adm-acts">${yes('ban', 'Заблокировать', 'dng')}${no}</div></div>`
     : ask === 'del' ? `<div class="adm-ask"><p><b>Удалить аккаунт навсегда?</b> Удалятся все записи человека, карточка, друзья и переписка — вернуть нельзя. Чтобы подтвердить, введите его почту:</p>
       <input id="adm_cf" class="fin" type="email" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(u.email)}" aria-label="Почта для подтверждения">
-      <div class="adm-acts"><button class="btn dng" data-act="admyes" data-a="del" data-id="${esc(u.id)}">Удалить навсегда</button><button class="btn" data-act="admno" data-id="${esc(u.id)}">Отмена</button></div></div>` : '';
+      <div class="adm-acts">${yes('del', 'Удалить навсегда', 'dng')}${no}</div></div>`
+    : ask === 'grant' ? `<div class="adm-ask"><p><b>${u.plan ? 'Продлить или сменить подписку' : 'Выдать подписку'}</b> — без оплаты: тестерам, друзьям, за найденную ошибку. Дни добавятся к оставшемуся сроку.</p>
+      <div class="chips adm-gc">${['plus', 'premium'].map(p => `<button type="button" class="chip${g.plan === p ? ' on' : ''}" data-act="admgp" data-p="${p}" data-id="${uid}">${PLAN_NAME[p]}</button>`).join('')}</div>
+      <div class="chips adm-gc">${[[7, 'Неделя'], [30, 'Месяц'], [90, '3 месяца'], [365, 'Год']].map(([d, n]) => `<button type="button" class="chip${g.days === d ? ' on' : ''}" data-act="admgd" data-d="${d}" data-id="${uid}">${n}</button>`).join('')}</div>
+      <label class="adm-gl"><span>Дней</span><input id="adm_gd" class="fin" type="number" inputmode="numeric" min="1" max="3660" value="${g.days}"></label>
+      <input id="adm_gn" class="fin" maxlength="200" placeholder="Пометка для себя: «тестер», «за ошибку в календаре»" aria-label="Пометка">
+      <div class="adm-acts">${yes('grant', 'Выдать ' + PLAN_NAME[g.plan])}${no}</div></div>`
+    : ask === 'revoke' ? `<div class="adm-ask"><p><b>Отменить подписку?</b> Тариф сразу станет бесплатным. Записи человека не пропадут.</p><div class="adm-acts">${yes('revoke', 'Отменить подписку', 'dng')}${no}</div></div>` : '';
+  const subActs = `<div class="adm-acts">${b('grant', u.plan ? 'Продлить или сменить подписку…' : 'Выдать подписку…')}${u.plan ? b('revoke', 'Отменить подписку…') : ''}</div>`;
+  const modActs = lock ? `<p class="set-note">${u.id === auth.uid ? 'Это вы.' : 'Это админ.'} Блокировать, удалять и переименовывать админов можно только в SQL Editor.</p>`
+    : `<div class="adm-acts">${u.nick ? b('nick', 'Сбросить ник') : ''}${u.name ? b('name', 'Сбросить имя') : ''}${b(u.banned ? 'unban' : 'ban', u.banned ? 'Разблокировать вход' : 'Заблокировать вход…')}${b('del', 'Удалить аккаунт…', 'dng')}</div>
+      <p class="set-note">Ник и имя сбрасывают, если они грубые или выдают себя за другого — человек сможет выбрать новые.</p>`;
   sheet(`<div class="sh-head"><h3>${esc(u.email)}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
-    <dl class="adm-dl">${info.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
-    ${lock ? `<p class="set-note">${u.id === auth.uid ? 'Это вы.' : 'Это админ.'} Админов меняют только в SQL Editor — так их нельзя заблокировать или удалить отсюда.</p>`
-    : askHTML || `<div class="adm-acts">${u.nick ? b('nick', 'Сбросить ник') : ''}${u.name ? b('name', 'Сбросить имя') : ''}${b(u.banned ? 'unban' : 'ban', u.banned ? 'Разблокировать вход' : 'Заблокировать вход…')}${b('del', 'Удалить аккаунт…', 'dng')}</div>
-      <p class="set-note">Ник и имя сбрасывают, если они грубые или выдают себя за другого — человек сможет выбрать новые.</p>`}`);
+    <dl class="adm-dl">${info.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>${askHTML || subActs + modActs}`);
   if (ask === 'del') setTimeout(() => { const i = $('#adm_cf'); if (i) i.focus(); }, 50);
 }
-ACT.admuser = el => admUser(el.dataset.id);
-ACT.admdo = el => { const a = el.dataset.a; if (a === 'ban' || a === 'del') return admUser(el.dataset.id, a); admRun(a, el.dataset.id); };
-ACT.admyes = el => { const cf = $('#adm_cf'); admRun(el.dataset.a, el.dataset.id, cf ? cf.value : undefined); };
+ACT.admuser = el => { adm.g = null; admUser(el.dataset.id); };
+ACT.admdo = el => { const a = el.dataset.a; if (['ban', 'del', 'grant', 'revoke'].includes(a)) { if (a === 'grant') adm.g = null; return admUser(el.dataset.id, a); } admRun(a, el.dataset.id); };
+ACT.admgp = el => { adm.g = Object.assign(adm.g || {}, { plan: el.dataset.p }); admUser(el.dataset.id, 'grant'); };
+ACT.admgd = el => { adm.g = Object.assign(adm.g || {}, { days: Number(el.dataset.d) }); admUser(el.dataset.id, 'grant'); };
+ACT.admyes = el => {
+  const a = el.dataset.a, id = el.dataset.id;
+  if (a === 'grant') { const d = Math.round(Number(($('#adm_gd') || {}).value)); if (!(d >= 1 && d <= 3660)) return toast('Дней — от 1 до 3660');
+    return admRun('grant', id, undefined, { plan: (adm.g || {}).plan || 'premium', days: d, note: ($('#adm_gn') || {}).value || '' }); }
+  const cf = $('#adm_cf'); admRun(a, id, cf ? cf.value : undefined);
+};
 ACT.admno = el => admUser(el.dataset.id);
-async function admRun(a, id, confirm) {
+async function admRun(a, id, confirm, extra) {
   if (adm.busy || !ADM_DONE[a]) return;
   if (a === 'del' && !String(confirm || '').trim()) { toast('Введите почту, чтобы подтвердить'); const i = $('#adm_cf'); return i && i.focus(); }
   adm.busy++;
   try {
-    await admCall({ action: a, id, ...(confirm != null ? { confirm } : {}) });
-    toast(ADM_DONE[a]); adm.log = null; adm.stats = null;
-    if (a === 'del') { adm.users = adm.users.filter(u => u.id !== id); closeSheet(); }
-    else { const u = adm.users.find(x => x.id === id); if (u) Object.assign(u, a === 'nick' ? { nick: '' } : a === 'name' ? { name: '' } : { banned: a === 'ban' }); admUser(id); }
+    const j = await admCall({ action: a, id, ...(confirm != null ? { confirm } : {}), ...(extra || {}) });
+    toast(a === 'grant' ? `${PLAN_NAME[extra.plan]} до ${admDT(j.until)}` : ADM_DONE[a]); adm.log = null; adm.stats = null;
+    const u = (adm.users || []).find(x => x.id === id);
+    if (a === 'del') { adm.users = adm.users.filter(x => x.id !== id); closeSheet(); }
+    else {
+      if (u) Object.assign(u, a === 'nick' ? { nick: '' } : a === 'name' ? { name: '' } : a === 'grant' ? { plan: extra.plan, until: j.until, subSrc: u.subSrc === 'pay' ? 'pay' : 'gift', subNote: String(extra.note || '').trim() }
+        : a === 'revoke' ? { plan: '', until: null } : { banned: a === 'ban' });
+      admUser(id);
+    }
+    if (id === auth.uid && (a === 'grant' || a === 'revoke')) planLoad();   // своя подписка — обновить в приложении
   } catch (e) { toast(e.message); }
   adm.busy--; admDraw();
 }
@@ -196,6 +223,7 @@ async function admSetCfg(k, v, msg) {
 function admSet() {
   const c = adm.cfg; if (!c) return '';
   const a = c.ann, m = c.maint || { on: false, text: '' }, lim = Number.isInteger(c.ai_limit) ? c.ai_limit : 30, p = S.settings.admPush || {};
+  const TL = Object.assign({ free: 5, plus: 20, premium: 60 }, c.limits && typeof c.limits === 'object' ? c.limits : {});
   return `<div class="card adm-set"><b class="adm-h">📣 Объявление</b>
     <p class="set-note">Карточка на Главной у всех, пока человек не нажмёт «Понятно». Можно сразу отправить уведомлением — кроме тех, кто выключил «Новости Parsimony».</p>
     ${a ? `<div class="adm-cur"><small>Сейчас висит · ${esc(admDT(a.at))}${a.push ? (a.pushed ? ' · уведомление отправлено' : ' · уведомление уходит…') : ''}</small><b>${esc(a.title || 'Новости Parsimony')}</b><p>${esc(a.text)}</p>
@@ -211,6 +239,11 @@ function admSet() {
   <div class="card adm-set"><b class="adm-h">✦ Помощник</b>
     <div class="adm-lim"><span>Запросов в день на человека</span><input id="adm_lim" class="fin" type="number" inputmode="numeric" min="1" max="500" value="${lim}" aria-label="Запросов в день"><button class="btn" data-act="admlim">Сохранить</button></div>
     <div class="set-row"><span>Помощник пишет сам — всем<small>выключить разом для всех, если что-то пошло не так</small></span><input id="adm_nudge" class="sw" type="checkbox"${c.nudge === false ? '' : ' checked'}></div></div>
+  <div class="card adm-set"><b class="adm-h">💳 Тарифы</b>
+    <p class="set-note">${c.tiers_on === true ? 'Включены: лимит помощника — по тарифу человека, страница тарифов видна всем.' : `Выключены: у всех один лимит помощника (${lim} в день), страница тарифов видна только на бете. Включите, когда заработает оплата.`}</p>
+    <div class="set-row"><span>Тарифы включены<small>бесплатным станет ${TL.free} сообщений в день</small></span><input id="adm_tiers" class="sw" type="checkbox"${c.tiers_on === true ? ' checked' : ''}></div>
+    <div class="adm-lims">${['free', 'plus', 'premium'].map(p => `<label><span>${PLAN_NAME[p]}</span><input id="adm_l_${p}" class="fin" type="number" inputmode="numeric" min="1" max="1000" value="${TL[p]}"></label>`).join('')}</div>
+    <button class="btn" data-act="admlims">Сохранить лимиты по тарифам</button></div>
   <div class="card adm-set"><b class="adm-h">🔔 Мои уведомления</b><p class="set-note">Приходят на ваши устройства, где включены напоминания.</p>
     <div class="set-row"><span>О новых отзывах</span><input id="adm_pfb" class="sw" type="checkbox"${p.fb === false ? '' : ' checked'}></div>
     <div class="set-row"><span>О попытках открыть админку без прав</span><input id="adm_pdn" class="sw" type="checkbox"${p.deny === false ? '' : ' checked'}></div></div>`;
@@ -218,9 +251,13 @@ function admSet() {
 ACT.admann = () => { const t = ($('#adm_ax') || {}).value || ''; if (!t.trim()) { toast('Напишите текст объявления'); const x = $('#adm_ax'); return x && x.focus(); }
   admSetCfg('ann', { title: ($('#adm_at') || {}).value || '', text: t, push: !!($('#adm_ap') || {}).checked }, 'Объявление опубликовано'); };
 ACT.admannoff = () => admSetCfg('ann', null, 'Объявление снято');
+ACT.admlims = () => { const v = {}; for (const p of ['free', 'plus', 'premium']) { const n = Math.round(Number(($('#adm_l_' + p) || {}).value)); if (!(n >= 1 && n <= 1000)) return toast('Лимит — от 1 до 1000'); v[p] = n; }
+  admSetCfg('limits', v, `Лимиты: ${v.free} · ${v.plus} · ${v.premium} в день`); };
 ACT.admmaint = () => { const on = !!($('#adm_mo') || {}).checked; admSetCfg('maint', { on, text: ($('#adm_mt') || {}).value || '' }, on ? 'Плашка включена у всех' : 'Плашка выключена'); };
 ACT.admlim = () => { const n = Math.round(Number(($('#adm_lim') || {}).value)); if (!(n >= 1 && n <= 500)) return toast('Лимит — от 1 до 500'); admSetCfg('ai_limit', n, 'Помощник: ' + plural(n, ['запрос', 'запроса', 'запросов']) + ' в день'); };
 document.addEventListener('change', e => { const id = e.target.id;
+  if (id === 'adm_tiers') { if (e.target.checked && !confirm('Включить тарифы? Лимит помощника станет по тарифу — у бесплатных меньше.')) { e.target.checked = false; return; }
+    return admSetCfg('tiers_on', e.target.checked, e.target.checked ? 'Тарифы включены' : 'Тарифы выключены — у всех прежний лимит'); }
   if (id === 'adm_nudge') admSetCfg('nudge', e.target.checked, e.target.checked ? 'Помощник снова пишет сам' : 'Помощник больше не пишет сам — никому');
   else if (id === 'adm_pfb' || id === 'adm_pdn') { S.settings.admPush = Object.assign({}, S.settings.admPush, { [id === 'adm_pfb' ? 'fb' : 'deny']: e.target.checked }); save(); toast(e.target.checked ? 'Буду присылать' : 'Не буду присылать'); } });
 // Из уведомления админу (#s=admfb / #s=admlog, notify.js) — сразу на нужную вкладку, свежие данные

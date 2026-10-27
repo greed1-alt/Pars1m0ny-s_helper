@@ -219,11 +219,12 @@ function profileHTML() {
   <div class="card"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения</b><span class="card-h-r"><small>${got} из ${ACH.length}</small><button class="pill sm" data-act="achall">Все достижения →</button></span></div>
     <div class="ach ach4">${achSorted(ach).slice(0, 4).map(achHTML).join('')}</div></div>
   ${frCardHTML()}
-    <div class="card pf-plans"><div class="card-h"><b>${I(IC.spark, 17)} Тарифы</b><span class="soon">Скоро</span></div>
+    ${plansOn() ? `<div class="card pf-plans"><div class="card-h"><b>${I(IC.spark, 17)} Тарифы</b></div><p class="pf-plan-now">${planNow() === 'free' ? 'Сейчас — бесплатный тариф' : 'У вас ' + esc(planLine())}</p>
+      <button class="btn pri" data-act="plansopen">Смотреть тарифы</button></div>` : `<div class="card pf-plans"><div class="card-h"><b>${I(IC.spark, 17)} Тарифы</b><span class="soon">Скоро</span></div>
       <div class="plans"><div class="plan cur"><small>Сейчас</small><b>Базовый</b><span>бесплатно</span></div><div class="plan pro"><small>Скоро</small><b>Премиум</b><span>стоимость — позже</span></div></div>
       <ul class="plan-perks"><li>${I(IC.spark, 14)} Переливающееся имя в профиле и на Главной</li><li>${I(IC.check, 14)} Синхронизация iPhone и компьютера</li><li>${I(IC.check, 14)} Друзья и общие календари</li></ul>
       <p class="set-note" style="margin-top:6px">Здесь будут тарифы, их возможности и цены.</p>
-    </div>`;
+    </div>`}`;
 }
 // Меню «⋯» рядом с «Редактировать профиль»
 ACT.pfmenu = el => {
@@ -267,7 +268,8 @@ ACT.accmenu = el => {
   qc.innerHTML = `<div class="accm" role="menu" aria-label="Меню профиля">
     <button class="accm-me" data-act="accgo" data-s="profile" role="menuitem">${avatarHTML(44)}<span class="accm-who"><b>${esc(name || 'Профиль')}</b><small>${fr.nick ? '@' + esc(fr.nick) : 'Открыть профиль'}</small></span>${I(IC.right, 18)}</button>
     <div class="accm-chips"><span class="accm-chip c1"><span aria-hidden="true">🔥</span><b>${wk.s ? plural(wk.s, NDAY) : '—'}</b><small>серия</small></span><span class="accm-chip c2"><span aria-hidden="true">⭐</span><b>${plural(frScore(wk), FR_PTS)}</b><small>за неделю</small></span></div>
-    <button class="accm-prem" data-act="accgo" data-s="profile" data-to="pf-plans" role="menuitem">${I(IC.spark, 24)}<span><b>${APP_NAME} Премиум</b><small>Переливающееся имя и другие привилегии — скоро</small></span></button>
+    ${plansOn() ? `<button class="accm-prem" data-act="plansopen" role="menuitem">${I(IC.spark, 24)}<span><b>${planNow() === 'free' ? APP_NAME + ' Плюс и Премиум' : 'Ваш тариф — ' + PLAN_NAME[planNow()]}</b><small>${planNow() === 'free' ? 'Больше помощника, тем и возможностей' : esc(planLine())}</small></span></button>`
+      : `<button class="accm-prem" data-act="accgo" data-s="profile" data-to="pf-plans" role="menuitem">${I(IC.spark, 24)}<span><b>${APP_NAME} Премиум</b><small>Переливающееся имя и другие привилегии — скоро</small></span></button>`}
     <div class="accm-list">
       ${msgOn() ? `<button data-act="accmsg" role="menuitem">${I(IC.chat, 18)}<span>Сообщения</span>${msgUnread ? `<em class="accm-badge" aria-label="Новых: ${msgUnread}">${msgUnread > 99 ? '99+' : msgUnread}</em>` : ''}</button>` : ''}
       <button data-act="accgo" data-s="profile" data-to="pf-friends" role="menuitem">${I(IC.users, 18)}<span>Друзья</span>${inc ? `<em class="accm-badge" aria-label="Новых заявок: ${inc}">${inc}</em>` : ''}</button>
