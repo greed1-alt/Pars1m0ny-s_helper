@@ -409,7 +409,7 @@ function settingsHTML() {
     <button class="btn" style="width:100%;margin-top:8px" data-act="tourmenu">${I(IC.spark, 16)} Знакомство с приложением</button>
     <button class="btn" style="width:100%;margin-top:8px" data-act="feedback">${I(IC.msg, 16)} Написать отзыв</button>
     <a class="btn" style="width:100%;margin-top:8px" href="beta.html" target="_blank" rel="noopener">${I(IC.note, 16)} Памятка бета-тестера</a>
-    ${LEGAL_ON ? `<p class="set-note st-legal"><a href="privacy.html" target="_blank" rel="noopener">Политика конфиденциальности</a> · <a href="consent.html" target="_blank" rel="noopener">Согласие на обработку данных</a></p>` : ''}`;
+    ${LEGAL_ON ? `<p class="set-note st-legal"><a href="terms.html" target="_blank" rel="noopener">Пользовательское соглашение</a> · <a href="privacy.html" target="_blank" rel="noopener">Политика конфиденциальности</a> · <a href="consent.html" target="_blank" rel="noopener">Согласие на обработку данных</a></p>` : ''}`;
   const prof = `<button class="card st-prof" data-act="pe" data-tab="main">${avatarHTML(48)}<span><b>${esc(name || 'Ваш профиль')}</b><small>${name ? 'Личные данные, аватар и обложка' : 'Укажите имя, выберите аватар и обложку'}</small></span>${I(IC.right, 18)}</button>`;
   const cards = { look: b.look, cal: b.cal, cats: b.cats, secs, notif: b.notif, data: b.data, about };
   // id карточек — для оглавления, списка разделов и кнопок помощника «Открыть…» (stJump)

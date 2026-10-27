@@ -572,6 +572,8 @@ body.ui2 main.sec .h2-tight .h2-blk.card{padding-top:12px;padding-bottom:12px}
 .lg-ok{display:flex;gap:10px;align-items:flex-start;margin:2px 0 12px;font-size:13.5px;line-height:1.4;color:var(--tx2);cursor:pointer}
 .lg-ok input{width:20px;height:20px;margin:0;flex:none;accent-color:var(--acc)}
 .lg-ok a,.cns-list+p a{color:var(--acc)}
+.lg-terms{margin:10px 0 0;font-size:12.5px;line-height:1.4;color:var(--mut);text-align:center}
+.lg-terms a{color:var(--acc)}
 .cns-list{margin:0 0 10px;padding-left:20px;font-size:14px;line-height:1.45;color:var(--tx2)}
 .cns-list li{margin:4px 0}
 .cns-btns{display:flex;flex-direction:column;gap:8px}

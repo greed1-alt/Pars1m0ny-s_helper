@@ -274,7 +274,8 @@ function openLogin(keep) {
     <input id="lg_email" class="fin lg-in" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="200" value="${esc(lg.email)}" placeholder="name@mail.ru">
     <div id="lg_err" class="lg-err" role="alert">${esc(lg.err)}</div>
     ${LEGAL_ON ? `<label class="lg-ok"><input id="lg_ok" type="checkbox"${lg.agree ? ' checked' : ''}><span>Даю <a href="consent.html" target="_blank" rel="noopener">согласие на обработку персональных данных</a> и принимаю <a href="privacy.html" target="_blank" rel="noopener">политику</a></span></label>` : ''}
-    <button class="btn pri lg-go" data-act="lgsend">Получить код</button>`
+    <button class="btn pri lg-go" data-act="lgsend">Получить код</button>
+    ${LEGAL_ON ? `<p class="lg-terms">Нажимая «Получить код», вы принимаете <a href="terms.html" target="_blank" rel="noopener">пользовательское соглашение</a>.</p>` : ''}`
   : `<p class="set-note" style="margin:0 0 12px">Отправили код на <b style="color:var(--tx)">${esc(lg.email)}</b>. Письмо приходит за минуту; если его нет — загляните в «Спам».</p>
     <label class="lg-l" for="lg_code">Код из письма</label>
     <input id="lg_code" class="fin lg-in lg-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456">
