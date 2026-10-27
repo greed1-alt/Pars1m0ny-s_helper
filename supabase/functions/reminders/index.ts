@@ -11,6 +11,8 @@
 //    И пуши о заявках в друзья из очереди fr_notify (friendPushes, supabase/sql/friends.sql) и о новых сообщениях друзей
 //    из очереди msg_notify (msgPushes, supabase/sql/messages.sql, с 23 октября 2026).
 //    И помощник пишет сам — до 3 раз в день, только по делу, ночью тихо (nudgeCands / pickNudge / nudgePayload, с 23 октября 2026).
+//    С 27 октября 2026 пуши из очередей (сообщения, заявки) — сразу: база вызывает функцию с {"queue":true} при записи в очередь
+//    (supabase/sql/push_now.sql) — тогда разбираются только очереди (queueTick).
 //    В воскресенье вечерняя сводка — итоги недели (weekPayload, с 27 октября 2026); повтор «через неделю» — repeat.every = 2 (wkNum).
 // 2) Приложение с токеном пользователя и {"test":true} — проверочное уведомление на устройства этого человека
 //    (не чаще раза в минуту).
@@ -335,8 +337,11 @@ async function tick(now) {
 // Каждая уходит один раз (sent_at). Нет подписки или в приложении выключен «Пуш о заявках» (settings.frPush = false) — просто отмечаем.
 // Таблицы ещё нет (SQL не выполнен) — молча пропускаем, напоминания работают как раньше
 async function friendPushes(byUser, rows, now) {
-  const { data: nts, error } = await sb.from('fr_notify').select('id,to_uid,from_uid,kind').is('sent_at', null).order('id').limit(200);
-  if (error || !nts || !nts.length) return 0;
+  const { data: q, error } = await sb.from('fr_notify').select('id').is('sent_at', null).order('id').limit(200);
+  if (error || !q || !q.length) return 0;
+  // забираем из очереди до отправки: запуск по записи в очередь (push_now.sql) и ежеминутный могут совпасть — пуш уйдёт один раз
+  const { data: nts } = await sb.from('fr_notify').update({ sent_at: new Date(now).toISOString() }).in('id', q.map(n => n.id)).is('sent_at', null).select('id,to_uid,from_uid,kind');
+  if (!nts || !nts.length) return 0;
   const who = await whoOf(nts.map(n => n.from_uid));
   const dataOf = new Map(rows.map(r => [r.user_id, r.data || {}]));
   let ok = 0;
@@ -346,7 +351,6 @@ async function friendPushes(byUser, rows, now) {
     const body = n.kind === 'req' ? `${who(n.from_uid)} зовёт вас в друзья` : `${who(n.from_uid)} теперь в друзьях`;
     ok += (await sendTo(subs, JSON.stringify({ title: 'Parsimony', body, tag: 'fr-' + n.from_uid, url: './#s=profile', s: 'profile' }), 24 * 3600)).ok;
   }
-  await sb.from('fr_notify').update({ sent_at: new Date(now).toISOString() }).in('id', nts.map(n => n.id));
   await sb.from('fr_notify').delete().lt('created_at', new Date(now - 3 * DAY).toISOString());
   return ok;
 }
@@ -367,14 +371,31 @@ async function msgPushes(byUser, rows) {
   const who = await whoOf(q.map(x => x.from_uid)), dataOf = new Map(rows.map(r => [r.user_id, r.data || {}]));
   let ok = 0;
   for (const x of q) {
+    // забираем из очереди до отправки (как у заявок): новое сообщение того же друга меняет at — такая строка останется до следующего раза
+    const { data: got } = await sb.from('msg_notify').delete().eq('to_uid', x.to_uid).eq('from_uid', x.from_uid).eq('at', x.at).select('to_uid');
+    if (!got || !got.length) continue;
     const subs = byUser.get(x.to_uid), st = (dataOf.get(x.to_uid) || {}).settings || {};
     if (subs && st.msgPush !== false) {
       const body = String(x.body || '').slice(0, 120) + (x.n > 1 ? ` · ещё ${x.n - 1}` : '');
       ok += (await sendTo(subs, JSON.stringify({ title: who(x.from_uid), body, tag: 'msg-' + x.from_uid, url: './#m=' + x.from_uid, m: x.from_uid }), 24 * 3600)).ok;
     }
-    await sb.from('msg_notify').delete().eq('to_uid', x.to_uid).eq('from_uid', x.from_uid).eq('at', x.at);
   }
   return ok;
+}
+
+// Только очереди — сообщения друзей и заявки в друзья (вызов из базы при записи в очередь, push_now.sql): подписки и настройки — только
+// получателей, без разбора напоминаний всех людей. Напоминания и сводки — по-прежнему ежеминутный tick
+async function queueTick(now) {
+  const [{ data: m }, { data: f }] = await Promise.all([sb.from('msg_notify').select('to_uid').limit(300), sb.from('fr_notify').select('to_uid').is('sent_at', null).limit(200)]);
+  const ids = [...new Set([...(m || []), ...(f || [])].map(x => x.to_uid))];
+  if (!ids.length) return { users: 0, sent: 0 };
+  const [{ data: subs, error }, { data: rs }] = await Promise.all([sb.from('push_subscriptions').select('endpoint,p256dh,auth,user_id').in('user_id', ids),
+    sb.from('user_data').select('user_id,settings:data->settings').in('user_id', ids)]);
+  if (error) throw error;
+  const byUser = new Map();
+  for (const s of subs || []) { if (!byUser.has(s.user_id)) byUser.set(s.user_id, []); byUser.get(s.user_id).push(s); }
+  const rows = (rs || []).map(r => ({ user_id: r.user_id, data: { settings: r.settings && typeof r.settings === 'object' ? r.settings : {} } }));
+  return { users: ids.length, sent: (await friendPushes(byUser, rows, now)) + (await msgPushes(byUser, rows)) };
 }
 
 async function testPush(uid) {
@@ -391,7 +412,10 @@ Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
   try {
     const key = req.headers.get('apikey') ?? '';
-    if (key.startsWith('sb_secret_') && secretKeys.includes(key)) return json(await tick(Date.now()));
+    if (key.startsWith('sb_secret_') && secretKeys.includes(key)) {
+      const b = await req.json().catch(() => null);
+      return json(b && b.queue === true ? await queueTick(Date.now()) : await tick(Date.now()));   // queue — из базы при записи в очередь (push_now.sql)
+    }
     const tok = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
     if (!tok || tok.startsWith('sb_')) return json({ error: 'forbidden' }, 403);
     const { data, error } = await sb.auth.getUser(tok);
