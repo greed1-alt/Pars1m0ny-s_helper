@@ -274,6 +274,7 @@ ACT.accmenu = el => {
       <button data-act="accgo" data-s="leaders" role="menuitem">${I(IC.trophy, 18)}<span>Лидеры</span></button>
       <button data-act="accach" role="menuitem">${I(IC.check, 18)}<span>Достижения</span></button>
       <button data-act="accgo" data-s="profedit" role="menuitem">${I(IC.edit, 18)}<span>Редактировать профиль</span></button>
+      ${NAME_ADMIN && on ? `<button data-act="admopen" role="menuitem">${I(IC.lock, 18)}<span>Админка</span></button>` : ''}
       <button data-act="accinv" role="menuitem">${I(IC.share, 18)}<span>Пригласить друга</span></button>
     </div>
     <div class="accm-foot"><button class="accm-set" data-act="accset" role="menuitem">${I(IC.gear, 18)}<span>Настройки</span></button>
