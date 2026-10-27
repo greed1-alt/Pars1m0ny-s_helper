@@ -3,14 +3,15 @@
 // Кнопка в меню профиля — только у админов (NAME_ADMIN, frAdmin), но это лишь удобство: всё делает функция admin на сервере
 // (supabase/functions/admin), и она сама проверяет вход и таблицу admins при каждом запросе (тест — tools/test-admin.mjs).
 // Записи людей (дела, деньги, самочувствие, переписку) админка не видит. Что пришло с сервера — только в памяти страницы, на устройстве не хранится
-let adm = { tab: 'sum', q: '', fb: 'new', inv: '', invRes: null, stats: null, users: null, fbs: null, log: null, err: '', busy: 0 };
-const ADM_KEY = { sum: 'stats', ppl: 'users', fb: 'fbs', log: 'log' }, ADM_ACTION = { sum: 'stats', ppl: 'users', fb: 'feedback', log: 'log' };
+let adm = { tab: 'sum', q: '', fb: 'new', inv: '', invRes: null, stats: null, users: null, fbs: null, cfg: null, log: null, err: '', busy: 0 };
+const ADM_KEY = { sum: 'stats', ppl: 'users', fb: 'fbs', set: 'cfg', log: 'log' }, ADM_ACTION = { sum: 'stats', ppl: 'users', fb: 'feedback', set: 'cfg', log: 'log' };
 const ADM_ERR = { auth: 'Войдите в аккаунт заново', forbidden: 'Нет доступа: этот аккаунт не админ', email: 'Это не похоже на почту',
   admin: 'Себя и других админов здесь менять нельзя — только в SQL Editor', none: 'Такого уже нет — обновите список', confirm: 'Почта для подтверждения не совпала',
   server: 'Сервер не ответил — попробуйте ещё раз' };
 const ADM_DONE = { nick: 'Ник сброшен', name: 'Имя сброшено', ban: 'Вход заблокирован', unban: 'Вход разблокирован', del: 'Аккаунт удалён' };
 const ADM_ACT = { invite: 'Приглашение', ban: 'Блокировка входа', unban: 'Разблокировка', nick: 'Сброс ника', name: 'Сброс имени', del: 'Удаление аккаунта',
-  fb_done: 'Отзыв разобран', fb_undone: 'Отзыв — снова новый', denied: 'Попытка открыть без прав' };
+  fb_done: 'Отзыв разобран', fb_undone: 'Отзыв — снова новый', denied: 'Попытка открыть без прав', cfg: 'Настройка' };
+const ADM_CFG = { ann: 'объявление', maint: 'плашка «идут работы»', ai_limit: 'лимит помощника', nudge: 'помощник пишет сам' };
 const ADM_KIND = Object.fromEntries([...FB_KINDS, ['other', 'Другое']]);
 async function admCall(body) {
   let r;
@@ -25,7 +26,7 @@ async function admLoad(tab, force) {
   tab = tab || adm.tab; const key = ADM_KEY[tab];
   if (adm[key] && !force) return;
   adm.busy++; adm.err = ''; admDraw();
-  try { const j = await admCall({ action: ADM_ACTION[tab] }); adm[key] = tab === 'sum' ? j : tab === 'ppl' ? j.users : j.items; }
+  try { const j = await admCall({ action: ADM_ACTION[tab] }); adm[key] = tab === 'sum' ? j : tab === 'ppl' ? j.users : tab === 'set' ? j.cfg : j.items; }
   catch (e) { adm.err = e.message; }
   adm.busy--; admDraw();
 }
@@ -40,11 +41,11 @@ function admHTML() {
   if (!adm[ADM_KEY[adm.tab]] && !adm.busy && !adm.err) setTimeout(() => admLoad(adm.tab), 0);   // открыли страницу не кнопкой (например, «Назад»)
   const nNew = adm.fbs ? adm.fbs.filter(x => !x.done_at).length : adm.stats ? adm.stats.fbNew : 0;
   return `<div class="adm">
-    <div class="adm-top"><div class="seg2 adm-tabs" role="tablist" aria-label="Разделы админки">${[['sum', 'Сводка'], ['ppl', 'Люди'], ['fb', 'Отзывы'], ['log', 'Журнал']].map(([k, n]) =>
-      `<button role="tab" class="${adm.tab === k ? 'on' : ''}" aria-selected="${adm.tab === k}" data-act="admtab" data-k="${k}">${n}${k === 'fb' && nNew ? `<em class="adm-badge" aria-label="новых: ${nNew}">${nNew}</em>` : ''}</button>`).join('')}</div>
-      <button class="ic adm-ref" data-act="admref" aria-label="Обновить" title="Обновить"${adm.busy ? ' disabled' : ''}>${I(IC.rep, 18)}</button></div>
-    ${adm.err ? `<p class="adm-err" role="alert">${esc(adm.err)}</p>` : ''}${adm.busy ? '<p class="adm-busy" role="status">Загружаю…</p>' : ''}
-    ${({ sum: admSum, ppl: admPpl, fb: admFb, log: admLog })[adm.tab]()}
+    <div class="adm-top"><div class="seg2 adm-tabs" role="tablist" aria-label="Разделы админки">${[['sum', 'Сводка'], ['ppl', 'Люди'], ['fb', 'Отзывы'], ['set', 'Настройки'], ['log', 'Журнал']].map(([k, n]) =>
+      `<button role="tab" class="${adm.tab === k ? 'on' : ''}" aria-selected="${adm.tab === k}" data-act="admtab" data-k="${k}"${k === 'set' ? ' title="Настройки"' : ''}>${k === 'set' ? I(IC.gear, 16) + '<span class="adm-tl">' + n + '</span>' : n}${k === 'fb' && nNew ? `<em class="adm-badge" aria-label="новых: ${nNew}">${nNew}</em>` : ''}</button>`).join('')}</div></div>
+    <div class="adm-sub"><span role="status">${adm.busy ? 'Загружаю…' : ''}</span><button class="adm-rf" data-act="admref"${adm.busy ? ' disabled' : ''}>${I(IC.rep, 14)} Обновить</button></div>
+    ${adm.err ? `<p class="adm-err" role="alert">${esc(adm.err)}</p>` : ''}
+    ${({ sum: admSum, ppl: admPpl, fb: admFb, set: admSet, log: admLog })[adm.tab]()}
     <p class="adm-foot">${I(IC.lock, 13)} Админке видны только числа и служебное — записей людей в ней нет. Все действия пишутся в журнал.</p></div>`;
 }
 
@@ -179,5 +180,71 @@ function admLog() {
   const l = adm.log; if (!l) return '';
   if (!l.length) return '<p class="set-note adm-empty">Пока пусто. Здесь будут действия админов и попытки открыть админку без прав.</p>';
   return `<div class="card adm-log">${l.map(x => `<div class="adm-lr${x.action === 'denied' ? ' bad' : ''}"><span class="adm-lt">${esc(new Date(x.at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span>
-    <span class="adm-lb"><b>${esc(ADM_ACT[x.action] || x.action)}</b>${x.target ? ' — ' + esc(x.target) : ''}<small>${esc(x.who || 'аккаунт удалён')}</small></span></div>`).join('')}</div>`;
+    <span class="adm-lb"><b>${esc(ADM_ACT[x.action] || x.action)}</b>${x.target ? ' — ' + esc(x.action === 'cfg' ? ADM_CFG[x.target] || x.target : x.target) : ''}<small>${esc(x.who || 'аккаунт удалён')}</small></span></div>`).join('')}</div>`;
 }
+
+// ---- Настройки приложения (часть 2, 27 октября 2026; просьба пользователя: «давай объявления, оповещения и настройки»): объявление всем,
+// плашка «идут работы», лимит помощника, «помощник пишет сам» для всех — без переопубликации (функция admin → таблица app_config);
+// «Мои уведомления» — о новых отзывах и попытках открыть админку без прав (S.settings.admPush, шлёт функция reminders)
+async function admSetCfg(k, v, msg) {
+  if (adm.busy) return;
+  adm.busy++;
+  try { const j = await admCall({ action: 'setcfg', k, v }); if (j.v === null) delete adm.cfg[k]; else adm.cfg[k] = j.v; adm.log = null; toast(msg); cfgLoad(); }
+  catch (e) { toast(e.message); }
+  adm.busy--; admDraw();
+}
+function admSet() {
+  const c = adm.cfg; if (!c) return '';
+  const a = c.ann, m = c.maint || { on: false, text: '' }, lim = Number.isInteger(c.ai_limit) ? c.ai_limit : 30, p = S.settings.admPush || {};
+  return `<div class="card adm-set"><b class="adm-h">📣 Объявление</b>
+    <p class="set-note">Карточка на Главной у всех, пока человек не нажмёт «Понятно». Можно сразу отправить уведомлением — кроме тех, кто выключил «Новости Parsimony».</p>
+    ${a ? `<div class="adm-cur"><small>Сейчас висит · ${esc(admDT(a.at))}${a.push ? (a.pushed ? ' · уведомление отправлено' : ' · уведомление уходит…') : ''}</small><b>${esc(a.title || 'Новости Parsimony')}</b><p>${esc(a.text)}</p>
+      <button class="btn" data-act="admannoff">Снять</button></div>` : ''}
+    <input id="adm_at" class="fin" maxlength="60" placeholder="Заголовок, например «Что нового»" aria-label="Заголовок объявления">
+    <textarea id="adm_ax" class="fin" rows="4" maxlength="600" placeholder="Текст объявления" aria-label="Текст объявления"></textarea>
+    <label class="swl"><input id="adm_ap" class="sw" type="checkbox"> Отправить и уведомлением</label>
+    <button class="btn pri" data-act="admann"${adm.busy ? ' disabled' : ''}>${a ? 'Опубликовать вместо текущего' : 'Опубликовать'}</button></div>
+  <div class="card adm-set"><b class="adm-h">🛠 Идут работы</b><p class="set-note">Жёлтая плашка на Главной у всех — на время, пока что-то чините.</p>
+    <label class="swl"><input id="adm_mo" class="sw" type="checkbox"${m.on ? ' checked' : ''}> Показывать плашку</label>
+    <input id="adm_mt" class="fin" maxlength="200" placeholder="Например: помощник временно не отвечает" value="${esc(m.text || '')}" aria-label="Текст плашки">
+    <button class="btn" data-act="admmaint">Сохранить</button></div>
+  <div class="card adm-set"><b class="adm-h">✦ Помощник</b>
+    <div class="adm-lim"><span>Запросов в день на человека</span><input id="adm_lim" class="fin" type="number" inputmode="numeric" min="1" max="500" value="${lim}" aria-label="Запросов в день"><button class="btn" data-act="admlim">Сохранить</button></div>
+    <div class="set-row"><span>Помощник пишет сам — всем<small>выключить разом для всех, если что-то пошло не так</small></span><input id="adm_nudge" class="sw" type="checkbox"${c.nudge === false ? '' : ' checked'}></div></div>
+  <div class="card adm-set"><b class="adm-h">🔔 Мои уведомления</b><p class="set-note">Приходят на ваши устройства, где включены напоминания.</p>
+    <div class="set-row"><span>О новых отзывах</span><input id="adm_pfb" class="sw" type="checkbox"${p.fb === false ? '' : ' checked'}></div>
+    <div class="set-row"><span>О попытках открыть админку без прав</span><input id="adm_pdn" class="sw" type="checkbox"${p.deny === false ? '' : ' checked'}></div></div>`;
+}
+ACT.admann = () => { const t = ($('#adm_ax') || {}).value || ''; if (!t.trim()) { toast('Напишите текст объявления'); const x = $('#adm_ax'); return x && x.focus(); }
+  admSetCfg('ann', { title: ($('#adm_at') || {}).value || '', text: t, push: !!($('#adm_ap') || {}).checked }, 'Объявление опубликовано'); };
+ACT.admannoff = () => admSetCfg('ann', null, 'Объявление снято');
+ACT.admmaint = () => { const on = !!($('#adm_mo') || {}).checked; admSetCfg('maint', { on, text: ($('#adm_mt') || {}).value || '' }, on ? 'Плашка включена у всех' : 'Плашка выключена'); };
+ACT.admlim = () => { const n = Math.round(Number(($('#adm_lim') || {}).value)); if (!(n >= 1 && n <= 500)) return toast('Лимит — от 1 до 500'); admSetCfg('ai_limit', n, 'Помощник: ' + plural(n, ['запрос', 'запроса', 'запросов']) + ' в день'); };
+document.addEventListener('change', e => { const id = e.target.id;
+  if (id === 'adm_nudge') admSetCfg('nudge', e.target.checked, e.target.checked ? 'Помощник снова пишет сам' : 'Помощник больше не пишет сам — никому');
+  else if (id === 'adm_pfb' || id === 'adm_pdn') { S.settings.admPush = Object.assign({}, S.settings.admPush, { [id === 'adm_pfb' ? 'fb' : 'deny']: e.target.checked }); save(); toast(e.target.checked ? 'Буду присылать' : 'Не буду присылать'); } });
+// Из уведомления админу (#s=admfb / #s=admlog, notify.js) — сразу на нужную вкладку, свежие данные
+const admOpenTab = t => { if (typeof closeSheet === 'function') closeSheet(); adm.tab = t; adm[ADM_KEY[t]] = null; adm.err = ''; setSec('admin'); admLoad(t); };
+
+// ---- Для всех: объявление и «идут работы» на Главной (таблица app_config, читать может любой; на устройстве — последнее известное) ----
+let appCfg = {}, cfgAt = 0;
+try { appCfg = JSON.parse(localStorage.getItem('remapp_cfg') || '{}') || {}; } catch (e) {}
+async function cfgLoad() {
+  cfgAt = Date.now();
+  try {
+    const r = await fetch(SUPABASE_URL + '/rest/v1/app_config?select=k,v', { cache: 'no-store', headers: { apikey: SUPABASE_KEY } });
+    const j = r.ok ? await r.json() : null; if (!Array.isArray(j)) return;
+    const c = {}; j.forEach(x => { if (x && typeof x.k === 'string') c[x.k] = x.v; });
+    const was = JSON.stringify(appCfg); appCfg = c;
+    try { localStorage.setItem('remapp_cfg', JSON.stringify(c)); } catch (e) {}
+    if (JSON.stringify(c) !== was && sec === 'home') render();
+  } catch (e) {}
+}
+setTimeout(cfgLoad, 2500);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - cfgAt > 10 * 60e3) cfgLoad(); });
+function cfgHomeHTML() {
+  const m = appCfg.maint, a = appCfg.ann;
+  return (m && m.on ? `<div class="card cfg-maint" role="status">${I(IC.alert, 17)}<span><b>Идут работы.</b> ${esc(m.text || 'Что-то может работать с перебоями — скоро всё наладим.')}</span></div>` : '')
+    + (a && a.id && a.text && S.settings.annSeen !== Number(a.id) ? `<div class="card cfg-ann"><b>📣 ${esc(a.title || 'Новости Parsimony')}</b><p>${esc(a.text)}</p><button class="btn" data-act="annok" data-id="${Number(a.id)}">Понятно</button></div>` : '');
+}
+ACT.annok = el => { S.settings.annSeen = Number(el.dataset.id); save(); render(); };

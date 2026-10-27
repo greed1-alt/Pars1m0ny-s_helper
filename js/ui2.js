@@ -348,7 +348,7 @@ function homeHTML() {
   homeTight = innerWidth < 900;
   const omni = `<div class="card h2-omni">${omniHTML('om', 'home')}</div>`;
   const blocks = homeOrder().map(x => homeBlock(x, t)).join('');
-  return `${hero}<div class="h2-cols${homeTight ? ' h2-tight' : ''}"><div class="h2-col">${omni}${secOn('tasks') || secOn('cal') ? missedBar(true) : ''}${blocks}</div><div class="h2-col"></div></div>
+  return `${hero}<div class="h2-cols${homeTight ? ' h2-tight' : ''}"><div class="h2-col">${cfgHomeHTML()}${omni}${secOn('tasks') || secOn('cal') ? missedBar(true) : ''}${blocks}</div><div class="h2-col"></div></div>
   ${homeCustHTML()}`;
 }
 

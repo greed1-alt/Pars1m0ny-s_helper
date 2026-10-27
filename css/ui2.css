@@ -798,9 +798,13 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .adm-tabs{flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
 .adm-tabs button{flex:1;white-space:nowrap}
 .adm-badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:5px;border-radius:9px;background:var(--acc);color:var(--accfg);font-size:12px;font-style:normal;font-weight:700;vertical-align:1px}
-.adm-ref{flex:none}
 .adm-err{margin:0;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,#f59e0b 16%,transparent);color:var(--tx);font-size:14px}
-.adm-busy{margin:0;font-size:13px;color:var(--mut)}
+.adm-sub{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:-4px;min-height:28px;font-size:13px;color:var(--mut)}
+.adm-rf{display:inline-flex;align-items:center;gap:5px;padding:4px 0;font-size:13px;font-weight:600;color:var(--acc)}
+.adm-rf[disabled]{opacity:.5}
+.adm-tabs svg{vertical-align:-3px}
+.adm-tabs .adm-tl{margin-left:5px}
+@media(max-width:480px){.adm-tabs .adm-tl{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}}
 .adm-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 @media(min-width:900px){.adm-tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .adm-t{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px;border-radius:var(--rc,16px);background:var(--card);border:1px solid var(--line);text-align:left;color:var(--tx);min-width:0}
@@ -861,6 +865,26 @@ button.adm-t:hover{border-color:color-mix(in srgb,var(--acc) 50%,var(--line))}
 .adm-empty{text-align:center;padding:18px 0}
 .adm-foot{display:flex;align-items:center;justify-content:center;gap:6px;margin:4px 0 0;font-size:12px;color:var(--mut);text-align:center}
 .adm-no{padding:20px;text-align:center}
+.adm-tabs button{flex:1 0 auto}
+.adm-set{display:flex;flex-direction:column;gap:10px;padding:14px}
+.adm-set .set-note,.adm-set .set-row{margin:0}
+.adm-set textarea.fin{resize:vertical;min-height:96px;line-height:1.45}
+.adm-set .btn{align-self:flex-start}
+.adm-set .swl{margin-top:0}
+.adm-cur{display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:12px;background:color-mix(in srgb,var(--acc) 8%,transparent)}
+.adm-cur small{font-size:12px;color:var(--mut)}
+.adm-cur p{margin:0;font-size:14px;line-height:1.5;color:var(--tx2);white-space:pre-wrap;overflow-wrap:anywhere}
+.adm-cur .btn{margin-top:4px}
+.adm-lim{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:14px;color:var(--tx)}
+.adm-lim span{flex:1 1 100%}
+.adm-lim .fin{width:96px;min-width:0}
+/* Для всех: объявление и «идут работы» на Главной (admin.js: cfgHomeHTML) */
+.cfg-maint{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:color-mix(in srgb,#f59e0b 16%,var(--card));border-color:color-mix(in srgb,#f59e0b 40%,var(--line));font-size:14px;line-height:1.45;color:var(--tx)}
+.cfg-maint svg{flex:none;margin-top:2px}
+.cfg-ann{display:flex;flex-direction:column;gap:6px;padding:14px;border-color:color-mix(in srgb,var(--acc) 35%,var(--line));background:color-mix(in srgb,var(--acc) 6%,var(--card))}
+.cfg-ann b{font-size:15.5px;color:var(--tx)}
+.cfg-ann p{margin:0;font-size:14px;line-height:1.5;color:var(--tx2);white-space:pre-wrap;overflow-wrap:anywhere}
+.cfg-ann .btn{align-self:flex-start;margin-top:4px}
 .ai-errc{display:block;margin-top:4px;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}   /* служебный код ошибки — для отзыва */
 /* Поле ввода: пустое — справа большой микрофон, есть текст — «отправить» */
 .ai-dock{position:relative;padding:8px 12px calc(10px + env(safe-area-inset-bottom))}

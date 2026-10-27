@@ -25,6 +25,7 @@ const fake = () => {
     async feedback() { calls.push('feedback'); return []; }, async journal() { calls.push('journal'); return []; },
     async fbDone(id, done) { calls.push('fbDone:' + id + ':' + done); return id === 7; },
     async invite(e) { calls.push('invite:' + e); return 'new'; },
+    async cfgGet() { calls.push('cfgGet'); return { ai_limit: 30 }; }, async cfgSet(k, v) { calls.push('cfgSet:' + k + ':' + JSON.stringify(v)); },
   };
   for (const a of ['ban', 'unban', 'nick', 'name', 'del']) db[a] = async id => { calls.push(a + ':' + id); };
   return db;
@@ -66,6 +67,20 @@ r = await run('tok-me', { action: 'del', id: BOB, confirm: ' BOB@mail.RU ' }); o
 for (const id of ['7', 0, -1, 1.5, null, undefined]) { r = await run('tok-me', { action: 'fbdone', id }); ok(r.st === 400 && r.out.error === 'id', 'отзыв: плохой номер — 400: ' + id); }
 r = await run('tok-me', { action: 'fbdone', id: 8 }); ok(r.st === 404, 'отзыва нет — 404');
 r = await run('tok-me', { action: 'fbdone', id: 7, done: false }); ok(r.st === 200 && r.db.calls.includes('fbDone:7:false') && r.db.logs[0].action === 'fb_undone', 'отзыв — вернуть в новые');
+
+// настройки: только известные ключи и значения нужного вида
+r = await run('tok-eve', { action: 'setcfg', k: 'ai_limit', v: 1000 }); ok(r.st === 403 && !r.db.calls.some(c => c.startsWith('cfgSet')), 'настройки — не админ: 403');
+r = await run('tok-me', { action: 'cfg' }); ok(r.st === 200 && r.out.cfg.ai_limit === 30, 'настройки — прочитать');
+for (const [k, v] of [['x', 1], ['__proto__', 1], [null, 1], ['ai_limit', 0], ['ai_limit', 501], ['ai_limit', 2.5], ['ai_limit', '30'], ['ai_limit', null], ['nudge', 'да'], ['nudge', null],
+  ['maint', {}], ['maint', { on: 'yes' }], ['maint', []], ['ann', { text: '   ' }], ['ann', 'текст'], ['ann', { title: 'x' }]]) {
+  r = await run('tok-me', { action: 'setcfg', k, v }); ok(r.st === 400 && !r.db.calls.some(c => c.startsWith('cfgSet')), 'настройки — плохое значение: ' + k + ' ' + JSON.stringify(v));
+}
+r = await run('tok-me', { action: 'setcfg', k: 'ai_limit', v: 50 }); ok(r.st === 200 && r.db.calls.includes('cfgSet:ai_limit:50') && r.db.logs[0].action === 'cfg' && r.db.logs[0].target === 'ai_limit', 'лимит помощника');
+r = await run('tok-me', { action: 'setcfg', k: 'maint', v: { on: true, text: '  Чиним\n\u0000помощника  ', extra: 1 } }); ok(r.st === 200 && JSON.stringify(r.out.v) === JSON.stringify({ on: true, text: 'Чиним помощника' }), 'плашка — только on и text', r.out.v);
+r = await run('tok-me', { action: 'setcfg', k: 'ann', v: { title: 'Что нового', text: 'Строка 1\r\n\n\n\nСтрока 2 <b>', push: true, id: 5, pushed: true } });
+ok(r.st === 200 && r.out.v.text === 'Строка 1\n\nСтрока 2 <b>' && r.out.v.push === true && r.out.v.pushed === false && r.out.v.id > 1e12 && r.out.v.title === 'Что нового', 'объявление — id и pushed ставит сервер', r.out.v);
+r = await run('tok-me', { action: 'setcfg', k: 'ann', v: { text: 'Без уведомления' } }); ok(r.out.v.push === false && r.out.v.pushed === true, 'объявление без уведомления — pushed сразу');
+r = await run('tok-me', { action: 'setcfg', k: 'ann', v: null }); ok(r.st === 200 && r.db.calls.includes('cfgSet:ann:null'), 'снять объявление');
 
 // 3) по тексту функции
 ok(!/select\(\s*['"]\*/.test(src), 'нет select *');

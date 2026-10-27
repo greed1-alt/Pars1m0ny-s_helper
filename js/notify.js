@@ -91,9 +91,12 @@ const digestRow = (k, label, hint) => { const d = S.settings.digest;
 const digestHTML = () => `<div class="set-sub">Сводки</div>
   ${digestRow('am', 'Утром — план на день', 'дела на сегодня и пропущенные')}
   ${digestRow('pm', 'Вечером — «запишите задачи на завтра»', 'что уже есть на завтра; в воскресенье — итоги недели')}
-  <div class="set-row"><span>${withHint('Помощник пишет сам', 'nudge')}<small>до 3 раз в день, только по делу, ночью тихо</small></span><input id="s_nudge" class="sw" type="checkbox"${S.settings.nudge ? ' checked' : ''}></div>`;
+  <div class="set-row"><span>${withHint('Помощник пишет сам', 'nudge')}<small>до 3 раз в день, только по делу, ночью тихо</small></span><input id="s_nudge" class="sw" type="checkbox"${S.settings.nudge ? ' checked' : ''}></div>
+  <div class="set-row"><span>${withHint('Новости Parsimony', 'news')}<small>что нового в приложении — редко</small></span><input id="s_news" class="sw" type="checkbox"${S.settings.newsPush !== false ? ' checked' : ''}></div>`;
 // Помощник пишет сам (функция reminders: nudgeCands): по умолчанию включено; сервер пишет только при nudge === true — так старая версия приложения без выключателя молчит
 onMigrate(() => { if (typeof S.settings.nudge !== 'boolean') S.settings.nudge = true; });
+// Новости Parsimony — объявления из админки уведомлением (функция reminders: annPushes); выключить — newsPush = false
+document.addEventListener('change', e => { if (e.target.id !== 's_news') return; S.settings.newsPush = e.target.checked; save(); toast(e.target.checked ? 'Новости будут приходить' : 'Новости больше не придут'); });
 document.addEventListener('change', e => { if (e.target.id !== 's_nudge') return;
   S.settings.nudge = e.target.checked; save(); toast(e.target.checked ? 'Помощник будет писать сам — до 3 раз в день' : 'Помощник больше не пишет сам'); });
 document.addEventListener('change', e => {
@@ -112,7 +115,8 @@ function openDay(k) {
   setSec('cal');
 }
 // Утренняя сводка открывает Главную (#s=home), напоминание и вечерняя — день в календаре (#d=…)
-const openSecFromPush = s => { if ((s === 'home' || s === 'profile') && SEC[s]) { if (typeof closeSheet === 'function') closeSheet(); setSec(s); if (s === 'profile') frLoad(true); } };   // profile — пуш о заявке в друзья
+const openSecFromPush = s => { if ((s === 'admfb' || s === 'admlog') && NAME_ADMIN) return admOpenTab(s === 'admfb' ? 'fb' : 'log');   // админу: новый отзыв, попытка без прав
+   if ((s === 'home' || s === 'profile') && SEC[s]) { if (typeof closeSheet === 'function') closeSheet(); setSec(s); if (s === 'profile') frLoad(true); } };   // profile — пуш о заявке в друзья
 function checkDayHash() {
   if (location.hash === '#ai') { history.replaceState(null, '', location.pathname + location.search); return aiNudgeOpen(); }   // помощник пишет сам — его сообщение в чате
   const mm = location.hash.match(/^#m=([0-9a-f-]{36})$/i);   // пуш о сообщении друга — его переписка (js/chat.js)

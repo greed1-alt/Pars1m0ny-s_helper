@@ -14,12 +14,30 @@
 //    (почта, даты, ник, имя, число устройств), как обещано в политике обработки данных;
 // 5) себя и других админов заблокировать, удалить или переименовать нельзя (только в SQL Editor); удаление — с повтором почты;
 // 6) отвечает только сайтам Parsimony (CORS), тело запроса — до 4 КБ, все поля проверяются, ответы не кэшируются.
+// С 27 октября 2026 (часть 2) — настройки приложения без переопубликации (cfg / setcfg, таблица app_config — supabase/sql/admin2.sql):
+// объявление всем (ann), плашка «идут работы» (maint), лимит помощника (ai_limit), «помощник пишет сам» для всех (nudge).
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 // ==== ADMIN start ==== (тест: tools/test-admin.mjs; db — доступ к базе, в тесте — подделка)
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@<>"'`,;:()[\]\\]{1,64}@[^\s@<>"'`,;:()[\]\\]+\.[a-zа-яё0-9-]{2,}$/i;
-const ACTIONS = ['stats', 'users', 'invite', 'ban', 'unban', 'nick', 'name', 'del', 'feedback', 'fbdone', 'log'];
+const ACTIONS = ['stats', 'users', 'invite', 'ban', 'unban', 'nick', 'name', 'del', 'feedback', 'fbdone', 'log', 'cfg', 'setcfg'];
+const CFG_KEYS = ['ann', 'maint', 'ai_limit', 'nudge'];
+// Значение настройки — только известного вида; null — убрать объявление или плашку. У объявления id и время ставит сервер,
+// pushed: false — уведомление ещё не отправлено (его отправит функция reminders один раз)
+function cfgClean(k, v) {
+  if (v === null) return k === 'ann' || k === 'maint' ? { v: null } : null;
+  if (k === 'ai_limit') return Number.isInteger(v) && v >= 1 && v <= 500 ? { v } : null;
+  if (k === 'nudge') return typeof v === 'boolean' ? { v } : null;
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const line = (s, n) => typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '';
+  if (k === 'maint') return typeof v.on === 'boolean' ? { v: { on: v.on, text: line(v.text, 200) } } : null;
+  if (k === 'ann') {
+    const text = typeof v.text === 'string' ? v.text.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 600) : '';
+    return text ? { v: { id: Date.now(), at: new Date().toISOString(), title: line(v.title, 60), text, push: v.push === true, pushed: v.push !== true } } : null;
+  }
+  return null;
+}
 async function adminHandle(db, token, body) {
   if (!token || token.startsWith('sb_')) return [401, { error: 'auth' }];
   const uid = await db.user(token);
@@ -31,6 +49,15 @@ async function adminHandle(db, token, body) {
   if (a === 'users') return [200, { users: await db.users() }];
   if (a === 'feedback') return [200, { items: await db.feedback() }];
   if (a === 'log') return [200, { items: await db.journal() }];
+  if (a === 'cfg') return [200, { cfg: await db.cfgGet() }];
+  if (a === 'setcfg') {
+    if (!CFG_KEYS.includes(body.k)) return [400, { error: 'key' }];
+    const c = cfgClean(body.k, body.v);
+    if (!c) return [400, { error: 'value' }];
+    await db.cfgSet(body.k, c.v);
+    await db.log(uid, 'cfg', body.k, { v: body.k === 'ann' && c.v ? { title: c.v.title, push: c.v.push } : c.v });
+    return [200, { ok: true, v: c.v }];
+  }
   if (a === 'fbdone') {
     const id = body.id, done = body.done !== false;
     if (!Number.isInteger(id) || id < 1) return [400, { error: 'id' }];
@@ -122,6 +149,11 @@ const db = {
   async fbDone(id, done) {
     const { data, error } = await sb.from('feedback').update({ done_at: done ? iso(Date.now()) : null }).eq('id', id).select('id');
     if (error) throw error; return !!(data && data.length);
+  },
+  async cfgGet() { const { data, error } = await sb.from('app_config').select('k,v'); if (error) throw error; return Object.fromEntries((data || []).map(x => [x.k, x.v])); },
+  async cfgSet(k, v) {
+    const { error } = v === null ? await sb.from('app_config').delete().eq('k', k) : await sb.from('app_config').upsert({ k, v, updated_at: new Date().toISOString() });
+    if (error) throw error;
   },
   async journal() {
     const { data, error } = await sb.from('admin_log').select('id,at,admin,action,target').order('id', { ascending: false }).limit(150);

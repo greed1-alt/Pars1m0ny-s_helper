@@ -13,6 +13,8 @@
 //    И помощник пишет сам — до 3 раз в день, только по делу, ночью тихо (nudgeCands / pickNudge / nudgePayload, с 23 октября 2026).
 //    С 27 октября 2026 пуши из очередей (сообщения, заявки) — сразу: база вызывает функцию с {"queue":true} при записи в очередь
 //    (supabase/sql/push_now.sql) — тогда разбираются только очереди (queueTick).
+//    С 27 октября 2026 — настройки из админки (app_config, supabase/sql/admin2.sql): nudge = false выключает «помощник пишет сам» всем,
+//    объявление с «отправить уведомлением» уходит всем один раз (annPushes); админам — о новом отзыве и попытке открыть админку без прав (adminPushes).
 //    В воскресенье вечерняя сводка — итоги недели (weekPayload, с 27 октября 2026); повтор «через неделю» — repeat.every = 2 (wkNum).
 // 2) Приложение с токеном пользователя и {"test":true} — проверочное уведомление на устройства этого человека
 //    (не чаще раза в минуту).
@@ -301,6 +303,7 @@ async function tick(now) {
   if (error) throw error;
   const byUser = new Map();
   for (const s of subs || []) { if (!byUser.has(s.user_id)) byUser.set(s.user_id, []); byUser.get(s.user_id).push(s); }
+  const cfg = await appCfg();
   let due = 0, sent = 0, rows = [];
   if (byUser.size) {
     const { data: rs, error: e2 } = await sb.from('user_data').select('user_id,data').in('user_id', [...byUser.keys()]);
@@ -319,7 +322,7 @@ async function tick(now) {
         sent += (await sendTo(byUser.get(row.user_id), JSON.stringify(digestPayload(d, data)), 3 * 3600)).ok;
       }
       // Помощник пишет сам: есть повод — смотрим, что уже отправлено за 3 дня (журнал reminder_log, ключи nudge|…), и шлём не больше одного
-      const nc = nudgeCands(data, now);
+      const nc = cfg.nudge === false ? [] : nudgeCands(data, now);   // выключено в админке — всем
       if (nc.length) {
         const { data: lg } = await sb.from('reminder_log').select('key,fire_at').eq('user_id', row.user_id).like('key', 'nudge|%').gte('fire_at', new Date(now - 3 * DAY).toISOString());
         const n = pickNudge(nc, (lg || []).map(x => ({ key: x.key, at: Date.parse(x.fire_at) })), now, tz);
@@ -330,6 +333,8 @@ async function tick(now) {
   await sb.from('reminder_log').delete().lt('fire_at', new Date(now - 3 * DAY).toISOString());   // журнал за 3 дня, старше не нужен
   sent += await friendPushes(byUser, rows, now);
   sent += await msgPushes(byUser, rows);
+  sent += await annPushes(byUser, rows, now, cfg);
+  sent += await adminPushes(now);
   return { users: byUser.size, due, sent };
 }
 
@@ -388,14 +393,56 @@ async function msgPushes(byUser, rows) {
 async function queueTick(now) {
   const [{ data: m }, { data: f }] = await Promise.all([sb.from('msg_notify').select('to_uid').limit(300), sb.from('fr_notify').select('to_uid').is('sent_at', null).limit(200)]);
   const ids = [...new Set([...(m || []), ...(f || [])].map(x => x.to_uid))];
-  if (!ids.length) return { users: 0, sent: 0 };
+  const ap = await adminPushes(now);   // отзывы и попытки без прав — тоже сразу (триггеры admin2.sql)
+  if (!ids.length) return { users: 0, sent: ap };
   const [{ data: subs, error }, { data: rs }] = await Promise.all([sb.from('push_subscriptions').select('endpoint,p256dh,auth,user_id').in('user_id', ids),
     sb.from('user_data').select('user_id,settings:data->settings').in('user_id', ids)]);
   if (error) throw error;
   const byUser = new Map();
   for (const s of subs || []) { if (!byUser.has(s.user_id)) byUser.set(s.user_id, []); byUser.get(s.user_id).push(s); }
   const rows = (rs || []).map(r => ({ user_id: r.user_id, data: { settings: r.settings && typeof r.settings === 'object' ? r.settings : {} } }));
-  return { users: ids.length, sent: (await friendPushes(byUser, rows, now)) + (await msgPushes(byUser, rows)) };
+  return { users: ids.length, sent: ap + (await friendPushes(byUser, rows, now)) + (await msgPushes(byUser, rows)) };
+}
+
+// Настройки из админки (app_config): таблицы ещё нет — пусто, всё как раньше
+async function appCfg() { const { data, error } = await sb.from('app_config').select('k,v'); return error ? {} : Object.fromEntries((data || []).map(x => [x.k, x.v])); }
+// Объявление всем — один раз: сначала помечаем отправленным (два запуска одновременно не пришлют дважды), потом шлём всем, кроме выключивших
+// «Новости Parsimony» (S.settings.newsPush = false)
+async function annPushes(byUser, rows, now, cfg) {
+  const a = cfg.ann; if (!a || typeof a !== 'object' || !a.push || a.pushed !== false || !a.id) return 0;
+  const { data: got } = await sb.from('app_config').update({ v: { ...a, pushed: true }, updated_at: new Date(now).toISOString() }).eq('k', 'ann').eq('v->>id', String(a.id)).eq('v->>pushed', 'false').select('k');
+  if (!got || !got.length) return 0;
+  const st = new Map(rows.map(r => [r.user_id, (r.data || {}).settings || {}]));
+  const body = JSON.stringify({ title: String(a.title || 'Новости Parsimony').slice(0, 60), body: String(a.text || '').replace(/\s+/g, ' ').slice(0, 180), tag: 'ann', url: './#s=home', s: 'home' });
+  let ok = 0;
+  for (const [uid, subs] of byUser) if ((st.get(uid) || {}).newsPush !== false) ok += (await sendTo(subs, body, 24 * 3600)).ok;
+  return ok;
+}
+// Админам: новый отзыв и попытка открыть админку без прав — каждое один раз (push_at: сначала пометить, потом слать); выключается в админке
+// → «Настройки» → «Мои уведомления» (S.settings.admPush.fb / .deny). Нажатие — админка на нужной вкладке (#s=admfb / #s=admlog)
+const FB_NAME = { unclear: 'непонятно', inconvenient: 'неудобно', bug: 'ошибка', idea: 'идея', other: 'другое' };
+async function adminPushes(now) {
+  const [f0, d0] = await Promise.all([sb.from('feedback').select('id').is('push_at', null).order('id').limit(20), sb.from('admin_log').select('id').eq('action', 'denied').is('push_at', null).order('id').limit(20)]);
+  const fIds = (f0.error ? [] : f0.data || []).map(x => x.id), dIds = (d0.error ? [] : d0.data || []).map(x => x.id);
+  if (!fIds.length && !dIds.length) return 0;
+  const at = new Date(now).toISOString(), none = { data: [] };
+  const [fr, dr] = await Promise.all([fIds.length ? sb.from('feedback').update({ push_at: at }).in('id', fIds).is('push_at', null).select('id,kind,body,email') : none,
+    dIds.length ? sb.from('admin_log').update({ push_at: at }).in('id', dIds).is('push_at', null).select('id,admin') : none]);
+  const fb = fr.data || [], dn = dr.data || [];
+  if (!fb.length && !dn.length) return 0;
+  const { data: ad } = await sb.from('admins').select('user_id'), ids = (ad || []).map(x => x.user_id);
+  if (!ids.length) return 0;
+  const [{ data: subs }, { data: rs }] = await Promise.all([sb.from('push_subscriptions').select('endpoint,p256dh,auth,user_id').in('user_id', ids), sb.from('user_data').select('user_id,settings:data->settings').in('user_id', ids)]);
+  const mail = {};
+  for (const x of dn) if (x.admin && !(x.admin in mail)) { const { data } = await sb.auth.admin.getUserById(x.admin); mail[x.admin] = (data && data.user && data.user.email) || 'неизвестный аккаунт'; }
+  let ok = 0;
+  for (const uid of ids) {
+    const s = (subs || []).filter(x => x.user_id === uid), p = (((rs || []).find(r => r.user_id === uid) || {}).settings || {}).admPush || {};
+    if (!s.length) continue;
+    if (p.fb !== false) for (const x of fb) ok += (await sendTo(s, JSON.stringify({ title: 'Новый отзыв · ' + (FB_NAME[x.kind] || 'отзыв'), body: String(x.body || '').replace(/\s+/g, ' ').slice(0, 140) + (x.email ? ' — ' + x.email : ''), tag: 'adm-fb', url: './#s=admfb', s: 'admfb' }), 24 * 3600)).ok;
+    if (p.deny !== false) for (const x of dn) ok += (await sendTo(s, JSON.stringify({ title: 'Попытка открыть админку', body: (mail[x.admin] || 'неизвестный аккаунт') + ' — без прав, доступ закрыт', tag: 'adm-deny', url: './#s=admlog', s: 'admlog' }), 24 * 3600)).ok;
+  }
+  return ok;
 }
 
 async function testPush(uid) {

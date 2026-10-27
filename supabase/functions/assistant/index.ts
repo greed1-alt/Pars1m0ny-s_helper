@@ -45,6 +45,14 @@ const IMG_MAX = 3, IMG_ITEMS = 5, SCHED_MAX = 40;   // картинок в од�
 const NAV = ['home', 'cal', 'tasks', 'goals', 'habits', 'fin', 'budget', 'missed', 'profile', 'settings', 'set_look', 'set_cal', 'set_cats', 'set_layout', 'sections', 'set_notif', 'set_data', 'tour', 'feedback'];
 
 const sb = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
+// Лимит в сутки можно поменять в админке без переопубликации (app_config.ai_limit, 27 октября 2026); иначе — AI_DAILY_LIMIT. Читаем не чаще раза в минуту
+let limCache = { at: 0, v: DAILY };
+async function dailyLimit() {
+  if (Date.now() - limCache.at < 60e3) return limCache.v;
+  const { data, error } = await sb.from('app_config').select('v').eq('k', 'ai_limit').maybeSingle(), n = Number(data && data.v);
+  limCache = { at: Date.now(), v: !error && Number.isInteger(n) && n >= 1 && n <= 500 ? n : DAILY };
+  return limCache.v;
+}
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 
@@ -512,7 +520,8 @@ Deno.serve(async req => {
     if (!text && !stt) return json({ error: 'empty' }, 400);
     const ctx = body.ctx && typeof body.ctx === 'object' ? body.ctx : {};
     const hello = body.mode === 'hello';
-    // Лимит на человека в сутки (по UTC); счётчик — в ai_usage (supabase/sql/assistant.sql)
+    // Лимит на человека в сутки (по UTC; сколько — dailyLimit); счётчик — в ai_usage (supabase/sql/assistant.sql)
+    const LIM = await dailyLimit();
     const day = new Date().toISOString().slice(0, 10);
     // Сообщение с только что распознанным голосом (подпись vt от mode 'stt') — уже посчитано при распознавании
     const free = !hello && !stt && typeof body.vt === 'string' && body.vt.length < 100 && body.vt === await vtSign(u.user.id, day, text);
@@ -522,7 +531,7 @@ Deno.serve(async req => {
       const { data, error: le } = await sb.rpc('ai_use', { p_user: u.user.id, p_day: day });
       if (le) throw le;
       n = data;
-      if (n > DAILY) return json({ error: 'limit', limit: DAILY }, 429);
+      if (n > LIM) return json({ error: 'limit', limit: LIM }, 429);
       if (n === 1) await sb.from('ai_usage').delete().lt('day', new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10));
     }
     // Сбой нейросети или картинки — запрос не считается, счётчик возвращается назад (аудит 18 октября 2026: 402, 429, «ответила непонятно»
@@ -535,7 +544,7 @@ Deno.serve(async req => {
       if (m.error) { await refund(); return json({ error: m.error, code: m.code || 0, p: PROVIDER }, m.error === 'off' ? 503 : 502); }
       const o = jsonOf(m.text), est = o ? cleanEst(o.est, l) : [];
       if (!est.length) { console.error('parse day', PROVIDER, 'длина ответа', String(m.text || '').length); await refund(); return json({ error: 'parse', p: PROVIDER }, 502); }
-      return json({ est, reply: block(o.reply, 300), left: Math.max(0, DAILY - n) });
+      return json({ est, reply: block(o.reply, 300), left: Math.max(0, LIM - n) });
     }
     if (stt) {   // голос: запись → хранилище GigaChat → текст → запись удаляется
       const au = audioOf(body.audio);
@@ -549,7 +558,7 @@ Deno.serve(async req => {
       if (m.error) { await refund(); return json({ error: m.error, code: m.code || 0, p: PROVIDER }, m.error === 'off' ? 503 : 502); }
       const said = sttText(m.text);
       if (!said) await refund();   // ничего не расслышали — запрос не считается
-      return json({ text: said, vt: said ? await vtSign(u.user.id, day, said) : '', left: Math.max(0, DAILY - (said ? n : n - 1)) });
+      return json({ text: said, vt: said ? await vtSign(u.user.id, day, said) : '', left: Math.max(0, LIM - (said ? n : n - 1)) });
     }
     // Картинки: до IMG_MAX в body.images (старое приложение присылает одну в body.image), каждая — JPEG или PNG
     const raw = hello ? [] : Array.isArray(body.images) ? body.images : body.image ? [body.image] : [];
@@ -568,7 +577,7 @@ Deno.serve(async req => {
     if (m.error) { await refund(); return json({ error: m.error, code: m.code || 0, p: PROVIDER }, m.error === 'off' ? 503 : 502); }   // p — какая нейросеть ответила (видно в окне помощника)
     const out = m.out || outOf(m.text);
     if (!out) { console.error('parse', PROVIDER, 'длина ответа', String(m.text || '').length); await refund(); return json({ error: 'parse', p: PROVIDER }, 502); }   // сам текст в журнал не пишем
-    const left = Math.max(0, DAILY - n);
+    const left = Math.max(0, LIM - n);
     let reply = block(out.reply, hello ? 500 : 1500);
     if (hello) return json({ reply, items: [], nav: [], left });
     // img (с какой картинки запись) cleanItem отбрасывает — переносим его, capImg считает по нему и убирает
