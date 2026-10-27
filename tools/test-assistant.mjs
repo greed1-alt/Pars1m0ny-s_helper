@@ -14,7 +14,7 @@ const ok = (c, msg, x) => { if (!c) { console.log('FAIL', msg, x === undefined ?
 // 1) сообщение, проверки
 {
   const mod = `const Deno = { env: { get: k => ({ AI_PROVIDER: 'gigachat' })[k] } };\n` + cut('const env =', 'const sb =') + cut('// ---- Проверка', '// ---- Нейросеть:') +
-    `\nexport { userMessage, cleanNav, block, histOf, SYSTEM, HELLO, LITE, MODEL, cleanItem, DAYP, dayList, dayMsg, cleanEst, fillCats, capImg, SCHED_MAX };`;
+    `\nexport { userMessage, cleanNav, block, histOf, SYSTEM, HELLO, LITE, MODEL, cleanItem, DAYP, dayList, dayMsg, cleanEst, fillCats, capImg, SCHED_MAX, schedEvents };`;
   const f = join(TMP, 'c.mjs'); writeFileSync(f, mod); const m = await import(pathToFileURL(f).href);
   ok(m.LITE === 'GigaChat-2' && m.MODEL === 'GigaChat-2-Pro', 'models', [m.LITE, m.MODEL]);
   const u = m.userMessage('кофе 350', { today: '2026-10-16', now: '14:05', tz: 'Europe/Moscow', cats: ['Работа'], fin: [{ n: 'Кафе', g: 'exp' }], habits: ['Вода'], goals: ['Английский'], taunts: true, praise: false, style: [{ k: 'taunt', t: 'Ну и?' }], data: 'Дела:\nсб 17.10: Врач' }, { history: [{ r: 'u', t: 'привет' }, { r: 'a', t: 'Здравствуйте' }, { r: 'x', t: 'лишнее' }] });
@@ -60,6 +60,8 @@ const ok = (c, msg, x) => { if (!c) { console.log('FAIL', msg, x === undefined ?
     { title: 'Физика', dow: '4', time: '11:00' }, { title: 'Без дня', dow: null, time: '12:00' }, { title: 'Без времени', dow: 2 }, { title: 'Злой', dow: 9, time: '10:00' }, ...Array(60).fill({ title: 'x', dow: 1, time: '08:00' })] });
   ok(sc.title === 'Расписание' && sc.until === '2026-12-28' && sc.lessons.length === 37 && sc.lessons[0].title === 'Математика' && sc.lessons[0].weeks === 'odd' && sc.lessons[1].dow === 4 && sc.lessons[1].weeks === 'all' && sc.lessons[1].time2 === null, 'schedule', sc.lessons.slice(0, 2));
   ok(m.cleanItem({ type: 'schedule', lessons: [] }) === null && m.SCHED_MAX === 40, 'schedule junk');
+  const se = m.schedEvents(sc, '2026-10-27', 1);   // вторник: понедельничная пара — со следующего понедельника, пятничная — с этой пятницы
+  ok(se.length === 5 && se[0].type === 'event' && se[0].date === '2026-11-02' && se[0].repeat.type === 'weekly' && se[0].repeat.days[0] === 0 && se[0].repeat.until === '2026-12-28' && se[1].date === '2026-10-30' && se[0].cat === 'Учёба', 'schedule for old app', se.slice(0, 2));
   ok(m.capImg([sc, { type: 'event', title: 'q', img: 1 }], 1).items.length === 2, 'schedule — одна запись в счёте картинки');
   ok(m.SYSTEM.includes('"schedule"') && m.SYSTEM.includes('числителю') && m.SYSTEM.includes('"new_cat":true') && m.SYSTEM.includes('разбей ремонт на шаги') && m.SYSTEM.includes('"every":2'), 'prompt: schedule, new_cat, steps, every');
   ok(m.SYSTEM.includes('не больше 5 записей') && m.SYSTEM.includes('"img"'), 'image limits in prompt');

@@ -464,7 +464,7 @@ async function aiSend(text) {
   ai.msgs.push({ r:'u', t:text, day: todayK(), ...(imgs.length ? { imgs: imgs.map(x => x.thumb) } : {}), ...(vt ? { v: vt.secs } : {}) }); ai.draft = ''; ai.err = ''; ai.errT = null; ai.errV = null; ai.busy = true; ai.imgs = []; aiClearAsk = 0; aiStore();
   if (ta && text === ta.value.trim()) { ta.value = ''; aiGrow(); }
   aiRefresh();
-  const j = await aiCall({ mode:'chat', text: text || (imgs.length > 1 ? 'Разбери картинки и добавь в приложение, что на них' : 'Разбери картинку и добавь в приложение, что на ней'), ask, edit, history, ctx: aiCtx(ask || edit, R, edit ? text : ''), ...(vt ? { vt: vt.vt } : {}),
+  const j = await aiCall({ mode:'chat', caps: ['schedule'], text: text || (imgs.length > 1 ? 'Разбери картинки и добавь в приложение, что на них' : 'Разбери картинку и добавь в приложение, что на ней'), ask, edit, history, ctx: aiCtx(ask || edit, R, edit ? text : ''), ...(vt ? { vt: vt.vt } : {}),
     // картинки — списком images; одна — ещё и в image: так её поймёт и прежняя версия функции assistant
     ...(imgs.length ? { images: imgs.map(x => x.data), ...(imgs.length === 1 ? { image: imgs[0].data } : {}) } : {}) });
   ai.busy = false;
