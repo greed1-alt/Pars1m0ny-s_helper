@@ -18,12 +18,13 @@
 // объявление всем (ann), плашка «идут работы» (maint), лимит помощника (ai_limit), «помощник пишет сам» для всех (nudge).
 // С 28 октября 2026 — подписки (supabase/sql/subscriptions.sql): выдать Плюс или Премиум на N дней (grant) и отменить (revoke), тариф в списке людей,
 // число подписчиков в сводке; в настройках — включить тарифы (tiers_on) и лимиты помощника по тарифам (limits).
+// С 28 октября 2026 — ParsiCoins (supabase/sql/coins.sql): баланс в списке людей, начислить или списать (не ниже нуля) с пометкой — coins.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 // ==== ADMIN start ==== (тест: tools/test-admin.mjs; db — доступ к базе, в тесте — подделка)
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@<>"'`,;:()[\]\\]{1,64}@[^\s@<>"'`,;:()[\]\\]+\.[a-zа-яё0-9-]{2,}$/i;
-const ACTIONS = ['stats', 'users', 'invite', 'ban', 'unban', 'nick', 'name', 'del', 'feedback', 'fbdone', 'log', 'cfg', 'setcfg', 'grant', 'revoke'];
+const ACTIONS = ['stats', 'users', 'invite', 'ban', 'unban', 'nick', 'name', 'del', 'feedback', 'fbdone', 'log', 'cfg', 'setcfg', 'grant', 'revoke', 'coins'];
 const CFG_KEYS = ['ann', 'maint', 'ai_limit', 'nudge', 'tiers_on', 'limits'], PLANS = ['plus', 'premium'];
 // Значение настройки — только известного вида; null — убрать объявление или плашку. У объявления id и время ставит сервер,
 // pushed: false — уведомление ещё не отправлено (его отправит функция reminders один раз)
@@ -75,16 +76,22 @@ async function adminHandle(db, token, body) {
     await db.log(uid, 'invite', email, { result: r });
     return [200, { result: r }];
   }
-  // Подписка: выдать на N дней (добавляется к оставшемуся сроку) или отменить — кому угодно, в том числе себе (для проверки)
-  if (a === 'grant' || a === 'revoke') {
+  // Подписка: выдать на N дней (добавляется к оставшемуся сроку) или отменить; ParsiCoins — начислить или списать. Кому угодно, в том числе себе (для проверки)
+  if (a === 'grant' || a === 'revoke' || a === 'coins') {
     const id = typeof body.id === 'string' && UUID_RE.test(body.id) ? body.id.toLowerCase() : '';
     if (!id) return [400, { error: 'id' }];
     const who = await db.email(id);
     if (!who) return [404, { error: 'none' }];
     if (a === 'revoke') { await db.revoke(id); await db.log(uid, 'revoke', who); return [200, { ok: true }]; }
+    const note = typeof body.note === 'string' ? body.note.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+    if (a === 'coins') {
+      if (!Number.isInteger(body.amt) || body.amt === 0 || Math.abs(body.amt) > 100000) return [400, { error: 'amt' }];
+      const bal = await db.coins(id, body.amt, note);
+      await db.log(uid, 'coins', who, { amt: body.amt });
+      return [200, { ok: true, bal }];
+    }
     if (!PLANS.includes(body.plan)) return [400, { error: 'plan' }];
     if (!Number.isInteger(body.days) || body.days < 1 || body.days > 3660) return [400, { error: 'days' }];
-    const note = typeof body.note === 'string' ? body.note.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
     const until = await db.grant(id, body.plan, body.days, note);
     await db.log(uid, 'grant', who, { plan: body.plan, days: body.days });
     return [200, { ok: true, until }];
@@ -142,11 +149,11 @@ const db = {
     const users = await allUsers(), today = iso(Date.now()).slice(0, 10);
     const [ud, subs, prof, adm, ai] = await Promise.all([sb.from('user_data').select('user_id,updated_at'), sb.from('push_subscriptions').select('user_id'),
       sb.from('profiles').select('user_id,nick,name'), sb.from('admins').select('user_id'), sb.from('ai_usage').select('user_id,n').eq('day', today)]);
-    const sub = await sb.from('subscriptions').select('user_id,plan,until,source,note');
-    const m = (r, k) => new Map(rows(r).map(x => [x.user_id, k ? x[k] : x])), sync = m(ud, 'updated_at'), pr = m(prof), ad = m(adm), aiN = m(ai, 'n'), sp = m(sub), dev = {};
+    const [sub, cn] = await Promise.all([sb.from('subscriptions').select('user_id,plan,until,source,note'), sb.from('coins').select('user_id,bal')]);
+    const m = (r, k) => new Map(rows(r).map(x => [x.user_id, k ? x[k] : x])), sync = m(ud, 'updated_at'), pr = m(prof), ad = m(adm), aiN = m(ai, 'n'), sp = m(sub), bal = m(cn, 'bal'), dev = {};
     rows(subs).forEach(r => { dev[r.user_id] = (dev[r.user_id] || 0) + 1; });
     return users.map(u => ({ id: u.id, email: u.email || '', created: u.created_at, seen: u.last_sign_in_at || null, sync: sync.get(u.id) || null,
-      nick: (pr.get(u.id) || {}).nick || '', name: (pr.get(u.id) || {}).name || '', dev: dev[u.id] || 0, ai: aiN.get(u.id) || 0, admin: ad.has(u.id), banned: banned(u),
+      nick: (pr.get(u.id) || {}).nick || '', name: (pr.get(u.id) || {}).name || '', dev: dev[u.id] || 0, ai: aiN.get(u.id) || 0, bal: bal.get(u.id) || 0, admin: ad.has(u.id), banned: banned(u),
       ...(sp.has(u.id) ? { plan: Date.parse(sp.get(u.id).until) > Date.now() ? sp.get(u.id).plan : '', until: sp.get(u.id).until, subSrc: sp.get(u.id).source, subNote: sp.get(u.id).note || '' } : {}) }))
       .sort((a, b) => String(b.sync || b.seen || b.created).localeCompare(String(a.sync || a.seen || a.created)));
   },
@@ -179,6 +186,8 @@ const db = {
     if (error) throw error; return until;
   },
   async revoke(id) { const { error } = await sb.from('subscriptions').delete().eq('user_id', id); if (error) throw error; },
+  // ParsiCoins: всё — функция базы coins_admin (баланс не уходит ниже нуля, запись в историю человека)
+  async coins(id, amt, note) { const { data, error } = await sb.rpc('coins_admin', { p_user: id, p_amt: amt, p_note: note || null }); if (error) throw error; return data; },
   async cfgGet() { const { data, error } = await sb.from('app_config').select('k,v'); if (error) throw error; return Object.fromEntries((data || []).map(x => [x.k, x.v])); },
   async cfgSet(k, v) {
     const { error } = v === null ? await sb.from('app_config').delete().eq('k', k) : await sb.from('app_config').upsert({ k, v, updated_at: new Date().toISOString() });

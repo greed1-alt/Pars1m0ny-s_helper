@@ -193,6 +193,7 @@ declare
   wt int := 0; wh int := 0; tt int := 0; th int := 0;
   hs jsonb[] := '{}'; st text[] := '{}'; first text := ts; m text;
   dd date; dk text; pl int; dn int; run int := 0; best int := 0; i int;
+  fz jsonb := case when jsonb_typeof(d->'frz') = 'array' then d->'frz' else '[]'::jsonb end;   -- заморозки серии (coins.sql)
 begin
   -- Задачи: за неделю — без примеров; за всё время — все (как в профиле)
   if jsonb_typeof(d->'events') = 'array' then
@@ -235,7 +236,7 @@ begin
       end if;
     end loop;
   end if;
-  -- Серия: дни подряд, когда выполнены все запланированные ежедневные привычки; сегодня серию не обрывает
+  -- Серия: дни подряд, когда выполнены все запланированные ежедневные привычки; сегодня и замороженный день серию не обрывают
   if coalesce(array_length(hs, 1), 0) > 0 then
     if first collate "C" < (today - 730)::text collate "C" then first := (today - 730)::text; end if;
     begin dd := first::date; exception when others then dd := today; end;
@@ -249,7 +250,7 @@ begin
         end if;
       end loop;
       if pl > 0 and dn = pl then run := run + 1; best := greatest(best, run);
-      elsif pl > 0 and dd <> today then run := 0; end if;
+      elsif pl > 0 and dd <> today and not (fz ? dk) then run := 0; end if;
       dd := dd + 1;
     end loop;
   end if;

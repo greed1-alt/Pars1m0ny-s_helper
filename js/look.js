@@ -121,7 +121,8 @@ const lookSeg = k => `<div class="seg2 lk-seg" role="group">${LOOK_OPT[k].map(([
 const lookRow = (k, label) => `<div class="lk-row"><div class="lk-h">${label}${hintK(k)}</div>${lookSeg(k)}</div>`;
 // Плитка палитры: маленький макет «страница — карточка — кнопка» в её цветах для текущей темы
 const palPv = k => { const st = S.settings, c = palColors(k, darkNow(), st.theme === 'black'); return `<span class="pal-pv" style="--p:${c.pg};--s:${c.sf};--a:${c.acc};--l:${c.line};--t:${c.tx2}"><i></i><b></b><em></em></span>`; };
-const palSw = k => `<button class="pal${S.settings.pal === k ? ' on' : ''}" data-act="look" data-k="pal" data-v="${k}" aria-pressed="${S.settings.pal === k}">${palPv(k)}${PAL[k].n}</button>`;
+// Не своя палитра (магазин, shop.js) — со значком цены, нажатие открывает её в магазине
+const palSw = k => `<button class="pal${S.settings.pal === k ? ' on' : ''}" data-act="look" data-k="pal" data-v="${k}" aria-pressed="${S.settings.pal === k}">${palPv(k)}${PAL[k].n}${palLock(k)}</button>`;
 function lookHTML() {
   const st = S.settings;
   return `<div class="set-sec">Оформление</div>
@@ -149,5 +150,5 @@ function openPal(keep) {
   $('#ov').classList.add('ov-light');
 }
 ACT.palpick = () => openPal();
-ACT.look = el => { const k = el.dataset.k, v = el.dataset.v; if (k === 'pal' ? !PAL[v] : !LOOK_OPT[k]) return; S.settings[k] = v; save(); render(); if (k === 'pal' && $('.pals-sh')) openPal(true); };
+ACT.look = el => { const k = el.dataset.k, v = el.dataset.v; if (k === 'pal' ? !PAL[v] : !LOOK_OPT[k]) return; if (k === 'pal' && !palOk(v)) return openShopItem('pal:' + v); S.settings[k] = v; save(); render(); if (k === 'pal' && $('.pals-sh')) openPal(true); };
 ACT.lookreset = () => { Object.assign(S.settings, LOOK_DEF); save(); render(); toast('Оформление — как по умолчанию'); };

@@ -61,7 +61,7 @@ function frFeed() {
 }
 // Имя и значок — из профиля; фото не уходит (оно хранится только на устройстве)
 const frBody = () => { const st = S.settings, a = st.avatar || {}; const cv = st.cover || {};
-  const b = { name: (st.name || '').trim().slice(0, 40), ava: { e: a.e || '', c: safeColor(a.c || '#6366f1'), cv: okImg(cv.img) ? '' : cv.p || '' }, feed: frFeed() };
+  const b = { name: (st.name || '').trim().slice(0, 40), ava: { e: a.e || '', c: safeColor(a.c || '#6366f1'), cv: okImg(cv.img) ? '' : cv.p || '', fm: FRAMES[st.frame] ? st.frame : '' }, feed: frFeed() };
   if (st.frRank !== undefined) b.rank = !!st.frRank;   // общий список — только если человек сам его включал или выключал (до нового SQL столбца rank нет)
   return b; };
 
@@ -107,7 +107,8 @@ const frSt = s => {
 };
 const frTot = f => f.st ? { t: f.st.tt, h: f.st.th, b: f.st.b } : f.feed ? f.feed.tot : { t: 0, h: 0, b: 0 };
 // Значок — только из набора профиля (AVA_EMOJI): другого приложение не позволяет выбрать
-const frAvaOk = a => ({ e: a && AVA_EMOJI.includes(a.e) ? a.e : '', c: safeColor(a && a.c), cv: a && typeof a.cv === 'string' && Object.hasOwn(COVERS, a.cv) ? a.cv : '' });   // обложка — только из набора
+const frAvaOk = a => ({ e: a && AVA_EMOJI.includes(a.e) ? a.e : '', c: safeColor(a && a.c), cv: a && typeof a.cv === 'string' && Object.hasOwn(COVERS, a.cv) ? a.cv : '',
+  fm: a && typeof a.fm === 'string' && Object.hasOwn(FRAMES, a.fm) ? a.fm : '' });   // обложка и рамка (shop.js) — только из набора
 const frRow = r => r && /^[0-9a-f-]{36}$/i.test(r.uid || '') && ['ok', 'in', 'out'].includes(r.state) ? {
   uid: r.uid, nick: FR_NICK.test(r.nick || '') ? r.nick : '', name: String(r.name || '').slice(0, 40),
   ava: frAvaOk(r.ava),
@@ -176,10 +177,10 @@ const frDot = () => frIncoming().length ? '<i class="fr-dot" aria-hidden="true">
 const frReal = f => (f.name || '').trim() || (f.nick ? '@' + f.nick : 'Без имени');
 const frName = f => (frNote(f.uid).n || '').trim() || frReal(f);   // своё имя для друга (заметки) — вместо его имени
 function frAva(f, size) {
-  const a = f.ava || {}, n = initials(f.name);
-  return `<span class="ava${a.e ? ' em' : ''}" style="--c:${safeColor(a.c)};--s:${size}px" aria-hidden="true">${a.e ? esc(a.e) : n ? esc(n) : I(IC.user, Math.round(size * .55))}</span>`;
+  const a = f.ava || {}, n = initials(f.name), fm = frameAttr(a.fm);
+  return `<span class="ava${a.e ? ' em' : ''}${fm.c}" style="--c:${safeColor(a.c)};--s:${size}px${fm.s}" aria-hidden="true">${a.e ? esc(a.e) : n ? esc(n) : I(IC.user, Math.round(size * .55))}</span>`;
 }
-const frMe = () => ({ me: true, name: S.settings.name || 'Вы', ava: { e: (S.settings.avatar || {}).e, c: (S.settings.avatar || {}).c }, wk: frWeekStats() });
+const frMe = () => ({ me: true, name: S.settings.name || 'Вы', ava: { e: (S.settings.avatar || {}).e, c: (S.settings.avatar || {}).c, fm: S.settings.frame }, wk: frWeekStats() });
 // Числа друга за эту неделю: лента не обновлялась с прошлой недели — нули; серия — если заходил вчера или сегодня
 function frWk(f) {
   const t = todayK(), w = f.st || f.feed && f.feed.wk || {}, at = f.st ? f.st.at : f.feed && f.feed.at, cur = w.w === frMonday(t), live = at >= addDays(t, -1);

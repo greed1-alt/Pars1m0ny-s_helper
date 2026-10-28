@@ -1,5 +1,5 @@
 // ---- Цели: срок, шаги, прогресс и темп, подначки за пропуски и похвалы за успехи ----
-// S.goals = [{ id, title, emoji, due, created, why, done, doneAt, steps:[{ id, t, done }] }]
+// S.goals = [{ id, title, emoji, due, created, why, done, doneAt, steps:[{ id, t, done, doneAt }] }]; doneAt шага — для заданий ParsiCoins (shop.js)
 // Шаг без даты лежит в goal.steps. Шаг со сроком — обычная задача календаря (task:true) с полем goal = id цели:
 // он виден в «Задачах», «Календаре» и плане дня, а пропущенный попадает в «Вы пропустили».
 const GOAL_EMOJI = ['🎯', '🏆', '🏠', '💰', '📚', '💪', '✈️', '🚗', '💼', '🎓', '❤️', '🧘', '🎨', '🌍', '🚀', '⭐'];
@@ -255,9 +255,10 @@ ACT.gstepdate = el => { gKeep(); gForm.dateFor = el.dataset.k; drawGoal(true); c
 ACT.gstep = el => {
   const g = curGoal(); if (!g) return; const x = findStep(g, el.dataset.k);
   if (x.e) { toggleDone(x.e.id, isRec(x.e) ? nextOcc(x.e) : x.e.date); drawGoal(true); return; }
-  if (!x.s) return; x.s.done = !x.s.done; save(); render(); drawGoal(true); if (x.s.done) goalStepDone(g.id);
+  if (!x.s) return; stepTick(x.s); save(); render(); drawGoal(true); if (x.s.done) goalStepDone(g.id);
 };
-ACT.gfree = el => { const g = goalById(el.dataset.g), s = g && g.steps.find(x => x.id === el.dataset.s); if (!s) return; s.done = !s.done; save(); render(); if (s.done) goalStepDone(g.id); };
+const stepTick = s => { s.done = !s.done; if (s.done) s.doneAt = todayK(); else delete s.doneAt; };
+ACT.gfree = el => { const g = goalById(el.dataset.g), s = g && g.steps.find(x => x.id === el.dataset.s); if (!s) return; stepTick(s); save(); render(); if (s.done) goalStepDone(g.id); };
 ACT.gstepdel = el => {
   const g = curGoal(); if (!g) return; const x = findStep(g, el.dataset.k);
   snap(); if (x.e) S.events = S.events.filter(e => e !== x.e); else if (x.s) g.steps = g.steps.filter(s => s !== x.s);

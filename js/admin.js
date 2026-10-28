@@ -8,9 +8,9 @@ const ADM_KEY = { sum: 'stats', ppl: 'users', fb: 'fbs', set: 'cfg', log: 'log' 
 const ADM_ERR = { auth: 'Войдите в аккаунт заново', forbidden: 'Нет доступа: этот аккаунт не админ', email: 'Это не похоже на почту',
   admin: 'Себя и других админов здесь менять нельзя — только в SQL Editor', none: 'Такого уже нет — обновите список', confirm: 'Почта для подтверждения не совпала',
   server: 'Сервер не ответил — попробуйте ещё раз' };
-const ADM_DONE = { nick: 'Ник сброшен', name: 'Имя сброшено', ban: 'Вход заблокирован', unban: 'Вход разблокирован', del: 'Аккаунт удалён', grant: 'Подписка выдана', revoke: 'Подписка отменена' };
+const ADM_DONE = { nick: 'Ник сброшен', name: 'Имя сброшено', ban: 'Вход заблокирован', unban: 'Вход разблокирован', del: 'Аккаунт удалён', grant: 'Подписка выдана', revoke: 'Подписка отменена', coins: 'Монеты начислены' };
 const ADM_ACT = { invite: 'Приглашение', ban: 'Блокировка входа', unban: 'Разблокировка', nick: 'Сброс ника', name: 'Сброс имени', del: 'Удаление аккаунта',
-  fb_done: 'Отзыв разобран', fb_undone: 'Отзыв — снова новый', denied: 'Попытка открыть без прав', cfg: 'Настройка', grant: 'Выдана подписка', revoke: 'Отменена подписка' };
+  fb_done: 'Отзыв разобран', fb_undone: 'Отзыв — снова новый', denied: 'Попытка открыть без прав', cfg: 'Настройка', grant: 'Выдана подписка', revoke: 'Отменена подписка', coins: 'ParsiCoins' };
 const ADM_CFG = { ann: 'объявление', maint: 'плашка «идут работы»', ai_limit: 'лимит помощника', nudge: 'помощник пишет сам', tiers_on: 'тарифы', limits: 'лимиты по тарифам' };
 const ADM_KIND = Object.fromEntries([...FB_KINDS, ['other', 'Другое']]);
 async function admCall(body) {
@@ -102,7 +102,7 @@ function admUser(id, ask) {
   const lock = u.admin || u.id === auth.uid, uid = esc(u.id), b = (a, label, cls) => `<button class="btn${cls ? ' ' + cls : ''}" data-act="admdo" data-a="${a}" data-id="${uid}">${label}</button>`;
   const yes = (a, label, cls) => `<button class="btn ${cls || 'pri'}" data-act="admyes" data-a="${a}" data-id="${uid}">${label}</button>`, no = `<button class="btn" data-act="admno" data-id="${uid}">Отмена</button>`;
   const sub = u.plan ? `${PLAN_NAME[u.plan]} до ${admDT(u.until)}${u.subSrc === 'pay' ? ' · оплата' : ' · подарок'}${u.subNote ? ' · ' + esc(u.subNote) : ''}` : u.until ? 'закончилась ' + admDT(u.until) : 'нет';
-  const info = [['Ник', u.nick ? '@' + esc(u.nick) : '—'], ['Имя', u.name ? esc(u.name) : '—'], ['Подписка', sub], ['Аккаунт с', admDT(u.created)], ['Последний вход', admDT(u.seen)],
+  const info = [['Ник', u.nick ? '@' + esc(u.nick) : '—'], ['Имя', u.name ? esc(u.name) : '—'], ['Подписка', sub], [COIN, NF0.format(u.bal || 0)], ['Аккаунт с', admDT(u.created)], ['Последний вход', admDT(u.seen)],
     ['Синхронизация', admDT(u.sync)], ['Уведомления', u.dev ? plural(u.dev, ['устройство', 'устройства', 'устройств']) : 'выключены'], ['Помощник сегодня', plural(u.ai, ['запрос', 'запроса', 'запросов'])],
     ['Вход', u.banned ? 'заблокирован' : 'разрешён']];
   const g = ask === 'grant' ? adm.g || (adm.g = { plan: u.plan || 'premium', days: 30 }) : null;
@@ -117,8 +117,12 @@ function admUser(id, ask) {
       <label class="adm-gl"><span>Дней</span><input id="adm_gd" class="fin" type="number" inputmode="numeric" min="1" max="3660" value="${g.days}"></label>
       <input id="adm_gn" class="fin" maxlength="200" placeholder="Пометка для себя: «тестер», «за ошибку в календаре»" aria-label="Пометка">
       <div class="adm-acts">${yes('grant', 'Выдать ' + PLAN_NAME[g.plan])}${no}</div></div>`
-    : ask === 'revoke' ? `<div class="adm-ask"><p><b>Отменить подписку?</b> Тариф сразу станет бесплатным. Записи человека не пропадут.</p><div class="adm-acts">${yes('revoke', 'Отменить подписку', 'dng')}${no}</div></div>` : '';
-  const subActs = `<div class="adm-acts">${b('grant', u.plan ? 'Продлить или сменить подписку…' : 'Выдать подписку…')}${u.plan ? b('revoke', 'Отменить подписку…') : ''}</div>`;
+    : ask === 'revoke' ? `<div class="adm-ask"><p><b>Отменить подписку?</b> Тариф сразу станет бесплатным. Записи человека не пропадут.</p><div class="adm-acts">${yes('revoke', 'Отменить подписку', 'dng')}${no}</div></div>`
+    : ask === 'coins' ? `<div class="adm-ask"><p><b>Начислить ${COIN}</b> — за найденную ошибку, конкурс, в подарок. Со знаком минус — списать (не ниже нуля). Человек увидит это в истории монет вместе с пометкой.</p>
+      <label class="adm-gl"><span>Сколько</span><input id="adm_ca" class="fin" type="number" inputmode="numeric" min="-100000" max="100000" value="100"></label>
+      <input id="adm_cn" class="fin" maxlength="200" placeholder="Пометка, её видит человек: «спасибо за найденную ошибку»" aria-label="Пометка">
+      <div class="adm-acts">${yes('coins', 'Начислить')}${no}</div></div>` : '';
+  const subActs = `<div class="adm-acts">${b('grant', u.plan ? 'Продлить или сменить подписку…' : 'Выдать подписку…')}${u.plan ? b('revoke', 'Отменить подписку…') : ''}${b('coins', 'Начислить ' + COIN + '…')}</div>`;
   const modActs = lock ? `<p class="set-note">${u.id === auth.uid ? 'Это вы.' : 'Это админ.'} Блокировать, удалять и переименовывать админов можно только в SQL Editor.</p>`
     : `<div class="adm-acts">${u.nick ? b('nick', 'Сбросить ник') : ''}${u.name ? b('name', 'Сбросить имя') : ''}${b(u.banned ? 'unban' : 'ban', u.banned ? 'Разблокировать вход' : 'Заблокировать вход…')}${b('del', 'Удалить аккаунт…', 'dng')}</div>
       <p class="set-note">Ник и имя сбрасывают, если они грубые или выдают себя за другого — человек сможет выбрать новые.</p>`;
@@ -127,13 +131,15 @@ function admUser(id, ask) {
   if (ask === 'del') setTimeout(() => { const i = $('#adm_cf'); if (i) i.focus(); }, 50);
 }
 ACT.admuser = el => { adm.g = null; admUser(el.dataset.id); };
-ACT.admdo = el => { const a = el.dataset.a; if (['ban', 'del', 'grant', 'revoke'].includes(a)) { if (a === 'grant') adm.g = null; return admUser(el.dataset.id, a); } admRun(a, el.dataset.id); };
+ACT.admdo = el => { const a = el.dataset.a; if (['ban', 'del', 'grant', 'revoke', 'coins'].includes(a)) { if (a === 'grant') adm.g = null; return admUser(el.dataset.id, a); } admRun(a, el.dataset.id); };
 ACT.admgp = el => { adm.g = Object.assign(adm.g || {}, { plan: el.dataset.p }); admUser(el.dataset.id, 'grant'); };
 ACT.admgd = el => { adm.g = Object.assign(adm.g || {}, { days: Number(el.dataset.d) }); admUser(el.dataset.id, 'grant'); };
 ACT.admyes = el => {
   const a = el.dataset.a, id = el.dataset.id;
   if (a === 'grant') { const d = Math.round(Number(($('#adm_gd') || {}).value)); if (!(d >= 1 && d <= 3660)) return toast('Дней — от 1 до 3660');
     return admRun('grant', id, undefined, { plan: (adm.g || {}).plan || 'premium', days: d, note: ($('#adm_gn') || {}).value || '' }); }
+  if (a === 'coins') { const n = Number(($('#adm_ca') || {}).value); if (!Number.isInteger(n) || !n || Math.abs(n) > 100000) return toast('Целое число от −100 000 до 100 000, не ноль');
+    return admRun('coins', id, undefined, { amt: n, note: ($('#adm_cn') || {}).value || '' }); }
   const cf = $('#adm_cf'); admRun(a, id, cf ? cf.value : undefined);
 };
 ACT.admno = el => admUser(el.dataset.id);
@@ -143,15 +149,16 @@ async function admRun(a, id, confirm, extra) {
   adm.busy++;
   try {
     const j = await admCall({ action: a, id, ...(confirm != null ? { confirm } : {}), ...(extra || {}) });
-    toast(a === 'grant' ? `${PLAN_NAME[extra.plan]} до ${admDT(j.until)}` : ADM_DONE[a]); adm.log = null; adm.stats = null;
+    toast(a === 'grant' ? `${PLAN_NAME[extra.plan]} до ${admDT(j.until)}` : a === 'coins' ? `${COIN}: теперь ${NF0.format(j.bal)}` : ADM_DONE[a]); adm.log = null; adm.stats = null;
     const u = (adm.users || []).find(x => x.id === id);
     if (a === 'del') { adm.users = adm.users.filter(x => x.id !== id); closeSheet(); }
     else {
       if (u) Object.assign(u, a === 'nick' ? { nick: '' } : a === 'name' ? { name: '' } : a === 'grant' ? { plan: extra.plan, until: j.until, subSrc: u.subSrc === 'pay' ? 'pay' : 'gift', subNote: String(extra.note || '').trim() }
-        : a === 'revoke' ? { plan: '', until: null } : { banned: a === 'ban' });
+        : a === 'revoke' ? { plan: '', until: null } : a === 'coins' ? { bal: j.bal } : { banned: a === 'ban' });
       admUser(id);
     }
     if (id === auth.uid && (a === 'grant' || a === 'revoke')) planLoad();   // своя подписка — обновить в приложении
+    if (id === auth.uid && a === 'coins') coinsLoad();
   } catch (e) { toast(e.message); }
   adm.busy--; admDraw();
 }

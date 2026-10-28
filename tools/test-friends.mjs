@@ -91,7 +91,9 @@ return (data, today) => { S = data; TODAY = today; const w = frWeekStats(), hs =
       if (rnd(3) === 0) log[today.slice(0, 7) + ':w' + (1 + rnd(4))] = 1;
       if (rnd(2) === 0) { for (let i = 1 + rnd(18); i > 0; i--) log[dAdd(today, -i)] = 1; log[today] = pick([1, 0]); }   // серия до вчера, сегодня — как повезёт
       return { kind: pick(['daily', 'daily', 'weekly', 'monthly']), days: rnd(2) ? [] : [0, 1, 2, 3, 4, 5, 6].filter(() => rnd(2)), from: rdate(120, true), demo: rnd(10) === 0, log }; });
-    return { events, habits, settings: { tz: 'Europe/Moscow' } };
+    // Заморозки серии (coins.sql): дни, которые не обрывают серию; бывают и кривые
+    const frz = rnd(3) === 0 ? Array.from({ length: 1 + rnd(4) }, () => dAdd(today, -1 - rnd(12))) : rnd(8) === 0 ? pick(['x', [5, null, 'нет'], {}]) : undefined;
+    return { events, habits, settings: { tz: 'Europe/Moscow' }, ...(frz !== undefined ? { frz } : {}) };
   };
   let sdiff = 0, scount = 0, streaky = 0, open = 0;
   for (const today of ['2026-10-21', '2026-10-19', '2026-10-25', '2026-03-01', '2027-01-03']) {

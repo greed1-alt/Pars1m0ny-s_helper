@@ -16,12 +16,12 @@ onMigrate(() => {
 });
 
 const initials = n => (n || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
-// Аватар: своё фото, эмодзи или буквы имени на цветном кружке
+// Аватар: своё фото, эмодзи или буквы имени на цветном кружке; рамка — из магазина (S.settings.frame, shop.js), fm — показать другую
 const okImg = s => /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s || '');
-function avatarHTML(size) {
-  const a = S.settings.avatar || {}, n = initials(S.settings.name), c = /^#[0-9a-f]{3,8}$/i.test(a.c || '') ? a.c : '#6366f1';
-  if (okImg(a.img)) return `<span class="ava img" style="--c:${c};--s:${size}px;background-image:url(${a.img})" aria-hidden="true"></span>`;
-  return `<span class="ava${a.e ? ' em' : ''}" style="--c:${c};--s:${size}px" aria-hidden="true">${a.e ? esc(a.e) : n ? esc(n) : I(IC.user, Math.round(size * .55))}</span>`;
+function avatarHTML(size, fm) {
+  const a = S.settings.avatar || {}, n = initials(S.settings.name), c = /^#[0-9a-f]{3,8}$/i.test(a.c || '') ? a.c : '#6366f1', f = frameAttr(fm === undefined ? S.settings.frame : fm);
+  if (okImg(a.img)) return `<span class="ava img${f.c}" style="--c:${c};--s:${size}px;background-image:url(${a.img})${f.s}" aria-hidden="true"></span>`;
+  return `<span class="ava${a.e ? ' em' : ''}${f.c}" style="--c:${c};--s:${size}px${f.s}" aria-hidden="true">${a.e ? esc(a.e) : n ? esc(n) : I(IC.user, Math.round(size * .55))}</span>`;
 }
 // Картинка с устройства → квадрат или полоса нужного размера (обрезка по центру), JPEG — чтобы влезло в память браузера
 function loadImageFile(file, w, h) {
@@ -104,15 +104,15 @@ SEC.home = {
 };
 
 // ---- Профиль: имя, аватар, статистика, достижения ----
-// Серия: дни подряд, когда выполнены все запланированные ежедневные привычки (сегодня серию не обрывает)
+// Серия: дни подряд, когда выполнены все запланированные ежедневные привычки (сегодня и замороженный день — S.frz, shop.js — серию не обрывают)
 function habitStreaks() {
-  const hs = hByKind('daily'), t = todayK(); if (!hs.length) return { cur:0, best:0 };
+  const hs = hByKind('daily'), t = todayK(), fz = new Set(Array.isArray(S.frz) ? S.frz : []); if (!hs.length) return { cur:0, best:0 };
   let k = hs.reduce((m, h) => { const s = hStart(h); return s < m ? s : m; }, t), run = 0, best = 0;
   if (k < addDays(t, -730)) k = addDays(t, -730);
   for (; k <= t; k = addDays(k, 1)) {
     const d = dayStat(k);
     if (d.plan && d.done === d.plan) { run++; best = Math.max(best, run); }
-    else if (d.plan && k !== t) run = 0;
+    else if (d.plan && k !== t && !fz.has(k)) run = 0;
   }
   return { cur: run, best };
 }
@@ -130,23 +130,23 @@ function profileStats() {
     ...habitStreaks(),
   };
 }
-// Достижения — заготовка для будущей геймификации: [значок, название, условие, значение, цель]
+// Достижения: [значок, название, условие, значение, цель, ключ]; ключ — для награды в ParsiCoins (shop.js, coins.sql), не менять
 const ACH = [
-  ['🌱', 'Первый шаг', 'Выполнить первую задачу', s => s.tasksDone, 1],
-  ['✅', 'Деловой человек', 'Выполнить 50 задач', s => s.tasksDone, 50],
-  ['🏆', 'Машина продуктивности', 'Выполнить 300 задач', s => s.tasksDone, 300],
-  ['🔥', 'Неделя огня', '7 дней подряд — все привычки', s => s.best, 7],
-  ['💎', 'Железная воля', '30 дней подряд — все привычки', s => s.best, 30],
-  ['💯', 'Сотня', '100 отметок привычек', s => s.marks, 100],
-  ['🧘', 'Самопознание', '30 дней отмечать самочувствие', s => s.bioDays, 30],
-  ['💰', 'Деньги любят счёт', '50 записей в финансах', s => s.ops, 50],
-  ['🐷', 'Копилка', 'Отложить 10 000 ₽', s => s.saved, 10000],
-  ['📝', 'Летописец', 'Написать 10 заметок', s => s.notes, 10],
-  ['🎯', 'Большая мечта', 'Поставить первую цель', s => s.goalsSet ? 1 : 0, 1],
-  ['🗓️', 'Месяц вместе', `30 дней с ${APP_NAME}`, s => s.days, 30],
+  ['🌱', 'Первый шаг', 'Выполнить первую задачу', s => s.tasksDone, 1, 'first'],
+  ['✅', 'Деловой человек', 'Выполнить 50 задач', s => s.tasksDone, 50, 't50'],
+  ['🏆', 'Машина продуктивности', 'Выполнить 300 задач', s => s.tasksDone, 300, 't300'],
+  ['🔥', 'Неделя огня', '7 дней подряд — все привычки', s => s.best, 7, 'w7'],
+  ['💎', 'Железная воля', '30 дней подряд — все привычки', s => s.best, 30, 'w30'],
+  ['💯', 'Сотня', '100 отметок привычек', s => s.marks, 100, 'm100'],
+  ['🧘', 'Самопознание', '30 дней отмечать самочувствие', s => s.bioDays, 30, 'bio30'],
+  ['💰', 'Деньги любят счёт', '50 записей в финансах', s => s.ops, 50, 'ops50'],
+  ['🐷', 'Копилка', 'Отложить 10 000 ₽', s => s.saved, 10000, 'save10k'],
+  ['📝', 'Летописец', 'Написать 10 заметок', s => s.notes, 10, 'notes10'],
+  ['🎯', 'Большая мечта', 'Поставить первую цель', s => s.goalsSet ? 1 : 0, 1, 'goal1'],
+  ['🗓️', 'Месяц вместе', `30 дней с ${APP_NAME}`, s => s.days, 30, 'days30'],
 ];
 // Достижения: получено ли и насколько близко к цели
-const achState = s => ACH.map(([e, n, dsc, f, goal]) => { const v = f(s); return { e, n, dsc, v, goal, ok: v >= goal, p: Math.min(1, v / goal) }; });
+const achState = s => ACH.map(([e, n, dsc, f, goal, id]) => { const v = f(s); return { e, n, dsc, v, goal, id, ok: v >= goal, p: Math.min(1, v / goal) }; });
 const achSorted = l => [...l.filter(a => a.ok), ...l.filter(a => !a.ok).sort((a, b) => b.p - a.p)];   // сначала полученные, потом самые близкие
 const achHTML = a => `<div class="ach-i${a.ok ? '' : ' lock'}"><span class="ach-e" aria-hidden="true">${a.e}</span><span class="ach-t"><b>${esc(a.n)}</b><small>${esc(a.dsc)}</small>${a.ok ? '<em>Получено</em>' : `<span class="ach-p"><span class="ds-bar"><i style="width:${Math.round(a.p * 100)}%"></i></span><small>${a.goal >= 1000 ? rub0(a.v) + ' / ' + rub0(a.goal) : NF0.format(Math.min(a.v, a.goal)) + ' / ' + NF0.format(a.goal)}</small></span>`}</span></div>`;
 function openAchievements() {
@@ -169,6 +169,11 @@ const COVERS = {
   night:'linear-gradient(120deg,#141e30 0%,#243b55 100%)', peach:'linear-gradient(120deg,#ffecd2 0%,#fcb69f 100%)',
   sky:'linear-gradient(120deg,#89f7fe 0%,#66a6ff 100%)', rose:'linear-gradient(120deg,#ee9ca7 0%,#ffdde1 100%)',
   mint:'linear-gradient(120deg,#d4fc79 0%,#96e6a1 100%)', mono:'linear-gradient(120deg,#232526 0%,#414345 100%)',
+  // Из магазина за ParsiCoins (COVER_SHOP, shop.js)
+  boreal:'linear-gradient(115deg,#0b1d3a 0%,#1e5f74 35%,#2ee59d 65%,#a96bff 100%)', neon:'linear-gradient(120deg,#12002f 0%,#6a00f4 40%,#ff00c8 75%,#ffd319 100%)',
+  gold:'linear-gradient(120deg,#3d2c05 0%,#b8860b 40%,#f7d774 70%,#fff3b0 100%)', seaset:'linear-gradient(180deg,#ff7e5f 0%,#feb47b 42%,#3a6073 58%,#16222a 100%)',
+  cosmos:'radial-gradient(circle at 12% 30%,#fff 0 1px,transparent 1.6px),radial-gradient(circle at 38% 70%,#fff 0 1px,transparent 1.6px),radial-gradient(circle at 63% 22%,#fff 0 1.3px,transparent 2px),radial-gradient(circle at 82% 64%,#fff 0 1px,transparent 1.6px),radial-gradient(circle at 92% 18%,#fff 0 .8px,transparent 1.4px),radial-gradient(ellipse at 70% 120%,#7b2ff7 0%,transparent 55%),linear-gradient(160deg,#000428 0%,#0b1a4a 60%,#1b0f3d 100%)',
+  berry:'linear-gradient(120deg,#8e2de2 0%,#4a00e0 50%,#ff6a88 100%)',
 };
 const COVER_GLOW = 'radial-gradient(circle at 15% 125%,rgba(255,255,255,.32),transparent 45%),radial-gradient(circle at 88% -30%,rgba(255,255,255,.26),transparent 42%)';
 const coverCSS = () => { const c = S.settings.cover || {}; return okImg(c.img) ? `background-image:url(${c.img})` : `background-image:${COVER_GLOW},${COVERS[c.p] || COVERS.dusk}`; };
@@ -219,6 +224,9 @@ function profileHTML() {
   <div class="card"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения</b><span class="card-h-r"><small>${got} из ${ACH.length}</small><button class="pill sm" data-act="achall">Все достижения →</button></span></div>
     <div class="ach ach4">${achSorted(ach).slice(0, 4).map(achHTML).join('')}</div></div>
   ${frCardHTML()}
+  ${coinsOn() && coins ? `<div class="card pf-coins"><div class="card-h"><b>${coinI(17)} ${COIN}</b><button class="pill sm" data-act="shopopen" data-tab="shop">Магазин →</button></div>
+    <div class="pf-cn"><b>${NF0.format(coins.bal)}</b><span>${coinsReady().length ? 'Можно забрать наград: ' + coinsReady().length : 'Задания дня и недели, награды за достижения и серию'}</span>
+      <button class="btn${coinsReady().length ? ' pri' : ''}" data-act="shopopen" data-tab="tasks">Задания</button></div></div>` : ''}
     ${plansOn() ? `<div class="card pf-plans"><div class="card-h"><b>${I(IC.spark, 17)} Тарифы</b></div><p class="pf-plan-now">${planNow() === 'free' ? 'Сейчас — бесплатный тариф' : 'У вас ' + esc(planLine())}</p>
       <button class="btn pri" data-act="plansopen">Смотреть тарифы</button></div>` : `<div class="card pf-plans"><div class="card-h"><b>${I(IC.spark, 17)} Тарифы</b><span class="soon">Скоро</span></div>
       <div class="plans"><div class="plan cur"><small>Сейчас</small><b>Базовый</b><span>бесплатно</span></div><div class="plan pro"><small>Скоро</small><b>Премиум</b><span>стоимость — позже</span></div></div>
@@ -254,7 +262,7 @@ function openAvatar() {
 }
 // Кнопка профиля в шапке: имя и аватар. Аватар — всегда у правого края на одном месте, имя растёт влево целиком (не длиннее NAME_MAX знаков).
 // Имя — только на ПК: на телефоне в шапке мало места
-const hdrAvaHTML = () => `<span class="hdr-name">${esc((S.settings.name || '').trim() || 'Профиль')}</span>${avatarHTML(28)}${frDot()}`;   // точка — новая заявка в друзья
+const hdrAvaHTML = () => `<span class="hdr-name">${esc((S.settings.name || '').trim() || 'Профиль')}</span>${avatarHTML(28)}${frDot() || coinDot()}`;   // точка — новая заявка в друзья или награда в ParsiCoins
 const profTouch = () => { S.settings.profUpd = Date.now(); save(); $('#side').innerHTML = sideHTML(); const h = $('.hdr-ava'); if (h) h.innerHTML = hdrAvaHTML(); const u = $('#pe_upd'); if (u) u.textContent = 'Обновлён: только что'; };
 ACT.pfava = openAvatar;
 
@@ -265,16 +273,19 @@ ACT.accmenu = el => {
   const qc = $('#qc');
   if (quickOpen() && qc.classList.contains('acc')) return closeQuick();
   const st = S.settings, name = (st.name || '').trim(), on = signedIn(), wk = frWeekStats(), inc = on ? frIncoming().length : 0, dark = darkNow();
+  const cn = coinsOn() && coins, cnN = cn ? coinsReady().length : 0;   // ParsiCoins (shop.js): пока нет тарифов — вместо баннера Премиума, с ними — строкой меню
   qc.innerHTML = `<div class="accm" role="menu" aria-label="Меню профиля">
     <button class="accm-me" data-act="accgo" data-s="profile" role="menuitem">${avatarHTML(44)}<span class="accm-who"><b>${esc(name || 'Профиль')}</b><small>${fr.nick ? '@' + esc(fr.nick) : 'Открыть профиль'}</small></span>${I(IC.right, 18)}</button>
     <div class="accm-chips"><span class="accm-chip c1"><span aria-hidden="true">🔥</span><b>${wk.s ? plural(wk.s, NDAY) : '—'}</b><small>серия</small></span><span class="accm-chip c2"><span aria-hidden="true">⭐</span><b>${plural(frScore(wk), FR_PTS)}</b><small>за неделю</small></span></div>
     ${plansOn() ? `<button class="accm-prem" data-act="plansopen" role="menuitem">${I(IC.spark, 24)}<span><b>${planNow() === 'free' ? APP_NAME + ' Плюс и Премиум' : 'Ваш тариф — ' + PLAN_NAME[planNow()]}</b><small>${planNow() === 'free' ? 'Больше помощника, тем и возможностей' : esc(planLine())}</small></span></button>`
+      : cn ? `<button class="accm-prem accm-shop" data-act="shopopen" role="menuitem">${coinI(28)}<span><b>${NF0.format(coins.bal)} ${COIN}</b><small>${cnN ? 'Можно забрать наград: ' + cnN : 'Задания, награды и магазин'}</small></span>${cnN ? `<em class="accm-badge" aria-hidden="true">${cnN}</em>` : ''}</button>`
       : `<button class="accm-prem" data-act="accgo" data-s="profile" data-to="pf-plans" role="menuitem">${I(IC.spark, 24)}<span><b>${APP_NAME} Премиум</b><small>Переливающееся имя и другие привилегии — скоро</small></span></button>`}
     <div class="accm-list">
       ${msgOn() ? `<button data-act="accmsg" role="menuitem">${I(IC.chat, 18)}<span>Сообщения</span>${msgUnread ? `<em class="accm-badge" aria-label="Новых: ${msgUnread}">${msgUnread > 99 ? '99+' : msgUnread}</em>` : ''}</button>` : ''}
       <button data-act="accgo" data-s="profile" data-to="pf-friends" role="menuitem">${I(IC.users, 18)}<span>Друзья</span>${inc ? `<em class="accm-badge" aria-label="Новых заявок: ${inc}">${inc}</em>` : ''}</button>
       <button data-act="accgo" data-s="leaders" role="menuitem">${I(IC.trophy, 18)}<span>Лидеры</span></button>
       <button data-act="accach" role="menuitem">${I(IC.check, 18)}<span>Достижения</span></button>
+      ${cn && plansOn() ? `<button data-act="shopopen" role="menuitem">${coinI(18)}<span>${COIN} · ${NF0.format(coins.bal)}</span>${cnN ? `<em class="accm-badge" aria-label="Можно забрать: ${cnN}">${cnN}</em>` : ''}</button>` : ''}
       <button data-act="accgo" data-s="profedit" role="menuitem">${I(IC.edit, 18)}<span>Редактировать профиль</span></button>
       ${NAME_ADMIN && on ? `<button data-act="admopen" role="menuitem">${I(IC.lock, 18)}<span>Админка</span></button>` : ''}
       <button data-act="accinv" role="menuitem">${I(IC.share, 18)}<span>Пригласить друга</span></button>
@@ -327,9 +338,12 @@ function profEditHTML() {
       <div class="cpal" style="padding:0">${PALETTE.map(c => `<button class="cdot${(a.c || '').toLowerCase() === c ? ' on' : ''}" data-act="pfcolor" data-c="${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}</div></div>
     <div class="card"><div class="pe-sec">Обложка профиля</div>
       <div class="pe-cover" style="${coverCSS()}"></div>
-      <div class="pe-covers">${Object.keys(COVERS).map(k => `<button class="pe-cv${!okImg(cv.img) && (cv.p || 'dusk') === k ? ' on' : ''}" data-act="pecover" data-p="${k}" style="background-image:${COVER_GLOW},${COVERS[k]}" aria-label="Обложка ${k}"></button>`).join('')}</div>
+      <div class="pe-covers">${Object.keys(COVERS).map(k => `<button class="pe-cv${!okImg(cv.img) && (cv.p || 'dusk') === k ? ' on' : ''}${cvOk(k) ? '' : ' lock'}" data-act="pecover" data-p="${k}" style="background-image:${COVER_GLOW},${COVERS[k]}" aria-label="Обложка ${COVER_SHOP[k] || k}${cvOk(k) ? '' : ' — в магазине'}">${cvOk(k) ? '' : coinI(14)}</button>`).join('')}</div>
       <div class="pe-btns"><button class="btn" data-act="upcover">${I(IC.up, 15)} Загрузить своё фото</button>${okImg(cv.img) ? '<button class="btn dng" data-act="rmcover">Убрать фото</button>' : ''}</div>
-      <p class="set-note">Лучше всего подходит широкая картинка. Фото хранится только на этом устройстве.</p></div>`;
+      <p class="set-note">Лучше всего подходит широкая картинка. Фото хранится только на этом устройстве.</p></div>
+    <div class="card"><div class="pe-sec">Рамка аватара</div>
+      <div class="pe-frames"><button class="pe-fm${st.frame ? '' : ' on'}" data-act="peframe" data-k="" aria-pressed="${!st.frame}">${avatarHTML(44, '')}<small>Без рамки</small></button>${Object.keys(FRAMES).map(k => `<button class="pe-fm${st.frame === k ? ' on' : ''}" data-act="peframe" data-k="${k}" aria-pressed="${st.frame === k}">${avatarHTML(44, k)}<small>${coinOwn('fm:' + k) ? esc(FRAMES[k].n) : coinI(12) + ' ' + FRAMES[k].p}</small></button>`).join('')}</div>
+      <p class="set-note">Рамки — в магазине за ${COIN}. Её видят и друзья.</p></div>`;
   else if (peTab === 'acc') body = `<div class="card"><div class="pe-sec">Аккаунт</div>
       ${accountHTML()}
       <div class="acc-row"><span class="acc-t"><b>Копия в файл</b><small>На всякий случай — например, перед переездом на другое устройство.</small></span><div class="pe-btns"><button class="btn" data-act="export">${I(IC.down, 15)} Скачать копию</button><button class="btn" data-act="import">${I(IC.up, 15)} Загрузить</button></div></div>
@@ -358,7 +372,8 @@ function profEditHTML() {
 ACT.petab = el => { peTab = el.dataset.tab; render(); };
 ACT.socadd = () => { S.settings.socials = [...(S.settings.socials || []), { url:'', title:'' }].slice(0, 12); save(); render(); const l = $$('.pe-soc input[data-f="url"]').pop(); if (l) l.focus(); };
 ACT.socdel = el => { const l = [...(S.settings.socials || [])]; l.splice(+el.dataset.i, 1); S.settings.socials = l; profTouch(); render(); };
-ACT.pecover = el => { S.settings.cover = { p: el.dataset.p, img:'' }; profTouch(); render(); };
+ACT.pecover = el => { const k = el.dataset.p; if (!cvOk(k)) return openShopItem('cv:' + k); S.settings.cover = { p: k, img:'' }; profTouch(); render(); };
+ACT.peframe = el => { const k = el.dataset.k; if (k && !coinOwn('fm:' + k)) return openShopItem('fm:' + k); if (k) S.settings.frame = k; else delete S.settings.frame; profTouch(); render(); };
 ACT.rmcover = () => { S.settings.cover = Object.assign({}, S.settings.cover, { img:'' }); profTouch(); render(); };
 ACT.rmava = () => { S.settings.avatar = Object.assign({}, S.settings.avatar, { img:'' }); profTouch(); render(); };
 const pickImage = kind => { peUpload = kind; let f = $('#pe_file'); if (!f) { f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.id = 'pe_file'; f.hidden = true; document.body.appendChild(f); } f.value = ''; f.click(); };

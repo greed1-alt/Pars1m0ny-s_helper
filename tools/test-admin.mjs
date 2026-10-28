@@ -29,6 +29,7 @@ const fake = () => {
   };
   for (const a of ['ban', 'unban', 'nick', 'name', 'del', 'revoke']) db[a] = async id => { calls.push(a + ':' + id); };
   db.grant = async (id, plan, days, note) => { calls.push(`grant:${id}:${plan}:${days}:${note}`); return '2027-01-01T00:00:00.000Z'; };
+  db.coins = async (id, amt, note) => { calls.push(`coins:${id}:${amt}:${note}`); return 150; };
   return db;
 };
 const run = async (tok, body) => { const db = fake(); const [st, out] = await adminHandle(db, tok, body); return { st, out, db }; };
@@ -97,6 +98,14 @@ r = await run('tok-me', { action: 'grant', id: BOB, plan: 'premium', days: 365, 
 ok(r.st === 200 && r.out.until && r.db.calls.includes(`grant:${BOB}:premium:365:тестер беты`) && r.db.logs[0].action === 'grant' && r.db.logs[0].info.plan === 'premium', 'выдать Премиум на год — и в журнал');
 r = await run('tok-me', { action: 'grant', id: ME, plan: 'plus', days: 7 }); ok(r.st === 200, 'себе — можно (проверить тарифы)');
 r = await run('tok-me', { action: 'revoke', id: BOB }); ok(r.st === 200 && r.db.calls.includes('revoke:' + BOB) && r.db.logs[0].action === 'revoke', 'отменить подписку');
+r = await run('tok-eve', { action: 'coins', id: BOB, amt: 1000 }); ok(r.st === 403 && !r.db.calls.some(c => c.startsWith('coins')), 'монеты — не админ: 403');
+for (const amt of [0, 1.5, '100', null, undefined, 100001, -100001, NaN, Infinity]) {
+  r = await run('tok-me', { action: 'coins', id: BOB, amt }); ok(r.st === 400 && r.out.error === 'amt' && !r.db.calls.some(c => c.startsWith('coins')), 'монеты — плохое число: ' + amt); }
+r = await run('tok-me', { action: 'coins', id: 'bob', amt: 50 }); ok(r.st === 400 && r.out.error === 'id', 'монеты — плохой id');
+r = await run('tok-me', { action: 'coins', id: '55555555-5555-4555-8555-555555555555', amt: 50 }); ok(r.st === 404 && !r.db.calls.some(c => c.startsWith('coins')), 'монеты — нет такого');
+r = await run('tok-me', { action: 'coins', id: BOB, amt: 100, note: ' за\n ошибку ' });
+ok(r.st === 200 && r.out.bal === 150 && r.db.calls.includes(`coins:${BOB}:100:за ошибку`) && r.db.logs[0].action === 'coins' && r.db.logs[0].info.amt === 100, 'начислить 100 — и в журнал');
+r = await run('tok-me', { action: 'coins', id: ME, amt: -30 }); ok(r.st === 200 && r.db.calls.includes(`coins:${ME}:-30:`), 'себе и списать — можно');
 
 // 3) по тексту функции
 ok(!/select\(\s*['"]\*/.test(src), 'нет select *');
