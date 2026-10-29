@@ -1347,3 +1347,16 @@ div.ai-row{cursor:default}
 .cn-btns .btn{width:100%}
 .cn-btns .set-note{margin:0}
 .cn-on{display:flex;align-items:center;gap:6px;justify-content:center;margin:0;font-weight:600;color:var(--ok)}
+
+/* Отклик на нажатие (30 октября 2026, выбор пользователя — «сжатие и пружина галочки»): кнопки и строки слегка «проседают» под пальцем
+   и пружинят обратно; отмеченная галочка пружинит, строка вспыхивает зелёным, плитка привычки подпрыгивает (donePop, js/input.js) */
+.btn,.ic,.pill,.chip,.seg2>button,.st-item,.st-tile,.fold-h,.accm-list>button,.accm-me,.accm-prem,.h2-hc,.st-prof,.lg-choice,.cn-it,.pal,.pe-fm,.pe-cv,.thm>button,#tabbar button{transition:transform .14s cubic-bezier(.3,.7,.4,1),background-color .12s,color .12s,border-color .12s,box-shadow .12s,filter .12s}
+:is(.btn,.ic,.pill,.chip,.seg2>button,.accm-list>button,.h2-hc,.cn-it,.pal,.pe-fm,.pe-cv,.thm>button,#tabbar button):active:not(:disabled){transform:scale(.95)}
+:is(.st-item,.st-tile,.fold-h,.accm-me,.accm-prem,.st-prof,.lg-choice):active:not(:disabled){transform:scale(.985)}
+@keyframes chkPop{0%{transform:scale(.4)}45%{transform:scale(1.3)}75%{transform:scale(.92)}100%{transform:scale(1)}}
+@keyframes chipPop{0%{transform:scale(.94)}50%{transform:scale(1.05)}100%{transform:scale(1)}}
+@keyframes rowFlash{from{background-color:color-mix(in srgb,var(--ok) 24%,transparent)}}
+.chk.pop,.hc.pop{animation:chkPop .42s ease-out}
+.pop2{animation:chipPop .38s ease-out}
+.flash{animation:rowFlash .7s ease-out}
+@media(prefers-reduced-motion:reduce){.chk.pop,.hc.pop,.pop2,.flash{animation:none}}

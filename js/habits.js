@@ -166,6 +166,8 @@ function markHabit(id, key) {
   if (isDayKey(key) && !canMark(key)) return toast(key > todayK() ? 'Будущие дни отмечать нельзя' : 'Отмечать задним числом выключено в настройках');
   if (h.log[key]) delete h.log[key]; else h.log[key] = 1;
   save(); render();
+  if (h.log[key]) { const q = `[data-id="${CSS.escape(id)}"]`, els = [...document.querySelectorAll(`${q}[data-k="${CSS.escape(key)}"], ${q}[data-key="${CSS.escape(key)}"]`)];   // отклик — input.js
+    donePop(els.filter(b => b.classList.contains('hc')), true); donePop(els.filter(b => !b.classList.contains('hc')), false); }
   if (key === todayK()) { const d = dayStat(key); if (d.plan > 1 && d.done === d.plan) toast('Все привычки на сегодня выполнены 🎉'); }
 }
 ACT.hmark = el => markHabit(el.dataset.id, el.dataset.k);

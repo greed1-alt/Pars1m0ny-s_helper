@@ -108,11 +108,20 @@ document.addEventListener('dblclick', ev => {
   openQuick(mc.dataset.d, '', ev.clientX, ev.clientY);
 });
 
+// Отклик на нажатие (выбор пользователя 30 октября 2026 — «сжатие и пружина галочки», стили — css/ui2.css):
+// на iPhone :active (кнопки «проседают») срабатывает, только если на странице есть обработчик касания
+document.addEventListener('touchstart', () => {}, { passive: true });
+// Отметили выполненным: маленькая галочка пружинит и строка вспыхивает, крупная плитка — подпрыгивает; на Android — лёгкая вибрация
+function donePop(els, small) {
+  els.forEach(el => { el.classList.add(small ? 'pop' : 'pop2'); if (small && el.parentElement) el.parentElement.classList.add('flash'); });
+  try { if (els.length && navigator.vibrate) navigator.vibrate(8); } catch (x) {}
+}
 function toggleDone(id, k) {
   const e = S.events.find(x => x.id === id); if (!e) return;
   if (isRec(e)) { const s = new Set(e.doneDates || []); s.has(k) ? s.delete(k) : s.add(k); e.doneDates = [...s]; }
   else e.done = !e.done;
   save(); render();
+  if (isRec(e) ? e.doneDates.includes(k) : e.done) donePop([...document.querySelectorAll(`.chk[data-id="${CSS.escape(id)}"][data-d="${CSS.escape(k || '')}"]`)], true);
   const es = evOn(k); if (es.length > 1 && es.every(x => x.done)) toast(k === todayK() ? 'Все дела на сегодня сделаны 🎉' : 'Все дела этого дня сделаны 🎉');
   if (e.goal && (isRec(e) ? (e.doneDates || []).includes(k) : e.done)) goalStepDone(e.goal);   // шаг цели — похвала
 }
