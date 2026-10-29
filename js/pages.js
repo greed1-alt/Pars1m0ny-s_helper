@@ -415,12 +415,22 @@ SEC.profedit = { name:'Редактирование профиля', icon:IC.use
 // ---- Настройки: карточки по темам ----
 function settingsHTML() {
   const b = settingsBlocks(), st = S.settings, name = (st.name || '').trim();
-  const secs = `<div class="set-sec">Расположение</div>
+  const secs = `<div class="set-sec">Главная и разделы</div>
     ${layoutSetHTML()}
-    <div class="set-sub">Разное</div>
-    <div class="set-row"><span>При запуске открывать</span><div class="seg2"><button class="${st.startSec !== 'last' ? 'on' : ''}" data-act="ststart" data-v="home">Главную</button><button class="${st.startSec === 'last' ? 'on' : ''}" data-act="ststart" data-v="last">Последний раздел</button></div></div>
+    <div class="set-row"><span>При запуске открывать</span><div class="seg2"><button class="${st.startSec !== 'last' ? 'on' : ''}" data-act="ststart" data-v="home">Главную</button><button class="${st.startSec === 'last' ? 'on' : ''}" data-act="ststart" data-v="last">Последний раздел</button></div></div>`;
+  // Раньше «задним числом» и самочувствие лежали в «Расположении → Разное», а часы и «пишет сам» помощника — в «Календаре» и «Напоминаниях» (30 октября 2026)
+  const habits = `<div class="set-sec">Привычки и самочувствие</div>
     <div class="set-row"><span>${withHint('Отмечать привычки задним числом', 'habitPast')}</span><input id="s_hpast" class="sw" type="checkbox"${st.habitPast ? ' checked' : ''}></div>
-    <div class="set-row"><span>Показатели самочувствия</span><button class="btn" data-act="bioedit">${I(IC.gear, 15)} Настроить</button></div>`;
+    <div class="set-row"><span>Показатели самочувствия<small>что отмечаете: сон, энергия, настроение…</small></span><button class="btn" data-act="bioedit">${I(IC.gear, 15)} Настроить</button></div>
+    <div class="set-row"><span>Подначки и похвалы целей<small>во вкладке «Цели»</small></span><button class="btn" data-act="stphr">Открыть</button></div>`;
+  const ai = `<div class="set-sec">Помощник</div>
+    <div class="set-row"><span>${withHint('Помощник пишет сам', 'nudge')}<small>до 3 раз в день, только по делу, ночью тихо</small></span><input id="s_nudge" class="sw" type="checkbox"${st.nudge ? ' checked' : ''}></div>
+    ${aiFreeHTML()}`;
+  const friends = `<div class="set-sec">Друзья и приватность</div>
+    ${!signedIn() ? `<p class="set-note">Друзья работают с аккаунтом — войдите по почте.</p><button class="btn pri" style="width:100%" data-act="login">${I(IC.user, 16)} Войти</button>`
+      : `<p class="set-note">${st.fr ? 'Ник, что друзья видят в каждом календаре и в профиле, уведомления о заявках и сообщениях.' : 'Создайте карточку — друзья найдут вас по нику, увидят, когда вы заняты, и смогут писать вам.'}</p>
+      <button class="btn${st.fr ? '' : ' pri'}" style="width:100%" data-act="frset">${I(IC.users, 16)} ${st.fr ? 'Что видят друзья и уведомления' : 'Создать карточку для друзей'}</button>
+      <button class="btn" style="width:100%;margin-top:8px" data-act="accgo" data-s="profile" data-to="pf-friends">${I(IC.user, 16)} Мои друзья и заявки</button>`}`;
   const about = `<div class="set-sec">О приложении</div>
     <div class="st-about"><span class="wordmark">${APP_NAME}</span><small>Календарь, задачи, привычки и финансы — в одном месте.</small><small class="st-ver">${appVerText()}</small></div>
     <button class="btn" style="width:100%" data-act="help">${I(IC.key, 16)} Горячие клавиши</button>
@@ -429,12 +439,22 @@ function settingsHTML() {
     <a class="btn" style="width:100%;margin-top:8px" href="beta.html" target="_blank" rel="noopener">${I(IC.note, 16)} Памятка бета-тестера</a>
     ${legalOn() ? `<p class="set-note st-legal"><a href="terms.html" target="_blank" rel="noopener">Пользовательское соглашение</a> · <a href="privacy.html" target="_blank" rel="noopener">Политика конфиденциальности</a> · <a href="consent.html" target="_blank" rel="noopener">Согласие на обработку данных</a></p>` : ''}`;
   const prof = `<button class="card st-prof" data-act="pe" data-tab="main">${avatarHTML(48)}<span><b>${esc(name || 'Ваш профиль')}</b><small>${name ? 'Личные данные, аватар и обложка' : 'Укажите имя, выберите аватар и обложку'}</small></span>${I(IC.right, 18)}</button>`;
-  const cards = { look: b.look, cal: b.cal, cats: b.cats, secs, notif: b.notif, data: b.data, about };
+  const cards = { data: b.data, friends, look: b.look, secs, cal: b.cal, cats: b.cats, habits, ai, notif: b.notif, about };
+  const search = `<label class="st-search">${I(IC.search, 18)}<input id="st_q" type="search" value="${esc(stQ)}" placeholder="Найти настройку" autocomplete="off" aria-label="Найти настройку"></label>`;
+  const none = `<p class="st-none"${ST_SEC.some(s => stMatch(s)) ? ' hidden' : ''}>Ничего не нашлось — попробуйте другое слово</p>`;
+  const hid = s => stMatch(s) ? '' : ' hidden', kw = s => ` data-kw="${esc(stKw(s))}"`;
   // id карточек — для оглавления, списка разделов и кнопок помощника «Открыть…» (stJump)
-  const grid = `<div class="st-grid">${ST_SEC.map(([k]) => `<div class="card" id="st-${k}">${cards[k]}</div>`).join('')}</div>`;
-  if (!stPhone()) return prof + grid;
+  const grid = `<div class="st-grid">${ST_SEC.map(s => `<div class="card" id="st-${s[0]}"${kw(s)}${hid(s)}>${cards[s[0]]}</div>`).join('')}</div>`;
+  if (!stPhone()) return prof + search + grid + none;
   if (stOpen && cards[stOpen]) return `<button class="st-back" data-act="stback">${I(IC.left, 18)} Все настройки</button><div class="st-one"><div class="card" id="st-${stOpen}">${cards[stOpen]}</div></div>`;
-  return prof + `<div class="card st-list">${ST_SEC.map(([k, ic, n, f]) => { const s = f(); return `<button class="st-item" data-act="stjump" data-k="${k}">${I(ic, 20)}<span><b>${n}</b><small${s.warn ? ' class="warn"' : ''}>${esc(s.t)}</small></span>${I(IC.right, 16)}</button>`; }).join('')}</div>`;
+  const stat = s => { const r = s[3](); return `<small${r.warn ? ' class="warn"' : ''}>${esc(r.t)}</small>`; };
+  // Вид А — список по группам, как в настройках iPhone; вид Б — плитки (проба 30 октября 2026, переключатель внизу)
+  const body = stTiles()
+    ? `<div class="st-tiles">${ST_SEC.map(s => `<button class="card st-tile" data-act="stjump" data-k="${s[0]}"${kw(s)}${hid(s)}>${I(s[1], 22)}<b>${s[2]}</b>${stat(s)}</button>`).join('')}</div>`
+    : Object.keys(ST_GRP).map(g => { const l = ST_SEC.filter(s => s[4] === g);
+      return `<div class="st-g"${l.some(s => stMatch(s)) ? '' : ' hidden'}><div class="st-gh">${ST_GRP[g]}</div><div class="card st-list">${l.map(s => `<button class="st-item" data-act="stjump" data-k="${s[0]}"${kw(s)}${hid(s)}>${I(s[1], 20)}<span><b>${s[2]}</b>${stat(s)}</span>${I(IC.right, 16)}</button>`).join('')}</div></div>`; }).join('');
+  const view = `<div class="st-view"><span>Вид настроек</span><div class="seg2" role="group" aria-label="Вид настроек"><button class="${stTiles() ? '' : 'on'}" aria-pressed="${!stTiles()}" data-act="stlook" data-v="list">Список</button><button class="${stTiles() ? 'on' : ''}" aria-pressed="${stTiles()}" data-act="stlook" data-v="tiles">Плитки</button></div></div>`;
+  return prof + search + body + none + view;
 }
 
 // ---- Настройки на телефоне — список разделов, как в настройках iPhone (18 октября 2026; раньше — одна лента карточек на 4,5 экрана).
@@ -452,15 +472,37 @@ const appVerText = () => { if (!appVer) appVerLoad(); return appVer ? 'Верс�
 const stPhone = () => innerWidth < 900;
 let stOpen = null;   // открытый раздел
 onMigrate(() => { delete S.settings.stView; });   // переключатель вида пробы А / Б
+// Разделы: [ключ, значок, название, состояние, группа, слова для поиска]. Группы и названия — 30 октября 2026 («настройки на телефоне — непонятно что где
+// делать»): «Календарь» / «Календари» путались — теперь «Вид календаря» / «Мои календари»; у помощника, привычек и друзей — свои разделы
+const ST_GRP = { me: 'Вы', view: 'Вид', plan: 'Планирование', help: 'Помощь', app: 'Приложение' };
 const ST_SEC = [
-  ['look', IC.sun, 'Оформление', () => ({ t: [(PAL[S.settings.pal] || {}).n, ((THEME_N.find(x => x[0] === S.settings.theme) || [])[1] || '').toLowerCase()].filter(Boolean).join(', ') })],
-  ['cal', IC.cal, 'Календарь', () => ({ t: 'неделя с ' + (S.settings.weekStart === 0 ? 'воскресенья' : 'понедельника') })],
-  ['cats', IC.list, 'Календари', () => ({ t: plural(S.cats.length, ['календарь', 'календаря', 'календарей']) })],
-  ['secs', IC.grid, 'Расположение', () => ({ t: 'разделы, блоки, запуск' })],
-  ['notif', IC.bell, 'Напоминания', () => ({ t: notif.short ? notif.short[0].toUpperCase() + notif.short.slice(1) : 'Проверяю…', warn: !notif.on })],
-  ['data', IC.user, 'Аккаунт и данные', () => signedIn() ? { t: (auth && auth.email) || 'Вход выполнен' } : { t: 'Вход не выполнен', warn: true }],
-  ['about', IC.note, 'О приложении', () => ({ t: appVerText() })],
+  ['data', IC.user, 'Аккаунт и данные', () => signedIn() ? { t: (auth && auth.email) || 'Вход выполнен' } : { t: 'Вход не выполнен', warn: true }, 'me', 'аккаунт почта вход войти выход выйти копия файл скачать загрузить удалить данные'],
+  ['friends', IC.users, 'Друзья и приватность', () => !signedIn() ? { t: 'нужен вход' } : S.settings.fr ? { t: fr.nick ? '@' + fr.nick : 'карточка создана' } : { t: 'карточки пока нет' }, 'me', 'друзья ник карточка приватность видят занят приглашение заявки сообщения переписка лидеры'],
+  ['look', IC.sun, 'Оформление', () => ({ t: [(PAL[S.settings.pal] || {}).n, ((THEME_N.find(x => x[0] === S.settings.theme) || [])[1] || '').toLowerCase()].filter(Boolean).join(', ') }), 'view', 'оформление тема тёмная светлая чёрная палитра цвет контраст карточки углы цвет событий'],
+  ['secs', IC.grid, 'Главная и разделы', () => ({ t: 'вкладки, блоки, запуск' }), 'view', 'главная разделы вкладки блоки порядок расположение запуск скрыть выключить'],
+  ['cal', IC.cal, 'Вид календаря', () => ({ t: 'неделя с ' + (S.settings.weekStart === 0 ? 'воскресенья' : 'понедельника') }), 'plan', 'календарь неделя выходные сетка размер час начало номер недели прошедшие пустые часы горячие клавиши'],
+  ['cats', IC.list, 'Мои календари', () => ({ t: plural(S.cats.length, ['календарь', 'календаря', 'календарей']) }), 'plan', 'календари категории цвет поделиться добавить удалить'],
+  ['habits', IC.habit, 'Привычки и самочувствие', () => ({ t: plural((S.bio.metrics || []).length, ['показатель', 'показателя', 'показателей']) + ' самочувствия' }), 'plan', 'привычки задним числом самочувствие сон настроение энергия стресс показатели цели подначки похвалы'],
+  ['ai', IC.spark, 'Помощник', () => { const h = aiFreeHrs(); return { t: `будни ${h.wd[0]}–${h.wd[1]} · ${S.settings.nudge ? 'пишет сам' : 'не пишет сам'}` }; }, 'help', 'помощник свободное время часы пишет сам сообщения нейросеть'],
+  ['notif', IC.bell, 'Уведомления', () => ({ t: notif.short ? notif.short[0].toUpperCase() + notif.short.slice(1) : 'Проверяю…', warn: !notif.on }), 'help', 'уведомления напоминания пуш сводки утро вечер новости проверить'],
+  ['about', IC.note, 'О приложении', () => ({ t: appVerText() }), 'app', 'о приложении версия знакомство тур отзыв памятка горячие клавиши документы политика соглашение'],
 ];
+// Поиск: слова запроса — по началу (без окончаний, ё = е), во всех словах раздела
+let stQ = '';
+const stNorm = s => String(s).toLowerCase().replace(/ё/g, 'е');
+const stKw = s => stNorm(s[2] + ' ' + s[5]);
+const stMatch = s => { const k = stKw(s).split(/\s+/); return stNorm(stQ).split(/\s+/).filter(Boolean).every(w => { const p = w.length > 5 ? w.slice(0, -2) : w; return k.some(x => x.startsWith(p)); }); };
+document.addEventListener('input', e => {
+  if (e.target.id !== 'st_q') return;
+  stQ = e.target.value; let any = false;
+  document.querySelectorAll('[data-kw]').forEach(el => { const s = ST_SEC.find(x => stKw(x) === el.dataset.kw); const ok = !s || stMatch(s); el.hidden = !ok; if (ok) any = true; });
+  document.querySelectorAll('.st-g').forEach(g => { g.hidden = !g.querySelector('[data-kw]:not([hidden])'); });
+  const n = $('.st-none'); if (n) n.hidden = any;
+});
+const stTiles = () => S.settings.stLook === 'tiles';
+ACT.stlook = el => { S.settings.stLook = el.dataset.v === 'tiles' ? 'tiles' : 'list'; save(); render(); };
+// Подначки и похвалы — во вкладке «Цели» (goals.js): открыть её с раскрытым блоком
+ACT.stphr = () => { S.settings.folds['g-phr'] = true; save(); goGoals(); setTimeout(() => { const f = $('[data-fold="g-phr"]'); if (f) f.scrollIntoView({ block: 'start', behavior: smoothB() }); }, 80); };
 // Перейти к разделу настроек: на телефоне — открыть его, на ПК — прокрутить к карточке и подсветить (так же — кнопки помощника)
 function stJump(k) {
   if (sec !== 'settings') setSec('settings');
@@ -469,6 +511,7 @@ function stJump(k) {
 }
 ACT.stjump = el => stJump(el.dataset.k);
 ACT.stback = () => { stOpen = null; render(); window.scrollTo(0, 0); };
+onMigrate(() => { if (S.settings.stLook !== 'tiles') delete S.settings.stLook; });
 
 ACT.ststart = el => { S.settings.startSec = el.dataset.v === 'last' ? 'last' : 'home'; save(); render(); };
 SEC.settings = { name:'Настройки', icon:IC.gear, noNav:true, title: () => { const s = stOpen && stPhone() && ST_SEC.find(x => x[0] === stOpen); return s ? s[2] : 'Настройки'; }, html: settingsHTML, move: () => {} };

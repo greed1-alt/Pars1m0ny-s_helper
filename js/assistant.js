@@ -114,8 +114,8 @@ const aiSec = s => () => { if (!secOn(s)) { toast('Этот раздел вык�
 const aiSet = k => () => stJump(k);   // pages.js: на телефоне — открыть раздел, на ПК — прокрутить к нему
 const AI_NAV = { home:['Главная', aiSec('home')], cal:['Календарь', aiSec('cal')], tasks:['Задачи', aiSec('tasks')], goals:['Цели', () => goGoals()], habits:['Привычки', aiSec('habits')], fin:['Финансы', aiSec('fin')],
   budget:['Бюджет на месяц', () => openBudget()], missed:['Вы пропустили', () => ACT.missopen()], profile:['Профиль', () => setSec('profile')], settings:['Настройки', () => { if (sec !== 'settings') return setSec('settings'); stOpen = null; render(); window.scrollTo(0, 0); }],
-  set_look:['Оформление', aiSet('look')], set_cal:['Настройки календаря', aiSet('cal')], set_cats:['Календари', aiSet('cats')], set_layout:['Расположение', aiSet('secs')], sections:['Разделы и вкладки', () => openSecs()],
-  set_notif:['Напоминания', aiSet('notif')], set_data:['Аккаунт и данные', aiSet('data')], tour:['Знакомство с приложением', () => openTourMenu()], feedback:['Отзыв', () => ACT.feedback()],
+  set_look:['Оформление', aiSet('look')], set_cal:['Вид календаря', aiSet('cal')], set_cats:['Мои календари', aiSet('cats')], set_layout:['Главная и разделы', aiSet('secs')], sections:['Разделы и вкладки', () => openSecs()],
+  set_notif:['Уведомления', aiSet('notif')], set_data:['Аккаунт и данные', aiSet('data')], tour:['Знакомство с приложением', () => openTourMenu()], feedback:['Отзыв', () => ACT.feedback()],
   weekplan:['Разложить дела на неделю', () => aiDayRun(AI_WEEK_TXT, '', true)] };   // из итогов недели (пуш в воскресенье) — в том же чате
 ACT.ainav = el => { const n = AI_NAV[el.dataset.to]; if (!n) return; if (el.dataset.to === 'weekplan') return n[1](); closeSheet(); n[1](); };
 
@@ -786,7 +786,7 @@ ACT.aiplan = el => { const x = aiItemAt(el); if (!x || x.it.st !== 'ask') return
   delete x.it.st; aiDo(x.it, x.m.refs); save(); aiStore(); render(); aiRefresh();
   if (x.it.st === 'ok') toast(`План в календаре: ${plural(x.it.got.n, ['занятие', 'занятия', 'занятий'])}` + (x.it.got.steps ? `, ${plural(x.it.got.steps, ['шаг', 'шага', 'шагов'])} в «Целях»` : '')); };
 ACT.aiplanno = el => { const x = aiItemAt(el); if (!x || x.it.st !== 'ask') return; x.it.st = 'no'; x.it.why = 'не стали ставить'; aiStore(); aiRefresh(); };
-ACT.aifree = () => { closeSheet(); aiSet('cal')(); };
+ACT.aifree = () => { closeSheet(); aiSet('ai')(); };
 // Новый план — прежние, ещё не поставленные, больше не нужны
 const aiPlanAsk = x => { ai.msgs.forEach(m => (m.items || []).forEach(y => { if (y.type === 'plan' && y.st === 'ask') { y.st = 'no'; y.why = 'заменён новым планом ниже'; } }));
   x.st = 'ask'; delete x.why; x.res = null; };

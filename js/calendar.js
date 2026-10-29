@@ -587,7 +587,7 @@ function settingsBlocks() {
   const st = S.settings;
   return {
   look: lookHTML(),   // js/look.js
-  cal: `<div class="set-sec">Календарь</div>
+  cal: `<div class="set-sec">Вид календаря</div>
   <div class="lk-row"><div class="lk-h">Размер сетки${hintK('density')}</div><div class="seg2 lk-seg">${[['compact','Компактно'],['normal','Обычно'],['large','Крупно']].map(([v,n]) => `<button class="${st.density===v?'on':''}" data-act="density" data-v="${v}">${n}</button>`).join('')}</div></div>
   <div class="set-row"><span>День в сетке начинается с</span><select id="s_ds" class="fin" style="min-width:90px">${[...Array(13)].map((_,h) => `<option value="${h}"${startH()===h?' selected':''}>${String(h).padStart(2,'0')}:00</option>`).join('')}</select></div>
   <div class="set-row"><span>Неделя начинается с</span><select id="s_ws" class="fin"><option value="1"${st.weekStart===1?' selected':''}>Понедельника</option><option value="0"${st.weekStart===0?' selected':''}>Воскресенья</option></select></div>
@@ -595,9 +595,8 @@ function settingsBlocks() {
   <div class="set-row"><span>${withHint('Номер недели', 'weekNums')}</span><input id="s_wn" class="sw" type="checkbox"${st.weekNums?' checked':''}></div>
   <div class="set-row"><span>${withHint('Приглушать прошедшие события', 'dimPast')}</span><input id="s_dim" class="sw" type="checkbox"${st.dimPast?' checked':''}></div>
   <div class="set-row"><span>${withHint('Сворачивать пустые часы в неделе', 'fold')}</span><input id="s_fold" class="sw" type="checkbox"${st.fold !== false?' checked':''}></div>
-  ${aiFreeHTML()}
   ${innerWidth >= 900 ? `<div class="set-row"><span>Горячие клавиши одной буквой <small class="set-note" style="display:block;margin:2px 0 0">N, T, M, W, D, L, «/» — выключите, если они срабатывают случайно. Ctrl+K работает всегда</small></span><input id="s_keys1" class="sw" type="checkbox"${st.keys1 !== false ? ' checked' : ''}></div>` : ''}`,
-  cats: `<div class="set-sec">Календари (категории)</div>
+  cats: `<div class="set-sec">Мои календари</div>
   <div class="catlist">${S.cats.map(c => delAsk === c.id ? `<div class="catedit ask2">
     <span class="cswatch" style="--c:${c.color}"></span><span class="askt">Удалить «${esc(c.name)}»?</span>
     <button class="askyes" data-act="delyes" data-id="${c.id}">Удалить</button><button class="askno" data-act="delno">Отмена</button></div>` : `<div class="catedit">
@@ -608,7 +607,7 @@ function settingsBlocks() {
     ${palOpen === c.id ? `<div class="cpal">${PALETTE.map(col => `<button class="cdot${col.toLowerCase() === c.color.toLowerCase() ? ' on' : ''}" data-act="setcolor" data-id="${c.id}" data-c="${col}" style="--c:${col}" aria-label="${col}"></button>`).join('')}<label class="cdot custom" title="Свой цвет"><input type="color" data-cat="${c.id}" data-f="color" value="${c.color}"></label></div>` : ''}`).join('')}</div>
   <button class="addcat" data-act="addcat">+ Добавить категорию</button>
   <button class="btn" style="width:100%;margin-top:8px" data-act="shareall">${I(IC.share,16)} Поделиться всем календарём</button>`,
-  notif: `<div class="set-sec">Напоминания</div>
+  notif: `<div class="set-sec">Уведомления</div>
   <div class="nstat"><i class="ndot ${notif.state}"></i><span id="nstat_t">${esc(notif.text)}</span></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">${!signedIn() ? `<button class="btn pri grow" data-act="login">${I(IC.user,16)} Войти</button>`
     : notif.on ? `<button class="btn pri grow" data-act="ntest">${I(IC.bell,16)} Проверить</button><button class="btn grow" data-act="pushoff">Выключить здесь</button>`

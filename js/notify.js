@@ -16,7 +16,7 @@ async function checkNotif() {
   else if (!signedIn()) set('off', 'Войдите в аккаунт — напоминания приходят на устройства, где вы вошли', 'нужен вход');
   else if (Notification.permission !== 'granted') set('off', 'Выключены на этом устройстве', 'выключены');
   else { const mine = pushMine(await pushSub()); mine ? set('on', 'Включены на этом устройстве', 'включены', true) : set('warn', 'Разрешены, но это устройство ещё не подписано', 'не подписано'); }
-  const ns = $('#nstat_t'), li = $('.st-item[data-k="notif"] small');   // карточка или строка списка разделов (телефон)
+  const ns = $('#nstat_t'), li = $('.st-item[data-k="notif"] small, .st-tile[data-k="notif"] small');   // карточка или строка списка разделов (телефон)
   if (sec === 'settings' && ((ns && ns.textContent !== notif.text) || (li && li.textContent !== ST_SEC.find(x => x[0] === 'notif')[3]().t))) render();
 }
 const plog = t => { const l = $('#plog'); if (l) l.textContent += (l.textContent ? '\n' : '') + t; else toast(t); };
@@ -91,8 +91,7 @@ const digestRow = (k, label, hint) => { const d = S.settings.digest;
 const digestHTML = () => `<div class="set-sub">Сводки</div>
   ${digestRow('am', 'Утром — план на день', 'дела на сегодня и пропущенные')}
   ${digestRow('pm', 'Вечером — «запишите задачи на завтра»', 'что уже есть на завтра; в воскресенье — итоги недели')}
-  <div class="set-row"><span>${withHint('Помощник пишет сам', 'nudge')}<small>до 3 раз в день, только по делу, ночью тихо</small></span><input id="s_nudge" class="sw" type="checkbox"${S.settings.nudge ? ' checked' : ''}></div>
-  <div class="set-row"><span>${withHint('Новости Parsimony', 'news')}<small>что нового в приложении — редко</small></span><input id="s_news" class="sw" type="checkbox"${S.settings.newsPush !== false ? ' checked' : ''}></div>`;
+    <div class="set-row"><span>${withHint('Новости Parsimony', 'news')}<small>что нового в приложении — редко</small></span><input id="s_news" class="sw" type="checkbox"${S.settings.newsPush !== false ? ' checked' : ''}></div>`;
 // Помощник пишет сам (функция reminders: nudgeCands): по умолчанию включено; сервер пишет только при nudge === true — так старая версия приложения без выключателя молчит
 onMigrate(() => { if (typeof S.settings.nudge !== 'boolean') S.settings.nudge = true; });
 // Новости Parsimony — объявления из админки уведомлением (функция reminders: annPushes); выключить — newsPush = false

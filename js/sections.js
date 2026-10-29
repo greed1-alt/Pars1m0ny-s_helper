@@ -11,7 +11,7 @@ SEC.cal = { name:'Календарь', icon:IC.cal, newLabel:'Создать' };
 
 function setSec(s) {
   if (!SEC[s] || s === sec) return;
-  if (s === 'settings') stOpen = null;   // Настройки всегда открываются со списка разделов (pages.js)
+  if (s === 'settings') { stOpen = null; stQ = ''; }   // Настройки всегда открываются со списка разделов и без поиска (pages.js)
   sec = s; S.settings.sec = s; save();
   if (s === 'habits' || s === 'fin') miniAnchor = pd(secYM + '-01'); else syncMini();
   closeQuick(); if (sheetOpen()) closeSheet();

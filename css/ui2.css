@@ -1096,6 +1096,23 @@ html.nav-swiping body{overflow-x:clip}
 .st-item b{display:block;font-size:15.5px;font-weight:600}
 @media(hover:hover){.st-item:hover{background:var(--hov)}}
 .st-back{display:inline-flex;align-items:center;gap:4px;height:38px;margin:0 0 8px;color:var(--acc);font-size:15px;font-weight:600}
+/* Поиск, группы (вид А) и плитки (вид Б) — 30 октября 2026 */
+.st-search{display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;margin:12px 0;border-radius:12px;background:var(--card);border:1px solid var(--line);color:var(--mut)}
+.st-search:focus-within{border-color:var(--acc)}
+.st-search>svg{flex:none}
+.st-search input{flex:1;min-width:0;height:100%;border:0;background:none;font:inherit;font-size:16px;color:var(--tx);outline:none}
+.st-g[hidden],.st-tile[hidden],.st-item[hidden],.st-grid>.card[hidden],.st-none[hidden]{display:none!important}
+.st-gh{font-size:12.5px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:18px 6px 7px}
+.st-g:first-of-type .st-gh{margin-top:4px}
+.st-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.st-tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:14px!important;margin:0!important;text-align:left;color:var(--tx);min-width:0;transition:background .12s}
+.st-tile>svg{color:var(--acc);margin-bottom:2px}
+.st-tile b{font-size:15px;font-weight:650;line-height:1.25}
+.st-tile small{font-size:12.5px;color:var(--tx2);overflow-wrap:anywhere;line-height:1.35}
+.st-tile small.warn{color:var(--dng)}
+@media(hover:hover){.st-tile:hover{background:linear-gradient(var(--hov),var(--hov)),var(--card)}}
+.st-none{text-align:center;color:var(--mut);margin:24px 0}
+.st-view{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:20px 4px 4px;font-size:14px;color:var(--tx2)}
 .st-one>.card>.set-sec:first-child{display:none}
 /* Кнопки внизу окна («Сохранить» и др.) всегда видны — прилипают к низу окна (18 октября 2026: на телефоне «Сохранить» в карточке
    события была ниже экрана). Отступы окна — 18 px (телефон) и 22 px (ПК): блок выходит на них, чтобы фон закрывал содержимое под ним */
