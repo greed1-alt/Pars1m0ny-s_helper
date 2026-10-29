@@ -130,7 +130,11 @@ const rows = r => (r && !r.error && Array.isArray(r.data) ? r.data : []);   // �
 const db = {
   async user(tok) { const { data, error } = await sb.auth.getUser(tok); return !error && data && data.user ? data.user.id : null; },
   async isAdmin(id) { const { data, error } = await sb.from('admins').select('user_id').eq('user_id', id).maybeSingle(); if (error) throw error; return !!data; },
-  async log(admin, action, target, info) { await sb.from('admin_log').insert({ admin, action, target: target ? String(target).slice(0, 200) : null, info: info || null }); },
+  // Журнал действий администраторов хранится 1 год (Политика обработки персональных данных, п. 5.9): старые записи удаляются при каждой новой
+  async log(admin, action, target, info) {
+    await sb.from('admin_log').insert({ admin, action, target: target ? String(target).slice(0, 200) : null, info: info || null });
+    await sb.from('admin_log').delete().lt('at', iso(Date.now() - 365 * DAY));
+  },
   async email(id) { const { data, error } = await sb.auth.admin.getUserById(id); return error || !data || !data.user ? null : data.user.email || null; },
   // Только числа: записи людей не читаются (из user_data — лишь время последней синхронизации, без data)
   async stats() {
