@@ -83,6 +83,15 @@ r = await run('tok-me', { action: 'setcfg', k: 'ann', v: { title: 'Что нов
 ok(r.st === 200 && r.out.v.text === 'Строка 1\n\nСтрока 2 <b>' && r.out.v.push === true && r.out.v.pushed === false && r.out.v.id > 1e12 && r.out.v.title === 'Что нового', 'объявление — id и pushed ставит сервер', r.out.v);
 r = await run('tok-me', { action: 'setcfg', k: 'ann', v: { text: 'Без уведомления' } }); ok(r.out.v.push === false && r.out.v.pushed === true, 'объявление без уведомления — pushed сразу');
 r = await run('tok-me', { action: 'setcfg', k: 'ann', v: null }); ok(r.st === 200 && r.db.calls.includes('cfgSet:ann:null'), 'снять объявление');
+// регистрация (29 октября 2026): выключатель, лимит в сутки, ключ клиента капчи — ключ сервера (ysc2_) не пускаем
+for (const v of [1, 'да', null]) { r = await run('tok-me', { action: 'setcfg', k: 'signup_on', v }); ok(r.st === 400, 'открыть регистрацию — только да/нет: ' + v); }
+r = await run('tok-me', { action: 'setcfg', k: 'signup_on', v: true }); ok(r.st === 200 && r.db.calls.includes('cfgSet:signup_on:true') && r.db.logs[0].action === 'cfg', 'регистрация открыта — и в журнал');
+for (const v of [0, 1001, 2.5, '50', null]) { r = await run('tok-me', { action: 'setcfg', k: 'signup_day', v }); ok(r.st === 400, 'новых в сутки — 1…1000: ' + v); }
+r = await run('tok-me', { action: 'setcfg', k: 'signup_day', v: 100 }); ok(r.st === 200 && r.db.calls.includes('cfgSet:signup_day:100'), 'новых в сутки — 100');
+for (const v of ['ysc2_secretsecretsecretsecret', 'abc', 'ysc1_<script>alert(1)</script>', 'ysc1_short', 5, { k: 'ysc1_xxxxxxxxxxxxxxxx' }]) {
+  r = await run('tok-me', { action: 'setcfg', k: 'captcha', v }); ok(r.st === 400 && !r.db.calls.some(c => c.startsWith('cfgSet')), 'ключ капчи — только ysc1_…: ' + JSON.stringify(v)); }
+r = await run('tok-me', { action: 'setcfg', k: 'captcha', v: ' ysc1_AbCdEf0123456789xyzXYZ ' }); ok(r.st === 200 && r.out.v === 'ysc1_AbCdEf0123456789xyzXYZ', 'ключ клиента капчи сохранён');
+r = await run('tok-me', { action: 'setcfg', k: 'captcha', v: null }); ok(r.st === 200 && r.db.calls.includes('cfgSet:captcha:null'), 'ключ капчи — убрать');
 // тарифы и подписки (28 октября 2026)
 for (const v of [1, 'да', null]) { r = await run('tok-me', { action: 'setcfg', k: 'tiers_on', v }); ok(r.st === 400, 'включить тарифы — только да/нет: ' + v); }
 r = await run('tok-me', { action: 'setcfg', k: 'tiers_on', v: true }); ok(r.st === 200 && r.db.calls.includes('cfgSet:tiers_on:true'), 'тарифы включены');

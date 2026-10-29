@@ -160,14 +160,15 @@ function cloudStart() {
 // Запись — S.settings.consent = { v: редакция, at: время }: синхронизируется с аккаунтом, это и есть подтверждение согласия.
 // Изменились условия (новая редакция документов) — новая CONSENT_V, и приложение спросит снова
 const CONSENT_V = '2026-10-23.2';   // 21 октября — друзья, шрифты без Google; 23 октября — голос распознаёт GigaChat, не Apple и Google; .2 — переписка с друзьями
-// Пока политика — черновик (ждёт текст-образец от пользователя и юриста, 20 октября 2026), галочка, окно и ссылки — только на бете.
-// Политика готова — LEGAL_ON = true (и ссылку в памятку beta.html вернуть)
-const LEGAL_ON = IS_BETA;
+// Пока политика — черновик (ждёт текст-образец от пользователя и юриста, 20 октября 2026), галочка, окно и ссылки — только на бете
+// и когда открыта регистрация (её открывает админ, когда документы готовы: app_config.signup_on, admin.js). Ссылку в памятку beta.html — тогда же
+const legalOn = () => IS_BETA || appCfg.signup_on === true;
+const signupOn = () => appCfg.signup_on === true && /^ysc1_/.test(appCfg.captcha || '');   // регистрация открыта и капча настроена (функция signup)
 let consentAgreed = false;   // отметил галочку при входе — записываем, как только аккаунт подключён и данные загружены
 const consentOk = () => !!(S.settings.consent && S.settings.consent.v === CONSENT_V);
 function consentSave() { S.settings.consent = { v: CONSENT_V, at: new Date().toISOString() }; save(); }
 function consentCheck() {
-  if (!LEGAL_ON || !signedIn() || consentOk()) return;
+  if (!legalOn() || !signedIn() || consentOk()) return;
   if (consentAgreed) { consentAgreed = false; return consentSave(); }
   if (sheetOpen() || onbIsOpen() || tour) return setTimeout(consentCheck, 5000);   // не поверх открытого окна, знакомства или тура
   openConsent(false);
@@ -253,13 +254,14 @@ ACT.accdelgo = async () => {
 // Вернуть записи, которые были на устройстве до входа (копия при «Взять только из аккаунта» или при входе в другой аккаунт)
 ACT.safeback = () => { const s = lsGet(SAFE_LS); if (!s || !s.data) return; snap(); applyData(merge3({}, packS(), cleanTree(s.data, ''))); lsSet(SAFE_LS, null); toast('Записи с устройства возвращены', true); if (signedIn()) syncSoon(0); };
 
-// ---- Окно входа: почта → код из письма ----
-let lg = null;   // { step:'email'|'code', email, sentAt, err }
+// ---- Окно входа: почта → код из письма; незнакомая почта при открытой регистрации — «Новый аккаунт» (функция signup) → код ----
+let lg = null;   // { step:'email'|'new'|'code', email, sentAt, err, agree, cap — ответ капчи }
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$/;
+const noUser = e => /signups? not allowed|otp_disabled|signup_disabled/i.test(String(e && e.message || '') + (e && e.code || ''));   // такой почты нет (регистрация в Supabase выключена)
 function cloudErrText(e) {
   const m = String(e && e.message || ''), c = e && e.code || '';
   if (!e || e.status === 0) return 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.';
-  if (/signups? not allowed|otp_disabled|signup_disabled/i.test(m + c)) return 'Этой почты нет в списке бета-тестеров. Попросите приглашение у автора Parsimony.';
+  if (noUser(e)) return 'Аккаунта с этой почтой нет. Пока Parsimony в бете — войти могут только приглашённые.';
   if (e.status === 429 || /rate limit/i.test(m)) return 'Слишком много попыток. Подождите несколько минут и попробуйте снова.';
   if (/expired|invalid/i.test(m + c) && lg && lg.step === 'code') return 'Код неверный или устарел. Проверьте его или отправьте новый.';
   if (e.status === 401 || e.status === 403) return 'Вход закончился — войдите снова.';
@@ -268,21 +270,28 @@ function cloudErrText(e) {
 function openLogin(keep) {
   if (!lg) lg = { step:'email', email:'', sentAt:0, err:'' };
   const wait = Math.max(0, 60 - Math.round((Date.now() - lg.sentAt) / 1000));
-  sheet(`<div class="sh-head"><h3>Вход</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
-  ${lg.step === 'email' ? `<p class="set-note" style="margin:0 0 12px">Введите почту — пришлём код. Пароль не нужен.</p>
+  sheet(`<div class="sh-head"><h3>${lg.step === 'new' ? 'Новый аккаунт' : 'Вход'}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  ${lg.step === 'new' ? `<p class="set-note" style="margin:0 0 12px">Аккаунта с почтой <b style="color:var(--tx)">${esc(lg.email)}</b> ещё нет. Создадим его и пришлём код для входа.</p>
+    <div id="lg_cap" class="lg-cap"></div>
+    <div id="lg_err" class="lg-err" role="alert">${esc(lg.err)}</div>
+    <button class="btn pri lg-go" data-act="lgcreate">Создать аккаунт</button>
+    <p class="lg-terms">Нажимая «Создать аккаунт», вы принимаете <a href="terms.html" target="_blank" rel="noopener">пользовательское соглашение</a>.</p>
+    <div class="lg-row"><button class="lnk" data-act="lgback">Другая почта</button></div>`
+  : lg.step === 'email' ? `<p class="set-note" style="margin:0 0 12px">Введите почту — пришлём код. Пароль не нужен.${signupOn() ? ' Аккаунта ещё нет — создадим.' : ''}</p>
     <label class="lg-l" for="lg_email">Почта</label>
     <input id="lg_email" class="fin lg-in" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="200" value="${esc(lg.email)}" placeholder="name@mail.ru">
     <div id="lg_err" class="lg-err" role="alert">${esc(lg.err)}</div>
-    ${LEGAL_ON ? `<label class="lg-ok"><input id="lg_ok" type="checkbox"${lg.agree ? ' checked' : ''}><span>Даю <a href="consent.html" target="_blank" rel="noopener">согласие на обработку персональных данных</a> и принимаю <a href="privacy.html" target="_blank" rel="noopener">политику</a></span></label>` : ''}
+    ${legalOn() ? `<label class="lg-ok"><input id="lg_ok" type="checkbox"${lg.agree ? ' checked' : ''}><span>Даю <a href="consent.html" target="_blank" rel="noopener">согласие на обработку персональных данных</a> и принимаю <a href="privacy.html" target="_blank" rel="noopener">политику</a></span></label>` : ''}
     <button class="btn pri lg-go" data-act="lgsend">Получить код</button>
-    ${LEGAL_ON ? `<p class="lg-terms">Нажимая «Получить код», вы принимаете <a href="terms.html" target="_blank" rel="noopener">пользовательское соглашение</a>.</p>` : ''}`
+    ${legalOn() ? `<p class="lg-terms">Нажимая «Получить код», вы принимаете <a href="terms.html" target="_blank" rel="noopener">пользовательское соглашение</a>.</p>` : ''}`
   : `<p class="set-note" style="margin:0 0 12px">Отправили код на <b style="color:var(--tx)">${esc(lg.email)}</b>. Письмо приходит за минуту; если его нет — загляните в «Спам».</p>
     <label class="lg-l" for="lg_code">Код из письма</label>
     <input id="lg_code" class="fin lg-in lg-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456">
     <div id="lg_err" class="lg-err" role="alert">${esc(lg.err)}</div>
     <button class="btn pri lg-go" data-act="lgverify">Войти</button>
     <div class="lg-row"><button class="lnk" data-act="lgback">Другая почта</button><button class="lnk" data-act="lgresend" id="lg_resend"${wait ? ' disabled' : ''}>${wait ? `Новый код — через ${wait} с` : 'Отправить код ещё раз'}</button></div>`}
-  <p class="set-note lg-beta">${I(IC.alert, 14)} Бета-версия: войти могут только приглашённые. Записи хранятся на сервере Supabase за пределами России.</p>`, keep);
+  ${signupOn() ? '' : `<p class="set-note lg-beta">${I(IC.alert, 14)} Бета-версия: войти могут только приглашённые. Записи хранятся на сервере Supabase за пределами России.</p>`}`, keep);
+  if (lg.step === 'new') capMount();
   const i = $(lg.step === 'email' ? '#lg_email' : '#lg_code'); if (i) setTimeout(() => i.focus(), 60);
   clearInterval(openLogin.t);
   if (lg.step === 'code' && wait) openLogin.t = setInterval(() => { const b = $('#lg_resend'); if (!b) return clearInterval(openLogin.t); const w = Math.max(0, 60 - Math.round((Date.now() - lg.sentAt) / 1000)); b.disabled = !!w; b.textContent = w ? `Новый код — через ${w} с` : 'Отправить код ещё раз'; if (!w) clearInterval(openLogin.t); }, 1000);
@@ -295,9 +304,35 @@ async function lgSend() {
   const ok = $('#lg_ok'); lg.agree = !ok || ok.checked;   // согласие — до того, как почта уйдёт на сервер
   if (!lg.agree) { ok.focus(); return lgErr('Отметьте согласие на обработку данных — без него войти в аккаунт нельзя'); }
   lg.email = email; lgErr(''); lgBusy(true, 'Отправляю…');
-  try { await api('/auth/v1/otp', { method:'POST', body:{ email, create_user:false } }); lg.step = 'code'; lg.sentAt = Date.now(); lsSet(LG_LS, { email, sentAt: lg.sentAt, agree: true }); openLogin(true); }
-  catch (e) { lgBusy(false, 'Получить код'); lgErr(cloudErrText(e)); }
+  try { await lgCode(); }
+  catch (e) {
+    if (noUser(e) && signupOn()) { lg.step = 'new'; lg.err = ''; return openLogin(true); }   // такой почты нет, регистрация открыта — создать аккаунт
+    lgBusy(false, 'Получить код'); lgErr(cloudErrText(e));
+  }
 }
+// Код только для существующего аккаунта (create_user: false): новые создаёт функция signup, после проверки «я не робот»
+async function lgCode() { await api('/auth/v1/otp', { method:'POST', body:{ email: lg.email, create_user:false } }); lg.step = 'code'; lg.sentAt = Date.now(); lsSet(LG_LS, { email: lg.email, sentAt: lg.sentAt, agree: true }); openLogin(true); }
+// «Я не робот» — Яндекс SmartCaptcha (решение пользователя 29 октября 2026): скрипт грузится только на шаге «Новый аккаунт»; в CSP — smartcaptcha.yandexcloud.net
+let capW = null;
+function capMount() {
+  lg.cap = '';
+  const draw = () => { const b = $('#lg_cap'); if (!b || !window.smartCaptcha) return;
+    try { capW = window.smartCaptcha.render(b, { sitekey: appCfg.captcha, hl: 'ru', callback: t => { if (lg) { lg.cap = t; lgErr(''); } } }); } catch (e) { lgErr('Проверка «я не робот» не загрузилась — обновите страницу'); } };
+  if (window.smartCaptcha) return draw();
+  window.capReady = draw;
+  if (!$('#cap_js')) { const s = document.createElement('script'); s.id = 'cap_js'; s.async = true; s.src = 'https://smartcaptcha.yandexcloud.net/captcha.js?render=onload&onload=capReady';
+    s.onerror = () => { s.remove(); lgErr('Проверка «я не робот» не загрузилась — проверьте интернет'); }; document.head.appendChild(s); }
+}
+const SIGNUP_ERR = { closed: 'Регистрация сейчас закрыта.', busy: 'Сегодня новых аккаунтов уже много — попробуйте завтра.', ip: 'Слишком много попыток из вашей сети — попробуйте через час.',
+  captcha: 'Проверка «я не робот» не прошла — попробуйте ещё раз.', temp: 'Временная почта не подойдёт — нужна настоящая: на неё придёт код.', email: 'Проверьте почту — похоже, в ней ошибка.' };
+async function lgCreate() {
+  if (!lg.cap) return lgErr('Пройдите проверку «я не робот»');
+  lgErr(''); lgBusy(true, 'Создаю…');
+  try { await api('/functions/v1/signup', { method:'POST', body:{ email: lg.email, token: lg.cap } }); }
+  catch (e) { lgBusy(false, 'Создать аккаунт'); lg.cap = ''; try { window.smartCaptcha.reset(capW); } catch (x) {} return lgErr(SIGNUP_ERR[e.message] || cloudErrText(e)); }
+  try { await lgCode(); } catch (e) { lgBusy(false, 'Создать аккаунт'); lgErr(cloudErrText(e)); }
+}
+ACT.lgcreate = lgCreate;
 async function lgVerify() {
   const i = $('#lg_code'), code = (i ? i.value : '').replace(/\D/g, '');
   if (code.length < 6) { if (i) i.focus(); return lgErr('Введите код из письма — 6 цифр'); }

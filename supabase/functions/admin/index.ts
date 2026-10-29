@@ -19,19 +19,23 @@
 // С 28 октября 2026 — подписки (supabase/sql/subscriptions.sql): выдать Плюс или Премиум на N дней (grant) и отменить (revoke), тариф в списке людей,
 // число подписчиков в сводке; в настройках — включить тарифы (tiers_on) и лимиты помощника по тарифам (limits).
 // С 28 октября 2026 — ParsiCoins (supabase/sql/coins.sql): баланс в списке людей, начислить или списать (не ниже нуля) с пометкой — coins.
+// С 29 октября 2026 — регистрация (функция signup): открыть и закрыть (signup_on), новых в сутки (signup_day), ключ клиента капчи (captcha).
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 // ==== ADMIN start ==== (тест: tools/test-admin.mjs; db — доступ к базе, в тесте — подделка)
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@<>"'`,;:()[\]\\]{1,64}@[^\s@<>"'`,;:()[\]\\]+\.[a-zа-яё0-9-]{2,}$/i;
 const ACTIONS = ['stats', 'users', 'invite', 'ban', 'unban', 'nick', 'name', 'del', 'feedback', 'fbdone', 'log', 'cfg', 'setcfg', 'grant', 'revoke', 'coins'];
-const CFG_KEYS = ['ann', 'maint', 'ai_limit', 'nudge', 'tiers_on', 'limits'], PLANS = ['plus', 'premium'];
+const CFG_KEYS = ['ann', 'maint', 'ai_limit', 'nudge', 'tiers_on', 'limits', 'signup_on', 'signup_day', 'captcha'], PLANS = ['plus', 'premium'];
 // Значение настройки — только известного вида; null — убрать объявление или плашку. У объявления id и время ставит сервер,
 // pushed: false — уведомление ещё не отправлено (его отправит функция reminders один раз)
 function cfgClean(k, v) {
-  if (v === null) return k === 'ann' || k === 'maint' ? { v: null } : null;
+  if (v === null) return k === 'ann' || k === 'maint' || k === 'captcha' ? { v: null } : null;
   if (k === 'ai_limit') return Number.isInteger(v) && v >= 1 && v <= 500 ? { v } : null;
-  if (k === 'nudge' || k === 'tiers_on') return typeof v === 'boolean' ? { v } : null;
+  if (k === 'signup_day') return Number.isInteger(v) && v >= 1 && v <= 1000 ? { v } : null;
+  if (k === 'nudge' || k === 'tiers_on' || k === 'signup_on') return typeof v === 'boolean' ? { v } : null;
+  // Ключ клиента SmartCaptcha (ysc1_…) — открытый, его видит любой; ключ сервера (ysc2_…) сюда не пускаем — он только в Secrets
+  if (k === 'captcha') return typeof v === 'string' && /^ysc1_[A-Za-z0-9_-]{10,100}$/.test(v.trim()) ? { v: v.trim() } : null;
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const line = (s, n) => typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '';
   if (k === 'limits') { const o = {}; for (const p of ['free', 'plus', 'premium']) { if (!Number.isInteger(v[p]) || v[p] < 1 || v[p] > 1000) return null; o[p] = v[p]; } return { v: o }; }

@@ -251,6 +251,14 @@ function admSet() {
     <div class="set-row"><span>Тарифы включены<small>бесплатным станет ${TL.free} сообщений в день</small></span><input id="adm_tiers" class="sw" type="checkbox"${c.tiers_on === true ? ' checked' : ''}></div>
     <div class="adm-lims">${['free', 'plus', 'premium'].map(p => `<label><span>${PLAN_NAME[p]}</span><input id="adm_l_${p}" class="fin" type="number" inputmode="numeric" min="1" max="1000" value="${TL[p]}"></label>`).join('')}</div>
     <button class="btn" data-act="admlims">Сохранить лимиты по тарифам</button></div>
+  <div class="card adm-set"><b class="adm-h">🚪 Регистрация</b>
+    <p class="set-note">${c.signup_on === true ? 'Открыта: незнакомая почта на экране входа — «Создать аккаунт» с проверкой «я не робот» (функция signup). У всех — галочка согласия и ссылки на документы.'
+      : 'Закрыта: войти могут только те, кого вы пригласили. Откройте, когда в документах будет почта и их посмотрит юрист, а сервер переедет в Россию (152-ФЗ): тогда у всех появятся галочка согласия и ссылки на документы.'}</p>
+    <div class="set-row"><span>Регистрация открыта<small>${c.captcha ? 'ключ капчи сохранён' : 'сначала сохраните ключ капчи'}</small></span><input id="adm_su" class="sw" type="checkbox"${c.signup_on === true ? ' checked' : ''}></div>
+    <div class="adm-lim"><span>Новых аккаунтов в сутки</span><input id="adm_sud" class="fin" type="number" inputmode="numeric" min="1" max="1000" value="${Number.isInteger(c.signup_day) ? c.signup_day : 50}" aria-label="Новых аккаунтов в сутки"><button class="btn" data-act="admsud">Сохранить</button></div>
+    <label class="adm-gl"><span>Ключ клиента SmartCaptcha</span><input id="adm_cap" class="fin" maxlength="120" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ysc1_…" value="${esc(c.captcha || '')}"></label>
+    <button class="btn" data-act="admcap">Сохранить ключ</button>
+    <p class="set-note">Ключ сервера (ysc2_…) — только в Supabase → Edge Functions → Secrets как SMARTCAPTCHA_SERVER_KEY, сюда его не вставлять. Лимит в сутки бережёт письма с кодом: у Resend бесплатно около 100 в день.</p></div>
   <div class="card adm-set"><b class="adm-h">🔔 Мои уведомления</b><p class="set-note">Приходят на ваши устройства, где включены напоминания.</p>
     <div class="set-row"><span>О новых отзывах</span><input id="adm_pfb" class="sw" type="checkbox"${p.fb === false ? '' : ' checked'}></div>
     <div class="set-row"><span>О попытках открыть админку без прав</span><input id="adm_pdn" class="sw" type="checkbox"${p.deny === false ? '' : ' checked'}></div></div>`;
@@ -261,10 +269,20 @@ ACT.admannoff = () => admSetCfg('ann', null, 'Объявление снято');
 ACT.admlims = () => { const v = {}; for (const p of ['free', 'plus', 'premium']) { const n = Math.round(Number(($('#adm_l_' + p) || {}).value)); if (!(n >= 1 && n <= 1000)) return toast('Лимит — от 1 до 1000'); v[p] = n; }
   admSetCfg('limits', v, `Лимиты: ${v.free} · ${v.plus} · ${v.premium} в день`); };
 ACT.admmaint = () => { const on = !!($('#adm_mo') || {}).checked; admSetCfg('maint', { on, text: ($('#adm_mt') || {}).value || '' }, on ? 'Плашка включена у всех' : 'Плашка выключена'); };
+ACT.admsud = () => { const n = Math.round(Number(($('#adm_sud') || {}).value)); if (!(n >= 1 && n <= 1000)) return toast('От 1 до 1000'); admSetCfg('signup_day', n, 'Новых аккаунтов в сутки — не больше ' + n); };
+ACT.admcap = () => { const v = String(($('#adm_cap') || {}).value || '').trim();
+  if (/^ysc2_/.test(v)) return toast('Это ключ сервера — его только в Secrets, не сюда');
+  if (v && !/^ysc1_[A-Za-z0-9_-]{10,100}$/.test(v)) return toast('Ключ клиента начинается с ysc1_');
+  if (!v && adm.cfg.signup_on === true) return toast('Сначала закройте регистрацию');
+  admSetCfg('captcha', v || null, v ? 'Ключ капчи сохранён' : 'Ключ капчи убран'); };
 ACT.admlim = () => { const n = Math.round(Number(($('#adm_lim') || {}).value)); if (!(n >= 1 && n <= 500)) return toast('Лимит — от 1 до 500'); admSetCfg('ai_limit', n, 'Помощник: ' + plural(n, ['запрос', 'запроса', 'запросов']) + ' в день'); };
 document.addEventListener('change', e => { const id = e.target.id;
   if (id === 'adm_tiers') { if (e.target.checked && !confirm('Включить тарифы? Лимит помощника станет по тарифу — у бесплатных меньше.')) { e.target.checked = false; return; }
     return admSetCfg('tiers_on', e.target.checked, e.target.checked ? 'Тарифы включены' : 'Тарифы выключены — у всех прежний лимит'); }
+  if (id === 'adm_su') { const on = e.target.checked;
+    if (on && !adm.cfg.captcha) { e.target.checked = false; return toast('Сначала сохраните ключ клиента капчи'); }
+    if (on && !confirm('Открыть регистрацию для всех? У всех появятся галочка согласия и ссылки на документы. По закону данные новых людей должны храниться на сервере в России.')) { e.target.checked = false; return; }
+    return admSetCfg('signup_on', on, on ? 'Регистрация открыта' : 'Регистрация закрыта'); }
   if (id === 'adm_nudge') admSetCfg('nudge', e.target.checked, e.target.checked ? 'Помощник снова пишет сам' : 'Помощник больше не пишет сам — никому');
   else if (id === 'adm_pfb' || id === 'adm_pdn') { S.settings.admPush = Object.assign({}, S.settings.admPush, { [id === 'adm_pfb' ? 'fb' : 'deny']: e.target.checked }); save(); toast(e.target.checked ? 'Буду присылать' : 'Не буду присылать'); } });
 // Из уведомления админу (#s=admfb / #s=admlog, notify.js) — сразу на нужную вкладку, свежие данные
