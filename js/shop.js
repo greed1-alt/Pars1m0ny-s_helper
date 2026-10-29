@@ -6,7 +6,35 @@
 // заданий — не больше 3 в день и 3 в неделю. Здесь — показать, проверить условие задания и попросить сервер.
 // Каталог и награды — копия coins.sql (тест tools/test-coins.mjs сверяет). Кэш на устройстве — remapp_coins
 const COIN = 'ParsiCoins', CN_LS = 'remapp_coins';
-const coinI = (s = 18) => `<svg class="coin" width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#f2b33d"/><circle cx="12" cy="12" r="8.2" fill="#ffd56e" stroke="#d6961a" stroke-width="1.2"/><path d="M10.2 16.6V7.6h2.4a2.6 2.6 0 0 1 0 5.2h-2.4" fill="none" stroke="#935d00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+// Значок монеты — проба четырёх вариантов (30 октября 2026: «сделай желудь, голографический жетон, пиксельную монету и ракушку. я посмотрю
+// и выберу классную»): переключатель наверху страницы ParsiCoins (S.settings.coinLook). У каждого рисунка свои id градиентов (cnGid)
+let cnGid = 0;
+const COIN_LOOK = {
+  acorn: ['Жёлудь', s => { const g = 'cg' + (cnGid++); return `<defs><linearGradient id="${g}n" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6c76a"/><stop offset="1" stop-color="#c47a1c"/></linearGradient><linearGradient id="${g}c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5a2b"/><stop offset="1" stop-color="#5b3815"/></linearGradient></defs><path d="M14 30C14 47 24 60 32 60C40 60 50 47 50 30Z" fill="url(#${g}n)"/><path d="M24 36C24 46 28 54 32 56" stroke="#ffffff33" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M10 30C10 18 20 12 32 12C44 12 54 18 54 30C54 33 51 34 48 34L16 34C13 34 10 33 10 30Z" fill="url(#${g}c)"/>${s >= 24 ? '<path d="M15 27L49 27M13 22L51 22M19 17L45 17" stroke="#ffffff22" stroke-width="2"/>' : ''}<path d="M32 12C32 8 34 5 37 3" stroke="#5b3815" stroke-width="4" fill="none" stroke-linecap="round"/>`; }],
+  holo: ['Голографический жетон', s => { const g = 'cg' + (cnGid++); return `<defs><linearGradient id="${g}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7f77dd"/><stop offset=".3" stop-color="#5dcaa5"/><stop offset=".55" stop-color="#f4c0d1"/><stop offset=".8" stop-color="#85b7eb"/><stop offset="1" stop-color="#afa9ec"/></linearGradient><linearGradient id="${g}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff00"/><stop offset=".5" stop-color="#ffffff99"/><stop offset="1" stop-color="#ffffff00"/></linearGradient></defs><circle cx="32" cy="32" r="29" fill="url(#${g})"/><circle cx="32" cy="32" r="29" fill="none" stroke="#ffffff88" stroke-width="2.5"/>${s >= 24 ? '<circle cx="32" cy="32" r="22" fill="none" stroke="#ffffff66" stroke-width="1.5"/>' : ''}<path d="M8 40L40 8L50 14L14 50Z" fill="url(#${g}s)" opacity=".7"/><text x="32" y="43" text-anchor="middle" font-size="30" font-weight="700" fill="#ffffffe6" font-family="Inter,system-ui,sans-serif">P</text>`; }],
+  pixel: ['Пиксельная монета', () => { const row = [[4, 0, 6, '#e8a317'], [2, 1, 10, '#e8a317'], [1, 2, 12, '#f6c344'], [0, 3, 14, '#f6c344'], [0, 4, 14, '#f6c344'], [0, 5, 14, '#f6c344'], [0, 6, 14, '#f6c344'], [0, 7, 14, '#e8a317'], [0, 8, 14, '#e8a317'], [0, 9, 14, '#e8a317'], [0, 10, 14, '#d18710'], [1, 11, 12, '#d18710'], [2, 12, 10, '#b56d08'], [4, 13, 6, '#b56d08']];
+    const P = [[6, 3], [7, 3], [8, 3], [6, 4], [9, 4], [6, 5], [9, 5], [6, 6], [7, 6], [8, 6], [6, 7], [6, 8], [6, 9]], r = (x, y, w, c) => `<rect x="${4 + x * 4}" y="${4 + y * 4}" width="${w * 4}" height="4" fill="${c}"/>`;
+    return row.map(([x, y, w, c]) => r(x, y, w, c)).join('') + P.map(([x, y]) => r(x, y, 1, '#8a4e00')).join('') + '<rect x="12" y="16" width="4" height="12" fill="#fff6c7"/><rect x="16" y="12" width="4" height="4" fill="#fff6c7"/>'; }],
+  cowrie: ['Ракушка-каури', s => { const g = 'cg' + (cnGid++); return `<defs><radialGradient id="${g}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff8ec"/><stop offset=".6" stop-color="#f0d9b5"/><stop offset="1" stop-color="#c9a26b"/></radialGradient></defs><ellipse cx="32" cy="32" rx="20" ry="28" fill="url(#${g})" stroke="#b08654" stroke-width="1.5"/><path d="M32 8C29 20 29 44 32 56C35 44 35 20 32 8Z" fill="#7a5530"/>${(s >= 24 ? [14, 20, 26, 32, 38, 44, 50] : [20, 32, 44]).map(y => { const d = Math.abs(32 - y) / 9; return `<path d="M${28.6 + d} ${y}L25 ${y}M${35.4 - d} ${y}L39 ${y}" stroke="#b08654" stroke-width="${s >= 24 ? 1.6 : 2.6}" stroke-linecap="round"/>`; }).join('')}<ellipse cx="24" cy="18" rx="4" ry="6" fill="#ffffff88"/>`; }],
+};
+onMigrate(() => { if (!COIN_LOOK[S.settings.coinLook]) S.settings.coinLook = 'acorn'; });
+const coinI = (s = 18) => { const k = S.settings.coinLook, v = COIN_LOOK[k] || COIN_LOOK.acorn;
+  return `<svg class="coin coin-${k}${k === 'holo' && s >= 24 ? ' holo-a' : ''}" width="${s}" height="${s}" viewBox="0 0 64 64" aria-hidden="true"${k === 'pixel' ? ' shape-rendering="crispEdges"' : ''}>${v[1](s)}</svg>`; };
+ACT.coinlook = el => { if (!COIN_LOOK[el.dataset.v]) return; S.settings.coinLook = el.dataset.v; save(); render(); };
+// Полёт монет из кнопки «Забрать» в баланс наверху страницы; число обновляется, когда монеты долетят
+function coinFly(from, n) {
+  const to = $('.cn-bal .coin'); if (!from || !to || matchMedia('(prefers-reduced-motion: reduce)').matches) return 0;
+  const f = from.getBoundingClientRect(), t = to.getBoundingClientRect(), x0 = f.left + f.width / 2 - 11, y0 = f.top + f.height / 2 - 11, x1 = t.left + t.width / 2 - 11, y1 = t.top + t.height / 2 - 11;
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('div'); el.className = 'cn-fly'; el.innerHTML = coinI(22); document.body.appendChild(el);
+    const mx = (x0 + x1) / 2 + (i - n / 2) * 16, my = Math.min(y0, y1) - 50 - i * 6;
+    el.animate([{ transform: `translate(${x0}px,${y0}px) scale(.6)`, opacity: 0 }, { transform: `translate(${mx}px,${my}px) scale(1.2)`, opacity: 1, offset: .45 }, { transform: `translate(${x1}px,${y1}px) scale(.9)`, opacity: 1 }],
+      { duration: 720, delay: i * 90, easing: 'cubic-bezier(.3,.7,.4,1)', fill: 'both' }).onfinish = () => el.remove();
+    setTimeout(() => el.remove(), 1500 + i * 90);   // если кадры не рисуются (приложение свёрнуто)
+  }
+  return 720 + (n - 1) * 90;
+}
+const coinBump = () => { const b = $('.cn-bal'); if (b) b.classList.add('bump'); };
 
 // ---- Каталог (как в coins.sql) ----
 const Q_D = 5, Q_W = 20, Q_MAX = 3;   // задание дня, недели; сколько заданий в день и в неделю
@@ -176,10 +204,15 @@ const cnRun = async f => { if (cnBusy) return; cnBusy = true; try { await f(); }
 // ---- Действия ----
 ACT.shopopen = el => { if (typeof closeQuick === 'function') closeQuick(); if (el && el.dataset.tab) cnTab = el.dataset.tab; setSec('shop'); coinsLoad(); };
 ACT.cntab = el => { cnTab = el.dataset.t === 'shop' ? 'shop' : 'tasks'; render(); };
-ACT.cnclaim = el => cnRun(async () => { await coinClaim(el.dataset.k); render(); coinsLoad(); });
-ACT.cnall = () => cnRun(async () => {
-  let sum = 0; for (const x of coinsReady().slice()) sum += await coinClaim(x.k, true);
-  toast(sum ? `+${sum} ${COIN}` : 'Не получилось — попробуйте позже'); render(); coinsLoad();
+ACT.cnclaim = el => cnRun(async () => { const bal = coins.bal, amt = await coinClaim(el.dataset.k), ms = amt ? coinFly(el, 5) : 0;
+  if (ms) { coins.bal = bal; render(); coins.bal = bal + amt; setTimeout(() => { render(); coinBump(); }, ms); } else render();   // число — когда долетят
+  coinsLoad(); });
+ACT.cnall = el => cnRun(async () => {
+  const bal = coins.bal; let sum = 0; for (const x of coinsReady().slice()) sum += await coinClaim(x.k, true);
+  toast(sum ? `+${sum} ${COIN}` : 'Не получилось — попробуйте позже');
+  const ms = sum ? coinFly(el, 8) : 0;
+  if (ms) { coins.bal = bal; render(); coins.bal = bal + sum; setTimeout(() => { render(); coinBump(); }, ms); } else render();
+  coinsLoad();
 });
 ACT.cnitem = el => openShopItem(el.dataset.it);
 // Включить своё: палитру, обложку, рамку
@@ -269,6 +302,7 @@ function shopHTML() {
     : coinsErr === 'off' ? 'Магазин скоро откроется.' : 'Загружаю… Если долго — проверьте интернет.'}</p>${!signedIn() ? '<button class="btn pri" data-act="accin">Войти</button>' : ''}</div></div>`;
   return `<div class="cn-page"><div class="card cn-top"><div class="cn-bal">${coinI(40)}<span><b>${NF0.format(coins.bal)}</b><small>${COIN}</small></span></div>
       <p>Выполняйте задания и получайте награды — открывайте палитры, рамки и обложки.</p>
+      <div class="cn-look"><span>Значок монеты · проба</span><div class="cn-looks" role="group" aria-label="Значок монеты">${Object.keys(COIN_LOOK).map(k => `<button class="${S.settings.coinLook === k ? 'on' : ''}" aria-pressed="${S.settings.coinLook === k}" data-act="coinlook" data-v="${k}" title="${COIN_LOOK[k][0]}" aria-label="${COIN_LOOK[k][0]}"><svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true"${k === 'pixel' ? ' shape-rendering="crispEdges"' : ''}>${COIN_LOOK[k][1](28)}</svg></button>`).join('')}</div></div>
       <div class="seg2 cn-tabs" role="group" aria-label="Раздел"><button class="${cnTab === 'tasks' ? 'on' : ''}" aria-pressed="${cnTab === 'tasks'}" data-act="cntab" data-t="tasks">Задания${coinsReady().length ? ` · ${coinsReady().length}` : ''}</button><button class="${cnTab === 'shop' ? 'on' : ''}" aria-pressed="${cnTab === 'shop'}" data-act="cntab" data-t="shop">Магазин</button></div></div>
     ${cnTab === 'shop' ? shopItemsHTML() : shopTasksHTML()}</div>`;
 }
