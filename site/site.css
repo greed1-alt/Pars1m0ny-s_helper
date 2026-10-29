@@ -96,7 +96,7 @@ h1{font-size:clamp(36px,5.2vw,60px);font-weight:750}
 .float{position:absolute;display:flex;align-items:center;gap:6px;padding:9px 13px;border-radius:14px;background:var(--sf);box-shadow:var(--sh2);font-size:13px;color:var(--tx2);white-space:nowrap}
 .f1{top:38%;right:calc(50% + 118px)}
 .f2{bottom:9%;left:calc(50% + 112px)}
-@media (max-width:420px){.float{display:none}}
+@media (max-width:600px){.float{display:none}}
 
 /* Метки разбора строки */
 .pill{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;color:#fff}
