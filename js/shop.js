@@ -15,19 +15,22 @@ const COIN_LOOK = {
   pixel: ['Пиксельная монета', null],   // рисует coinPix
   cowrie: ['Ракушка-каури', s => { const g = 'cg' + (cnGid++); return `<defs><radialGradient id="${g}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff8ec"/><stop offset=".6" stop-color="#f0d9b5"/><stop offset="1" stop-color="#c9a26b"/></radialGradient></defs><ellipse cx="32" cy="32" rx="20" ry="28" fill="url(#${g})" stroke="#b08654" stroke-width="1.5"/><path d="M32 8C29 20 29 44 32 56C35 44 35 20 32 8Z" fill="#7a5530"/>${(s >= 24 ? [14, 20, 26, 32, 38, 44, 50] : [20, 32, 44]).map(y => { const d = Math.abs(32 - y) / 9; return `<path d="M${28.6 + d} ${y}L25 ${y}M${35.4 - d} ${y}L39 ${y}" stroke="#b08654" stroke-width="${s >= 24 ? 1.6 : 2.6}" stroke-linecap="round"/>`; }).join('')}<ellipse cx="24" cy="18" rx="4" ry="6" fill="#ffffff88"/>`; }],
 };
-// Пиксельная (30 октября 2026: «нравится больше всего пиксельный вариант, но он какой-то кривой, подделай его по феншую») — рисунок
-// по клеткам 16×16: контур, светлый край сверху слева, тёмный справа снизу, блик, «выгравированная» P. Размер подгоняется так,
-// чтобы клетка была целым числом точек экрана: иначе клетки выходят разной ширины — от этого прежняя монета (14×14 в любом размере)
-// и была «кривой». Если 16×16 так отличается от нужного размера больше чем на 20 % — 12×12, если она ближе
-const PX_COL = { O: '#6b3300', L: '#ffe066', H: '#fffbe0', G: '#f7b928', D: '#d1860b', P: '#a35f00', E: '#ffe48a' };
-const PX16 = ['.....OOOOOO.....', '...OOLLLLLLOO...', '..OLLGGGGGGLLO..', '.OLHHGGGGGGGGDO.', '.OLHGGPPPEGGGDO.', 'OLGGGGPGGPEGGGDO', 'OLGGGGPGGPEGGGDO', 'OLGGGGPPPEGGGGDO',
-  'OLGGGGPEEGGGGGDO', 'OLGGGGPEGGGGGGDO', 'OLGGGGPEGGGGGGDO', '.OLGGGPEGGGGGDO.', '.OLGGGEGGGGGGDO.', '..ODDGGGGGGDDO..', '...OODDDDDDOO...', '.....OOOOOO.....'];
-const PX12 = ['....OOOO....', '..OOLLLLOO..', '.OLHGGGGGGO.', '.OLGPPPGGGO.', 'OLGGPGGPGGDO', 'OLGGPPPGGGDO', 'OLGGPGGGGGDO', 'OLGGPGGGGGDO', '.OLGPGGGGDO.', '.OGGGGGGDDO.', '..OODDDDOO..', '....OOOO....'];
+// Пиксельная (30 октября 2026: «нравится больше всего пиксельный вариант, но он какой-то кривой, подделай его по феншую»; образец
+// пользователя — монета без буквы с кольцами) — рисунок по клеткам 17×17: тёмный контур, край — светлый сверху слева и тёмный справа
+// снизу, «канавка» (наоборот — тёмная сверху слева), выпуклая середина; для мелких — 13×13 без внутреннего края. Размер подгоняется
+// так, чтобы клетка была целым числом точек экрана: иначе клетки выходят разной ширины — от этого прежняя монета (14×14 в любом
+// размере) и была «кривой». Если 17×17 так отличается от нужного размера больше чем на 20 % — 13×13, если она ближе
+const PX_COL = { K: '#1d0b2b', Y: '#f6dc68', G: '#ecac40', R: '#c75b2f' };
+const PX17 = ['......KKKKK......', '....KKYYYYYKK....', '...KYYGGGGGYYK...', '..KYGGGRRRGGGYK..', '.KYGGRRGGGRRGGYK.', '.KYGRGGYYYGGYGGK.', 'KYGGRGYGGGRGYGGRK',
+  'KYGRGYGGGGGRGYGRK', 'KYGRGYGGGGGRGYGRK', 'KYGRGYGGGGGRGYGRK', 'KYGGRGYGGGRGYGGRK', '.KYGRGGRRRGGYGRK.', '.KYGGYYGGGYYGGRK.', '..KYGGGYYYGGGRK..',
+  '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'];
+const PX13 = ['....KKKKK....', '..KKYYYYYKK..', '.KYYGGGGGYYK.', '.KYGGRRRGGYK.', 'KYGGRGGGYGGGK', 'KYGRGGGGGYGRK', 'KYGRGGGGGYGRK', 'KYGRGGGGGYGRK',
+  'KYGGRGGGYGGRK', '.KYGGYYYGGRK.', '.KYYGGGGGRRK.', '..KKGRRRRKK..', '....KKKKK....'];
 const pxPaths = g => { const runs = {};
   g.forEach((r, y) => { for (let x = 0; x < r.length;) { const c = r[x]; let w = 1; while (r[x + w] === c) w++; if (c !== '.') (runs[c] = runs[c] || []).push(`M${x} ${y}h${w}v1h-${w}z`); x += w; } });
   return Object.keys(runs).map(c => `<path fill="${PX_COL[c]}" d="${runs[c].join('')}"/>`).join(''); };
-const PX_IN = { 12: pxPaths(PX12), 16: pxPaths(PX16) };
-function coinPix(s) { const r = window.devicePixelRatio || 1, fit = n => [n, Math.max(1, Math.round(s * r / n - .01)) * n / r], a = fit(16), b = fit(12),
+const PX_IN = { 13: pxPaths(PX13), 17: pxPaths(PX17) };
+function coinPix(s) { const r = window.devicePixelRatio || 1, fit = n => [n, Math.max(1, Math.round(s * r / n - .01)) * n / r], a = fit(17), b = fit(13),
     off = ([, px]) => Math.abs(px - s), [n, px] = off(a) <= s * .2 || off(a) <= off(b) ? a : b;
   return `<svg class="coin coin-pixel" width="${+px.toFixed(2)}" height="${+px.toFixed(2)}" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" aria-hidden="true">${PX_IN[n]}</svg>`; }
 onMigrate(() => { if (!COIN_LOOK[S.settings.coinLook]) S.settings.coinLook = 'acorn'; });
