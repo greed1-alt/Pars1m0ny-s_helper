@@ -19,7 +19,7 @@ mkdir -p "$TMP/out/fonts"
 cp -r "$TMP/site/." "$TMP/out/"
 cp "$TMP/fonts/inter-cyrillic.woff2" "$TMP/fonts/inter-latin.woff2" "$TMP/fonts/josefin-sans-300-latin.woff2" "$TMP/fonts/OFL-Inter.txt" "$TMP/fonts/OFL-JosefinSans.txt" "$TMP/out/fonts/"
 cp "$TMP/favicon.png" "$TMP/icon-180.png" "$TMP/icon-192.png" "$TMP/icon-512.png" "$TMP/out/"
-grep -q '^parsimony.ru$' "$TMP/out/CNAME" || { echo "site/CNAME: должен быть parsimony.ru" >&2; exit 1; }
+printf 'parsimony.ru\n' > "$TMP/out/CNAME"   # без \r: git archive на Windows отдаёт файлы с CRLF
 
 if [ -n "$OUT" ]; then mkdir -p "$OUT"; cp -r "$TMP/out/." "$OUT/"; echo "Собрано в $OUT"; exit 0; fi
 
