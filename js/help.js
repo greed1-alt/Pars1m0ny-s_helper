@@ -43,7 +43,8 @@ const HINTS = {
 const hint = (text, label) => `<button type="button" class="hint" data-act="hint" data-tip="${esc(text)}" aria-label="${esc(label || 'Подсказка')}" aria-expanded="false">?</button>`;
 const hintK = k => HINTS[k] ? hint(HINTS[k]) : '';
 // Подпись со значком: последнее слово и «?» не разрываются переносом строки (иначе значок остаётся один на новой строке)
-const withHint = (text, k) => { const s = String(text), i = s.lastIndexOf(' '), tail = s.slice(i + 1);
+const withHint = (text, k) => { const s = window.enTr ? enTr(String(text)) : String(text), i = s.lastIndexOf(' '),   // перевод — до разбивки: иначе последнее слово уйдёт отдельным куском
+    tail = s.slice(i + 1);
   return i < 0 || /[<>]/.test(tail) ? `<span class="hint-nw">${s}${hintK(k)}</span>` : `${s.slice(0, i + 1)}<span class="hint-nw">${tail}${hintK(k)}</span>`; };
 
 let tipFor = null, tipPinned = false;

@@ -36,7 +36,7 @@ const aiCtx = (data, R, find) => { const P = S.settings.phr || {};
 const aiRefs = () => ({ map: {}, by: {}, n: { e: 0, m: 0 } });
 const aiRef = (R, kind, id) => { if (!R) return ''; const k = R.by[id] || (R.by[id] = kind + (++R.n[kind])); R.map[k] = id; return '[' + k + '] '; };
 // Просят перенести, переименовать, отметить или удалить — нужна сводка со ссылками и записи, подходящие по словам сообщения
-const AI_EDIT = /(?:^|[\s,.!?])(?:перенес\S*|перенос\S*|передвин\S*|сдвин\S*|перемест\S*|измени\S*|поменя\S*|исправ\S*|переимен\S*|удали\S*|удалить|убери\S*|убрать|отмени\S*|отмет\S*|сделал\S*|выполнил\S*|сними|снять|вычеркн\S*|не был\S*|не ходил\S*)(?=$|[\s,.!?])/i;
+const AI_EDIT = /(?:^|[\s,.!?])(?:перенес\S*|перенос\S*|передвин\S*|сдвин\S*|перемест\S*|измени\S*|поменя\S*|исправ\S*|переимен\S*|удали\S*|удалить|убери\S*|убрать|отмени\S*|отмет\S*|сделал\S*|выполнил\S*|сними|снять|вычеркн\S*|не был\S*|не ходил\S*|move|reschedule|postpone|change|edit|rename|delete|remove|cancel|mark|uncheck)(?=$|[\s,.!?])/i;
 const AI_SKIP = /^(?:перен|перед|сдвин|перем|измен|поменя|исправ|переим|удали|убер|убра|отмен|отмет|сдела|выпол|сними|снять|вычер|завтр|сегод|вчер|послез|понед|вторн|сред|четве|пятни|суббо|воскр|недел|утра|утром|вечер|часов|минут|этот|этой|этого|всех|какой|пожал|потом|сейча|пусть|нужно|надо|чтобы)/;
 function aiFind(text) {
   const ws = (String(text).toLowerCase().replace(/ё/g, 'е').match(/[а-яa-z0-9]{4,}/g) || []).filter(w => !AI_SKIP.test(w)).map(w => w.slice(0, Math.max(4, Math.min(6, w.length - 1))));
@@ -92,7 +92,7 @@ function aiData(R, find) {
   return L.join('\n').slice(0, 6000);
 }
 // Похоже на вопрос — нужна сводка (и хватит модели попроще): «что у меня завтра?», «сколько потратил на кафе», «как дела с целью»
-const AI_ASK = /^\s*(?:(?:а|и|ну|так|слушай|скажи)[\s,]+)*(?:что|чем|сколько|когда|какие|какой|какая|какое|каких|где|как|почему|зачем|покажи|расскажи|подскажи|есть ли|успеваю|успею)(?=$|[\s,.!?])/i;
+const AI_ASK = /^\s*(?:(?:а|и|ну|так|слушай|скажи)[\s,]+)*(?:что|чем|сколько|когда|какие|какой|какая|какое|каких|где|как|почему|зачем|покажи|расскажи|подскажи|есть ли|успеваю|успею|what|when|where|why|how|which|who|show me|tell me|do i|am i|can i|should i)(?=$|[\s,.!?])/i;
 const AI_ASK2 = /(?:^|[\s,.!?])(?:просроч\S*|прогресс\S*|сводк\S*|статистик\S*|итог\S*|план на)(?=$|[\s,.!?])/i;
 const aiAsks = t => t.includes('?') || AI_ASK.test(t) || AI_ASK2.test(t);
 
@@ -436,7 +436,7 @@ function aiErr(st, j) {
 async function aiCall(body) {
   try {
     const r = await fetch(SUPABASE_URL + '/functions/v1/assistant', { method:'POST', cache:'no-store',
-      headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body: JSON.stringify(body) });
+      headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body: JSON.stringify(LANG === 'en' ? { ...body, lang: LANG } : body) });
     const j = await r.json().catch(() => ({}));
     if (Number.isFinite(j.left)) ai.left = j.left;
     return r.ok ? j : { err: aiErr(r.status, j) };
@@ -807,7 +807,8 @@ document.addEventListener('change', e => { const m = /^fh_(wd|we)([01])$/.exec(e
 // дата и время, «Отменить» возвращает как было); не влезло — «перенести на завтра». Запись в чате: { type:'day', k, list:[{ id, t, min, miss, on }], mv }
 const AI_DAY_MAX = 30, AI_DAY_TXT = 'Разложи дела на сегодня по времени', AI_WEEK_TXT = 'Разложи дела на неделю по времени';
 const AI_DAY = /(?:^|[\s,.!?])(?:(?:распредел|разлож|раскида|расстав|распиш)\S*[^.!?]{0,40}?(?:дел|задач|день|дня|сегодн|врем|недел)|(?:спланир\S*|состав\S*\s+(?:мне\s+)?(?:план|расписание|график))[^.!?]{0,30}?(?:день|дня|сегодн|дел|задач|недел))/i;
-const aiDayAsk = t => t.length < 120 && !/\d/.test(t) && AI_DAY.test(t);   // с числами («в 15», «на 25-е») — обычная запись, не раскладка дня
+const AI_DAY_EN = /\b(?:plan|schedule|organi[sz]e|arrange|sort out|lay out)\b[^.!?]{0,30}?\b(?:day|today|tasks|week)\b/i;
+const aiDayAsk = t => t.length < 120 && !/\d/.test(t) && (AI_DAY.test(t) || AI_DAY_EN.test(t));   // с числами («в 15», «на 25-е») — обычная запись, не раскладка дня
 const aiMin = v => Number.isFinite(+v) && +v > 0 ? Math.min(480, Math.max(5, Math.round(+v / 5) * 5)) : 30;
 const aiHM = m => m < 60 ? m + ' мин' : Math.floor(m / 60) + ' ч' + (m % 60 ? ' ' + m % 60 + ' мин' : '');
 // Что раскладывать: сегодняшние задачи без времени (важные — первыми) и пропущенные задачи за 30 дней; повторяющиеся — нет, у них свой распорядок

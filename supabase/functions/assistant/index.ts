@@ -252,6 +252,8 @@ nav — до 2 кнопок перехода в нужное место прил
 Отвечай только JSON, без пояснений вокруг.`;
 
 // Приветствие при первом открытии чата за день
+// Приложение на английском (body.lang = 'en', js/assistant.js): всё, что видит человек, — по-английски; подсказки выше остаются русскими
+const EN_NOTE = `\n\nВАЖНО: приложение человека на английском. Всё, что он увидит (reply, названия, заметки, шаги, цели), пиши по-английски, на каком бы языке ни было его сообщение. Названия полей JSON и служебные значения не меняй.`;
 const HELLO = `Ты — Parsimony, помощник в приложении-планере Parsimony, с характером: жёсткий сарказм без мата, но ты на стороне пользователя. Он только что открыл чат. По сводке его записей напиши приветствие — 1–3 коротких предложения по-русски, на «вы», без списков и markdown:
 - если подначки включены и есть просроченные дела или шаги целей (или привычки сильно проседают) — подколи, назвав конкретное дело или цель;
 - если похвалы включены и сегодня что-то уже сделано или цель идёт с опережением — коротко похвали;
@@ -495,14 +497,14 @@ async function vtSign(uid, day, text) {
 // по одной картинке за запрос, ответы складываются, у записей — номер картинки (img). Ответ — как у askModel ({ text } или { error }) или { out }
 const outOf = t => { const j0 = jsonOf(t), plain = String(t || '').trim();   // модель иногда отвечает просто текстом — тогда это ответ в чате без записей
   return j0 && typeof j0 === 'object' && !Array.isArray(j0) ? j0 : plain && !/[{}]/.test(plain) ? { reply: plain } : null; };
-async function askImages(text, ctx, history, ids) {
+async function askImages(text, ctx, history, ids, sys) {
   const o = { model: MODEL, temp: 0.2, max: 2500 };
-  const m = await askModel(SYSTEM, userMessage(text, ctx, { history, images: ids.length }), { ...o, attach: ids });
+  const m = await askModel(sys, userMessage(text, ctx, { history, images: ids.length }), { ...o, attach: ids });
   if (ids.length < 2 || !(m.error === 'model' && (m.code === 400 || m.code === 422))) return m;
   console.error('gigachat: несколько картинок в одном запросе не приняты (' + m.code + ') — по одной');
   const parts = []; let last = m;
   for (let k = 0; k < ids.length; k++) {
-    const mk = await askModel(SYSTEM, userMessage(text, ctx, { history, part: [k + 1, ids.length] }), { ...o, attach: ids[k] });
+    const mk = await askModel(sys, userMessage(text, ctx, { history, part: [k + 1, ids.length] }), { ...o, attach: ids[k] });
     const out = mk.error ? null : outOf(mk.text);
     if (!out) { last = mk.error ? mk : { error: 'parse' }; continue; }
     parts.push({ reply: typeof out.reply === 'string' ? out.reply.trim() : '', items: (Array.isArray(out.items) ? out.items : []).map(x => x && typeof x === 'object' ? { ...x, img: k + 1 } : x), nav: Array.isArray(out.nav) ? out.nav : [] });
@@ -575,9 +577,10 @@ Deno.serve(async req => {
       if (up.error) { await drop(); await refund(); return json({ error: up.error, code: up.code || 0, p: PROVIDER }, up.error === 'off' ? 503 : 502); } ids.push(up.id); }
     let m;
     try {
-      m = hello ? await askModel(HELLO, userMessage('', ctx), { model: LITE, temp: 0.8, max: 300 })
-        : ids.length ? await askImages(text, ctx, body.history, ids)
-        : await askModel(SYSTEM, userMessage(text, ctx, { history: body.history }), { model: body.ask ? LITE : MODEL, temp: 0.2, max: 2500 });
+      const en = body.lang === 'en' ? EN_NOTE : '';
+      m = hello ? await askModel(HELLO + en, userMessage('', ctx), { model: LITE, temp: 0.8, max: 300 })
+        : ids.length ? await askImages(text, ctx, body.history, ids, SYSTEM + en)
+        : await askModel(SYSTEM + en, userMessage(text, ctx, { history: body.history }), { model: body.ask ? LITE : MODEL, temp: 0.2, max: 2500 });
     } finally { await drop(); }   // после разбора картинки в хранилище Сбера не нужны
     if (m.error) { await refund(); return json({ error: m.error, code: m.code || 0, p: PROVIDER }, m.error === 'off' ? 503 : 502); }   // p — какая нейросеть ответила (видно в окне помощника)
     const out = m.out || outOf(m.text);

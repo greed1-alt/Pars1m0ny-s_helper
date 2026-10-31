@@ -171,8 +171,8 @@ function hsRestore() {
 }
 
 // Деньги: «12 345 ₽»
-const NF = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
-const NF0 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
+const NF = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2 });
+const NF0 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
 const rub = v => NF.format(Math.round((v || 0) * 100) / 100) + ' ₽';
 const rub0 = v => NF0.format(Math.round(v || 0)) + ' ₽';
 const pctTxt = p => p == null ? '—' : Math.round(p * 100) + '%';

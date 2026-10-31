@@ -57,6 +57,7 @@ const LOOK_OPT = {
   evc:[['pastel', 'Пастельные'], ['bright', 'Яркие']],
 };
 const LOOK_DEF = { pal:'indigo', contrast:'normal', card:'soft', round:'m', evc:'pastel' };
+onMigrate(() => { if (LANG === 'en' || S.settings.lang) S.settings.lang = LANG; });   // язык пушей (функция reminders): как на устройстве, которое открывали последним
 onMigrate(() => {
   const st = S.settings;
   if (!PAL[st.pal]) st.pal = LOOK_DEF.pal;
@@ -139,6 +140,7 @@ const lookDemo = () => `<div class="lk-card">
 function lookHTML() {
   const st = S.settings;
   return `<div class="set-sec">Оформление</div>
+  <div class="lk-row"><div class="lk-h">Язык · Language</div><div class="seg2 lk-seg" role="group">${[['ru', 'Русский'], ['en', 'English']].map(([v, n]) => `<button class="${LANG === v ? 'on' : ''}" aria-pressed="${LANG === v}" data-act="lang" data-v="${v}">${n}</button>`).join('')}</div></div>
   <div class="lk-row"><div class="lk-h">Тема${hintK('theme')}</div>
     <div class="thm">${THEME_N.map(([v, n]) => `<button class="${st.theme === v ? 'on' : ''}" data-act="theme" data-v="${v}" aria-pressed="${st.theme === v}"><span class="pv" style="${themePrev(v)}"></span>${n}</button>`).join('')}</div></div>
   <div class="lk-row"><div class="lk-h">Палитра${hintK('pal')}</div>
@@ -156,6 +158,7 @@ function openPal(keep) {
   <button class="btn pri" style="width:100%;margin-top:14px" data-act="close">Готово</button>`, keep);
   $('#ov').classList.add('ov-light');
 }
+ACT.lang = el => { const v = el.dataset.v; if (v === LANG) return; try { localStorage.setItem('remapp_lang', v); } catch (e) {} S.settings.lang = v; save(); location.reload(); };
 ACT.palpick = () => openPal();
 ACT.look = el => { const k = el.dataset.k, v = el.dataset.v; if (k === 'pal' ? !PAL[v] : !LOOK_OPT[k]) return; if (k === 'pal' && !palOk(v)) return openShopItem('pal:' + v); S.settings[k] = v; save(); render(); if (k === 'pal' && $('.pals-sh')) openPal(true); };
 ACT.lookreset = () => { Object.assign(S.settings, LOOK_DEF); save(); render(); toast('Оформление — как по умолчанию'); };

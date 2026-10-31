@@ -65,7 +65,7 @@ async function testNotif() {
     if (isIOS && navigator.standalone !== true) return plog('Откройте приложение с экрана «Домой», а не из Safari.');
     if (notif.on) {
       const r = await fetch(SUPABASE_URL + '/functions/v1/reminders', { method:'POST', cache:'no-store',
-        headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body:'{"test":true}' });
+        headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body: JSON.stringify({ test: true, lang: LANG }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) return plog('Сервер напоминаний не ответил (' + r.status + '). Попробуйте позже.');
       if (j.error === 'rate') return toast('Проверка уже отправлена — подождите минуту');

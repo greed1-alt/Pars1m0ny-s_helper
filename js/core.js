@@ -18,9 +18,13 @@ const NAME_MAX = 20;
 const WORDMARK = 'josefin';
 document.documentElement.dataset.wm = WORDMARK;
 const LS = 'remapp_v1';
-const DEF = { cats:[{id:'work',name:'Работа',color:'#ef4444'},{id:'rest',name:'Отдых',color:'#38bdf8'},{id:'walk',name:'Прогулка',color:'#22c55e'},{id:'study',name:'Учёба',color:'#a855f7'}], events:[],
+// Язык: свой выбор на этом устройстве (Настройки → «Оформление»); иначе — русский у тех, кто уже пользуется, а на новом устройстве — по языку системы
+const LANG = (() => { try { const s = localStorage.getItem('remapp_lang'); if (s === 'ru' || s === 'en') return s; return localStorage.getItem(LS) || /^ru/i.test(navigator.language || 'ru') ? 'ru' : 'en'; } catch (e) { return 'ru'; } })();
+const LOCALE = LANG === 'en' ? 'en-GB' : 'ru-RU';
+document.documentElement.lang = LANG;
+const DEF = { cats:[{id:'work',name:LANG === 'en' ? 'Work' : 'Работа',color:'#ef4444'},{id:'rest',name:LANG === 'en' ? 'Rest' : 'Отдых',color:'#38bdf8'},{id:'walk',name:LANG === 'en' ? 'Walk' : 'Прогулка',color:'#22c55e'},{id:'study',name:LANG === 'en' ? 'Study' : 'Учёба',color:'#a855f7'}], events:[],
   settings:{weekStart:1, theme:'auto', tplOpen:true, dayStart:6, density:'normal', weekends:true, weekNums:true, dimPast:true, lastTest:0},
-  templates:[{id:'t1',title:'Не забыть',cat:'work',time:'',time2:''},{id:'t2',title:'Учёба',cat:'study',time:'10:00',time2:'12:00'},{id:'t3',title:'Прогулка',cat:'walk',time:'18:00',time2:'19:00'},{id:'t4',title:'Отдых',cat:'rest',time:'',time2:''}] };
+  templates:[{id:'t1',title:LANG === 'en' ? 'Remember' : 'Не забыть',cat:'work',time:'',time2:''},{id:'t2',title:LANG === 'en' ? 'Study' : 'Учёба',cat:'study',time:'10:00',time2:'12:00'},{id:'t3',title:LANG === 'en' ? 'Walk' : 'Прогулка',cat:'walk',time:'18:00',time2:'19:00'},{id:'t4',title:'Отдых',cat:'rest',time:'',time2:''}] };
 let S;
 try { S = JSON.parse(localStorage.getItem(LS)); } catch (e) {}
 S = Object.assign(structuredClone(DEF), S || {});

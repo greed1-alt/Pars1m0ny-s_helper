@@ -156,7 +156,7 @@ function omniHTML(id, ctx) {
 function omAiWhy(text, ctx) {
   const s = String(text || '').trim(); if (s.length < 5 || typeof aiAsks !== 'function') return '';
   if (aiAsks(s)) return 'q';
-  const parts = s.split(/\s*(?:[,;\n]|\s+и\s+)\s*/i).filter(x => x.length > 1); if (parts.length < 2) return '';
+  const parts = s.split(/\s*(?:[,;\n]|\s+(?:и|and)\s+)\s*/i).filter(x => x.length > 1); if (parts.length < 2) return '';
   const strong = parts.filter(x => { const p = omniParse(x, ctx), nl = parseNL(x, todayK()); return p && (p.type === 'money' || p.type === 'habit' || !!nl.time || !!nl.found); }).length;
   return strong >= 2 ? 'many' : '';
 }

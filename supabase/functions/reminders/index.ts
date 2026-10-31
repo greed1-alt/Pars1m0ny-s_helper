@@ -27,6 +27,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const DAY = 864e5, WINDOW = 10 * 60000, NO_TIME = 9 * 60;   // дела без времени — напоминание от 9:00
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/, TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;   // время — только настоящее, 00:00–23:59
 const MONG = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const MONE = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const isEn = data => !!(data && data.settings && data.settings.lang === 'en');   // язык уведомлений — как в приложении (js/look.js)
 const pad = n => String(n).padStart(2, '0');
 const ymd = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
 const fmts = new Map();
@@ -83,18 +85,18 @@ function dueReminders(data, from, to) {
   return out;
 }
 // Текст уведомления. Время до начала считается в момент отправки, поэтому оно верное даже при задержке
-function remPayload(r, now, tz) {
+function remPayload(r, now, tz, en) {
   const e = r.e, today = dayIn(now, tz), [, m, d] = r.k.split('-').map(Number);
-  const when = r.k === today ? 'сегодня' : r.k === addD(today, 1) ? 'завтра' : `${d} ${MONG[m - 1]}`;
+  const when = r.k === today ? (en ? 'today' : 'сегодня') : r.k === addD(today, 1) ? (en ? 'tomorrow' : 'завтра') : `${d} ${(en ? MONE : MONG)[m - 1]}`, When = when[0].toUpperCase() + when.slice(1);
   const range = e.time && TIME_RE.test(e.time) ? (e.time2 && TIME_RE.test(e.time2) ? `${e.time}–${e.time2}` : e.time) : '';
   const left = Math.round((r.start - now) / 60000);
   let body;
-  if (!range) body = e.task ? `Задача на ${when}` : `${when[0].toUpperCase() + when.slice(1)}, весь день`;
-  else if (left <= 0) body = `Сейчас · ${range}`;
-  else if (left < 60) body = `Через ${left} мин · ${range}`;
-  else body = `${when[0].toUpperCase() + when.slice(1)} в ${range}`;
+  if (!range) body = e.task ? (en ? `Task for ${when}` : `Задача на ${when}`) : `${When}, ${en ? 'all day' : 'весь день'}`;
+  else if (left <= 0) body = `${en ? 'Now' : 'Сейчас'} · ${range}`;
+  else if (left < 60) body = en ? `In ${left} min · ${range}` : `Через ${left} мин · ${range}`;
+  else body = `${When} ${en ? 'at' : 'в'} ${range}`;
   if (e.loc) body += ` · ${String(e.loc).slice(0, 80)}`;
-  return { title: String(e.title || 'Напоминание').slice(0, 120), body, k: r.k, url: `./#d=${r.k}`, tag: `r:${String(e.id).slice(0, 60)}:${r.k}` };
+  return { title: String(e.title || (en ? 'Reminder' : 'Напоминание')).slice(0, 120), body, k: r.k, url: `./#d=${r.k}`, tag: `r:${String(e.id).slice(0, 60)}:${r.k}` };
 }
 
 // ---- Сводки: утром — план на день, вечером — «запишите задачи на завтра» (S.settings.digest) ----
@@ -113,41 +115,45 @@ function dueDigests(data, from, to) {
 }
 const plural = (n, f) => n + ' ' + f[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
 const DELO = ['дело', 'дела', 'дел'];
+const deloN = (n, en) => en ? n + (n === 1 ? ' task' : ' tasks') : plural(n, DELO);
 const okEv = e => e && typeof e === 'object' && DATE_RE.test(e.date || '') && typeof e.title === 'string';
 // Невыполненные дела дня: сначала по времени, потом без времени
 const dayItems = (data, k) => (data && Array.isArray(data.events) ? data.events : []).filter(e => okEv(e) && occurs(e, k) && !isDone(e, k))
   .sort((a, b) => (TIME_RE.test(a.time || '') ? a.time : '99').localeCompare(TIME_RE.test(b.time || '') ? b.time : '99') || a.title.localeCompare(b.title));
 const itemText = e => (TIME_RE.test(e.time || '') ? e.time + ' ' : '') + String(e.title).slice(0, 40);
-const listText = (items, n) => items.slice(0, n).map(itemText).join(', ') + (items.length > n ? ` и ещё ${items.length - n}` : '');
+const listText = (items, n, en) => items.slice(0, n).map(itemText).join(', ') + (items.length > n ? (en ? ` and ${items.length - n} more` : ` и ещё ${items.length - n}`) : '');
 // «Вы пропустили» — как в приложении (missedList): разовые дела за 30 дней до сегодня без галочки
 const missedCount = (data, k) => (data && Array.isArray(data.events) ? data.events : []).filter(e => okEv(e) && !isRec(e) && !e.done && e.date < k && e.date >= addD(k, -30)).length;
 // Воскресенье вечером вместо «Запишите задачи на завтра» — итоги недели (выбор пользователя 27 октября 2026): сколько задач сделано
 // с понедельника (разовые — по галочке, повторяющиеся — по дням), сколько отметок привычек, сколько разовых дел на следующей неделе и сколько
 // из них без времени. Есть такие — в чате помощника кнопка «Разложить дела на неделю» (act 'week'); нажатие — сообщение в чате, как у nudge
 function weekPayload(d, data) {
-  const all = data && Array.isArray(data.events) ? data.events.filter(e => okEv(e) && !e.demo) : [];
+  const en = isEn(data), all = data && Array.isArray(data.events) ? data.events.filter(e => okEv(e) && !e.demo) : [];
   const wk = Array.from({ length: 7 }, (_, i) => addD(d.k, i - 6)), nx = Array.from({ length: 7 }, (_, i) => addD(d.k, i + 1));
   let n = 0, done = 0;
   for (const e of all) if (e.task) for (const k of wk) if (occurs(e, k)) { n++; if (isDone(e, k)) done++; }
   const marks = (data && Array.isArray(data.habits) ? data.habits : []).reduce((s, h) => s + (h && h.log && typeof h.log === 'object' ? Object.keys(h.log).filter(k => h.log[k] && wk.includes(k)).length : 0), 0);
   const next = all.filter(e => !isRec(e) && !e.done && nx.includes(e.date)), free = next.filter(e => e.task && !TIME_RE.test(e.time || '')).length;
-  const done1 = [n ? `Сделано задач: ${done} из ${n}` : 'Задач на этой неделе не было', ...(marks ? [`отметок привычек: ${marks}`] : [])].join(', ');
-  const body = (done1 + '. ' + (next.length ? `На следующей неделе — ${plural(next.length, DELO)}` + (free ? `, без времени — ${free}. Разложить их по свободному времени?` : '.')
+  const done1 = (en ? [n ? `Tasks done: ${done} of ${n}` : 'No tasks this week', ...(marks ? [`habit marks: ${marks}`] : [])] : [n ? `Сделано задач: ${done} из ${n}` : 'Задач на этой неделе не было', ...(marks ? [`отметок привычек: ${marks}`] : [])]).join(', ');
+  const body = (done1 + '. ' + (en ? (next.length ? `Next week: ${deloN(next.length, en)}` + (free ? `, ${free} without a time. Fit them into your free time?` : '.') : 'Nothing planned for next week yet: add your plans.')
+    : next.length ? `На следующей неделе — ${plural(next.length, DELO)}` + (free ? `, без времени — ${free}. Разложить их по свободному времени?` : '.')
     : 'На следующую неделю пока ничего нет — запишите планы.')).slice(0, 280);
-  return { title: 'Итоги недели', body, tag: 'pm', ai: 'Итоги недели. ' + body, act: free ? 'week' : '', url: './#ai' };
+  const title = en ? 'Week in review' : 'Итоги недели';
+  return { title, body, tag: 'pm', ai: title + '. ' + body, act: free ? 'week' : '', url: './#ai' };
 }
 function digestPayload(d, data) {
+  const en = isEn(data);
   if (d.kind === 'am') {
     const items = dayItems(data, d.k), missed = missedCount(data, d.k);
-    let body = items.length ? listText(items, 3) : 'Запишите, что хотите успеть сегодня';
-    if (missed) body += ` · пропущено: ${missed}`;
-    return { title: items.length ? `План на сегодня: ${plural(items.length, DELO)}` : 'На сегодня дел не запланировано', body, s: 'home', url: './#s=home', tag: 'am' };
+    let body = items.length ? listText(items, 3, en) : en ? 'Write down what you want to get done today' : 'Запишите, что хотите успеть сегодня';
+    if (missed) body += en ? ` · missed: ${missed}` : ` · пропущено: ${missed}`;
+    return { title: items.length ? (en ? `Today's plan: ${deloN(items.length, en)}` : `План на сегодня: ${plural(items.length, DELO)}`) : en ? 'Nothing planned for today' : 'На сегодня дел не запланировано', body, s: 'home', url: './#s=home', tag: 'am' };
   }
   if (dowOf(d.k) === 6) return weekPayload(d, data);   // воскресенье — итоги недели
   const next = addD(d.k, 1), items = dayItems(data, next), left = dayItems(data, d.k).filter(e => e.task).length;
-  let body = items.length ? `На завтра уже ${plural(items.length, DELO)}: ${listText(items, 2)}` : 'На завтра пока ничего нет';
-  if (left) body = `Не сделано сегодня: ${left} · ${body}`;
-  return { title: 'Запишите задачи на завтра', body, k: next, url: `./#d=${next}`, tag: 'pm' };
+  let body = items.length ? (en ? `Tomorrow already has ${deloN(items.length, en)}: ${listText(items, 2, en)}` : `На завтра уже ${plural(items.length, DELO)}: ${listText(items, 2)}`) : en ? 'Nothing for tomorrow yet' : 'На завтра пока ничего нет';
+  if (left) body = en ? `Not done today: ${left} · ${body}` : `Не сделано сегодня: ${left} · ${body}`;
+  return { title: en ? "Plan tomorrow's tasks" : 'Запишите задачи на завтра', body, k: next, url: `./#d=${next}`, tag: 'pm' };
 }
 
 // ---- Помощник пишет сам (23 октября 2026; выбор пользователя: «До 3 в день. Только по делу: пропущен срок, шаг цели завис, есть свободное
@@ -190,9 +196,10 @@ const hashS = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = (h * 3
 const fillS = (s, v) => s.replace(/\{(\w+)\}/g, (m, k) => v[k] != null ? v[k] : '');
 const dd = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / DAY);   // дней от a до b
 const hmS = m => pad(Math.floor(m / 60)) + ':' + pad(m % 60);
-const dmon = k => +k.slice(8) + ' ' + MONG[+k.slice(5, 7) - 1];
+const dmon = (k, en) => +k.slice(8) + ' ' + (en ? MONE : MONG)[+k.slice(5, 7) - 1];
 const qS = s => '«' + String(s).slice(0, 60) + '»';
-const agoS = n => n === 1 ? 'вчера' : plural(n, ['день', 'дня', 'дней']) + ' назад';
+const agoS = (n, en) => en ? (n === 1 ? 'yesterday' : n + ' days ago') : n === 1 ? 'вчера' : plural(n, ['день', 'дня', 'дней']) + ' назад';
+const qE = s => '“' + String(s).slice(0, 60) + '”';
 const PRI_N = { urgent: 3, high: 2, mid: 1, low: 0 };
 // Свободное время — как в приложении (aiFreeGaps): часы из настроек (будни / выходные) минус всё, у чего есть время
 const FREE_DEF = { wd: ['18:00', '22:00'], we: ['10:00', '20:00'] };
@@ -216,7 +223,7 @@ function goalPace(evs, g, k) {
 }
 function nudgeCands(data, now) {
   const out = []; if (!data || typeof data !== 'object' || !data.settings || data.settings.nudge !== true) return out;
-  const tz = tzOf(data), k = dayIn(now, tz), p = partsIn(now, tz), min = p.h * 60 + p.mi;
+  const en = isEn(data), tz = tzOf(data), k = dayIn(now, tz), p = partsIn(now, tz), min = p.h * 60 + p.mi;
   if (min < NUDGE_FROM || min > NUDGE_TO) return out;   // ночью тихо
   const evs = (Array.isArray(data.events) ? data.events : []).filter(e => okEv(e) && !e.demo);
   const goals = (Array.isArray(data.goals) ? data.goals : []).filter(g => g && typeof g === 'object' && typeof g.id === 'string' && typeof g.title === 'string' && !g.done && !g.demo
@@ -227,20 +234,22 @@ function nudgeCands(data, now) {
       .sort((a, b) => (!!b.goal - !!a.goal) || (PRI_N[b.prio] || 0) - (PRI_N[a.prio] || 0) || b.date.localeCompare(a.date));
     if (late.length) { const e = late[0], g = gTitle(e.goal);
       out.push({ kind: 'late', id: String(e.id), goal: g || e.title, step: e.title,
-        text: `Срок ${qS(e.title)}${g ? ' (цель ' + qS(g) + ')' : ''} прошёл ${agoS(dd(e.date, k))}.` + (late.length > 1 ? ` Ещё просрочено: ${late.length - 1}.` : '') }); }
+        text: en ? `The deadline for ${qE(e.title)}${g ? ' (goal ' + qE(g) + ')' : ''} passed ${agoS(dd(e.date, k), en)}.` + (late.length > 1 ? ` Also overdue: ${late.length - 1}.` : '')
+          : `Срок ${qS(e.title)}${g ? ' (цель ' + qS(g) + ')' : ''} прошёл ${agoS(dd(e.date, k))}.` + (late.length > 1 ? ` Ещё просрочено: ${late.length - 1}.` : '') }); }
   }
   if (min >= 720) for (const g of goals) {   // занятия по плану заканчиваются
     const pl = g.plan; if (!pl || typeof pl !== 'object' || !DATE_RE.test(pl.last || '') || !(+pl.n < +pl.need)) continue;
     const left = dd(k, pl.last); if (left < 0 || left > 3) continue;
     out.push({ kind: 'plan', id: g.id, goal: g.title, step: g.title, quiet: true,
-      text: `Занятия по цели ${qS(g.title)} поставлены до ${dmon(pl.last)}. Скажите помощнику «продли план» — поставлю следующие недели.` });
+      text: en ? `Sessions for the goal ${qE(g.title)} are scheduled until ${dmon(pl.last, en)}. Tell the assistant “extend the plan” and I'll add the next weeks.` : `Занятия по цели ${qS(g.title)} поставлены до ${dmon(pl.last)}. Скажите помощнику «продли план» — поставлю следующие недели.` });
   }
   if (min >= 840) {   // цель отстаёт
     const bad = goals.map(g => ({ g, s: goalPace(evs, g, k) })).filter(x => x.s.pace === 'behind' || x.s.pace === 'late')
       .sort((a, b) => (b.s.pace === 'late') - (a.s.pace === 'late') || a.g.due.localeCompare(b.g.due));
     if (bad.length) { const { g, s } = bad[0];
       out.push({ kind: 'goal', id: g.id, goal: g.title, step: s.next ? s.next.t : g.title,
-        text: s.pace === 'late' ? `Срок цели ${qS(g.title)} прошёл, а сделано шагов: ${s.d} из ${s.n}.` : `Цель ${qS(g.title)} отстаёт: сделано ${s.d} из ${s.n} шагов, а прошло ${Math.round(s.passed * 100)}% срока.` }); }
+        text: en ? (s.pace === 'late' ? `The deadline for the goal ${qE(g.title)} has passed, with ${s.d} of ${s.n} steps done.` : `The goal ${qE(g.title)} is behind: ${s.d} of ${s.n} steps done with ${Math.round(s.passed * 100)}% of the time gone.`)
+          : s.pace === 'late' ? `Срок цели ${qS(g.title)} прошёл, а сделано шагов: ${s.d} из ${s.n}.` : `Цель ${qS(g.title)} отстаёт: сделано ${s.d} из ${s.n} шагов, а прошло ${Math.round(s.passed * 100)}% срока.` }); }
   }
   for (const g of goals) {   // свободное окно сегодня для отстающей цели с планом — за 30 минут до начала, если занятия сегодня нет
     const pl = g.plan; if (!pl || typeof pl !== 'object' || !(+pl.min > 0)) continue;
@@ -248,7 +257,7 @@ function nudgeCands(data, now) {
     const ids = new Set(Array.isArray(pl.ev) ? pl.ev : []); if (evs.some(e => ids.has(e.id) && occurs(e, k))) continue;
     const gap = freeGaps(data, evs, k).find(([a, b]) => b - Math.ceil(a / 15) * 15 >= +pl.min); if (!gap) continue;
     const start = Math.ceil(gap[0] / 15) * 15; if (min < Math.max(NUDGE_FROM, start - 30) || min >= start) continue;
-    out.push({ kind: 'free', id: g.id, goal: g.title, step: s.next ? s.next.t : g.title, text: `Сегодня с ${hmS(start)} свободно — позанимайтесь целью ${qS(g.title)} ${+pl.min} мин: она отстаёт.` });
+    out.push({ kind: 'free', id: g.id, goal: g.title, step: s.next ? s.next.t : g.title, text: en ? `You're free today from ${hmS(start)}: spend ${+pl.min} min on the goal ${qE(g.title)}, it's behind.` : `Сегодня с ${hmS(start)} свободно — позанимайтесь целью ${qS(g.title)} ${+pl.min} мин: она отстаёт.` });
     break;
   }
   return out;
@@ -264,14 +273,14 @@ function pickNudge(cands, log, now, tz) {
 // Текст пуша: повод + подначка (если включены; одна и та же весь день для повода); нажатие — сообщение появится в чате помощника
 // (текст ai service worker кладёт в кэш, чат забирает — aiNudgeOpen в js/assistant.js; в адресе только «#ai»)
 function nudgePayload(data, n, now) {
-  const P = data.settings && data.settings.phr, k = dayIn(now, tzOf(data));
+  const P = data.settings && data.settings.phr, k = dayIn(now, tzOf(data)), en = isEn(data);
   let body = n.text;
   if (!n.quiet && (!P || P.taunts !== false)) {
     const own = P && Array.isArray(P.custom) ? P.custom.filter(x => x && x.kind === 'taunt' && typeof x.t === 'string' && x.t.trim()).map(x => x.t.slice(0, 200)) : [];
-    const l = [...TAUNTS, ...own]; body += ' ' + fillS(l[hashS(k + n.id) % l.length], { goal: n.goal, step: n.step });
+    const l = [...(en ? [] : TAUNTS), ...own]; if (l.length) body += ' ' + fillS(l[hashS(k + n.id) % l.length], { goal: n.goal, step: n.step });
   }
   body = body.slice(0, 300);
-  return { title: 'Помощник Parsimony', body, tag: 'nudge', ai: body, url: './#ai' };
+  return { title: en ? 'Parsimony Assistant' : 'Помощник Parsimony', body, tag: 'nudge', ai: body, url: './#ai' };
 }
 // ==== CORE end ====
 
@@ -314,7 +323,7 @@ async function tick(now) {
       for (const r of dueReminders(data, now - WINDOW, now)) {
         due++;
         if (!(await once(row.user_id, r.key, r.fire))) continue;
-        sent += (await sendTo(byUser.get(row.user_id), JSON.stringify(remPayload(r, now, tz)), 3600)).ok;
+        sent += (await sendTo(byUser.get(row.user_id), JSON.stringify(remPayload(r, now, tz, isEn(data))), 3600)).ok;
       }
       for (const d of dueDigests(data, now - WINDOW, now)) {
         due++;
@@ -353,7 +362,7 @@ async function friendPushes(byUser, rows, now) {
   for (const n of nts) {
     const subs = byUser.get(n.to_uid), st = (dataOf.get(n.to_uid) || {}).settings || {};
     if (!subs || st.frPush === false) continue;
-    const body = n.kind === 'req' ? `${who(n.from_uid)} зовёт вас в друзья` : `${who(n.from_uid)} теперь в друзьях`;
+    const en = st.lang === 'en', body = n.kind === 'req' ? (en ? `${who(n.from_uid)} sent you a friend request` : `${who(n.from_uid)} зовёт вас в друзья`) : en ? `${who(n.from_uid)} is now your friend` : `${who(n.from_uid)} теперь в друзьях`;
     ok += (await sendTo(subs, JSON.stringify({ title: 'Parsimony', body, tag: 'fr-' + n.from_uid, url: './#s=profile', s: 'profile' }), 24 * 3600)).ok;
   }
   await sb.from('fr_notify').delete().lt('created_at', new Date(now - 3 * DAY).toISOString());
@@ -381,7 +390,7 @@ async function msgPushes(byUser, rows) {
     if (!got || !got.length) continue;
     const subs = byUser.get(x.to_uid), st = (dataOf.get(x.to_uid) || {}).settings || {};
     if (subs && st.msgPush !== false) {
-      const body = String(x.body || '').slice(0, 120) + (x.n > 1 ? ` · ещё ${x.n - 1}` : '');
+      const body = String(x.body || '').slice(0, 120) + (x.n > 1 ? (st.lang === 'en' ? ` · ${x.n - 1} more` : ` · ещё ${x.n - 1}`) : '');
       ok += (await sendTo(subs, JSON.stringify({ title: who(x.from_uid), body, tag: 'msg-' + x.from_uid, url: './#m=' + x.from_uid, m: x.from_uid }), 24 * 3600)).ok;
     }
   }
@@ -445,13 +454,13 @@ async function adminPushes(now) {
   return ok;
 }
 
-async function testPush(uid) {
+async function testPush(uid, en) {
   const now = Date.now();
   if (!(await once(uid, `test:${Math.floor(now / 60000)}`, now))) return { ok: 0, devices: 0, error: 'rate' };
   const { data: subs, error } = await sb.from('push_subscriptions').select('endpoint,p256dh,auth').eq('user_id', uid);
   if (error) throw error;
   if (!subs || !subs.length) return { ok: 0, devices: 0 };
-  const r = await sendTo(subs, JSON.stringify({ title: 'Parsimony', body: 'Проверка: напоминания приходят ✓', tag: 'test', url: './' }), 300);
+  const r = await sendTo(subs, JSON.stringify({ title: 'Parsimony', body: en ? 'Test: reminders are working ✓' : 'Проверка: напоминания приходят ✓', tag: 'test', url: './' }), 300);
   return { ...r, devices: subs.length };
 }
 
@@ -467,7 +476,8 @@ Deno.serve(async req => {
     if (!tok || tok.startsWith('sb_')) return json({ error: 'forbidden' }, 403);
     const { data, error } = await sb.auth.getUser(tok);
     if (error || !data || !data.user) return json({ error: 'forbidden' }, 403);
-    return json(await testPush(data.user.id));
+    const b = await req.json().catch(() => null);
+    return json(await testPush(data.user.id, !!b && b.lang === 'en'));
   } catch (e) {
     console.error(e);
     return json({ error: 'server' }, 500);

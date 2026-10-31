@@ -317,7 +317,7 @@ let capW = null;
 function capMount() {
   lg.cap = '';
   const draw = () => { const b = $('#lg_cap'); if (!b || !window.smartCaptcha) return;
-    try { capW = window.smartCaptcha.render(b, { sitekey: appCfg.captcha, hl: 'ru', callback: t => { if (lg) { lg.cap = t; lgErr(''); } } }); } catch (e) { lgErr('Проверка «я не робот» не загрузилась — обновите страницу'); } };
+    try { capW = window.smartCaptcha.render(b, { sitekey: appCfg.captcha, hl: LANG, callback: t => { if (lg) { lg.cap = t; lgErr(''); } } }); } catch (e) { lgErr('Проверка «я не робот» не загрузилась — обновите страницу'); } };
   if (window.smartCaptcha) return draw();
   window.capReady = draw;
   if (!$('#cap_js')) { const s = document.createElement('script'); s.id = 'cap_js'; s.async = true; s.src = 'https://smartcaptcha.yandexcloud.net/captcha.js?render=onload&onload=capReady';

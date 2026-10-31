@@ -284,7 +284,7 @@ function shopTasksHTML() {
   const q = questsNow(), rw = coinRewards(), ready = coinsReady().length, s = profileStats();
   const nextSt = ST_MILES.find(([n]) => s.best < n), left = ACH.filter(a => !coinGot('a:' + a[5])).length - rw.filter(x => x.k.startsWith('a:')).length;
   const log = coins.log.map(x => `<li><span>${esc(cnLogName(x.k))}${x.n ? `<small>${esc(x.n)}</small>` : ''}</span><b class="${x.a > 0 ? 'pl' : x.a < 0 ? 'mn' : ''}">${x.a > 0 ? '+' + x.a : x.a < 0 ? '−' + -x.a : ''}</b>
-    <time>${esc(new Date(x.t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }))}</time></li>`).join('');
+    <time>${esc(new Date(x.t).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' }))}</time></li>`).join('');
   return `${ready > 1 ? `<button class="btn pri cn-all" data-act="cnall">Забрать всё · ${ready}</button>` : ''}
     <div class="card"><div class="card-h"><b>Задания дня</b><small>по ${Q_D} · новые в полночь</small></div>${q.d.map(cnRow).join('') || '<p class="hm-empty">Сегодня заданий нет.</p>'}</div>
     <div class="card"><div class="card-h"><b>Задания недели</b><small>по ${Q_W} · новые в понедельник</small></div>${q.w.map(cnRow).join('') || '<p class="hm-empty">Заданий нет.</p>'}</div>

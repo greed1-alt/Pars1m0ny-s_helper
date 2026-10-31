@@ -346,7 +346,7 @@ ACT.ntupd = () => {
 ACT.ntdel = el => { const inAll = sheetOpen() && (!!$('.nt-m') || (noteForm && noteForm.back)); snap(); S.notes = S.notes.filter(n => n.id !== el.dataset.id); save(); render(); if (inAll && S.notes.length) openAllNotes(); else if (sheetOpen()) closeSheet(); toast('Заметка удалена', true); };
 ACT.ntdl = () => {
   const txt = notesOf('').map(n => `${fmtLong(n.date)} ${n.date.slice(0, 4)}\n${n.text}`).join('\n\n———\n\n');
-  saveFile(new Blob([txt + '\n'], { type:'text/plain;charset=utf-8' }), `${APP_NAME.toLowerCase()}-заметки-${todayK()}.txt`); toast('Заметки сохранены в файл');
+  saveFile(new Blob([txt + '\n'], { type:'text/plain;charset=utf-8' }), `${APP_NAME.toLowerCase()}-${LANG === 'en' ? 'notes' : 'заметки'}-${todayK()}.txt`); toast('Заметки сохранены в файл');
 };
 document.addEventListener('input', e => { if (e.target.id === 'nt_text') noteDraft = e.target.value; });
 document.addEventListener('keydown', e => { if (e.target.id === 'nt_text' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveNoteDraft(); } });

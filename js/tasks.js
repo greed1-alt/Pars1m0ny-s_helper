@@ -80,6 +80,7 @@ function taskLog() {
 }
 let flameN = 0;
 const flameI = s => { const g = 'tfl' + (flameN++); return `<svg class="ts-fl" width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb547"/><stop offset="1" stop-color="#ff7a3d"/></linearGradient></defs><path fill="url(#${g})" d="M12.7 2.2c.5 3.3-1.2 4.9-2.9 6.6C8.1 10.5 6 12.4 6 15.3 6 19 8.8 22 12.3 22c3.6 0 6.2-2.9 6.2-6.3 0-2.8-1.5-4.8-2.9-6.3-.2 1.3-.8 2.3-1.7 2.9.3-3.6-.2-7.3-1.2-10.1Z"/><path fill="#fff" fill-opacity=".55" d="M12.3 20.3c-1.8 0-3.1-1.4-3.1-3.1 0-1.7 1.3-2.7 2.2-3.8.4 1 1.2 1.4 1.9 2 .8.6 1.4 1 1.4 2 0 1.7-1.4 2.9-2.4 2.9Z"/></svg>`; };
+const monL = i => LANG === 'en' ? MON[i] : MON[i].toLowerCase();
 const plWord = (n, f) => plural(n, f).slice(String(n).length + 1);   // слово без числа: число стоит отдельно, крупно
 // Итог недели и серия — наверху страницы («нужно чтобы серия была повыше, на видном месте»): число, сравнение с прошлой, линия за 8 недель. Скрыли статистику — нет и её
 function taskHero() {
@@ -101,7 +102,7 @@ function taskHeat(week) {
   let cells = '', heads = '', last = -9, sum = 0;
   for (let w = 0; w < n; w++) {
     const days = [...Array(7)].map((_, i) => addDays(s0, w * 7 + i)), m = days.find(k => k.endsWith('-01')) || (w === 0 && +days[0].slice(8) < 15 ? days[0] : null);
-    if (m && w - last >= 4 && n - w >= 3) { heads += `<span style="grid-column:${w + 1}/span ${Math.min(4, n - w)}">${MON[+m.slice(5, 7) - 1].toLowerCase()}</span>`; last = w; }
+    if (m && w - last >= 4 && n - w >= 3) { heads += `<span style="grid-column:${w + 1}/span ${Math.min(4, n - w)}">${monL(+m.slice(5, 7) - 1)}</span>`; last = w; }
     days.forEach(k => { if (k > t) { cells += '<i class="f"></i>'; return; } const v = L.done[k] || 0, d = pd(k); sum += v;
       cells += `<i class="l${lv(v)}${k === t ? ' t' : ''}" title="${d.getDate()} ${MONG[d.getMonth()]}: ${v ? 'сделано ' + plural(v, ['задача', 'задачи', 'задач']) : 'ничего'}"></i>`; });
   }
@@ -114,7 +115,7 @@ function taskStatsHTML(actN, urg, week) {
   const t = todayK(), L = taskLog(), ym = ymOf(t); let p = 0, d = 0;
   ymDays(ym).forEach(k => { if (k <= t) { p += L.plan[k] || 0; d += L.done[k] || 0; } });
   const tile = (v, s) => `<div class="card ts-t"><b>${v}</b><span>${s}</span></div>`;
-  return `<div class="ts"><div class="ts-tl">${tile(L.best, 'рекорд серии')}${tile(p ? Math.min(100, Math.round(d / p * 100)) + ' %' : '—', 'выполнено за ' + MON[+ym.slice(5) - 1].toLowerCase())}${tile(actN, plWord(actN, ['активная', 'активные', 'активных']) + (urg ? ', ' + plural(urg, ['срочная', 'срочные', 'срочных']) : ''))}</div>
+  return `<div class="ts"><div class="ts-tl">${tile(L.best, 'рекорд серии')}${tile(p ? Math.min(100, Math.round(d / p * 100)) + ' %' : '—', 'выполнено за ' + monL(+ym.slice(5) - 1))}${tile(actN, plWord(actN, ['активная', 'активные', 'активных']) + (urg ? ', ' + plural(urg, ['срочная', 'срочные', 'срочных']) : ''))}</div>
     <div class="ts-low${week ? ' two' : ''}">${week ? t4Week() : ''}${taskHeat(week)}</div></div>`;
 }
 

@@ -12,7 +12,7 @@ const plansOn = () => IS_BETA || appCfg.tiers_on === true;
 let myPlan = null, plansYear = false;
 try { myPlan = JSON.parse(localStorage.getItem('remapp_plan') || 'null'); } catch (e) {}
 const planNow = () => myPlan && PLAN_NAME[myPlan.plan] && Date.parse(myPlan.until) > Date.now() ? myPlan.plan : 'free';
-const planDate = t => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+const planDate = t => new Date(t).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' });
 const planLine = () => { const p = planNow(); return p === 'free' ? '' : `${PLAN_NAME[p]} до ${planDate(myPlan.until)}${myPlan.source === 'gift' ? ' · подарок' : ''}`; };
 async function planLoad() {
   if (!signedIn()) return;
@@ -28,7 +28,7 @@ ACT.plansopen = () => { if (typeof closeQuick === 'function') closeQuick(); setS
 ACT.plper = el => { plansYear = el.dataset.y === '1'; render(); };
 ACT.plbuy = () => toast('Оплата появится скоро — подключаем ЮKassa');
 SEC.plans = { name: 'Тарифы', icon: IC.spark, noNav: true, title: () => 'Тарифы', html: plansHTML, move: () => {} };
-const rubPlan = n => n.toLocaleString('ru-RU') + ' ₽';
+const rubPlan = n => n.toLocaleString(LOCALE) + ' ₽';
 function plansHTML() {
   const cur = planNow(), line = planLine();
   const card = p => {
