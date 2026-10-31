@@ -1355,11 +1355,7 @@ div.ai-row{cursor:default}
 .pop2{animation:chipPop .38s ease-out}
 .flash{animation:rowFlash .7s ease-out}
 @media(prefers-reduced-motion:reduce){.chk.pop,.hc.pop,.pop2,.flash{animation:none}}
-/* Значок монеты — проба вариантов (shop.js, COIN_LOOK) и полёт монет в баланс (coinFly) */
-.cn-look{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 12px;font-size:13px;color:var(--tx2)}
-.cn-looks{display:flex;gap:6px}
-.cn-looks button{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;border:1.5px solid var(--line);background:var(--bg)}
-.cn-looks button.on{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 18%,transparent)}
+/* Полёт монет в баланс (shop.js, coinFly) */
 .cn-fly{position:fixed;left:0;top:0;z-index:80;width:22px;height:22px;pointer-events:none}
 .cn-bal.bump .coin{animation:chipPop .38s ease-out}
 .cn-bal.bump b{animation:chipPop .38s ease-out;transform-origin:left center}

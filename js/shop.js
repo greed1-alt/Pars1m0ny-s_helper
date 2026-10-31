@@ -6,42 +6,26 @@
 // заданий — не больше 3 в день и 3 в неделю. Здесь — показать, проверить условие задания и попросить сервер.
 // Каталог и награды — копия coins.sql (тест tools/test-coins.mjs сверяет). Кэш на устройстве — remapp_coins
 const COIN = 'ParsiCoins', CN_LS = 'remapp_coins';
-// Значок монеты — пиксельная монета, рисунок по клеткам (30 октября 2026: «нравится больше всего пиксельный вариант, но он какой-то кривой, подделай его
-// по феншую»). 17×17: тёмный контур, край — светлый сверху слева и тёмный справа снизу; для мелких — 13×13. Размер подгоняется так, чтобы клетка была
-// целым числом точек экрана: иначе клетки выходят разной ширины — от этого прежняя монета (14×14 в любом размере) и была «кривой». Если 17×17 так отличается
-// от нужного размера больше чем на 25 % — 13×13, если она ближе. На монете — золотое древо (31 октября 2026: «золотое дерево на фоне золотой монеты… именно
-// вековое древо, а не росток»). Проба трёх вариантов листвы — переключатель наверху страницы ParsiCoins, S.settings.coinLook («попробуй не уменьшать крону
-// и оставь только три варианта»). Жёлудь, жетон, ракушку, белок, кольца и зелёное древо пробовали и убрали — код в коммите 33ff323
+// Значок монеты — пиксельное золотое древо, рисунок по клеткам (выбор пользователя 31 октября 2026). 17×17: тёмный контур, край — светлый сверху слева и тёмный
+// справа снизу, вековой дуб: крона полного размера с контрастной листвой и просветами, тень под ней, толстый ствол с корнями; для мелких — 13×13.
+// Размер подгоняется так, чтобы клетка была целым числом точек экрана: иначе клетки выходят разной ширины. Если 17×17 так отличается от нужного размера
+// больше чем на 25 % — 13×13, если она ближе. Пробовали жёлудь, голографический жетон, ракушку, кольца, белок и зелёное древо — код в коммите eeb65cb
 const PX_COL = { K: '#1d0b2b', Y: '#f6dc68', G: '#ecac40', R: '#c75b2f', e: '#b56f1f', f: '#94561a',   // контур, блик края, золото, тень края, ствол
-  a: '#fbe88f', b: '#f3c455', c: '#d9902f',   // листва: блик, середина, тень
-  A: '#fff4b0', B: '#fad468', D: '#c67c1e', S: '#c9842a' };   // листва контрастнее и тень на монете
-const COIN_LOOK = {
-  treegold: ['Исходное золотое древо',
-    ['......KKKKK......', '....KKYYYYYKK....', '...KYYaabbaYYK...', '..KYaaabbbbaaYK..', '.KYaabbbaabbbcYK.', '.KYabbbbbbbbbcGK.', 'KYabbbaabbbbcccRK', 'KYcbbbbbbebbcccRK', 'KYGcbebbebecbcGRK',
-      'KYGGcceeefeccGGRK', 'KYGGGGeeeefGGGGRK', '.KYGGGeeeefGGGRK.', '.KYGGeeeeeffGGRK.', '..KYeeeGeeGffRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
-    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGabaGYYK.', '.KYaabbbbcYK.', 'KYaabbbbbccGK', 'KYabbbbbcccRK', 'KYcbebbebccRK',
-      'KYGcceeeccGRK', 'KYGGGeefGGGRK', '.KYGeeeffGRK.', '.KYYGeGfGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
-  treeshade: ['Крона поменьше, с тенью',
-    ['......KKKKK......', '....KKYYYYYKK....', '...KYYGGGGGYYK...', '..KYGAAABBASGYK..', '.KYGAAABBBBADSYK.', '.KYAABBBAABBDDGK.', 'KYGABBBBBBBBBDSRK', 'KYGABBAABBBBDDSRK', 'KYGDBeBBeBeDBDSRK',
-      'KYGSDDeeefeDDSGRK', 'KYGGSSeeeefSSGGRK', '.KYGGGeeeefGGGRK.', '.KYGGeeeeeffGGRK.', '..KYeeeGeeGffRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
-    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGGGGGYYK.', '.KYGGABASGYK.', 'KYGAABBBDSGGK', 'KYGABBBBDDSRK', 'KYGDBeBeDDSRK',
-      'KYGSDeeeDSGRK', 'KYGGSeefSGGRK', '.KYGeeeffGRK.', '.KYYGeGfGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
-  treeleaf: ['Полная крона, листва ярче',
-    ['......KKKKK......', '....KKYYYYYKK....', '...KYYAABBAYYK...', '..KYAAABBDBAAYK..', '.KYAABBDAABBDDYK.', '.KYABBBBBBBDBDGK.', 'KYABBDAABBBBDDDRK', 'KYDBBBBBBeBDDDDRK', 'KYSDBeBBeBeDBDSRK',
-      'KYGSDDeeefeDDSGRK', 'KYGGSSeeeefSSGGRK', '.KYGGGeeeefGGGRK.', '.KYGGeeeeeffGGRK.', '..KYeeeGeeGffRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
-    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGABASYYK.', '.KYAABDBBDYK.', 'KYAABBDBBDDGK', 'KYABDBBBDDDRK', 'KYDBeBBeBDDRK',
-      'KYSDDeeeDDSRK', 'KYGSSeefSSGRK', '.KYGeeeffGRK.', '.KYYGeGfGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
+  A: '#fff4b0', B: '#fad468', D: '#c67c1e', S: '#c9842a' };   // листва: блик, середина, тень; тень на монете
+const COIN_PX = {
+  17: ['......KKKKK......', '....KKYYYYYKK....', '...KYYAABBAYYK...', '..KYAAABBDBAAYK..', '.KYAABBDAABBDDYK.', '.KYABBBBBBBDBDGK.', 'KYABBDAABBBBDDDRK', 'KYDBBBBBBeBDDDDRK', 'KYSDBeBBeBeDBDSRK',
+    'KYGSDDeeefeDDSGRK', 'KYGGSSeeeefSSGGRK', '.KYGGGeeeefGGGRK.', '.KYGGeeeeeffGGRK.', '..KYeeeGeeGffRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
+  13: ['....KKKKK....', '..KKYYYYYKK..', '.KYYGABASYYK.', '.KYAABDBBDYK.', 'KYAABBDBBDDGK', 'KYABDBBBDDDRK', 'KYDBeBBeBDDRK',
+    'KYSDDeeeDDSRK', 'KYGSSeefSSGRK', '.KYGeeeffGRK.', '.KYYGeGfGRRK.', '..KKGRRRRKK..', '....KKKKK....'],
 };
 const pxPaths = g => { const runs = {};
   g.forEach((r, y) => { for (let x = 0; x < r.length;) { const c = r[x]; let w = 1; while (r[x + w] === c) w++; if (c !== '.') (runs[c] = runs[c] || []).push(`M${x} ${y}h${w}v1h-${w}z`); x += w; } });
   return Object.keys(runs).map(c => `<path fill="${PX_COL[c]}" d="${runs[c].join('')}"/>`).join(''); };
-const PX_IN = Object.fromEntries(Object.keys(COIN_LOOK).map(k => [k, { 17: pxPaths(COIN_LOOK[k][1]), 13: pxPaths(COIN_LOOK[k][2]) }]));
-function coinPix(s, k) { const r = window.devicePixelRatio || 1, fit = n => [n, Math.max(1, Math.round(s * r / n - .01)) * n / r], a = fit(17), b = fit(13),
+const PX_IN = { 17: pxPaths(COIN_PX[17]), 13: pxPaths(COIN_PX[13]) };
+function coinI(s = 18) { const r = window.devicePixelRatio || 1, fit = n => [n, Math.max(1, Math.round(s * r / n - .01)) * n / r], a = fit(17), b = fit(13),
     off = ([, px]) => Math.abs(px - s), [n, px] = off(a) <= s * .25 || off(a) <= off(b) ? a : b;
-  return `<svg class="coin coin-${k}" width="${+px.toFixed(2)}" height="${+px.toFixed(2)}" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" aria-hidden="true">${PX_IN[k][n]}</svg>`; }
-onMigrate(() => { if (!Object.hasOwn(COIN_LOOK, S.settings.coinLook)) S.settings.coinLook = 'treegold'; });
-const coinI = (s = 18, k = S.settings.coinLook) => coinPix(s, Object.hasOwn(COIN_LOOK, k) ? k : 'treegold');
-ACT.coinlook = el => { if (!Object.hasOwn(COIN_LOOK, el.dataset.v)) return; S.settings.coinLook = el.dataset.v; save(); render(); };
+  return `<svg class="coin" width="${+px.toFixed(2)}" height="${+px.toFixed(2)}" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" aria-hidden="true">${PX_IN[n]}</svg>`; }
+onMigrate(() => { delete S.settings.coinLook; });   // переключатель пробы значков
 // Полёт монет из кнопки «Забрать» в баланс наверху страницы; число обновляется, когда монеты долетят
 function coinFly(from, n) {
   const to = $('.cn-bal .coin'); if (!from || !to || matchMedia('(prefers-reduced-motion: reduce)').matches) return 0;
@@ -323,7 +307,6 @@ function shopHTML() {
     : coinsErr === 'off' ? 'Магазин скоро откроется.' : 'Загружаю… Если долго — проверьте интернет.'}</p>${!signedIn() ? '<button class="btn pri" data-act="accin">Войти</button>' : ''}</div></div>`;
   return `<div class="cn-page"><div class="card cn-top"><div class="cn-bal">${coinI(40)}<span><b>${NF0.format(coins.bal)}</b><small>${COIN}</small></span></div>
       <p>Выполняйте задания и получайте награды — открывайте палитры, рамки и обложки.</p>
-      <div class="cn-look"><span>Значок монеты · проба</span><div class="cn-looks" role="group" aria-label="Значок монеты">${Object.keys(COIN_LOOK).map(k => `<button class="${S.settings.coinLook === k ? 'on' : ''}" aria-pressed="${S.settings.coinLook === k}" data-act="coinlook" data-v="${k}" title="${COIN_LOOK[k][0]}" aria-label="${COIN_LOOK[k][0]}">${coinI(28, k)}</button>`).join('')}</div></div>
       <div class="seg2 cn-tabs" role="group" aria-label="Раздел"><button class="${cnTab === 'tasks' ? 'on' : ''}" aria-pressed="${cnTab === 'tasks'}" data-act="cntab" data-t="tasks">Задания${coinsReady().length ? ` · ${coinsReady().length}` : ''}</button><button class="${cnTab === 'shop' ? 'on' : ''}" aria-pressed="${cnTab === 'shop'}" data-act="cntab" data-t="shop">Магазин</button></div></div>
     ${cnTab === 'shop' ? shopItemsHTML() : shopTasksHTML()}</div>`;
 }

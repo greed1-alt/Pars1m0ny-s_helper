@@ -1,4 +1,4 @@
-const CACHE = 'rem-v157';
+const CACHE = 'rem-v158';
 const NUDGE_C = 'rem-nudge', NUDGE_URL = new URL('nudge', self.registration.scope).href;   // помощник пишет сам: текст пуша до открытия чата (aiNudgeOpen в assistant.js)
 const FILES = ['./', './index.html', './beta.html', './privacy.html', './consent.html', './terms.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png', './favicon.png',
   './css/fonts.css', './css/app.css', './css/sections.css', './css/ui2.css',
