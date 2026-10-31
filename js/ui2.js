@@ -664,7 +664,18 @@ function balanceHome() {
     h[c] += x.getBoundingClientRect().height + 14; });
 }
 SEC.home.after = () => { omRefresh(); balanceHome(); };
-SEC.tasks.after = omRefresh;
+// «Фокус дня» на ПК: дата и «Дальше» слева, серия и неделя справа стоят на месте, «Просрочено» и «Цели» — там, где колонки выйдут ровнее всего («стало слишком много свободного места», 31 октября 2026).
+// Высота карточки зависит от ширины колонки, поэтому меряем в обеих и выбираем лучший из вариантов — их всего четыре
+function balanceTasks() {
+  const L = $('.t4-l'), R = $('.t4-r'), bl = $$('.t4-r > .t4-late, .t4-r > .t3-goals'); if (!L || !R || !bl.length) return;
+  bl.forEach(x => x.remove());
+  const h0 = L.getBoundingClientRect().height, h1 = R.getBoundingClientRect().height, tall = (c, x) => { c.appendChild(x); const h = x.getBoundingClientRect().height + 14; x.remove(); return h; };
+  const hL = bl.map(x => tall(L, x)), hR = bl.map(x => tall(R, x));
+  let best = 0, gap = Infinity;
+  for (let m = 0; m < 1 << bl.length; m++) { let a = h0, b = h1; bl.forEach((_, i) => { if (m >> i & 1) b += hR[i]; else a += hL[i]; }); if (Math.abs(a - b) < gap) { gap = Math.abs(a - b); best = m; } }
+  bl.forEach((x, i) => (best >> i & 1 ? R : L).appendChild(x));
+}
+SEC.tasks.after = () => { omRefresh(); balanceTasks(); };
 SEC.cal.after = omRefresh;
 SEC.fin.after = omRefresh;   // общая строка в «Финансах»   // строка добавления под выбранным днём (js/calendar.js: calDayHTML)
 // Знакомство — когда загружены все скрипты: onbOpen нужен secOn из layout.js (он ниже). Раньше был таймер 350 мс, и на медленном
