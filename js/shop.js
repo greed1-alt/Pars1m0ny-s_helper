@@ -7,42 +7,30 @@
 // Каталог и награды — копия coins.sql (тест tools/test-coins.mjs сверяет). Кэш на устройстве — remapp_coins
 const COIN = 'ParsiCoins', CN_LS = 'remapp_coins';
 // Значок монеты — пиксельная монета, рисунок по клеткам (30 октября 2026: «нравится больше всего пиксельный вариант, но он какой-то кривой, подделай его
-// по феншую»; образец пользователя — монета с кольцами). 17×17: тёмный контур, край — светлый сверху слева и тёмный справа снизу; для мелких — 13×13.
-// Размер подгоняется так, чтобы клетка была целым числом точек экрана: иначе клетки выходят разной ширины — от этого прежняя монета (14×14 в любом размере)
-// и была «кривой». Если 17×17 так отличается от нужного размера больше чем на 25 % — 13×13, если она ближе.
-// Проба рисунка — переключатель наверху страницы ParsiCoins, S.settings.coinLook (31 октября 2026: «сделал белку золотой, чтобы она была еле видна на фоне
-// монеты» или «на монетке древо… золотое дерево на фоне золотой монеты или дерево как обычное… именно вековое древо, а не росток»).
-// Жёлудь, голографический жетон, ракушку и тёмную белку пробовали и убрали — код в коммите ba1a9c2
-const PX_COL = { K: '#1d0b2b', Y: '#f6dc68', G: '#ecac40', R: '#c75b2f',   // контур, блик края, золото, тень края
-  b: '#f3c455', c: '#d9902f', e: '#b56f1f', f: '#94561a', l: '#f8d671', m: '#d8932f',   // рисунок оттенками золота
-  A: '#fff4b0', B: '#fad468', D: '#c67c1e', S: '#c9842a',   // крона золотого древа: блик, листва, тень листвы, тень на монете
-  h: '#8ccf5a', C: '#4f9e3f', d: '#2f6e36', T: '#7a4a22', t: '#55311a' };   // зелёная крона, ствол
+// по феншую»). 17×17: тёмный контур, край — светлый сверху слева и тёмный справа снизу; для мелких — 13×13. Размер подгоняется так, чтобы клетка была
+// целым числом точек экрана: иначе клетки выходят разной ширины — от этого прежняя монета (14×14 в любом размере) и была «кривой». Если 17×17 так отличается
+// от нужного размера больше чем на 25 % — 13×13, если она ближе. На монете — золотое древо (31 октября 2026: «золотое дерево на фоне золотой монеты… именно
+// вековое древо, а не росток»). Проба трёх вариантов листвы — переключатель наверху страницы ParsiCoins, S.settings.coinLook («попробуй не уменьшать крону
+// и оставь только три варианта»). Жёлудь, жетон, ракушку, белок, кольца и зелёное древо пробовали и убрали — код в коммите 33ff323
+const PX_COL = { K: '#1d0b2b', Y: '#f6dc68', G: '#ecac40', R: '#c75b2f', e: '#b56f1f', f: '#94561a',   // контур, блик края, золото, тень края, ствол
+  a: '#fbe88f', b: '#f3c455', c: '#d9902f',   // листва: блик, середина, тень
+  A: '#fff4b0', B: '#fad468', D: '#c67c1e', S: '#c9842a' };   // листва контрастнее и тень на монете
 const COIN_LOOK = {
-  pixel: ['Монета с кольцами',
-    ['......KKKKK......', '....KKYYYYYKK....', '...KYYGGGGGYYK...', '..KYGGGRRRGGGYK..', '.KYGGRRGGGRRGGYK.', '.KYGRGGYYYGGYGGK.', 'KYGGRGYGGGRGYGGRK', 'KYGRGYGGGGGRGYGRK', 'KYGRGYGGGGGRGYGRK',
-      'KYGRGYGGGGGRGYGRK', 'KYGGRGYGGGRGYGGRK', '.KYGRGGRRRGGYGRK.', '.KYGGYYGGGYYGGRK.', '..KYGGGYYYGGGRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
-    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGGGGGYYK.', '.KYGGRRRGGYK.', 'KYGGRGGGYGGGK', 'KYGRGGGGGYGRK', 'KYGRGGGGGYGRK',
-      'KYGRGGGGGYGRK', 'KYGGRGGGYGGRK', '.KYGGYYYGGRK.', '.KYYGGGGGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
-  sqgold: ['Золотая белка',
-    ['......KKKKK......', '....KKYYYYYKK....', '...KYYGGmmmYYK...', '..KYGGGmmmmmmYK..', '.KYGGGGmmbbmmmYK.', '.KYGmbGbbGGbmmGK.', 'KYGGmmbGGGGmmmbRK', 'KYGmmmmbGGmmmmbRK', 'KYmmmmmbGmmmmbGRK',
-      'KYbmmmmmbmmmmbGRK', 'KYGbmmmmmmmmbGGRK', '.KYGbmmmmmmmbGRK.', '.KYGmmmmmmmbGGRK.', '..KYmmmbmmmbGRK..', '...KYGbGbbbRRK...', '....KKRRRRRKK....', '......KKKKK......'],
-    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGGmmbYYK.', '.KYGGmbbmmYK.', 'KYGmbbGGbmmGK', 'KYmmmbGGGmmRK', 'KYmmmbGGmmbRK',
-      'KYbmmmbmmmbRK', 'KYGbmmmmmbGRK', '.KYmmmmmbGRK.', '.KYYbmmbGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
-  treegold: ['Золотое древо',
+  treegold: ['Исходное золотое древо',
+    ['......KKKKK......', '....KKYYYYYKK....', '...KYYaabbaYYK...', '..KYaaabbbbaaYK..', '.KYaabbbaabbbcYK.', '.KYabbbbbbbbbcGK.', 'KYabbbaabbbbcccRK', 'KYcbbbbbbebbcccRK', 'KYGcbebbebecbcGRK',
+      'KYGGcceeefeccGGRK', 'KYGGGGeeeefGGGGRK', '.KYGGGeeeefGGGRK.', '.KYGGeeeeeffGGRK.', '..KYeeeGeeGffRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
+    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGabaGYYK.', '.KYaabbbbcYK.', 'KYaabbbbbccGK', 'KYabbbbbcccRK', 'KYcbebbebccRK',
+      'KYGcceeeccGRK', 'KYGGGeefGGGRK', '.KYGeeeffGRK.', '.KYYGeGfGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
+  treeshade: ['Крона поменьше, с тенью',
     ['......KKKKK......', '....KKYYYYYKK....', '...KYYGGGGGYYK...', '..KYGAAABBASGYK..', '.KYGAAABBBBADSYK.', '.KYAABBBAABBDDGK.', 'KYGABBBBBBBBBDSRK', 'KYGABBAABBBBDDSRK', 'KYGDBeBBeBeDBDSRK',
       'KYGSDDeeefeDDSGRK', 'KYGGSSeeeefSSGGRK', '.KYGGGeeeefGGGRK.', '.KYGGeeeeeffGGRK.', '..KYeeeGeeGffRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
     ['....KKKKK....', '..KKYYYYYKK..', '.KYYGGGGGYYK.', '.KYGGABASGYK.', 'KYGAABBBDSGGK', 'KYGABBBBDDSRK', 'KYGDBeBeDDSRK',
       'KYGSDeeeDSGRK', 'KYGGSeefSGGRK', '.KYGeeeffGRK.', '.KYYGeGfGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
-  treequiet: ['Золотое древо, еле видно',
-    ['......KKKKK......', '....KKYYYYYKK....', '...KYYllbblYYK...', '..KYlllbbbbllYK..', '.KYllbbbllbbbmYK.', '.KYlbbbbbbbbbmGK.', 'KYlbbbllbbbbmmmRK', 'KYmbbbbbbmbbmmmRK', 'KYGmbmbbmbmmbmGRK',
-      'KYGGmmmmmcmmmGGRK', 'KYGGGGmmmmcGGGGRK', '.KYGGGmmmmcGGGRK.', '.KYGGmmmmmccGGRK.', '..KYmmmGmmGccRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
-    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGlblGYYK.', '.KYllbbbbmYK.', 'KYllbbbbbmmGK', 'KYlbbbbbmmmRK', 'KYmbmbbmbmmRK',
-      'KYGmmmmmmmGRK', 'KYGGGmmcGGGRK', '.KYGmmmccGRK.', '.KYYGmGcGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
-  tree: ['Зелёное древо',
-    ['......KKKKK......', '....KKYYYYYKK....', '...KYYhhCChYYK...', '..KYhhhCCCChhYK..', '.KYhhCCChhCCCdYK.', '.KYhCCCCCCCCCdGK.', 'KYhCCChhCCCCdddRK', 'KYdCCCCCCTCCdddRK', 'KYGdCTCCTCTdCdGRK',
-      'KYGGddTTTtTddGGRK', 'KYGGGGTTTTtGGGGRK', '.KYGGGTTTTtGGGRK.', '.KYGGTTTTTttGGRK.', '..KYTTTGTTGttRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
-    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGhChGYYK.', '.KYhhCCCCdYK.', 'KYhhCCCCCddGK', 'KYhCCCCCdddRK', 'KYdCTCCTCddRK',
-      'KYGddTTTddGRK', 'KYGGGTTtGGGRK', '.KYGTTTttGRK.', '.KYYGTGtGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
+  treeleaf: ['Полная крона, листва ярче',
+    ['......KKKKK......', '....KKYYYYYKK....', '...KYYAABBAYYK...', '..KYAAABBDBAAYK..', '.KYAABBDAABBDDYK.', '.KYABBBBBBBDBDGK.', 'KYABBDAABBBBDDDRK', 'KYDBBBBBBeBDDDDRK', 'KYSDBeBBeBeDBDSRK',
+      'KYGSDDeeefeDDSGRK', 'KYGGSSeeeefSSGGRK', '.KYGGGeeeefGGGRK.', '.KYGGeeeeeffGGRK.', '..KYeeeGeeGffRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
+    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGABASYYK.', '.KYAABDBBDYK.', 'KYAABBDBBDDGK', 'KYABDBBBDDDRK', 'KYDBeBBeBDDRK',
+      'KYSDDeeeDDSRK', 'KYGSSeefSSGRK', '.KYGeeeffGRK.', '.KYYGeGfGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
 };
 const pxPaths = g => { const runs = {};
   g.forEach((r, y) => { for (let x = 0; x < r.length;) { const c = r[x]; let w = 1; while (r[x + w] === c) w++; if (c !== '.') (runs[c] = runs[c] || []).push(`M${x} ${y}h${w}v1h-${w}z`); x += w; } });
@@ -51,8 +39,8 @@ const PX_IN = Object.fromEntries(Object.keys(COIN_LOOK).map(k => [k, { 17: pxPat
 function coinPix(s, k) { const r = window.devicePixelRatio || 1, fit = n => [n, Math.max(1, Math.round(s * r / n - .01)) * n / r], a = fit(17), b = fit(13),
     off = ([, px]) => Math.abs(px - s), [n, px] = off(a) <= s * .25 || off(a) <= off(b) ? a : b;
   return `<svg class="coin coin-${k}" width="${+px.toFixed(2)}" height="${+px.toFixed(2)}" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" aria-hidden="true">${PX_IN[k][n]}</svg>`; }
-onMigrate(() => { if (!Object.hasOwn(COIN_LOOK, S.settings.coinLook)) S.settings.coinLook = 'pixel'; });
-const coinI = (s = 18, k = S.settings.coinLook) => coinPix(s, Object.hasOwn(COIN_LOOK, k) ? k : 'pixel');
+onMigrate(() => { if (!Object.hasOwn(COIN_LOOK, S.settings.coinLook)) S.settings.coinLook = 'treegold'; });
+const coinI = (s = 18, k = S.settings.coinLook) => coinPix(s, Object.hasOwn(COIN_LOOK, k) ? k : 'treegold');
 ACT.coinlook = el => { if (!Object.hasOwn(COIN_LOOK, el.dataset.v)) return; S.settings.coinLook = el.dataset.v; save(); render(); };
 // Полёт монет из кнопки «Забрать» в баланс наверху страницы; число обновляется, когда монеты долетят
 function coinFly(from, n) {
