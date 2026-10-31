@@ -193,7 +193,6 @@ body.ui2 .fh-t b{font-size:15px}
 .t2-flt .seg2{align-self:flex-start}
 .t2-prios{display:flex;gap:6px;flex-wrap:wrap}
 .t2-prios .tk-pr{height:32px;border-radius:999px;padding:0 12px}
-.tk-mid2{display:flex;flex-direction:column;gap:16px}
 
 /* ---- Неделя: свёрнутые пустые часы ---- */
 .wgwrap.fz .wg-col{background-image:none}
@@ -292,7 +291,6 @@ body.ui2 .fh-t b{font-size:15px}
   .h2-col{gap:20px}
   .h2-habs{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
   .h2-omni:not(.h2-cols .h2-omni):not(.t3-col .h2-omni){max-width:920px}
-  .tk-mid2{display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;align-items:start}
   .f2-hero,.f2-in{max-width:920px}
   .onb{background:color-mix(in srgb,var(--bg) 72%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);align-items:center;padding:24px}
   .onb-box{min-height:0;height:auto;max-height:100%;background:var(--bg);border:1px solid var(--line);border-radius:26px;box-shadow:var(--sh2);padding:22px 32px 28px}
@@ -1160,18 +1158,15 @@ div.ai-row{cursor:default}
 .t4-ck::after{content:'';position:absolute;inset:-9px}
 .t4-empty{margin:4px 0 8px;font-size:14.5px;color:var(--tx2)}
 .t4-hero .t3-gh{margin-top:16px}
-.t4-bars{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:4px}
-.t4-bar{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0 6px;border-radius:12px;transition:background .12s}
+.t4-week .h2-h b,.t4-week .h2-h small{white-space:nowrap}
+.t4-bars{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:8px}
+.t4-bar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;height:134px;padding:6px 2px 4px;border-radius:12px;transition:background .12s}
 .t4-bar.on{background:color-mix(in srgb,var(--acc) 13%,transparent)}
-.t4-col{position:relative;width:20px;height:72px}
-.t4-col u,.t4-col i{position:absolute;left:0;right:0;bottom:0;border-radius:6px}
-.t4-col u{background:var(--hov2)}
-.t4-col i{background:var(--good)}
-.t4-bar.on .t4-col u{background:color-mix(in srgb,var(--acc) 35%,transparent)}
-.t4-bar small{font-size:12px;font-weight:600;color:var(--mut);white-space:nowrap}
-.t4-bar.today small{color:var(--red)}
-.t4-bar b{font-size:12px;font-weight:650;color:var(--tx2)}
-.t4-bar.past .t4-col{opacity:.75}
+.t4-col{position:relative;display:block;width:100%;max-width:38px;border-radius:10px 10px 6px 6px;overflow:hidden;background:var(--hov2)}
+.t4-col i{position:absolute;left:0;right:0;bottom:0;border-radius:inherit;background:linear-gradient(180deg,var(--acc),color-mix(in srgb,var(--acc) 62%,var(--card)))}
+.t4-bar small{font-size:12.5px;color:var(--mut)}
+.t4-bar.today small{font-weight:750;color:var(--tx)}
+.t4-bar b{font-size:13px;font-weight:600;color:var(--tx2)}
 .t4-ncols{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px 22px}
 .t4-ncol{min-width:0}
 .t4-nh{display:flex;align-items:baseline;gap:8px;width:100%;padding:8px 0 2px;text-align:left;font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.05em}
@@ -1181,8 +1176,6 @@ div.ai-row{cursor:default}
 @media(hover:hover){.t4-card:hover{filter:var(--hovf)}.t4-ck:hover{background:color-mix(in srgb,var(--c) 28%,transparent)}.t4-bar:not(.on):hover{background:var(--hov)}.t4-nh:hover b{color:var(--tx)}}
 
 /* Статистика задач: в узком месте (правая колонка «Все») сводка и динамика идут друг под другом */
-.tk-stats{container-type:inline-size}
-@container (max-width:699px){.tk-mid2{display:flex;flex-direction:column;align-items:stretch}}
 /* Доска недели подстраивается под ширину своего места: 7 столбиков, на средней ширине 4 + 3, в узком месте дни идут строками (как на телефоне) */
 .tw-card{container-type:inline-size}
 @container (min-width:561px) and (max-width:839px){
@@ -1360,3 +1353,39 @@ div.ai-row{cursor:default}
 .cn-bal.bump .coin{animation:chipPop .38s ease-out}
 .cn-bal.bump b{animation:chipPop .38s ease-out;transform-origin:left center}
 @media(prefers-reduced-motion:reduce){.cn-bal.bump .coin,.cn-bal.bump b{animation:none}}
+
+/* Статистика задач: итог недели, три числа, неделя, карта дней (tasks.js, taskStatsHTML) */
+.ts{container-type:inline-size;display:flex;flex-direction:column;gap:12px}
+.ts-top,.ts-low{display:flex;flex-direction:column;gap:12px;min-width:0}
+.ts .card{margin:0}
+.ts-hero{position:relative;overflow:hidden;display:flex;flex-direction:column;min-height:186px;padding:18px 18px 0;border-radius:var(--rc);color:#fff;background:linear-gradient(135deg,var(--c1),var(--c2) 55%,var(--c3))}
+.ts-hero>svg{display:block;flex:none;width:calc(100% + 36px);height:84px;margin:auto -18px 0}
+.ts-big{font-size:46px;font-weight:800;line-height:1;letter-spacing:-.02em}
+.ts-hero p{margin:4px 0 8px;font-size:14px;color:#ffffffe6}
+.ts-hp{position:absolute;top:14px;right:14px;display:flex;align-items:center;gap:5px;min-height:32px;padding:0 8px 0 10px;border-radius:999px;background:rgba(0,0,0,.2);font-size:14px}
+.ts-hp b{font-weight:700}
+.ts-hp .hint,.ts-hp .hint:hover{margin-left:2px;color:#fff;border-color:#ffffffb0}
+.ts-fl{flex:none}
+.ts-tl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.ts-t{display:flex;flex-direction:column;justify-content:center;padding:13px 12px!important}
+.ts-t b{font-size:24px;font-weight:750;line-height:1.1;letter-spacing:-.01em}
+.ts-t span{margin-top:3px;font-size:12.5px;line-height:1.25;color:var(--tx2)}
+.ts-mh{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:3px;margin-bottom:6px;font-size:12.5px;color:var(--mut);white-space:nowrap}
+.ts-hm{display:grid;grid-auto-flow:column;grid-template-columns:repeat(var(--n),minmax(0,1fr));grid-template-rows:repeat(7,auto);gap:3px}
+.ts-hm i{aspect-ratio:1;border-radius:3px}
+.ts-map .l0{background:var(--hov2)}
+.ts-map .l1{background:color-mix(in srgb,var(--acc) 30%,var(--card))}
+.ts-map .l2{background:color-mix(in srgb,var(--acc) 52%,var(--card))}
+.ts-map .l3{background:color-mix(in srgb,var(--acc) 76%,var(--card))}
+.ts-map .l4{background:var(--acc)}
+.ts-hm .t{box-shadow:0 0 0 1.5px var(--tx)}
+.ts-lg{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:10px;font-size:12.5px;color:var(--mut)}
+.ts-lg i{width:11px;height:11px;border-radius:3px}
+.ts-pill{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px 0 8px;border-radius:999px;align-self:center;background:color-mix(in srgb,#ff7a3d 15%,transparent);font-size:13.5px;color:var(--tx)}
+.ts-pill b{font-weight:650}
+.ts-row{display:flex;margin:0 0 12px}
+@container (min-width:700px){
+  .ts-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .ts-low.two{display:grid;grid-template-columns:320px minmax(0,1fr)}
+  .ts-hm,.ts-mh{gap:4px}
+}
