@@ -83,8 +83,6 @@ const palColors = (k, dark, black) => { const p = PAL[k] || PAL[LOOK_DEF.pal], c
   if (!c.pg) c.pg = c.bg; return c; };
 
 let lookKey = '';
-// Палитра на примерке (магазин, shop.js): видна во всём приложении, но не сохраняется и не уходит на сервер
-let tryPal = null;
 // Цвета оформления для палитры: applyLook ставит их на всю страницу, предпросмотр палитры — на свой блок
 function lookVars(k, dark, black) {
   const st = S.settings, c = palColors(k, dark, black);
@@ -107,10 +105,10 @@ function lookVars(k, dark, black) {
   return v;
 }
 function applyLook() {
-  const st = S.settings, dark = darkNow(), black = st.theme === 'black', pal = tryPal || st.pal;
-  const key = [st.theme, dark, pal, st.contrast, st.card, st.round, st.evc].join();
+  const st = S.settings, dark = darkNow(), black = st.theme === 'black';
+  const key = [st.theme, dark, st.pal, st.contrast, st.card, st.round, st.evc].join();
   if (key === lookKey) return; lookKey = key;
-  const root = document.documentElement, v = lookVars(pal, dark, black);
+  const root = document.documentElement, v = lookVars(st.pal, dark, black);
   root.dataset.theme = st.theme; root.dataset.card = st.card;
   for (const k in v) root.style.setProperty(k, v[k]);
 }

@@ -1373,11 +1373,7 @@ div.ai-row{cursor:default}
   .ts-hero>svg{width:calc(100% + 32px);height:52px;margin:auto -16px 0}
 }
 
-/* Предпросмотр и примерка палитры (shop.js) */
+/* Предпросмотр палитры (shop.js) */
 .cn-pt{margin:4px 0 8px}
 .cn-pt button{flex:1}
 .cn-pv-app{margin:0 0 12px;color:var(--tx)}
-#trybar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:22;display:flex;align-items:center;gap:8px;max-width:calc(100vw - 24px);padding:8px 8px 8px 14px;border-radius:14px;background:var(--sf);color:var(--tx);box-shadow:var(--sh2),0 0 0 1.5px var(--acc);font-size:14px;white-space:nowrap}
-#trybar span{min-width:0;overflow:hidden;text-overflow:ellipsis}
-#trybar .btn{flex:none;height:34px;padding:0 12px}
-@media(max-width:899px){#trybar{bottom:calc(var(--tb) + 10px)}}
