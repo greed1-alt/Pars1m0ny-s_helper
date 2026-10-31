@@ -2351,4 +2351,5 @@ const EN_DICT = {"Работа":"Work",
 "* — ваша и уже включена":"* is yours and already on",
 "* — ваша бесплатно":"* is yours for free",
 "* нет задач без времени и пропущенных — раскладывать нечего. Запишите дела (например, «купить продукты»), и я разложу их по свободному времени.":"* there are no tasks without a time and nothing missed, so there is nothing to arrange. Add some tasks (for example, “buy groceries”) and I will fit them into your free time.",
-"* Бета-версия: войти могут только приглашённые. Записи хранятся на сервере Supabase за пределами России.":"* Beta version: only invited people can sign in. Entries are stored on a Supabase server outside Russia."};
+"* Бета-версия: войти могут только приглашённые. Записи хранятся на сервере Supabase за пределами России.":"* Beta version: only invited people can sign in. Entries are stored on a Supabase server outside Russia.",
+"бета":"beta"};

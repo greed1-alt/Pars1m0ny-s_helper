@@ -89,6 +89,12 @@
     [/cinema|movie|concert|theatre|theater|\bgame|\bbar\b/i, 'Развлечения'], [/clothes|shoes|jacket|jeans/i, 'Одежда'], [/gift|present/i, 'Подарки'], [/salary|wage|bonus/i, 'Зарплата'], [/\brent\b|mortgage/i, 'Аренда или ипотека'], [/utilit|electric/i, 'Коммунальные услуги'], [/internet|mobile|phone bill/i, 'Интернет и связь'], [/\bgym\b/i, 'Спортзал']);
   CAT_KW.push([/^work/i, /meeting|\bcall\b|report|client|office|deadline|project|email|presentation/i], [/^study/i, /exam|lesson|course|lecture|homework|class|seminar/i], [/^walk/i, /walk|\bpark\b/i], [/^rest/i, /rest|relax|holiday|cinema|film/i]);
 
+  // Примеры, которые подставляются в строку и печатаются по буквам: перевод всей фразы не успел бы за ними
+  Object.assign(OM_EX, { home: ['buy bread', 'meeting tomorrow at 15 #work', 'cafe 450', '+ salary 60 000', 'habit: 2 litres of water', 'note: gift idea'],
+    cal: ['call tomorrow at 11', 'workout on Friday from 19 to 20', 'cinema on Saturday at 20:30', 'birthday 12 November'],
+    tasks: ['call mum', 'report on Friday !!', 'pay for the internet tomorrow', 'read 20 pages !low'] });
+  ONB_PH.splice(0, ONB_PH.length, 'meeting tomorrow at 15:00', 'cafe 450', 'hand in the report on Friday !!', '+ salary 60 000', '2 litres of water every day');
+
   // То, что не попадает на страницу: «Поделиться», копирование, уведомление на этом устройстве
   if (navigator.share) { const sh = navigator.share.bind(navigator); navigator.share = d => sh({ ...d, text: d.text && tr(d.text) }); }
   const cp = copyText;
