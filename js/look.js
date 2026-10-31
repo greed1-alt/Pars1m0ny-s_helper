@@ -83,12 +83,11 @@ const palColors = (k, dark, black) => { const p = PAL[k] || PAL[LOOK_DEF.pal], c
   if (!c.pg) c.pg = c.bg; return c; };
 
 let lookKey = '';
-function applyLook() {
-  const st = S.settings, dark = darkNow(), black = st.theme === 'black';
-  const key = [st.theme, dark, st.pal, st.contrast, st.card, st.round, st.evc].join();
-  if (key === lookKey) return; lookKey = key;
-  const root = document.documentElement, c = palColors(st.pal, dark, black);
-  root.dataset.theme = st.theme; root.dataset.card = st.card;
+// Палитра на примерке (магазин, shop.js): видна во всём приложении, но не сохраняется и не уходит на сервер
+let tryPal = null;
+// Цвета оформления для палитры: applyLook ставит их на всю страницу, предпросмотр палитры — на свой блок
+function lookVars(k, dark, black) {
+  const st = S.settings, c = palColors(k, dark, black);
   const page = st.card === 'line' ? c.bg : c.pg;
   let { tx, tx2, mut, line } = c;
   if (st.contrast === 'high') { tx = dark ? '#ffffff' : '#000000'; tx2 = mixC(tx2, tx, .5); mut = mixC(mut, tx, .4); line = mixC(line, tx, .2); }
@@ -105,6 +104,14 @@ function applyLook() {
     '--card':card, '--cardbd':cardbd, '--cardsh':cardsh, '--rc':{ s:'12px', m:'18px', l:'24px' }[st.round],
     '--mix': bright ? (dark ? '40%' : '30%') : (dark ? '26%' : '17%'), '--mixtx': bright ? (dark ? '32%' : '72%') : (dark ? '52%' : '62%'),
   };
+  return v;
+}
+function applyLook() {
+  const st = S.settings, dark = darkNow(), black = st.theme === 'black', pal = tryPal || st.pal;
+  const key = [st.theme, dark, pal, st.contrast, st.card, st.round, st.evc].join();
+  if (key === lookKey) return; lookKey = key;
+  const root = document.documentElement, v = lookVars(pal, dark, black);
+  root.dataset.theme = st.theme; root.dataset.card = st.card;
   for (const k in v) root.style.setProperty(k, v[k]);
 }
 darkMQ.addEventListener('change', () => { if (S.settings.theme === 'auto') render(); });
@@ -123,6 +130,14 @@ const lookRow = (k, label) => `<div class="lk-row"><div class="lk-h">${label}${h
 const palPv = k => { const st = S.settings, c = palColors(k, darkNow(), st.theme === 'black'); return `<span class="pal-pv" style="--p:${c.pg};--s:${c.sf};--a:${c.acc};--l:${c.line};--t:${c.tx2}"><i></i><b></b><em></em></span>`; };
 // Не своя палитра (магазин, shop.js) — со значком цены, нажатие открывает её в магазине
 const palSw = k => `<button class="pal${S.settings.pal === k ? ' on' : ''}" data-act="look" data-k="pal" data-v="${k}" aria-pressed="${S.settings.pal === k}">${palPv(k)}${PAL[k].n}${palLock(k)}</button>`;
+// Кусочек настоящего экрана — в «Как это выглядит» и в окне палитры в магазине
+const lookDemo = () => `<div class="lk-card">
+      <div class="lk-ph"><b>План на сегодня</b><small>1 из 3</small></div>
+      <div class="lk-it done"><span class="chk">${I(IC.check, 13)}</span><span class="lk-t">Зарядка</span></div>
+      <div class="lk-it"><span class="chk"></span><span class="lk-t">Отчёт по проекту</span><span class="pbadge" style="--c:${PRIO.urgent.c}">${PRIO.urgent.n}</span></div>
+      <div class="lk-ev" style="--c:${(S.cats[0] || { color:'#3b82f6' }).color}"><b>15:00</b> Встреча с командой</div>
+      <div class="ds-bar"><i style="width:34%"></i></div>
+      <div class="lk-btns"><span class="btn pri">Сохранить</span><span class="btn">Отмена</span></div></div>`;
 function lookHTML() {
   const st = S.settings;
   return `<div class="set-sec">Оформление</div>
@@ -133,13 +148,7 @@ function lookHTML() {
     <div class="pals lk-wide">${PAL_ORDER.map(palSw).join('')}</div></div>
   ${lookRow('contrast', 'Контраст')}${lookRow('card', 'Карточки')}${lookRow('round', 'Углы')}${lookRow('evc', 'Цвет событий')}
   <div class="lk-row"><div class="lk-h">Как это выглядит</div>
-    <div class="lk-prev" aria-hidden="true"><div class="lk-card">
-      <div class="lk-ph"><b>План на сегодня</b><small>1 из 3</small></div>
-      <div class="lk-it done"><span class="chk">${I(IC.check, 13)}</span><span class="lk-t">Зарядка</span></div>
-      <div class="lk-it"><span class="chk"></span><span class="lk-t">Отчёт по проекту</span><span class="pbadge" style="--c:${PRIO.urgent.c}">${PRIO.urgent.n}</span></div>
-      <div class="lk-ev" style="--c:${(S.cats[0] || { color:'#3b82f6' }).color}"><b>15:00</b> Встреча с командой</div>
-      <div class="ds-bar"><i style="width:34%"></i></div>
-      <div class="lk-btns"><span class="btn pri">Сохранить</span><span class="btn">Отмена</span></div></div></div></div>
+    <div class="lk-prev" aria-hidden="true">${lookDemo()}</div></div>
   <button class="lnk lk-reset" data-act="lookreset">Вернуть оформление по умолчанию</button>`;
 }
 // На телефоне палитра выбирается в маленьком окне (в Настройках — одна строка); фон за окном почти не затемнён, чтобы видеть цвета

@@ -223,7 +223,7 @@ ACT.cnitem = el => openShopItem(el.dataset.it);
 // Включить своё: палитру, обложку, рамку
 function coinUse(it) {
   const k = it.split(':')[1];
-  if (it.startsWith('pal:')) { S.settings.pal = k; save(); render(); }
+  if (it.startsWith('pal:')) { S.settings.pal = k; tryPal = null; tryBar(); save(); render(); }
   else if (it.startsWith('cv:')) { S.settings.cover = { p: k, img: '' }; profTouch(); render(); }
   else if (it.startsWith('fm:')) { if (S.settings.frame === k) delete S.settings.frame; else S.settings.frame = k; profTouch(); render(); }
 }
@@ -237,12 +237,26 @@ ACT.cnbuy = el => cnRun(async () => {
 });
 ACT.cnpick = el => cnRun(async () => { const it = el.dataset.it; if (await coinPick(it)) { closeSheet(); coinUse(it); toast(`${itemName(it)} — ваша бесплатно`); coinsLoad(); } });
 
+// ---- Предпросмотр и примерка палитры («можешь сделать предпросмотр тем, чтобы людям было понятнее», 31 октября 2026): в окне палитры — кусочек экрана в её цветах,
+// светлая и тёмная; «Примерить» надевает палитру на всё приложение (tryPal, look.js) и показывает полоску «Оставить / Вернуть». Ничего не сохраняется: перезагрузили — примерка кончилась
+const palCSS = (k, dark) => { const v = lookVars(k, dark, dark && S.settings.theme === 'black'); return Object.keys(v).map(x => `${x}:${v[x]}`).join(';'); };
+ACT.cnpvt = el => { $('.cn-pv-app').style.cssText = palCSS(el.dataset.k, !!el.dataset.d); $$('.cn-pt button').forEach(b => { b.classList.toggle('on', b === el); b.setAttribute('aria-pressed', b === el); }); };
+function tryBar() {
+  let b = $('#trybar');
+  if (!tryPal) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement('div'); b.id = 'trybar'; b.setAttribute('role', 'status'); document.body.appendChild(b); }
+  b.innerHTML = `<span>Примерка: <b>${esc(PAL[tryPal].n)}</b></span><button class="btn pri" data-act="trykeep">Оставить</button><button class="btn" data-act="tryend">Вернуть</button>`;
+}
+ACT.cntry = el => { tryPal = el.dataset.k; closeSheet(); render(); tryBar(); };
+ACT.trykeep = () => openShopItem('pal:' + tryPal);
+ACT.tryend = () => { tryPal = null; tryBar(); render(); };
+
 // ---- Окно вещи ----
 function openShopItem(it) {
   const k = it.split(':')[1], price = coinPrice(it), own = it === 'frz' ? false : coinOwn(it), bal = coins ? coins.bal : 0;
   if (!price) return;
   const pv = it === 'frz' ? '<div class="cn-pv cn-pv-frz" aria-hidden="true">❄️</div>'
-    : it.startsWith('pal:') ? `<div class="cn-pv cn-pv-pal">${palPv(k)}</div>`
+    : it.startsWith('pal:') ? `<div class="seg2 cn-pt" role="group" aria-label="Как показать">${[['', 'Светлая'], ['1', 'Тёмная']].map(([v, n]) => { const on = !!v === darkNow(); return `<button class="${on ? 'on' : ''}" aria-pressed="${on}" data-act="cnpvt" data-k="${k}" data-d="${v}">${n}</button>`; }).join('')}</div><div class="lk-prev cn-pv-app" style="${palCSS(k, darkNow())}" aria-hidden="true">${lookDemo()}</div>`
     : it.startsWith('cv:') ? `<div class="cn-pv cn-pv-cv" style="background-image:${COVER_GLOW},${COVERS[k]}"></div>`
     : `<div class="cn-pv cn-pv-fm">${avatarHTML(88, k)}</div>`;
   const desc = it === 'frz' ? `Пропустили день — серия привычек не сгорает: заморозка тратится сама. Про запас — до ${FRZ_MAX}, у вас ${coins ? coins.items.frz || 0 : 0}.`
@@ -259,6 +273,7 @@ function openShopItem(it) {
   else if (it.startsWith('pal:') && coins.free < PAL_FREE) btns = `<button class="btn pri" data-act="cnpick" data-it="${it}">Взять бесплатно</button>${buy().replace(' pri', '')}
     <p class="set-note">Бесплатно — ещё ${coins.free ? PAL_FREE - coins.free + ' из ' + PAL_FREE : PAL_FREE + ' палитры'} на выбор. Выбор не отменить.</p>`;
   else btns = buy();
+  if (it.startsWith('pal:') && coins && !own && tryPal !== k) btns = `<button class="btn" data-act="cntry" data-k="${k}">Примерить на всё приложение</button>${btns}`;
   sheet(`<div class="sh-head"><h3>${esc(itemName(it))}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
     ${pv}<p class="cn-desc">${desc}</p><div class="cn-bal-s">У вас ${coinI(16)} <b>${NF0.format(bal)}</b></div><div class="cn-btns">${btns}</div>`);
 }
