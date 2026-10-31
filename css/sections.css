@@ -93,8 +93,6 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .hm-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:auto;padding-top:10px;font-size:12.5px;color:var(--mut)}
 .hm-foot button{font-size:12.5px;font-weight:600;color:var(--tx2);padding:4px 6px;border-radius:6px;white-space:nowrap}
 .hm-foot button:hover{background:var(--hov);color:var(--tx)}
-.hm-card .tw-add{margin:6px 0 0}
-.hm-card .hm-list:has(+ .tw-add){flex:0 0 auto}
 .hm-habs{display:flex;flex-direction:column;gap:6px;flex:1}
 .hm-hab{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r2);text-align:left;font-size:13.5px;transition:background .12s,border-color .12s}
 .hm-hab .em{width:20px;text-align:center;flex:none}
@@ -512,29 +510,28 @@ main.sec{padding:10px 12px 28px;display:flex;flex-direction:column;gap:12px}
 .tp-r span{color:var(--tx2)}
 
 /* ---- Задачи ---- */
-.tw{display:flex;flex-direction:column;gap:8px}
-.tw-day{border:1px solid var(--line);border-radius:var(--r2);padding:10px 10px 8px;display:flex;flex-direction:column;min-width:0;background:var(--bg)}
-.tw-day.is-today{border-color:color-mix(in srgb,var(--red) 55%,var(--line));box-shadow:inset 0 2px 0 var(--red)}
-.tw-day.past .tw-h b{color:var(--tx2)}
-.tw-h{display:flex;flex-direction:column;gap:0;margin:0 2px 6px;min-width:0}
-.tw-h b{font-size:13.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tw-h span{font-size:12px;color:var(--mut)}
-.tw-day.is-today .tw-h span{color:var(--red);font-weight:600}
-.tw-list{display:flex;flex-direction:column;gap:1px;flex:1}
-.tw-row{position:relative;display:flex;align-items:center;gap:7px;padding:3px 2px;border-radius:7px;min-width:0}
-.tw-row:has(.tw-p) .tw-t{padding-right:7px}
-.tw-row .chk{width:18px;height:18px;margin:0;border-radius:5px}
-.tw-t{flex:1;min-width:0;text-align:left;font-size:13px;line-height:1.3;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
-.tw-t small{color:var(--mut);font-size:12px}
-.tw-row.done .tw-t{text-decoration:line-through;color:var(--mut)}
-.tw-p{position:absolute;right:2px;top:7px;width:6px;height:6px;border-radius:50%;background:var(--c)}
-.tw-empty{margin:2px 2px 4px;font-size:12px;color:var(--mut)}
-.tw-add{width:100%;height:32px;margin-top:6px;padding:0 8px;border:1px dashed var(--line);border-radius:8px;background:transparent;font-size:13px}
-.tw-add:focus{outline:0;border-style:solid;border-color:var(--acc)}
-.tw-ring{display:flex;justify-content:center;margin-top:8px}
-.tw-ring .rg-t{font-size:19px}
-.tw-ring .rg-s{font-size:12px}
-@media(hover:hover){.tw-row:hover{background:var(--hov)}}
+.tw{display:flex;flex-direction:column}
+.tw-day{display:grid;grid-template-columns:66px minmax(0,1fr) auto;gap:12px;align-items:center;min-height:50px;padding:8px 2px;border-top:1px solid var(--line)}
+.tw-day:first-child{border-top:0}
+.tw-h{display:flex;align-items:baseline;gap:5px}
+.tw-h b{font-size:20px;font-weight:750;line-height:1}
+.tw-h span{font-size:12.5px;font-weight:650;color:var(--mut);text-transform:uppercase}
+.tw-day.is-today .tw-h b{color:var(--red)}
+.tw-list{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.tw-t{display:inline-flex;align-items:center;gap:7px;max-width:100%;min-width:0;padding:4px 10px 4px 6px;border-radius:999px;background:color-mix(in srgb,var(--c) 15%,transparent)}
+.tw-t .chk{width:18px;height:18px;margin:0;border-radius:6px}
+.tw-t.done .chk{background:var(--good);border-color:var(--good)}
+.tw-n{min-width:0;font-size:13.5px;line-height:1.3;text-align:left;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tw-n small{color:var(--mut);font-size:12.5px}
+.tw-t.done .tw-n{text-decoration:line-through;color:var(--mut)}
+.tw-e{font-size:13px;color:var(--mut)}
+.tw-r{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--mut)}
+.tw-plus{position:relative;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--hov);color:var(--tx2);transition:transform .15s}
+.tw-plus::after{content:'';position:absolute;inset:-8px}
+.tw-plus.on{transform:rotate(45deg);color:var(--acc)}
+.tw-add{flex:1 1 150px;min-width:0;height:32px;padding:0 12px;border:1px solid var(--acc);border-radius:999px;background:transparent;font-size:13.5px;color:var(--tx);outline:0}
+@media(hover:hover){.tw-plus:hover{background:var(--hov2)}.tw-n:hover{color:var(--acc)}}
+@media(max-width:899px){.tw-day{grid-template-columns:52px minmax(0,1fr) auto;gap:8px}.tw-add{font-size:16px}}
 
 .tk-mid,.tk-goals{display:flex;flex-direction:column;gap:12px}
 .fz-card{display:flex;flex-direction:column}
@@ -871,15 +868,6 @@ button.sbl:hover{background:var(--hov)}
   .pf-who{padding-top:0;width:100%;min-width:0}
   .pf-acts{width:100%}
   .pf-acts .btn.pri{flex:1}
-  /* День недели в «Задачах»: кольцо справа от заголовка, а не под списком */
-  .tw-day{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"h r" "l l" "a a";padding:10px 12px}
-  .tw-h{grid-area:h;align-self:center}
-  .tw-list{grid-area:l}
-  .tw-add{grid-area:a}
-  .tw-ring{grid-area:r;margin:0}
-  .tw-ring svg{width:44px;height:44px}
-  .tw-ring .rg-s{display:none}
-  .tw-ring .rg-t{transform:translateY(6px);font-size:22px!important}
 }
 
 /* ---- Компьютер ---- */
@@ -907,9 +895,6 @@ button.sbl:hover{background:var(--hov)}
   .st-grid{display:block;column-count:2;column-gap:16px}
   .st-grid>.card{break-inside:avoid;margin-bottom:16px}
   .addm{grid-template-columns:repeat(3,1fr)}
-  .tw{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
-  .tw-day{padding:10px 8px 8px}
-  .tw-day{min-height:250px}
   /* «Задачи»: карточки одного ряда — одной высоты */
   .tk-mid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:stretch}
   .tk-goals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:stretch}

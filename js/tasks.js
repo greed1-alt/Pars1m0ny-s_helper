@@ -42,19 +42,22 @@ const leftTxt = (k, done) => {
   return n < 0 ? ['просрочено на ' + plural(-n, NDAY), 'late'] : n === 0 ? ['сегодня', 'now'] : n === 1 ? ['завтра', ''] : ['через ' + plural(n, NDAY), ''];
 };
 
+// Доска недели: день — строка, задачи — «таблетками» цвета календаря, пустой день — тонкая строка (31 октября 2026, вариант Б: «много пустого места» у колонок с кольцами).
+// Поле новой задачи открывается кнопкой «+» только в своём дне: Enter добавляет и оставляет поле, Esc или уход из пустого поля закрывают
+let twOpen = null;
 function weekBoard() {
   const t = todayK();
   return `<div class="tw">${taskWeek().map(k => {
-    const list = dayTasks(k), done = list.filter(e => e.done).length, n = list.length, d = pd(k);
-    const rows = list.map(e => `<div class="tw-row${e.done ? ' done' : ''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" aria-label="Выполнено">${e.done ? I(IC.check, 13) : ''}</button><button class="tw-t" data-act="edit" data-id="${e.id}" data-d="${k}">${esc(e.title)}${e.time ? ` <small>${esc(e.time)}</small>` : ''}</button>${prioOf(e) === 'urgent' || prioOf(e) === 'high' ? `<i class="tw-p" style="--c:${PRIO[prioOf(e)].c}" title="${PRIO[prioOf(e)].n}"></i>` : ''}</div>`).join('');
-    return `<div class="tw-day${k === t ? ' is-today' : ''}${k < t ? ' past' : ''}">
-      <div class="tw-h"><span>${d.getDate()} ${MONS[d.getMonth()]}</span><b>${DOWF[dowIdx(k)]}</b></div>
-      <div class="tw-list">${rows || '<p class="tw-empty">Пусто</p>'}</div>
-      <input class="tw-add" data-d="${k}" type="text" placeholder="+ задача" autocomplete="off" aria-label="Новая задача на ${esc(fmtLong(k))}">
-      <div class="tw-ring">${ringSVG(n ? done / n : 0, 58, 'var(--good)', n ? Math.round(done / n * 100) + '%' : '—', n ? done + ' из ' + n : '')}</div>
-    </div>`;
+    const list = dayTasks(k), done = list.filter(e => e.done).length, n = list.length, open = twOpen === k;
+    const rows = list.map(e => `<div class="tw-t${e.done ? ' done' : ''}" style="--c:${cat(e.cat).color}"><button class="chk" data-act="toggle" data-id="${e.id}" data-d="${k}" style="--c:${t3Ring(prioOf(e))}" aria-label="${e.done ? 'Снять отметку' : 'Выполнено'} · важность: ${PRIO[prioOf(e)].n}">${e.done ? I(IC.check, 12) : ''}</button><button class="tw-n" data-act="edit" data-id="${e.id}" data-d="${k}">${esc(e.title)}${e.time ? ` <small>${esc(e.time)}</small>` : ''}</button></div>`).join('');
+    return `<div class="tw-day${k === t ? ' is-today' : ''}"><div class="tw-h"><b>${pd(k).getDate()}</b><span>${DOW[dowIdx(k)]}</span></div>
+      <div class="tw-list">${rows || (open ? '' : '<span class="tw-e">свободно</span>')}${open ? `<input class="tw-add" data-d="${k}" type="text" placeholder="Новая задача" autocomplete="off" aria-label="Новая задача на ${esc(fmtLong(k))}">` : ''}</div>
+      <div class="tw-r">${n ? `<span aria-label="Сделано ${done} из ${n}">${done}/${n}</span>` : ''}<button class="tw-plus${open ? ' on' : ''}" data-act="twadd" data-d="${k}" aria-label="Добавить задачу на ${esc(fmtLong(k))}" aria-expanded="${open}">${I(IC.plus, 15)}</button></div></div>`;
   }).join('')}</div>`;
 }
+ACT.twadd = el => { twOpen = twOpen === el.dataset.d ? null : el.dataset.d; render(); const i = $('.tw-add'); if (i) i.focus(); };
+document.addEventListener('focusout', e => { const f = e.target; if (!f.classList || !f.classList.contains('tw-add') || f.value.trim()) return;
+  setTimeout(() => { const a = document.activeElement; if (twOpen && !(a && a.classList.contains('tw-add'))) { twOpen = null; render(); } }, 150); });
 
 // ---- Серия и статистика (31 октября 2026; вид выбрал пользователь из вариантов: итог недели, три числа, неделя столбиками, карта дней) ----
 // Время отметки не хранится, поэтому сделанная задача считается за день, на который стоит. Серия — дни подряд, когда сделана хотя бы одна задача:
@@ -151,14 +154,13 @@ SEC.tasks = {
   },
 };
 
-// Ввод с клавиатуры: Enter в колонке дня («Доска недели»)
+// Поле новой задачи на доске недели
 document.addEventListener('keydown', e => {
-  if (e.key !== 'Enter' || e.isComposing) return;
-  const t = e.target;
-  if (t.classList && t.classList.contains('tw-add')) {
-    e.preventDefault(); const d = t.dataset.d; addTaskQuick(t.value, d);
-    const i = $(`.tw-add[data-d="${d}"]`); if (i) i.focus();
-  }
+  const t = e.target; if (e.isComposing || !t.classList || !t.classList.contains('tw-add')) return;
+  if (e.key === 'Escape') { twOpen = null; render(); return; }
+  if (e.key !== 'Enter') return;
+  e.preventDefault(); const d = t.dataset.d; addTaskQuick(t.value, d);
+  const i = $(`.tw-add[data-d="${d}"]`); if (i) i.focus();
 });
 ACT.tfilter = el => { tFilter = el.dataset.f; render(); };
 ACT.tprio = el => { tPrio = tPrio === el.dataset.p ? '' : el.dataset.p; if (tPrio && tFilter === 'done') tFilter = 'active'; render(); };

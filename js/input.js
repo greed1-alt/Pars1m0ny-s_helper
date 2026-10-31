@@ -121,7 +121,7 @@ function toggleDone(id, k) {
   if (isRec(e)) { const s = new Set(e.doneDates || []); s.has(k) ? s.delete(k) : s.add(k); e.doneDates = [...s]; }
   else e.done = !e.done;
   save(); render();
-  if (isRec(e) ? e.doneDates.includes(k) : e.done) donePop([...document.querySelectorAll(`.chk[data-id="${CSS.escape(id)}"][data-d="${CSS.escape(k || '')}"]`)], true);
+  if (isRec(e) ? e.doneDates.includes(k) : e.done) donePop([...document.querySelectorAll(`[data-act="toggle"][data-id="${CSS.escape(id)}"][data-d="${CSS.escape(k || '')}"]`)], true);
   const es = evOn(k); if (es.length > 1 && es.every(x => x.done)) toast(k === todayK() ? 'Все дела на сегодня сделаны 🎉' : 'Все дела этого дня сделаны 🎉');
   if (e.goal && (isRec(e) ? (e.doneDates || []).includes(k) : e.done)) goalStepDone(e.goal);   // шаг цели — похвала
 }
