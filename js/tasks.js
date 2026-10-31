@@ -105,7 +105,7 @@ SEC.tasks = {
   side: () => `<div class="sb-sec"><div class="sb-h">Важные задачи</div>${importantHTML()}</div>`,
 
   demo: on => {
-    if (!on) { S.events = S.events.filter(e => !e.demo || e.goal); return; }
+    if (!on) return SEC.goals.demo(false);   // «Цели» — вкладка этой же страницы, пример убирается со всей страницы
     const wk = taskWeek(), t = todayK(), c = i => S.cats[i % S.cats.length].id;
     const L = [[0, 'Составить план на неделю', 'high', 0, 1], [0, 'Ответить на письма', 'mid', 0, 1], [1, '10 000 шагов', 'mid', 2, 1], [1, 'Отчёт для руководителя', 'urgent', 0, 1],
       [2, 'Позвонить маме', 'high', 1, 0], [2, 'Прочитать 20 страниц', 'low', 3, 1], [3, 'Подготовить презентацию', 'urgent', 0, 0], [3, 'Медитация 10 минут', 'low', 1, 1],
