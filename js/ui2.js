@@ -407,7 +407,7 @@ function t4Hero(k) {
   const t = todayK(), l = dayTasks(k), open = daySort(l.filter(e => !e.done)), done = l.filter(e => e.done), d = pd(k);
   const rd = relDay(k), when = /^[а-я]+$/.test(rd) ? rd : '';   // вчера, сегодня, завтра, послезавтра
   return `<div class="card t4-hero">
-    <div class="t4-head"><h2>${DOWF[dowIdx(k)]}, ${d.getDate()} ${MONG[d.getMonth()]}</h2>${when ? `<span class="t4-when${k === t ? ' today' : ''}">${when}</span>` : ''}${taskPill()}${k !== t ? '<button class="lnk t4-back" data-act="today">← к сегодня</button>' : ''}
+    <div class="t4-head"><h2>${DOWF[dowIdx(k)]}, ${d.getDate()} ${MONG[d.getMonth()]}</h2>${when ? `<span class="t4-when${k === t ? ' today' : ''}">${when}</span>` : ''}${k !== t ? '<button class="lnk t4-back" data-act="today">← к сегодня</button>' : ''}
       <span class="t4-cnt">${l.length ? withHint(`${done.length} из ${l.length} сделано`, 'focusDay') : hintK('focusDay')}</span></div>
     ${l.length ? `<div class="ds-bar t4-prog"><i style="width:${Math.round(done.length / l.length * 100)}%"></i></div>` : ''}
     ${omniHTML('omt', 'tasks')}
@@ -478,13 +478,13 @@ function tasksHTML() {
   // На ПК пропущенное — в самом списке («Просрочено»), отдельная плашка не повторяет его
   const miss = wide && tView === 'main' ? '' : missedBar(false, true);
   const goalsCard = secOn('tasks') && activeGoals().length ? `<div class="card t3-goals"><div class="h2-h"><b>${I(IC.goal, 18)}Цели</b><small>${gLate ? `<span class="late">просрочено шагов: ${gLate}</span>` : ''}</small></div>${goalsMiniHTML(3)}<div class="hm-foot"><span></span><button data-act="gall">Все цели →</button></div></div>` : '';
+  const hero = hasAny ? taskHero() : '';
   // ПК, «Фокус дня»: доски недели нет — её заменяют столбики недели и «Дальше»
   if (wide && tView === 'main') return `${demoBar('tasks', demo)}${empty}${tabs}
-    <div class="t4-grid"><div class="t4-l">${t4Hero(sel)}${t4Next(sel)}</div><div class="t4-r">${t4Week()}${t4Late()}${goalsCard}</div></div>${blk()}${pageCust('tasks')}`;
-  const pill = taskPill(), pillRow = pill ? `<div class="ts-row">${pill}</div>` : '';
-  if (wide) return `${miss}${demoBar('tasks', demo)}${empty}${tabs}${pillRow}
+    <div class="t4-grid"><div class="t4-l">${t4Hero(sel)}${t4Next(sel)}</div><div class="t4-r">${hero}${t4Week()}${t4Late()}${goalsCard}</div></div>${blk()}${pageCust('tasks')}`;
+  if (wide) return `${miss}${demoBar('tasks', demo)}${empty}${tabs}${hero}
     <div class="t3-cols${goalsCard ? '' : ' one'}"><div class="t3-col">${list}</div>${goalsCard ? `<div class="t3-col">${goalsCard}</div>` : ''}</div>${blk()}${pageCust('tasks')}`;
-  return `${miss}${demoBar('tasks', demo)}${empty}${tabs}${pillRow}${list}${blocks}${pageCust('tasks')}`;
+  return `${miss}${demoBar('tasks', demo)}${empty}${tabs}${hero}${list}${blocks}${pageCust('tasks')}`;
 }
 ACT.tview = el => { tView = el.dataset.v; render(); };
 // На вкладке «Цели» шапка, «Создать» и подсказка в шапке — про цели, стрелок недели нет

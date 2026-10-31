@@ -1356,9 +1356,9 @@ div.ai-row{cursor:default}
 
 /* Статистика задач: итог недели, три числа, неделя, карта дней (tasks.js, taskStatsHTML) */
 .ts{container-type:inline-size;display:flex;flex-direction:column;gap:12px}
-.ts-top,.ts-low{display:flex;flex-direction:column;gap:12px;min-width:0}
+.ts-low{display:flex;flex-direction:column;gap:12px;min-width:0}
 .ts .card{margin:0}
-.ts-hero{position:relative;overflow:hidden;display:flex;flex-direction:column;min-height:186px;padding:18px 18px 0;border-radius:var(--rc);color:#fff;background:linear-gradient(135deg,var(--c1),var(--c2) 55%,var(--c3))}
+.ts-hero{position:relative;flex:none;overflow:hidden;display:flex;flex-direction:column;min-height:186px;padding:18px 18px 0;border-radius:var(--rc);color:#fff;background:linear-gradient(135deg,var(--c1),var(--c2) 55%,var(--c3))}
 .ts-hero>svg{display:block;flex:none;width:calc(100% + 36px);height:84px;margin:auto -18px 0}
 .ts-big{font-size:46px;font-weight:800;line-height:1;letter-spacing:-.02em}
 .ts-hero p{margin:4px 0 8px;font-size:14px;color:#ffffffe6}
@@ -1381,11 +1381,12 @@ div.ai-row{cursor:default}
 .ts-hm .t{box-shadow:0 0 0 1.5px var(--tx)}
 .ts-lg{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:10px;font-size:12.5px;color:var(--mut)}
 .ts-lg i{width:11px;height:11px;border-radius:3px}
-.ts-pill{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px 0 8px;border-radius:999px;align-self:center;background:color-mix(in srgb,#ff7a3d 15%,transparent);font-size:13.5px;color:var(--tx)}
-.ts-pill b{font-weight:650}
-.ts-row{display:flex;margin:0 0 12px}
 @container (min-width:700px){
-  .ts-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .ts-low.two{display:grid;grid-template-columns:320px minmax(0,1fr)}
   .ts-hm,.ts-mh{gap:4px}
+}
+@media(max-width:899px){   /* на телефоне карточка наверху страницы — ниже, задачи не должны уезжать */
+  .ts-hero{min-height:148px;padding:14px 16px 0}
+  .ts-big{font-size:38px}
+  .ts-hero>svg{width:calc(100% + 32px);height:52px;margin:auto -16px 0}
 }

@@ -78,15 +78,9 @@ function taskLog() {
 let flameN = 0;
 const flameI = s => { const g = 'tfl' + (flameN++); return `<svg class="ts-fl" width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb547"/><stop offset="1" stop-color="#ff7a3d"/></linearGradient></defs><path fill="url(#${g})" d="M12.7 2.2c.5 3.3-1.2 4.9-2.9 6.6C8.1 10.5 6 12.4 6 15.3 6 19 8.8 22 12.3 22c3.6 0 6.2-2.9 6.2-6.3 0-2.8-1.5-4.8-2.9-6.3-.2 1.3-.8 2.3-1.7 2.9.3-3.6-.2-7.3-1.2-10.1Z"/><path fill="#fff" fill-opacity=".55" d="M12.3 20.3c-1.8 0-3.1-1.4-3.1-3.1 0-1.7 1.3-2.7 2.2-3.8.4 1 1.2 1.4 1.9 2 .8.6 1.4 1 1.4 2 0 1.7-1.4 2.9-2.4 2.9Z"/></svg>`; };
 const plWord = (n, f) => plural(n, f).slice(String(n).length + 1);   // слово без числа: число стоит отдельно, крупно
-// Рядом с датой — серия; нажатие ведёт к статистике (если её не скрыли в «Настроить страницу»)
-function taskPill() {
-  const c = taskLog().cur; if (!c) return '';
-  const inner = `${flameI(18)}<b>${plural(c, NDAY)}</b>`;
-  return layOf('tasks').some(x => x.k === 'stats' && x.m !== 'off') ? `<button class="ts-pill" data-act="tstats" aria-label="Серия: ${plural(c, NDAY)} подряд. Открыть статистику">${inner}</button>` : `<span class="ts-pill">${inner}</span>`;
-}
-ACT.tstats = () => { S.settings.folds['t-stats'] = true; save(); render(); setTimeout(() => { const f = $('.ts'); if (f) f.scrollIntoView({ block: 'center', behavior: smoothB() }); }, 60); };
-// Итог недели: число, сравнение с прошлой, линия за 8 недель, серия
+// Итог недели и серия — наверху страницы («нужно чтобы серия была повыше, на видном месте»): число, сравнение с прошлой, линия за 8 недель. Скрыли статистику — нет и её
 function taskHero() {
+  if (!layOf('tasks').some(x => x.k === 'stats' && x.m !== 'off')) return '';
   const L = taskLog(), w0 = weekStartOf(todayK()), wk = [...Array(8)].map((_, i) => { const s = addDays(w0, 7 * (i - 7)); return [...Array(7)].reduce((a, _x, d) => a + (L.done[addDays(s, d)] || 0), 0); });
   const n = wk[7], p = wk[6], top = Math.max(4, ...wk) * 1.15, W = 400, H = 84, xs = wk.map((_, i) => i / 7 * W), ys = wk.map(v => H - 8 - v / top * (H - 14));
   let d = `M${xs[0]} ${ys[0].toFixed(1)}`; for (let i = 1; i < 8; i++) { const m = (xs[i - 1] + xs[i]) / 2; d += ` C${m} ${ys[i - 1].toFixed(1)},${m} ${ys[i].toFixed(1)},${xs[i]} ${ys[i].toFixed(1)}`; }
@@ -117,7 +111,7 @@ function taskStatsHTML(actN, urg, week) {
   const t = todayK(), L = taskLog(), ym = ymOf(t); let p = 0, d = 0;
   ymDays(ym).forEach(k => { if (k <= t) { p += L.plan[k] || 0; d += L.done[k] || 0; } });
   const tile = (v, s) => `<div class="card ts-t"><b>${v}</b><span>${s}</span></div>`;
-  return `<div class="ts"><div class="ts-top">${taskHero()}<div class="ts-tl">${tile(L.best, 'рекорд серии')}${tile(p ? Math.min(100, Math.round(d / p * 100)) + ' %' : '—', 'выполнено за ' + MON[+ym.slice(5) - 1].toLowerCase())}${tile(actN, plWord(actN, ['активная', 'активные', 'активных']) + (urg ? ', ' + plural(urg, ['срочная', 'срочные', 'срочных']) : ''))}</div></div>
+  return `<div class="ts"><div class="ts-tl">${tile(L.best, 'рекорд серии')}${tile(p ? Math.min(100, Math.round(d / p * 100)) + ' %' : '—', 'выполнено за ' + MON[+ym.slice(5) - 1].toLowerCase())}${tile(actN, plWord(actN, ['активная', 'активные', 'активных']) + (urg ? ', ' + plural(urg, ['срочная', 'срочные', 'срочных']) : ''))}</div>
     <div class="ts-low${week ? ' two' : ''}">${week ? t4Week() : ''}${taskHeat(week)}</div></div>`;
 }
 
