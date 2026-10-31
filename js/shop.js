@@ -97,7 +97,7 @@ async function coinsLoad() {
     if (coinsErr === 'off' && coins) { coins = null; lsSet(CN_LS, null); render(); } else if (sec === 'shop') render();
   }
 }
-setTimeout(coinsLoad, 3500);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !coins) coinsLoad(); });   // при запуске не вышло (нет сети) — ещё раз, когда человек вернулся
 // Заморозки с сервера — в S.frz (их видит и счёт серии у друзей); текущая палитра — одна из трёх бесплатных; заморозка серии
 function coinsHeal() {
   const z = coins.keys.filter(k => /^z:\d{4}-\d{2}-\d{2}$/.test(k)).map(k => k.slice(2)).filter(k => !S.frz.includes(k));

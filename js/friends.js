@@ -157,10 +157,11 @@ async function frAdmin() {
   catch (e) { if (!frNoSql(e)) return; fr.admin = false; }
   NAME_ADMIN = !!fr.admin; frSave();
 }
-// Запуск и вход: админ ли, список друзей, своя карточка, отложенное приглашение
+// Запуск и вход: админ ли, список друзей, своя карточка, отложенное приглашение, тариф и монеты (раньше только при запуске: после входа магазина не было до перезапуска)
 function frStart() {
   if (!signedIn()) return;
   setTimeout(() => { frAdmin(); frLoad(true); frSoon(1500); if (fr.code) frInviteGo(); }, 2000);
+  setTimeout(planLoad, 3000); setTimeout(coinsLoad, 3500);
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && signedIn() && Date.now() - fr.at > 3 * 60000) frLoad(true); });
 // Новая заявка — тост один раз и точка на аватаре в шапке, пока не ответили

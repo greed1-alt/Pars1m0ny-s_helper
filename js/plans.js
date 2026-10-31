@@ -23,7 +23,6 @@ async function planLoad() {
     if (JSON.stringify(myPlan) !== was && (sec === 'plans' || sec === 'profile')) render();
   } catch (e) {}   // таблицы ещё нет (SQL не выполнен) — бесплатно
 }
-setTimeout(planLoad, 3000);
 ACT.plansopen = () => { if (typeof closeQuick === 'function') closeQuick(); setSec('plans'); planLoad(); };
 ACT.plper = el => { plansYear = el.dataset.y === '1'; render(); };
 ACT.plbuy = () => toast('Оплата появится скоро — подключаем ЮKassa');
