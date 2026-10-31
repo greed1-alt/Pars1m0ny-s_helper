@@ -90,7 +90,7 @@ function taskHero() {
   let d = `M${xs[0]} ${ys[0].toFixed(1)}`; for (let i = 1; i < 8; i++) { const m = (xs[i - 1] + xs[i]) / 2; d += ` C${m} ${ys[i - 1].toFixed(1)},${m} ${ys[i].toFixed(1)},${xs[i]} ${ys[i].toFixed(1)}`; }
   const cmp = n > p ? ` · на ${n - p} больше прошлой` : !p ? '' : n < p ? ` · на прошлой — ${p}` : ' · столько же, сколько на прошлой';
   // Цвета — от палитры пользователя, белый текст на них читается в любой из них (не меньше 4,5:1)
-  const acc = getComputedStyle(document.documentElement).getPropertyValue('--acc').trim(), dk = '#14122e', c1 = readableC(mixC(/^#[0-9a-f]{6}$/i.test(acc) ? acc : '#4b4fd1', dk, .38), dk, ['#ffffff'], 4.7), c2 = readableC(mixC(c1, '#a24bd6', .28), dk, ['#ffffff'], 4.6), c3 = mixC(c1, '#e0609f', .55);
+  const acc = getComputedStyle(document.documentElement).getPropertyValue('--acc').trim(), dk = '#14122e', c1 = readableC(mixC(/^#[0-9a-f]{6}$/i.test(acc) ? acc : '#4b4fd1', dk, .38), dk, ['#ffffff'], 4.7), hc = PAL[S.settings.pal].hc, c2 = readableC(mixC(c1, hc || '#a24bd6', .28), dk, ['#ffffff'], 4.6), c3 = mixC(c1, hc || '#e0609f', .55);
   return `<div class="ts-hero" style="--c1:${c1};--c2:${c2};--c3:${c3}"><div class="ts-hp">${L.cur ? `${flameI(18)}<b>${plural(L.cur, NDAY)}</b>` : '<b>Серия не начата</b>'}${hintK('taskStreak')}</div>
     <div class="ts-big">${n}</div><p>${plWord(n, ['задача', 'задачи', 'задач'])} на этой неделе${cmp}</p>
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${d} L${W} ${H} L0 ${H}Z" fill="rgba(255,255,255,.16)"/><path d="${d}" fill="none" stroke="#fff" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg></div>`;
