@@ -16,7 +16,7 @@ async function checkNotif() {
   else if (!signedIn()) set('off', 'Войдите в аккаунт — напоминания приходят на устройства, где вы вошли', 'нужен вход');
   else if (Notification.permission !== 'granted') set('off', 'Выключены на этом устройстве', 'выключены');
   else { const mine = pushMine(await pushSub()); mine ? set('on', 'Включены на этом устройстве', 'включены', true) : set('warn', 'Разрешены, но это устройство ещё не подписано', 'не подписано'); }
-  const ns = $('#nstat_t'), li = $('.st-item[data-k="notif"] small, .st-tile[data-k="notif"] small');   // карточка или строка списка разделов (телефон)
+  const ns = $('#nstat_t'), li = $('.st-item[data-k="notif"] small');   // карточка или строка списка разделов (телефон)
   if (sec === 'settings' && ((ns && ns.textContent !== notif.text) || (li && li.textContent !== ST_SEC.find(x => x[0] === 'notif')[3]().t))) render();
 }
 const plog = t => { const l = $('#plog'); if (l) l.textContent += (l.textContent ? '\n' : '') + t; else toast(t); };

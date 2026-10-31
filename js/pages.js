@@ -417,7 +417,7 @@ function settingsHTML() {
   const b = settingsBlocks(), st = S.settings, name = (st.name || '').trim();
   const secs = `<div class="set-sec">Главная и разделы</div>
     ${layoutSetHTML()}
-    <div class="set-row"><span>При запуске открывать</span><div class="seg2"><button class="${st.startSec !== 'last' ? 'on' : ''}" data-act="ststart" data-v="home">Главную</button><button class="${st.startSec === 'last' ? 'on' : ''}" data-act="ststart" data-v="last">Последний раздел</button></div></div>`;
+    <div class="lk-row"><div class="lk-h">При запуске открывать</div><div class="seg2 lk-seg"><button class="${st.startSec !== 'last' ? 'on' : ''}" data-act="ststart" data-v="home">Главную</button><button class="${st.startSec === 'last' ? 'on' : ''}" data-act="ststart" data-v="last">Последний раздел</button></div></div>`;
   // Раньше «задним числом» и самочувствие лежали в «Расположении → Разное», а часы и «пишет сам» помощника — в «Календаре» и «Напоминаниях» (30 октября 2026)
   const habits = `<div class="set-sec">Привычки и самочувствие</div>
     <div class="set-row"><span>${withHint('Отмечать привычки задним числом', 'habitPast')}</span><input id="s_hpast" class="sw" type="checkbox"${st.habitPast ? ' checked' : ''}></div>
@@ -428,7 +428,7 @@ function settingsHTML() {
     ${aiFreeHTML()}`;
   const friends = `<div class="set-sec">Друзья и приватность</div>
     ${!signedIn() ? `<p class="set-note">Друзья работают с аккаунтом — войдите по почте.</p><button class="btn pri" style="width:100%" data-act="login">${I(IC.user, 16)} Войти</button>`
-      : `<p class="set-note">${st.fr ? 'Ник, что друзья видят в каждом календаре и в профиле, уведомления о заявках и сообщениях.' : 'Создайте карточку — друзья найдут вас по нику, увидят, когда вы заняты, и смогут писать вам.'}</p>
+      : `<p class="set-note">${st.fr ? 'Ваш ник, что друзья видят в календарях и профиле, уведомления о заявках и сообщениях.' : 'Создайте карточку — друзья найдут вас по нику, увидят, когда вы заняты, и смогут писать вам.'}</p>
       <button class="btn${st.fr ? '' : ' pri'}" style="width:100%" data-act="frset">${I(IC.users, 16)} ${st.fr ? 'Что видят друзья и уведомления' : 'Создать карточку для друзей'}</button>
       <button class="btn" style="width:100%;margin-top:8px" data-act="accgo" data-s="profile" data-to="pf-friends">${I(IC.user, 16)} Мои друзья и заявки</button>`}`;
   const about = `<div class="set-sec">О приложении</div>
@@ -448,13 +448,10 @@ function settingsHTML() {
   if (!stPhone()) return prof + search + grid + none;
   if (stOpen && cards[stOpen]) return `<button class="st-back" data-act="stback">${I(IC.left, 18)} Все настройки</button><div class="st-one"><div class="card" id="st-${stOpen}">${cards[stOpen]}</div></div>`;
   const stat = s => { const r = s[3](); return `<small${r.warn ? ' class="warn"' : ''}>${esc(r.t)}</small>`; };
-  // Вид А — список по группам, как в настройках iPhone; вид Б — плитки (проба 30 октября 2026, переключатель внизу)
-  const body = stTiles()
-    ? `<div class="st-tiles">${ST_SEC.map(s => `<button class="card st-tile" data-act="stjump" data-k="${s[0]}"${kw(s)}${hid(s)}>${I(s[1], 22)}<b>${s[2]}</b>${stat(s)}</button>`).join('')}</div>`
-    : Object.keys(ST_GRP).map(g => { const l = ST_SEC.filter(s => s[4] === g);
-      return `<div class="st-g"${l.some(s => stMatch(s)) ? '' : ' hidden'}><div class="st-gh">${ST_GRP[g]}</div><div class="card st-list">${l.map(s => `<button class="st-item" data-act="stjump" data-k="${s[0]}"${kw(s)}${hid(s)}>${I(s[1], 20)}<span><b>${s[2]}</b>${stat(s)}</span>${I(IC.right, 16)}</button>`).join('')}</div></div>`; }).join('');
-  const view = `<div class="st-view"><span>Вид настроек</span><div class="seg2" role="group" aria-label="Вид настроек"><button class="${stTiles() ? '' : 'on'}" aria-pressed="${!stTiles()}" data-act="stlook" data-v="list">Список</button><button class="${stTiles() ? 'on' : ''}" aria-pressed="${stTiles()}" data-act="stlook" data-v="tiles">Плитки</button></div></div>`;
-  return prof + search + body + none + view;
+  // Список по группам, как в настройках iPhone (выбор пользователя 31 октября 2026; плитки пробовали и убрали — код в коммите ba1a9c2)
+  const body = Object.keys(ST_GRP).map(g => { const l = ST_SEC.filter(s => s[4] === g);
+    return `<div class="st-g"${l.some(s => stMatch(s)) ? '' : ' hidden'}><div class="st-gh">${ST_GRP[g]}</div><div class="card st-list">${l.map(s => `<button class="st-item" data-act="stjump" data-k="${s[0]}"${kw(s)}${hid(s)}>${I(s[1], 20)}<span><b>${s[2]}</b>${stat(s)}</span>${I(IC.right, 16)}</button>`).join('')}</div></div>`; }).join('');
+  return prof + search + body + none;
 }
 
 // ---- Настройки на телефоне — список разделов, как в настройках iPhone (18 октября 2026; раньше — одна лента карточек на 4,5 экрана).
@@ -471,8 +468,8 @@ async function appVerLoad() {
 const appVerText = () => { if (!appVer) appVerLoad(); return appVer ? 'Версия ' + appVer + (IS_BETA ? ' · бета' : '') : 'Версия: проверяю…'; };
 const stPhone = () => innerWidth < 900;
 let stOpen = null;   // открытый раздел
-onMigrate(() => { delete S.settings.stView; });   // переключатель вида пробы А / Б
-// Разделы: [ключ, значок, название, состояние, группа, слова для поиска]. Группы и названия — 30 октября 2026 («настройки на телефоне — непонятно что где
+onMigrate(() => { delete S.settings.stView; delete S.settings.stLook; });   // переключатели вида — проб, которых больше нет
+// Разделы: [ключ, значок, название, состояние, группа, слова для поиска]. Группы и названия — 29 октября 2026 («настройки на телефоне — непонятно что где
 // делать»): «Календарь» / «Календари» путались — теперь «Вид календаря» / «Мои календари»; у помощника, привычек и друзей — свои разделы
 const ST_GRP = { me: 'Вы', view: 'Вид', plan: 'Планирование', help: 'Помощь', app: 'Приложение' };
 const ST_SEC = [
@@ -499,8 +496,6 @@ document.addEventListener('input', e => {
   document.querySelectorAll('.st-g').forEach(g => { g.hidden = !g.querySelector('[data-kw]:not([hidden])'); });
   const n = $('.st-none'); if (n) n.hidden = any;
 });
-const stTiles = () => S.settings.stLook === 'tiles';
-ACT.stlook = el => { S.settings.stLook = el.dataset.v === 'tiles' ? 'tiles' : 'list'; save(); render(); };
 // Подначки и похвалы — во вкладке «Цели» (goals.js): открыть её с раскрытым блоком
 ACT.stphr = () => { S.settings.folds['g-phr'] = true; save(); goGoals(); setTimeout(() => { const f = $('[data-fold="g-phr"]'); if (f) f.scrollIntoView({ block: 'start', behavior: smoothB() }); }, 80); };
 // Перейти к разделу настроек: на телефоне — открыть его, на ПК — прокрутить к карточке и подсветить (так же — кнопки помощника)
@@ -511,7 +506,6 @@ function stJump(k) {
 }
 ACT.stjump = el => stJump(el.dataset.k);
 ACT.stback = () => { stOpen = null; render(); window.scrollTo(0, 0); };
-onMigrate(() => { if (S.settings.stLook !== 'tiles') delete S.settings.stLook; });
 
 ACT.ststart = el => { S.settings.startSec = el.dataset.v === 'last' ? 'last' : 'home'; save(); render(); };
 SEC.settings = { name:'Настройки', icon:IC.gear, noNav:true, title: () => { const s = stOpen && stPhone() && ST_SEC.find(x => x[0] === stOpen); return s ? s[2] : 'Настройки'; }, html: settingsHTML, move: () => {} };

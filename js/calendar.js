@@ -603,9 +603,9 @@ function settingsBlocks() {
     <button class="cswatch" data-act="catpal" data-id="${c.id}" style="--c:${c.color}" aria-label="Выбрать цвет"></button>
     <input class="cname" data-cat="${c.id}" data-f="name" value="${esc(c.name)}" placeholder="Название">
     <button class="cshare" data-act="sharecat" data-id="${c.id}" aria-label="Поделиться календарём" title="Поделиться">${I(IC.share,17)}</button>
-    <button class="cdel" data-act="delcat" data-id="${c.id}" aria-label="Удалить категорию"${S.cats.length <= 1 ? ' disabled title="Нужна хотя бы одна категория"' : ''}>${I(IC.trash)}</button></div>
+    <button class="cdel" data-act="delcat" data-id="${c.id}" aria-label="Удалить календарь"${S.cats.length <= 1 ? ' disabled title="Нужен хотя бы один календарь"' : ''}>${I(IC.trash)}</button></div>
     ${palOpen === c.id ? `<div class="cpal">${PALETTE.map(col => `<button class="cdot${col.toLowerCase() === c.color.toLowerCase() ? ' on' : ''}" data-act="setcolor" data-id="${c.id}" data-c="${col}" style="--c:${col}" aria-label="${col}"></button>`).join('')}<label class="cdot custom" title="Свой цвет"><input type="color" data-cat="${c.id}" data-f="color" value="${c.color}"></label></div>` : ''}`).join('')}</div>
-  <button class="addcat" data-act="addcat">+ Добавить категорию</button>
+  <button class="addcat" data-act="addcat">+ Добавить календарь</button>
   <button class="btn" style="width:100%;margin-top:8px" data-act="shareall">${I(IC.share,16)} Поделиться всем календарём</button>`,
   notif: `<div class="set-sec">Уведомления</div>
   <div class="nstat"><i class="ndot ${notif.state}"></i><span id="nstat_t">${esc(notif.text)}</span></div>

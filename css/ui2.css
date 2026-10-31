@@ -396,7 +396,7 @@ body.ui2 main.sec .card-h{margin-bottom:10px}
 
 /* Настройки → Оформление */
 .lk-row{display:flex;flex-direction:column;gap:8px;padding:12px 0;border-top:1px solid var(--line)}
-.set-sec+.lk-row{border-top:0;padding-top:2px}
+.set-sec+.lk-row,.set-sec+.set-row{border-top:0;padding-top:2px}
 .lk-h{display:flex;align-items:center;font-size:14px;font-weight:600}
 .lk-seg button{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pals{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
@@ -540,7 +540,8 @@ body.ui2 main.sec .h2-tight .h2-blk.card{padding-top:12px;padding-bottom:12px}
 @media (hover:hover) and (pointer:fine){html.touring{overflow:hidden;scrollbar-gutter:stable}}
 /* Блок страницы, который всегда открыт (Настройки → «Расположение»): заголовок без сворачивания */
 .fold.fixed>.fold-h{cursor:default;pointer-events:none}
-.set-sub{font-size:12px;color:var(--mut);margin:12px 0 2px}
+.set-sub{font-size:12px;color:var(--mut);margin:14px 0 8px}
+.set-sub+.set-link{margin-top:-6px;border-top:0}
 /* Несколько напоминаний в карточке события */
 .f-remh{min-height:38px}
 .f-remsum{font-size:13.5px;color:var(--tx2);line-height:1.35}
@@ -772,7 +773,7 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 @media(max-width:520px){.ai-plb{flex-direction:column}.ai-plb .btn,.ai-plb .btn.pri{flex:none;width:100%;justify-content:center}}   /* на телефоне кнопки — одна под другой, без переноса строки */
 .ai-plh2{margin:8px 0 0;font-size:12.5px;color:var(--mut)}
 .ai-fh{display:inline-flex;align-items:center;gap:6px}
-.ai-fh .fin{min-width:0;width:96px}
+.ai-fh .fin{min-width:0;width:108px}
 /* Дела на сегодня по времени (assistant.js: aiDayHTML) — карточка как у плана к цели; кнопка «Разложить по времени» (aiDayBtn) */
 .ai-dl{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
 .ai-dl li{display:flex;align-items:baseline;gap:10px;font-size:14px;color:var(--tx)}
@@ -1101,19 +1102,13 @@ html.nav-swiping body{overflow-x:clip}
 .st-search:focus-within{border-color:var(--acc)}
 .st-search>svg{flex:none}
 .st-search input{flex:1;min-width:0;height:100%;border:0;background:none;font:inherit;font-size:16px;color:var(--tx);outline:none}
-.st-g[hidden],.st-tile[hidden],.st-item[hidden],.st-grid>.card[hidden],.st-none[hidden]{display:none!important}
+.st-g[hidden],.st-item[hidden],.st-grid>.card[hidden],.st-none[hidden]{display:none!important}
 .st-gh{font-size:12.5px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:18px 6px 7px}
 .st-g:first-of-type .st-gh{margin-top:4px}
-.st-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.st-tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:14px!important;margin:0!important;text-align:left;color:var(--tx);min-width:0;transition:background .12s}
-.st-tile>svg{color:var(--acc);margin-bottom:2px}
-.st-tile b{font-size:15px;font-weight:650;line-height:1.25}
-.st-tile small{font-size:12.5px;color:var(--tx2);overflow-wrap:anywhere;line-height:1.35}
-.st-tile small.warn{color:var(--dng)}
-@media(hover:hover){.st-tile:hover{background:linear-gradient(var(--hov),var(--hov)),var(--card)}}
 .st-none{text-align:center;color:var(--mut);margin:24px 0}
-.st-view{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:20px 4px 4px;font-size:14px;color:var(--tx2)}
 .st-one>.card>.set-sec:first-child{display:none}
+.st-one>.card>.set-sec:first-child+.set-note{margin-top:0}
+.st-one .btn.grow{white-space:nowrap}   /* не влезает в ряд — кнопка уходит на строку ниже целиком, а не ломает текст */
 /* Кнопки внизу окна («Сохранить» и др.) всегда видны — прилипают к низу окна (18 октября 2026: на телефоне «Сохранить» в карточке
    события была ниже экрана). Отступы окна — 18 px (телефон) и 22 px (ПК): блок выходит на них, чтобы фон закрывал содержимое под ним */
 #sh .sh-foot{position:sticky;bottom:calc(-18px - env(safe-area-inset-bottom));z-index:5;margin:14px -18px calc(-18px - env(safe-area-inset-bottom));padding:10px 18px calc(12px + env(safe-area-inset-bottom));background:var(--sf);border-top:1px solid var(--line)}
@@ -1350,9 +1345,9 @@ div.ai-row{cursor:default}
 
 /* Отклик на нажатие (30 октября 2026, выбор пользователя — «сжатие и пружина галочки»): кнопки и строки слегка «проседают» под пальцем
    и пружинят обратно; отмеченная галочка пружинит, строка вспыхивает зелёным, плитка привычки подпрыгивает (donePop, js/input.js) */
-.btn,.ic,.pill,.chip,.seg2>button,.st-item,.st-tile,.fold-h,.accm-list>button,.accm-me,.accm-prem,.h2-hc,.st-prof,.lg-choice,.cn-it,.pal,.pe-fm,.pe-cv,.thm>button,#tabbar button{transition:transform .14s cubic-bezier(.3,.7,.4,1),background-color .12s,color .12s,border-color .12s,box-shadow .12s,filter .12s}
+.btn,.ic,.pill,.chip,.seg2>button,.st-item,.fold-h,.accm-list>button,.accm-me,.accm-prem,.h2-hc,.st-prof,.lg-choice,.cn-it,.pal,.pe-fm,.pe-cv,.thm>button,#tabbar button{transition:transform .14s cubic-bezier(.3,.7,.4,1),background-color .12s,color .12s,border-color .12s,box-shadow .12s,filter .12s}
 :is(.btn,.ic,.pill,.chip,.seg2>button,.accm-list>button,.h2-hc,.cn-it,.pal,.pe-fm,.pe-cv,.thm>button,#tabbar button):active:not(:disabled){transform:scale(.95)}
-:is(.st-item,.st-tile,.fold-h,.accm-me,.accm-prem,.st-prof,.lg-choice):active:not(:disabled){transform:scale(.985)}
+:is(.st-item,.fold-h,.accm-me,.accm-prem,.st-prof,.lg-choice):active:not(:disabled){transform:scale(.985)}
 @keyframes chkPop{0%{transform:scale(.4)}45%{transform:scale(1.3)}75%{transform:scale(.92)}100%{transform:scale(1)}}
 @keyframes chipPop{0%{transform:scale(.94)}50%{transform:scale(1.05)}100%{transform:scale(1)}}
 @keyframes rowFlash{from{background-color:color-mix(in srgb,var(--ok) 24%,transparent)}}
@@ -1365,9 +1360,7 @@ div.ai-row{cursor:default}
 .cn-looks{display:flex;gap:6px}
 .cn-looks button{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;border:1.5px solid var(--line);background:var(--bg)}
 .cn-looks button.on{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 18%,transparent)}
-.coin.holo-a{animation:coinHolo 4s linear infinite}
-@keyframes coinHolo{to{filter:hue-rotate(360deg)}}
 .cn-fly{position:fixed;left:0;top:0;z-index:80;width:22px;height:22px;pointer-events:none}
 .cn-bal.bump .coin{animation:chipPop .38s ease-out}
 .cn-bal.bump b{animation:chipPop .38s ease-out;transform-origin:left center}
-@media(prefers-reduced-motion:reduce){.coin.holo-a,.cn-bal.bump .coin,.cn-bal.bump b{animation:none}}
+@media(prefers-reduced-motion:reduce){.cn-bal.bump .coin,.cn-bal.bump b{animation:none}}

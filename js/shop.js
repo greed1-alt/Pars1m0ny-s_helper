@@ -6,45 +6,52 @@
 // заданий — не больше 3 в день и 3 в неделю. Здесь — показать, проверить условие задания и попросить сервер.
 // Каталог и награды — копия coins.sql (тест tools/test-coins.mjs сверяет). Кэш на устройстве — remapp_coins
 const COIN = 'ParsiCoins', CN_LS = 'remapp_coins';
-// Значок монеты — проба четырёх вариантов (29 октября 2026: «сделай желудь, голографический жетон, пиксельную монету и ракушку. я посмотрю
-// и выберу классную»): переключатель наверху страницы ParsiCoins (S.settings.coinLook). У каждого рисунка свои id градиентов (cnGid)
-let cnGid = 0;
+// Значок монеты — пиксельная монета, рисунок по клеткам (30 октября 2026: «нравится больше всего пиксельный вариант, но он какой-то кривой, подделай его
+// по феншую»; образец пользователя — монета с кольцами). 17×17: тёмный контур, край — светлый сверху слева и тёмный справа снизу; для мелких — 13×13.
+// Размер подгоняется так, чтобы клетка была целым числом точек экрана: иначе клетки выходят разной ширины — от этого прежняя монета (14×14 в любом размере)
+// и была «кривой». Если 17×17 так отличается от нужного размера больше чем на 25 % — 13×13, если она ближе.
+// Проба рисунка — переключатель наверху страницы ParsiCoins, S.settings.coinLook (31 октября 2026: «сделал белку золотой, чтобы она была еле видна на фоне
+// монеты» или «на монетке древо… золотое дерево на фоне золотой монеты или дерево как обычное… именно вековое древо, а не росток»).
+// Жёлудь, голографический жетон, ракушку и тёмную белку пробовали и убрали — код в коммите ba1a9c2
+const PX_COL = { K: '#1d0b2b', Y: '#f6dc68', G: '#ecac40', R: '#c75b2f',   // контур, блик края, золото, тень края
+  a: '#fbe88f', b: '#f3c455', c: '#d9902f', e: '#b56f1f', f: '#94561a', l: '#f8d671', m: '#d8932f',   // рисунок оттенками золота
+  h: '#8ccf5a', C: '#4f9e3f', d: '#2f6e36', T: '#7a4a22', t: '#55311a' };   // зелёная крона, ствол
 const COIN_LOOK = {
-  acorn: ['Жёлудь', s => { const g = 'cg' + (cnGid++); return `<defs><linearGradient id="${g}n" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6c76a"/><stop offset="1" stop-color="#c47a1c"/></linearGradient><linearGradient id="${g}c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5a2b"/><stop offset="1" stop-color="#5b3815"/></linearGradient></defs><path d="M14 30C14 47 24 60 32 60C40 60 50 47 50 30Z" fill="url(#${g}n)"/><path d="M24 36C24 46 28 54 32 56" stroke="#ffffff33" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M10 30C10 18 20 12 32 12C44 12 54 18 54 30C54 33 51 34 48 34L16 34C13 34 10 33 10 30Z" fill="url(#${g}c)"/>${s >= 24 ? '<path d="M15 27L49 27M13 22L51 22M19 17L45 17" stroke="#ffffff22" stroke-width="2"/>' : ''}<path d="M32 12C32 8 34 5 37 3" stroke="#5b3815" stroke-width="4" fill="none" stroke-linecap="round"/>`; }],
-  holo: ['Голографический жетон', s => { const g = 'cg' + (cnGid++); return `<defs><linearGradient id="${g}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7f77dd"/><stop offset=".3" stop-color="#5dcaa5"/><stop offset=".55" stop-color="#f4c0d1"/><stop offset=".8" stop-color="#85b7eb"/><stop offset="1" stop-color="#afa9ec"/></linearGradient><linearGradient id="${g}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff00"/><stop offset=".5" stop-color="#ffffff99"/><stop offset="1" stop-color="#ffffff00"/></linearGradient></defs><circle cx="32" cy="32" r="29" fill="url(#${g})"/><circle cx="32" cy="32" r="29" fill="none" stroke="#ffffff88" stroke-width="2.5"/>${s >= 24 ? '<circle cx="32" cy="32" r="22" fill="none" stroke="#ffffff66" stroke-width="1.5"/>' : ''}<path d="M8 40L40 8L50 14L14 50Z" fill="url(#${g}s)" opacity=".7"/><text x="32" y="43" text-anchor="middle" font-size="30" font-weight="700" fill="#ffffffe6" font-family="Inter,system-ui,sans-serif">P</text>`; }],
-  pixel: ['Пиксельная монета', null],   // рисует coinPix
-  squirrel: ['Монета с белочкой', null],
-  cowrie: ['Ракушка-каури', s => { const g = 'cg' + (cnGid++); return `<defs><radialGradient id="${g}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff8ec"/><stop offset=".6" stop-color="#f0d9b5"/><stop offset="1" stop-color="#c9a26b"/></radialGradient></defs><ellipse cx="32" cy="32" rx="20" ry="28" fill="url(#${g})" stroke="#b08654" stroke-width="1.5"/><path d="M32 8C29 20 29 44 32 56C35 44 35 20 32 8Z" fill="#7a5530"/>${(s >= 24 ? [14, 20, 26, 32, 38, 44, 50] : [20, 32, 44]).map(y => { const d = Math.abs(32 - y) / 9; return `<path d="M${28.6 + d} ${y}L25 ${y}M${35.4 - d} ${y}L39 ${y}" stroke="#b08654" stroke-width="${s >= 24 ? 1.6 : 2.6}" stroke-linecap="round"/>`; }).join('')}<ellipse cx="24" cy="18" rx="4" ry="6" fill="#ffffff88"/>`; }],
+  pixel: ['Монета с кольцами',
+    ['......KKKKK......', '....KKYYYYYKK....', '...KYYGGGGGYYK...', '..KYGGGRRRGGGYK..', '.KYGGRRGGGRRGGYK.', '.KYGRGGYYYGGYGGK.', 'KYGGRGYGGGRGYGGRK', 'KYGRGYGGGGGRGYGRK', 'KYGRGYGGGGGRGYGRK',
+      'KYGRGYGGGGGRGYGRK', 'KYGGRGYGGGRGYGGRK', '.KYGRGGRRRGGYGRK.', '.KYGGYYGGGYYGGRK.', '..KYGGGYYYGGGRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
+    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGGGGGYYK.', '.KYGGRRRGGYK.', 'KYGGRGGGYGGGK', 'KYGRGGGGGYGRK', 'KYGRGGGGGYGRK',
+      'KYGRGGGGGYGRK', 'KYGGRGGGYGGRK', '.KYGGYYYGGRK.', '.KYYGGGGGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
+  sqgold: ['Золотая белка',
+    ['......KKKKK......', '....KKYYYYYKK....', '...KYYGGmmmYYK...', '..KYGGGmmmmmmYK..', '.KYGGGGmmbbmmmYK.', '.KYGmbGbbGGbmmGK.', 'KYGGmmbGGGGmmmbRK', 'KYGmmmmbGGmmmmbRK', 'KYmmmmmbGmmmmbGRK',
+      'KYbmmmmmbmmmmbGRK', 'KYGbmmmmmmmmbGGRK', '.KYGbmmmmmmmbGRK.', '.KYGmmmmmmmbGGRK.', '..KYmmmbmmmbGRK..', '...KYGbGbbbRRK...', '....KKRRRRRKK....', '......KKKKK......'],
+    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGGmmbYYK.', '.KYGGmbbmmYK.', 'KYGmbbGGbmmGK', 'KYmmmbGGGmmRK', 'KYmmmbGGmmbRK',
+      'KYbmmmbmmmbRK', 'KYGbmmmmmbGRK', '.KYmmmmmbGRK.', '.KYYbmmbGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
+  treegold: ['Золотое древо',
+    ['......KKKKK......', '....KKYYYYYKK....', '...KYYaabbaYYK...', '..KYaaabbbbaaYK..', '.KYaabbbaabbbcYK.', '.KYabbbbbbbbbcGK.', 'KYabbbaabbbbcccRK', 'KYcbbbbbbebbcccRK', 'KYGcbebbebecbcGRK',
+      'KYGGcceeefeccGGRK', 'KYGGGGeeeefGGGGRK', '.KYGGGeeeefGGGRK.', '.KYGGeeeeeffGGRK.', '..KYeeeGeeGffRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
+    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGabaGYYK.', '.KYaabbbbcYK.', 'KYaabbbbbccGK', 'KYabbbbbcccRK', 'KYcbebbebccRK',
+      'KYGcceeeccGRK', 'KYGGGeefGGGRK', '.KYGeeeffGRK.', '.KYYGeGfGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
+  treequiet: ['Золотое древо, еле видно',
+    ['......KKKKK......', '....KKYYYYYKK....', '...KYYllbblYYK...', '..KYlllbbbbllYK..', '.KYllbbbllbbbmYK.', '.KYlbbbbbbbbbmGK.', 'KYlbbbllbbbbmmmRK', 'KYmbbbbbbmbbmmmRK', 'KYGmbmbbmbmmbmGRK',
+      'KYGGmmmmmcmmmGGRK', 'KYGGGGmmmmcGGGGRK', '.KYGGGmmmmcGGGRK.', '.KYGGmmmmmccGGRK.', '..KYmmmGmmGccRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
+    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGlblGYYK.', '.KYllbbbbmYK.', 'KYllbbbbbmmGK', 'KYlbbbbbmmmRK', 'KYmbmbbmbmmRK',
+      'KYGmmmmmmmGRK', 'KYGGGmmcGGGRK', '.KYGmmmccGRK.', '.KYYGmGcGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
+  tree: ['Зелёное древо',
+    ['......KKKKK......', '....KKYYYYYKK....', '...KYYhhCChYYK...', '..KYhhhCCCChhYK..', '.KYhhCCChhCCCdYK.', '.KYhCCCCCCCCCdGK.', 'KYhCCChhCCCCdddRK', 'KYdCCCCCCTCCdddRK', 'KYGdCTCCTCTdCdGRK',
+      'KYGGddTTTtTddGGRK', 'KYGGGGTTTTtGGGGRK', '.KYGGGTTTTtGGGRK.', '.KYGGTTTTTttGGRK.', '..KYTTTGTTGttRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
+    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGhChGYYK.', '.KYhhCCCCdYK.', 'KYhhCCCCCddGK', 'KYhCCCCCdddRK', 'KYdCTCCTCddRK',
+      'KYGddTTTddGRK', 'KYGGGTTtGGGRK', '.KYGTTTttGRK.', '.KYYGTGtGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
 };
-// Пиксельная (30 октября 2026: «нравится больше всего пиксельный вариант, но он какой-то кривой, подделай его по феншую»; образец
-// пользователя — монета без буквы с кольцами) — рисунок по клеткам 17×17: тёмный контур, край — светлый сверху слева и тёмный справа
-// снизу, «канавка» (наоборот — тёмная сверху слева), выпуклая середина; для мелких — 13×13 без внутреннего края. Размер подгоняется
-// так, чтобы клетка была целым числом точек экрана: иначе клетки выходят разной ширины — от этого прежняя монета (14×14 в любом
-// размере) и была «кривой». Если 17×17 так отличается от нужного размера больше чем на 25 % — 13×13, если она ближе.
-// Монета с белочкой (30 октября 2026: «попробуй нарисовать на подобной монетке белочку») — тот же контур и край, в середине силуэт
-// белки (B): смотрит влево, ушко, глаз, хвост «вопросом» над спиной; в 13×13 — уменьшенная
-const PX_COL = { K: '#1d0b2b', Y: '#f6dc68', G: '#ecac40', R: '#c75b2f', B: '#7a2e16' };
-const PX17 = ['......KKKKK......', '....KKYYYYYKK....', '...KYYGGGGGYYK...', '..KYGGGRRRGGGYK..', '.KYGGRRGGGRRGGYK.', '.KYGRGGYYYGGYGGK.', 'KYGGRGYGGGRGYGGRK',
-  'KYGRGYGGGGGRGYGRK', 'KYGRGYGGGGGRGYGRK', 'KYGRGYGGGGGRGYGRK', 'KYGGRGYGGGRGYGGRK', '.KYGRGGRRRGGYGRK.', '.KYGGYYGGGYYGGRK.', '..KYGGGYYYGGGRK..',
-  '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'];
-const PX13 = ['....KKKKK....', '..KKYYYYYKK..', '.KYYGGGGGYYK.', '.KYGGRRRGGYK.', 'KYGGRGGGYGGGK', 'KYGRGGGGGYGRK', 'KYGRGGGGGYGRK', 'KYGRGGGGGYGRK',
-  'KYGGRGGGYGGRK', '.KYGGYYYGGRK.', '.KYYGGGGGRRK.', '..KKGRRRRKK..', '....KKKKK....'];
 const pxPaths = g => { const runs = {};
   g.forEach((r, y) => { for (let x = 0; x < r.length;) { const c = r[x]; let w = 1; while (r[x + w] === c) w++; if (c !== '.') (runs[c] = runs[c] || []).push(`M${x} ${y}h${w}v1h-${w}z`); x += w; } });
   return Object.keys(runs).map(c => `<path fill="${PX_COL[c]}" d="${runs[c].join('')}"/>`).join(''); };
-const SQ17 = ['......KKKKK......', '....KKYYYYYKK....', '...KYYGGBBBYYK...', '..KYGGGBBBBBBYK..', '.KYGGGGBBGGBBBYK.', '.KYGBGGGGGGGBBGK.', 'KYGGBBGGGGGBBBGRK',
-  'KYGBBBBGGGBBBBGRK', 'KYBBYBBGGBBBBGGRK', 'KYGBBBBBGBBBBGGRK', 'KYGGBBBBBBBBGGGRK', '.KYGGBBBBBBBGGRK.', '.KYGBBBBBBBGGGRK.', '..KYBBBGBBBGGRK..',
-  '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'];
-const SQ13 = ['....KKKKK....', '..KKYYYYYKK..', '.KYYGGBBGYYK.', '.KYGGBGGBBYK.', 'KYGBGGGGGBBGK', 'KYBBBGGGGBBRK', 'KYBYBGGGBBGRK', 'KYGBBBGBBBGRK',
-  'KYGGBBBBBGGRK', '.KYBBBBBGGRK.', '.KYYGBBGGRRK.', '..KKGRRRRKK..', '....KKKKK....'];
-const PX_IN = { pixel: { 13: pxPaths(PX13), 17: pxPaths(PX17) }, squirrel: { 13: pxPaths(SQ13), 17: pxPaths(SQ17) } };
+const PX_IN = Object.fromEntries(Object.keys(COIN_LOOK).map(k => [k, { 17: pxPaths(COIN_LOOK[k][1]), 13: pxPaths(COIN_LOOK[k][2]) }]));
 function coinPix(s, k) { const r = window.devicePixelRatio || 1, fit = n => [n, Math.max(1, Math.round(s * r / n - .01)) * n / r], a = fit(17), b = fit(13),
     off = ([, px]) => Math.abs(px - s), [n, px] = off(a) <= s * .25 || off(a) <= off(b) ? a : b;
   return `<svg class="coin coin-${k}" width="${+px.toFixed(2)}" height="${+px.toFixed(2)}" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" aria-hidden="true">${PX_IN[k][n]}</svg>`; }
-onMigrate(() => { if (!Object.hasOwn(COIN_LOOK, S.settings.coinLook)) S.settings.coinLook = 'acorn'; });
-const coinI = (s = 18, k = S.settings.coinLook) => { const v = COIN_LOOK[k] || COIN_LOOK.acorn;
-  if (PX_IN[k]) return coinPix(s, k);
-  return `<svg class="coin coin-${k}${k === 'holo' && s >= 24 ? ' holo-a' : ''}" width="${s}" height="${s}" viewBox="0 0 64 64" aria-hidden="true">${v[1](s)}</svg>`; };
+onMigrate(() => { if (!Object.hasOwn(COIN_LOOK, S.settings.coinLook)) S.settings.coinLook = 'pixel'; });
+const coinI = (s = 18, k = S.settings.coinLook) => coinPix(s, Object.hasOwn(COIN_LOOK, k) ? k : 'pixel');
 ACT.coinlook = el => { if (!Object.hasOwn(COIN_LOOK, el.dataset.v)) return; S.settings.coinLook = el.dataset.v; save(); render(); };
 // Полёт монет из кнопки «Забрать» в баланс наверху страницы; число обновляется, когда монеты долетят
 function coinFly(from, n) {
