@@ -14,7 +14,8 @@ const COIN = 'ParsiCoins', CN_LS = 'remapp_coins';
 // монеты» или «на монетке древо… золотое дерево на фоне золотой монеты или дерево как обычное… именно вековое древо, а не росток»).
 // Жёлудь, голографический жетон, ракушку и тёмную белку пробовали и убрали — код в коммите ba1a9c2
 const PX_COL = { K: '#1d0b2b', Y: '#f6dc68', G: '#ecac40', R: '#c75b2f',   // контур, блик края, золото, тень края
-  a: '#fbe88f', b: '#f3c455', c: '#d9902f', e: '#b56f1f', f: '#94561a', l: '#f8d671', m: '#d8932f',   // рисунок оттенками золота
+  b: '#f3c455', c: '#d9902f', e: '#b56f1f', f: '#94561a', l: '#f8d671', m: '#d8932f',   // рисунок оттенками золота
+  A: '#fff4b0', B: '#fad468', D: '#c67c1e', S: '#c9842a',   // крона золотого древа: блик, листва, тень листвы, тень на монете
   h: '#8ccf5a', C: '#4f9e3f', d: '#2f6e36', T: '#7a4a22', t: '#55311a' };   // зелёная крона, ствол
 const COIN_LOOK = {
   pixel: ['Монета с кольцами',
@@ -28,10 +29,10 @@ const COIN_LOOK = {
     ['....KKKKK....', '..KKYYYYYKK..', '.KYYGGmmbYYK.', '.KYGGmbbmmYK.', 'KYGmbbGGbmmGK', 'KYmmmbGGGmmRK', 'KYmmmbGGmmbRK',
       'KYbmmmbmmmbRK', 'KYGbmmmmmbGRK', '.KYmmmmmbGRK.', '.KYYbmmbGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
   treegold: ['Золотое древо',
-    ['......KKKKK......', '....KKYYYYYKK....', '...KYYaabbaYYK...', '..KYaaabbbbaaYK..', '.KYaabbbaabbbcYK.', '.KYabbbbbbbbbcGK.', 'KYabbbaabbbbcccRK', 'KYcbbbbbbebbcccRK', 'KYGcbebbebecbcGRK',
-      'KYGGcceeefeccGGRK', 'KYGGGGeeeefGGGGRK', '.KYGGGeeeefGGGRK.', '.KYGGeeeeeffGGRK.', '..KYeeeGeeGffRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
-    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGabaGYYK.', '.KYaabbbbcYK.', 'KYaabbbbbccGK', 'KYabbbbbcccRK', 'KYcbebbebccRK',
-      'KYGcceeeccGRK', 'KYGGGeefGGGRK', '.KYGeeeffGRK.', '.KYYGeGfGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
+    ['......KKKKK......', '....KKYYYYYKK....', '...KYYGGGGGYYK...', '..KYGAAABBASGYK..', '.KYGAAABBBBADSYK.', '.KYAABBBAABBDDGK.', 'KYGABBBBBBBBBDSRK', 'KYGABBAABBBBDDSRK', 'KYGDBeBBeBeDBDSRK',
+      'KYGSDDeeefeDDSGRK', 'KYGGSSeeeefSSGGRK', '.KYGGGeeeefGGGRK.', '.KYGGeeeeeffGGRK.', '..KYeeeGeeGffRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
+    ['....KKKKK....', '..KKYYYYYKK..', '.KYYGGGGGYYK.', '.KYGGABASGYK.', 'KYGAABBBDSGGK', 'KYGABBBBDDSRK', 'KYGDBeBeDDSRK',
+      'KYGSDeeeDSGRK', 'KYGGSeefSGGRK', '.KYGeeeffGRK.', '.KYYGeGfGRRK.', '..KKGRRRRKK..', '....KKKKK....']],
   treequiet: ['Золотое древо, еле видно',
     ['......KKKKK......', '....KKYYYYYKK....', '...KYYllbblYYK...', '..KYlllbbbbllYK..', '.KYllbbbllbbbmYK.', '.KYlbbbbbbbbbmGK.', 'KYlbbbllbbbbmmmRK', 'KYmbbbbbbmbbmmmRK', 'KYGmbmbbmbmmbmGRK',
       'KYGGmmmmmcmmmGGRK', 'KYGGGGmmmmcGGGGRK', '.KYGGGmmmmcGGGRK.', '.KYGGmmmmmccGGRK.', '..KYmmmGmmGccRK..', '...KYGGGGGGRRK...', '....KKRRRRRKK....', '......KKKKK......'],
