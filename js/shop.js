@@ -47,7 +47,7 @@ const ACH_COINS = { first: 10, t50: 30, t300: 80, w7: 30, w30: 100, m100: 30, bi
 const ST_MILES = [[3, 10], [7, 25], [14, 40], [30, 80], [60, 120], [100, 200]];   // серия дней подряд → монеты
 const INV_COINS = 50, INV_MAX = 10;
 const PAL_FREE = 3, PAL_PRICE = 200, CV_PRICE = 150, FRZ_PRICE = 50, FRZ_MAX = 2;
-const PAL_SHOP = PAL_ORDER.filter(k => k !== 'indigo');   // Индиго — у всех
+const PAL_SHOP = PAL_ORDER.filter(k => k !== 'indigo'), PAL_THEME = PAL_SHOP.filter(k => PAL[k].skin), PAL_PLAIN = PAL_SHOP.filter(k => !PAL[k].skin);   // Индиго — у всех
 const COVER_SHOP = { boreal: 'Северное сияние', neon: 'Неон', gold: 'Золото', cosmos: 'Космос', seaset: 'Закат у моря', berry: 'Ягоды' };   // градиенты — COVERS (pages.js)
 const FRAMES = {
   gold: { n: 'Золото', p: 200, g: 'conic-gradient(#fff3b0,#f7d774,#b8860b,#f7d774,#fff3b0,#c9a227,#fff3b0)' },
@@ -58,9 +58,10 @@ const FRAMES = {
   emerald: { n: 'Изумруд', p: 200, g: 'conic-gradient(#11998e,#38ef7d,#b4f5c8,#38ef7d,#11998e)' },
   rainbow: { n: 'Радуга', p: 300, g: 'conic-gradient(#ff5f6d,#ffc371,#f9f871,#5ee7a0,#4facfe,#a66cff,#ff5f6d)', spin: true },
 };
-const coinPrice = it => it === 'frz' ? FRZ_PRICE : it.startsWith('pal:') ? PAL_PRICE : it.startsWith('cv:') ? CV_PRICE : (FRAMES[it.slice(3)] || {}).p;
+const palItem = it => PAL[it.slice(4)] || {};
+const coinPrice = it => it === 'frz' ? FRZ_PRICE : it.startsWith('pal:') ? palItem(it).p || PAL_PRICE : it.startsWith('cv:') ? CV_PRICE : (FRAMES[it.slice(3)] || {}).p;
 const itemName = it => { const k = it.split(':')[1];
-  return it === 'frz' ? 'Заморозка серии' : it.startsWith('pal:') ? `Палитра «${(PAL[k] || {}).n || k}»` : it.startsWith('cv:') ? `Обложка «${COVER_SHOP[k] || k}»` : `Рамка «${(FRAMES[k] || {}).n || k}»`; };
+  return it === 'frz' ? 'Заморозка серии' : it.startsWith('pal:') ? `${palItem(it).skin ? 'Тема' : 'Палитра'} «${palItem(it).n || k}»` : it.startsWith('cv:') ? `Обложка «${COVER_SHOP[k] || k}»` : `Рамка «${(FRAMES[k] || {}).n || k}»`; };
 // Рамка у аватара: класс и цвет для .ava (pages.js, friends.js)
 const frameAttr = k => FRAMES[k] ? { c: ' fm' + (FRAMES[k].spin ? ' spin' : ''), s: `;--fm:${FRAMES[k].g}` } : { c: '', s: '' };
 
@@ -103,7 +104,7 @@ function coinsHeal() {
   const z = coins.keys.filter(k => /^z:\d{4}-\d{2}-\d{2}$/.test(k)).map(k => k.slice(2)).filter(k => !S.frz.includes(k));
   if (z.length) { S.frz = [...S.frz, ...z].sort(); save(); }
   const p = S.settings.pal;
-  if (p !== 'indigo' && PAL[p] && !coinOwn('pal:' + p) && coins.free < PAL_FREE) coinPick('pal:' + p, true);
+  if (p !== 'indigo' && PAL[p] && !PAL[p].p && !coinOwn('pal:' + p) && coins.free < PAL_FREE) coinPick('pal:' + p, true);
   coinsFreeze();
 }
 // Вчера (или позавчера) не все ежедневные привычки — заморозка тратится сама, если есть серия, которую она спасёт. Раз в день
@@ -258,7 +259,7 @@ function openShopItem(it) {
     : it.startsWith('cv:') ? `<div class="cn-pv cn-pv-cv" style="background-image:${COVER_GLOW},${COVERS[k]}"></div>`
     : `<div class="cn-pv cn-pv-fm">${avatarHTML(88, k)}</div>`;
   const desc = it === 'frz' ? `Пропустили день — серия привычек не сгорает: заморозка тратится сама. Про запас — до ${FRZ_MAX}, у вас ${coins ? coins.items.frz || 0 : 0}.`
-    : it.startsWith('pal:') ? 'Цвета всего приложения: фон, карточки, кнопки. Индиго и ещё 3 палитры на выбор — бесплатно.'
+    : it.startsWith('pal:') ? (palItem(it).skin ? 'Своя атмосфера: фон, заливки, заголовки, форма кнопок и карточек. Только за монеты.' : 'Цвета всего приложения: фон, карточки, кнопки. Индиго и ещё 3 палитры на выбор — бесплатно.')
     : it.startsWith('cv:') ? 'Обложка вашего профиля — её видят и друзья.' : 'Рамка вокруг аватара — в шапке, профиле и у друзей.';
   const buy = () => bal >= price ? `<button class="btn pri" data-act="cnbuy" data-it="${it}">Купить за ${coinI(16)} ${price}</button>`
     : `<button class="btn" disabled>Не хватает ${coinI(16)} ${price - bal}</button>`;
@@ -268,7 +269,7 @@ function openShopItem(it) {
   else if (own) btns = it.startsWith('fm:') && S.settings.frame === k ? `<button class="btn" data-act="cnuse" data-it="${it}">Снять рамку</button>`
     : (it.startsWith('pal:') && S.settings.pal === k) || (it.startsWith('cv:') && (S.settings.cover || {}).p === k && !okImg((S.settings.cover || {}).img)) ? `<p class="cn-on">${I(IC.check, 16)} Включена</p>`
     : `<button class="btn pri" data-act="cnuse" data-it="${it}">${it.startsWith('fm:') ? 'Надеть' : 'Включить'}</button>`;
-  else if (it.startsWith('pal:') && coins.free < PAL_FREE) btns = `<button class="btn pri" data-act="cnpick" data-it="${it}">Взять бесплатно</button>${buy().replace(' pri', '')}
+  else if (it.startsWith('pal:') && !palItem(it).p && coins.free < PAL_FREE) btns = `<button class="btn pri" data-act="cnpick" data-it="${it}">Взять бесплатно</button>${buy().replace(' pri', '')}
     <p class="set-note">Бесплатно — ещё ${coins.free ? PAL_FREE - coins.free + ' из ' + PAL_FREE : PAL_FREE + ' палитры'} на выбор. Выбор не отменить.</p>`;
   else btns = buy();
   sheet(`<div class="sh-head"><h3>${esc(itemName(it))}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
@@ -304,11 +305,12 @@ function shopTasksHTML() {
 }
 function shopItemsHTML() {
   const tile = (it, pv, name) => { const own = coinOwn(it), on = it.startsWith('pal:') ? S.settings.pal === it.slice(4) : it.startsWith('fm:') ? S.settings.frame === it.slice(3) : it.startsWith('cv:') && (S.settings.cover || {}).p === it.slice(3) && !okImg((S.settings.cover || {}).img);
-    return `<button class="cn-it${on ? ' on' : ''}" data-act="cnitem" data-it="${it}">${pv}<b>${esc(name)}</b><small>${on ? 'Включена' : own ? 'Ваша' : it.startsWith('pal:') && coins.free < PAL_FREE ? 'Бесплатно' : `${coinI(13)} ${coinPrice(it)}`}</small></button>`; };
+    return `<button class="cn-it${on ? ' on' : ''}" data-act="cnitem" data-it="${it}">${pv}<b>${esc(name)}</b><small>${on ? 'Включена' : own ? 'Ваша' : it.startsWith('pal:') && !palItem(it).p && coins.free < PAL_FREE ? 'Бесплатно' : `${coinI(13)} ${coinPrice(it)}`}</small></button>`; };
   const free = PAL_FREE - coins.free, frz = coins.items.frz || 0;
-  return `<div class="card"><div class="card-h"><b>Палитры</b><small>${free > 0 ? `бесплатно — ещё ${free} на выбор` : 'Индиго и 3 бесплатных — уже ваши'}</small></div>
-      <div class="cn-grid">${tile('pal:indigo', palPv('indigo'), PAL.indigo.n)}${PAL_SHOP.map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div>
-      <p class="set-note">Скоро — новые палитры, которых ещё нет.</p></div>
+  return `<div class="card"><div class="card-h"><b>Тематические темы</b><small>своя атмосфера</small></div>
+      <div class="cn-grid">${PAL_THEME.map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div></div>
+    <div class="card"><div class="card-h"><b>Палитры</b><small>${free > 0 ? `бесплатно — ещё ${free} на выбор` : 'Индиго и 3 бесплатных — уже ваши'}</small></div>
+      <div class="cn-grid">${tile('pal:indigo', palPv('indigo'), PAL.indigo.n)}${PAL_PLAIN.map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div></div>
     <div class="card"><div class="card-h"><b>Рамки аватара</b></div><div class="cn-grid">${Object.keys(FRAMES).map(k => tile('fm:' + k, avatarHTML(48, k), FRAMES[k].n)).join('')}</div></div>
     <div class="card"><div class="card-h"><b>Обложки профиля</b></div><div class="cn-grid cn-cvs">${Object.keys(COVER_SHOP).map(k => tile('cv:' + k, `<span class="cn-cv" style="background-image:${COVER_GLOW},${COVERS[k]}"></span>`, COVER_SHOP[k])).join('')}</div></div>
     <div class="card"><div class="card-h"><b>Заморозка серии</b>${hintK('frz')}</div>

@@ -2362,4 +2362,8 @@ const EN_DICT = {"Работа":"Work",
 "Тетрадь":"Notebook",
 "Комикс":"Comic",
 "Пиксели":"Pixels",
-"У темы «*» один вид: светлая и тёмная на неё не действуют.":"The “*” theme has a single look: light and dark do not apply to it."};
+"У темы «*» один вид: светлая и тёмная на неё не действуют.":"The “*” theme has a single look: light and dark do not apply to it.",
+"Тематические темы":"Themed looks",
+"своя атмосфера":"a mood of their own",
+"Тема «*»":"Theme “*”",
+"Своя атмосфера: фон, заливки, заголовки, форма кнопок и карточек. Только за монеты.":"A mood of its own: background, fills, headings, button and card shapes. Coins only."};

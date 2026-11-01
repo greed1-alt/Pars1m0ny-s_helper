@@ -227,11 +227,20 @@ async function admSetCfg(k, v, msg) {
   catch (e) { toast(e.message); }
   adm.busy--; admDraw();
 }
+ACT.admmine = async () => {
+  const n = Number(($('#adm_my') || {}).value); if (!Number.isInteger(n) || !n || Math.abs(n) > 100000) return toast('Целое число от −100 000 до 100 000, не ноль');
+  if (adm.busy) return; adm.busy++;
+  try { const j = await admCall({ action: 'coins', id: auth.uid, amt: n, note: 'себе из админки' }); toast(`${COIN}: теперь ${NF0.format(j.bal)}`); adm.log = null; await coinsLoad(); } catch (e) { toast(e.message); }
+  adm.busy--; admDraw();
+};
 function admSet() {
   const c = adm.cfg; if (!c) return '';
   const a = c.ann, m = c.maint || { on: false, text: '' }, lim = Number.isInteger(c.ai_limit) ? c.ai_limit : 30, p = S.settings.admPush || {};
   const TL = Object.assign({ free: 5, plus: 20, premium: 60 }, c.limits && typeof c.limits === 'object' ? c.limits : {});
-  return `<div class="card adm-set"><b class="adm-h">📣 Объявление</b>
+  return `<div class="card adm-set"><b class="adm-h">${coinI(18)} Мои ${COIN}</b>
+    <p class="set-note">Сейчас у вас ${NF0.format(coins ? coins.bal : 0)}. Начислить себе — например, проверить магазин; другому человеку — в его карточке в разделе «Люди». Запись появится в журнале.</p>
+    <div class="adm-acts"><input id="adm_my" class="fin" type="number" inputmode="numeric" value="1000" aria-label="Сколько монет начислить себе"><button class="btn pri" data-act="admmine">Начислить</button></div></div>
+    <div class="card adm-set"><b class="adm-h">📣 Объявление</b>
     <p class="set-note">Карточка на Главной у всех, пока человек не нажмёт «Понятно». Можно сразу отправить уведомлением — кроме тех, кто выключил «Новости Parsimony».</p>
     ${a ? `<div class="adm-cur"><small>Сейчас висит · ${esc(admDT(a.at))}${a.push ? (a.pushed ? ' · уведомление отправлено' : ' · уведомление уходит…') : ''}</small><b>${esc(a.title || 'Новости Parsimony')}</b><p>${esc(a.text)}</p>
       <button class="btn" data-act="admannoff">Снять</button></div>` : ''}

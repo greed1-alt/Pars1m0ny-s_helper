@@ -34,6 +34,8 @@ ok(same(sqlArr('ach_v'), achIds.map(k => achCoins[k])), 'награды за д�
 ok(same(sqlArr('st_k'), miles.map(x => x[0])) && same(sqlArr('st_v'), miles.map(x => x[1])), 'награды за серию в coins.sql и ST_MILES разные');
 ok(sqlNum('q_d') === jsNum('Q_D') && sqlNum('q_w') === jsNum('Q_W') && sqlNum('inv') === jsNum('INV_COINS'), 'награды за задания или друга в coins.sql и shop.js разные');
 ok(same(sqlArr('pal_k'), palKeys.filter(k => k !== 'indigo')) && palKeys[0] === 'indigo', 'палитры в продаже (pal_k) — все из look.js, кроме Индиго');
+const palP = [...look.slice(look.indexOf('const PAL = {'), look.indexOf('const PAL_ORDER')).matchAll(/^  (\w+):\{ n:'[^']*', p:(\d+)/gm)].map(m => [m[1], +m[2]]);
+ok(same(sqlArr('pal_s'), palP.filter(x => x[1] === sqlNum('pal_sp')).map(x => x[0])) && same(sqlArr('pal_u'), palP.filter(x => x[1] === sqlNum('pal_up')).map(x => x[0])) && palP.length === sqlArr('pal_s').length + sqlArr('pal_u').length, 'цены тематических тем в coins.sql и look.js разные');
 ok(same(sqlArr('cv_k'), Object.keys(coverShop)) && Object.keys(coverShop).every(k => covers.includes(k)), 'обложки в продаже (cv_k) = COVER_SHOP, у каждой есть градиент в COVERS');
 ok(same(sqlArr('fm_k'), frames.map(x => x[0])) && same(sqlArr('fm_v'), frames.map(x => x[1])), 'рамки и их цены в coins.sql и FRAMES разные');
 ok(sqlNum('pal_p') === jsNum('PAL_PRICE') && sqlNum('cv_p') === jsNum('CV_PRICE') && sqlNum('frz_p') === jsNum('FRZ_PRICE'), 'цены палитры, обложки, заморозки в coins.sql и shop.js разные');
@@ -130,6 +132,9 @@ if (!pgEntry || !existsSync(pgEntry)) {
   r = await buy('A', 'fm:rainbow'); ok(r.ok && r.bal === bal - 300, 'рамка «Радуга» за 300'); bal -= 300;
   ok((await buy('A', 'cv:boreal')).ok, 'обложка за 150'); bal -= 150;
   ok((await buy('A', 'frz')).ok && (await buy('A', 'frz')).ok && (await buy('A', 'frz')).err === 'max', 'заморозок — не больше двух'); bal -= 100;
+  await one('srv', `select public.coins_admin('${U.A}', 900, 'темы') r`); bal += 900;
+  r = await buy('A', 'pal:comic'); ok(r.ok && r.bal === bal - 500, 'необычная тема за 500'); bal -= 500;
+  r = await buy('A', 'pal:ember'); ok(r.ok && r.bal === bal - 400, 'тема по образцу за 400'); bal -= 400;
   ok((await state('A')).bal === bal && bal >= 0, 'баланс после покупок: ' + bal);
   ok((await buy('C', 'frz')).err === 'money', 'без монет — ничего не купить');
   // Бесплатные палитры — три
@@ -137,6 +142,7 @@ if (!pgEntry || !existsSync(pgEntry)) {
   ok((await pick('A', 'pal:sage')).err === 'limit', 'четвёртая бесплатно — нельзя');
   ok((await pick('A', 'pal:sky')).err === 'own' && (await pick('B', 'fm:gold')).err === 'item' && (await pick('B', 'pal:indigo')).err === 'item', 'своё, рамку и Индиго бесплатно не взять');
   ok((await state('A')).bal === bal, 'бесплатные палитры не тратят монеты');
+  ok((await pick('B', 'pal:pixel')).err === 'item' && (await pick('B', 'pal:techno')).err === 'item', 'тематические темы бесплатно не взять');
   // Заморозка
   const fz = d => one('A', 'select public.coins_freeze($1::date) r', [d]);
   r = await fz(dAdd(today, -1)); ok(r.ok && r.n === 1, 'заморозка вчерашнего дня');

@@ -3,7 +3,7 @@
 // «Графит» (ключ classic) — прежние цвета из css/app.css; 6 октября 2026 пользователь попросил другое название вместо «Классика». В CSS остались запасные значения и то, что от палитры не зависит (цвета графиков, тени окон).
 // Ключи цвета: bg — фон «с рамкой», pg — фон страницы под карточками, bg2 — боковая панель, sf — карточки и окна,
 // line — линии, tx/tx2/mut — текст основной/второй/приглушённый, acc/accfg — кнопки и выбранное, wm — надпись Parsimony.
-// У палитры (необязательно): hc — второй цвет карточки серии в «Задачах», чтобы она не уходила в розовый; skin и fix — у тематических тем.
+// У палитры (необязательно): hc — второй цвет карточки серии в «Задачах», чтобы она не уходила в розовый; skin, fix и p (цена в монетах, бесплатно не берётся; как в coins.sql) — у тематических тем.
 const PAL = {
   indigo:{ n:'Индиго',
     l:{ bg:'#fbfbfe', pg:'#f2f3f9', bg2:'#eceef7', sf:'#ffffff', line:'#e1e4f0', tx:'#1a1c2b', tx2:'#4d536b', mut:'#80869e', acc:'#4b4fd1', accfg:'#ffffff', wm:'#5b5ee0' },
@@ -48,21 +48,21 @@ const PAL = {
     l:{ bg:'#ffffff', pg:'#f5f5f3', bg2:'#f7f7f5', sf:'#ffffff', line:'#e9e9e7', grid:'#efefed', tx:'#1d1d1c', tx2:'#5f5e5b', mut:'#8a8986', acc:'#2b2b2b', accfg:'#ffffff', wm:'#b4642c' },
     d:{ bg:'#191919', bg2:'#202020', sf:'#252525', line:'#2f2f2f', grid:'#292929', tx:'#ececec', tx2:'#b4b4b4', mut:'#7f7f7f', acc:'#e08a3c', accfg:'#1a0f02', wm:'#e8964a' } },
   // Тематические темы (1 ноября 2026): у каждой своя атмосфера — css/skins.css (skin) и один вид, светлый или тёмный (fix)
-  ember:{ n:'Жар', skin:'ember', fix:'d', hc:'#ff8a2a',
+  ember:{ n:'Жар', p:400, skin:'ember', fix:'d', hc:'#ff8a2a',
     d:{ bg:'#0a0807', bg2:'#100c0a', sf:'#18120f', line:'#2e211b', tx:'#f6efe9', tx2:'#bdaea3', mut:'#8a7a70', acc:'#ff5a24', accfg:'#1d0700', wm:'#ff6d3a' } },
-  acid:{ n:'Кислота', skin:'acid', fix:'d', hc:'#7fdc2a',
+  acid:{ n:'Кислота', p:400, skin:'acid', fix:'d', hc:'#7fdc2a',
     d:{ bg:'#060906', bg2:'#0a0f0a', sf:'#111711', line:'#1f2b1f', tx:'#eef6ec', tx2:'#a9b8a6', mut:'#778774', acc:'#7eea5e', accfg:'#062003', wm:'#8df06e' } },
-  craft:{ n:'Чертёж', skin:'craft', fix:'l', hc:'#e8652f',
+  craft:{ n:'Чертёж', p:400, skin:'craft', fix:'l', hc:'#e8652f',
     l:{ bg:'#e8e5df', pg:'#dfdcd5', bg2:'#d6d3cb', sf:'#ece9e3', line:'#e3a792', grid:'#e4bfae', tx:'#181716', tx2:'#494743', mut:'#6c6963', acc:'#a82c10', accfg:'#ffffff', wm:'#c83a1a' } },
-  candy:{ n:'Леденец', skin:'candy', fix:'l', hc:'#ff7a6b',
+  candy:{ n:'Леденец', p:400, skin:'candy', fix:'l', hc:'#ff7a6b',
     l:{ bg:'#fff4f3', pg:'#fad6dc', bg2:'#f7c8d1', sf:'#fdf7ea', line:'#f1b9c5', tx:'#471310', tx2:'#7a2c24', mut:'#964840', acc:'#b41a14', accfg:'#fff9ec', wm:'#d92a20' } },
-  techno:{ n:'Скафандр', skin:'techno', fix:'d', hc:'#f7a81c',
+  techno:{ n:'Скафандр', p:400, skin:'techno', fix:'d', hc:'#f7a81c',
     d:{ bg:'#2d2f2f', bg2:'#262828', sf:'#383a3a', line:'#4b4e4d', tx:'#f4ecdc', tx2:'#d6caaf', mut:'#a79d88', acc:'#fba31c', accfg:'#2a1700', wm:'#ffb62f' } },
-  note:{ n:'Тетрадь', skin:'note', fix:'l', hc:'#4a6fe0',
+  note:{ n:'Тетрадь', p:500, skin:'note', fix:'l', hc:'#4a6fe0',
     l:{ bg:'#fdfcf5', pg:'#fbfaf2', bg2:'#f1efe3', sf:'#fffef6', line:'#c9d9ec', tx:'#1c2c66', tx2:'#3c4c86', mut:'#5f6fa2', acc:'#2346b8', accfg:'#ffffff', wm:'#2346b8' } },
-  comic:{ n:'Комикс', skin:'comic', fix:'l', hc:'#2b6bff',
+  comic:{ n:'Комикс', p:500, skin:'comic', fix:'l', hc:'#2b6bff',
     l:{ bg:'#ffd84d', pg:'#ffd84d', bg2:'#fff3b8', sf:'#ffffff', line:'#000000', grid:'#d9d9d9', tx:'#000000', tx2:'#222222', mut:'#444444', acc:'#b00b26', accfg:'#ffffff', wm:'#000000' } },
-  pixel:{ n:'Пиксели', skin:'pixel', fix:'l', hc:'#306230',
+  pixel:{ n:'Пиксели', p:500, skin:'pixel', fix:'l', hc:'#306230',
     l:{ bg:'#9bbc0f', pg:'#9bbc0f', bg2:'#8bac0f', sf:'#a9c82a', line:'#306230', grid:'#7f9f12', tx:'#0f380f', tx2:'#143f14', mut:'#1c471c', acc:'#0f380f', accfg:'#c4e04a', wm:'#0f380f' } },
 };
 const PAL_ORDER = Object.keys(PAL);

@@ -65,13 +65,17 @@ language plpgsql immutable set search_path = '' as $$
 declare
   p text[] := string_to_array(p_item, ':');
   pal_k text[] := array['sky','midnight','ocean','mint','sage','olive','sand','mocha','coral','rose','plum','lavender','classic','ember','acid','craft','candy','techno','note','comic','pixel'];
+  pal_s text[] := array['ember','acid','craft','candy','techno'];   -- тематические темы по образцам
+  pal_u text[] := array['note','comic','pixel'];                     -- необычные темы
   cv_k text[] := array['boreal','neon','gold','cosmos','seaset','berry'];
   fm_k text[] := array['gold','fire','ice','neon','sakura','emerald','rainbow'];
   fm_v int[] := array[200,200,200,200,200,200,300];
-  pal_p int := 200; cv_p int := 150; frz_p int := 50;
+  pal_p int := 200; pal_sp int := 400; pal_up int := 500; cv_p int := 150; frz_p int := 50;
 begin
   if p_item = 'frz' then return frz_p; end if;
   if cardinality(p) <> 2 then return null; end if;
+  if p[1] = 'pal' and p[2] = any (pal_s) then return pal_sp; end if;
+  if p[1] = 'pal' and p[2] = any (pal_u) then return pal_up; end if;
   if p[1] = 'pal' and p[2] = any (pal_k) then return pal_p; end if;
   if p[1] = 'cv' and p[2] = any (cv_k) then return cv_p; end if;
   if p[1] = 'fm' and p[2] = any (fm_k) then return fm_v[array_position(fm_k, p[2])]; end if;
@@ -170,7 +174,8 @@ language plpgsql security definer set search_path = '' as $$
 declare me uuid := auth.uid(); bl int;
 begin
   if me is null then raise exception 'not signed in' using errcode = '42501'; end if;
-  if p_item !~ '^pal:' or public.coin_price(p_item) is null then return jsonb_build_object('err', 'item'); end if;
+  -- бесплатно — только обычные палитры: тематические темы стоят дороже и берутся только за монеты
+  if p_item !~ '^pal:' or coalesce(public.coin_price(p_item), 0) <> 200 then return jsonb_build_object('err', 'item'); end if;
   bl := public.coin_lock(me);
   if exists (select 1 from public.coin_items where user_id = me and item = p_item) then return jsonb_build_object('err', 'own'); end if;
   if (select count(*) from public.coin_items where user_id = me and free) >= 3 then return jsonb_build_object('err', 'limit'); end if;
