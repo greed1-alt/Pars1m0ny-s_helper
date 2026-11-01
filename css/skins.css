@@ -186,7 +186,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 [data-skin=comic] :is(.om-t,.pill){border:2px solid #000;color:#000}
 [data-skin=comic] .om-t.on{background:#ffd84d;color:#000;border-color:#000}
 
-/* ---- Глюк: экран старой игровой приставки — четыре приглушённых оттенка зелёного, рамки ступеньками, всё прямоугольное ---- */
+/* ---- Пиксели: экран старой игровой приставки — четыре приглушённых оттенка зелёного, рамки ступеньками, всё прямоугольное ---- */
 [data-skin=pixel]{--sk-bg:repeating-linear-gradient(0deg,rgba(14,42,18,.09) 0 1px,transparent 1px 3px),repeating-linear-gradient(90deg,rgba(14,42,18,.09) 0 1px,transparent 1px 3px);--sk-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace}
 [data-skin=pixel] :is(body,.lk-card){--rc:0px;--r2:0px;font-family:var(--sk-mono);word-spacing:-.22em}
 [data-skin=pixel] :is(.card,.fold.fc,.gl-card,.lk-card){background:#8ea262;border:0;border-radius:0;box-shadow:-4px 0 0 #0e2a12,4px 0 0 #0e2a12,0 -4px 0 #0e2a12,0 4px 0 #0e2a12}
