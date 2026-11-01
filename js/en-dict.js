@@ -2366,4 +2366,8 @@ const EN_DICT = {"Работа":"Work",
 "Тематические темы":"Themed looks",
 "своя атмосфера":"a mood of their own",
 "Тема «*»":"Theme “*”",
-"Своя атмосфера: фон, заливки, заголовки, форма кнопок и карточек. Только за монеты.":"A mood of its own: background, fills, headings, button and card shapes. Coins only."};
+"Своя атмосфера: фон, заливки, заголовки, форма кнопок и карточек. Только за монеты.":"A mood of its own: background, fills, headings, button and card shapes. Coins only.",
+"Техно":"Techno",
+"Сладость":"Sugar",
+"Глюк":"Glitch",
+"Синий чертёж":"Cyanotype"};

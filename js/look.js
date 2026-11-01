@@ -54,16 +54,18 @@ const PAL = {
     d:{ bg:'#060906', bg2:'#0a0f0a', sf:'#111711', line:'#1f2b1f', tx:'#eef6ec', tx2:'#a9b8a6', mut:'#778774', acc:'#7eea5e', accfg:'#062003', wm:'#8df06e' } },
   craft:{ n:'Чертёж', p:400, skin:'craft', fix:'l', hc:'#e8652f',
     l:{ bg:'#e8e5df', pg:'#dfdcd5', bg2:'#d6d3cb', sf:'#ece9e3', line:'#e3a792', grid:'#e4bfae', tx:'#181716', tx2:'#494743', mut:'#6c6963', acc:'#a82c10', accfg:'#ffffff', wm:'#c83a1a' } },
-  candy:{ n:'Леденец', p:400, skin:'candy', fix:'l', hc:'#ff7a6b',
+  candy:{ n:'Сладость', p:400, skin:'candy', fix:'l', hc:'#ff7a6b',
     l:{ bg:'#fff4f3', pg:'#fad6dc', bg2:'#f7c8d1', sf:'#fdf7ea', line:'#f1b9c5', tx:'#471310', tx2:'#7a2c24', mut:'#964840', acc:'#b41a14', accfg:'#fff9ec', wm:'#d92a20' } },
-  techno:{ n:'Скафандр', p:400, skin:'techno', fix:'d', hc:'#f7a81c',
+  techno:{ n:'Техно', p:400, skin:'techno', fix:'d', hc:'#f7a81c',
     d:{ bg:'#2d2f2f', bg2:'#262828', sf:'#383a3a', line:'#4b4e4d', tx:'#f4ecdc', tx2:'#d6caaf', mut:'#a79d88', acc:'#fba31c', accfg:'#2a1700', wm:'#ffb62f' } },
+  blueprint:{ n:'Синий чертёж', p:400, skin:'blueprint', fix:'d', hc:'#7fc4ff',
+    d:{ bg:'#0f3566', bg2:'#0c2c56', sf:'#143e75', line:'#6f9fd1', grid:'#3f74b0', tx:'#f2f7ff', tx2:'#d3e3f6', mut:'#b4cae5', acc:'#ffffff', accfg:'#0f3566', wm:'#ffffff' } },
   note:{ n:'Тетрадь', p:500, skin:'note', fix:'l', hc:'#4a6fe0',
-    l:{ bg:'#fdfcf5', pg:'#fbfaf2', bg2:'#f1efe3', sf:'#fffef6', line:'#c9d9ec', tx:'#1c2c66', tx2:'#3c4c86', mut:'#5f6fa2', acc:'#2346b8', accfg:'#ffffff', wm:'#2346b8' } },
+    l:{ bg:'#fbf4de', pg:'#faf2da', bg2:'#f2e8cb', sf:'#fff9e6', line:'#e2d6b4', tx:'#2b3358', tx2:'#464e74', mut:'#62688a', acc:'#3a4fa8', accfg:'#ffffff', wm:'#3a4fa8' } },
   comic:{ n:'Комикс', p:500, skin:'comic', fix:'l', hc:'#2b6bff',
     l:{ bg:'#ffd84d', pg:'#ffd84d', bg2:'#fff3b8', sf:'#ffffff', line:'#000000', grid:'#d9d9d9', tx:'#000000', tx2:'#222222', mut:'#444444', acc:'#b00b26', accfg:'#ffffff', wm:'#000000' } },
-  pixel:{ n:'Пиксели', p:500, skin:'pixel', fix:'l', hc:'#306230',
-    l:{ bg:'#9bbc0f', pg:'#9bbc0f', bg2:'#8bac0f', sf:'#a9c82a', line:'#306230', grid:'#7f9f12', tx:'#0f380f', tx2:'#143f14', mut:'#1c471c', acc:'#0f380f', accfg:'#c4e04a', wm:'#0f380f' } },
+  pixel:{ n:'Глюк', p:500, skin:'pixel', fix:'l', hc:'#3f6b3c',
+    l:{ bg:'#a4b866', pg:'#a4b866', bg2:'#96ab58', sf:'#b2c575', line:'#3f6b3c', grid:'#8aa456', tx:'#1a3d1c', tx2:'#173a19', mut:'#1f4422', acc:'#1a3d1c', accfg:'#cbdb92', wm:'#1a3d1c' } },
 };
 const PAL_ORDER = Object.keys(PAL);
 // Чёрная тема: фон чисто чёрный, акцент — из палитры (у «Графита» — светло-серый, как раньше)
