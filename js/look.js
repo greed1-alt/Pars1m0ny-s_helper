@@ -64,8 +64,8 @@ const PAL = {
     l:{ bg:'#fbf4de', pg:'#faf2da', bg2:'#f2e8cb', sf:'#fff9e6', line:'#e2d6b4', tx:'#2b3358', tx2:'#464e74', mut:'#62688a', acc:'#3a4fa8', accfg:'#ffffff', wm:'#3a4fa8' } },
   comic:{ n:'Комикс', p:500, skin:'comic', fix:'l', hc:'#2b6bff',
     l:{ bg:'#ffd84d', pg:'#ffd84d', bg2:'#fff3b8', sf:'#ffffff', line:'#000000', grid:'#d9d9d9', tx:'#000000', tx2:'#222222', mut:'#444444', acc:'#b00b26', accfg:'#ffffff', wm:'#000000' } },
-  pixel:{ n:'Глюк', p:500, skin:'pixel', fix:'l', hc:'#3f6b3c',
-    l:{ bg:'#a4b866', pg:'#a4b866', bg2:'#96ab58', sf:'#b2c575', line:'#3f6b3c', grid:'#8aa456', tx:'#1a3d1c', tx2:'#173a19', mut:'#1f4422', acc:'#1a3d1c', accfg:'#cbdb92', wm:'#1a3d1c' } },
+  pixel:{ n:'Глюк', p:500, skin:'pixel', fix:'l', hc:'#33582f',
+    l:{ bg:'#7f9354', pg:'#7f9354', bg2:'#7d9152', sf:'#8ea262', line:'#33582f', grid:'#6a7e44', tx:'#0a1f0e', tx2:'#0a1f0e', mut:'#0c2410', acc:'#0a1f0e', accfg:'#cbdb92', wm:'#0e2a12' } },
 };
 const PAL_ORDER = Object.keys(PAL);
 // Чёрная тема: фон чисто чёрный, акцент — из палитры (у «Графита» — светло-серый, как раньше)
