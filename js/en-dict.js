@@ -2369,4 +2369,10 @@ const EN_DICT = {"Работа":"Work",
 "Своя атмосфера: фон, заливки, заголовки, форма кнопок и карточек. Только за монеты.":"A mood of its own: background, fills, headings, button and card shapes. Coins only.",
 "Техно":"Techno",
 "Сладость":"Sugar",
-"Синий чертёж":"Cyanotype"};
+"Синий чертёж":"Cyanotype",
+"Купить за":"Buy for",
+"За друга в *":"For a friend on *",
+"+* вам и другу":"+* for you and your friend",
+"ещё * ч * мин":"* h * min left",
+"ещё * мин":"* min left",
+"ещё * ч":"* h left"};

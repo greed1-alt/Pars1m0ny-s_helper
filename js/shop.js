@@ -77,7 +77,7 @@ if (coins && (typeof coins !== 'object' || !coins.items)) coins = null;
 const coinOwn = it => it === 'pal:indigo' || !!coins && (coins.items[it] || 0) > 0;   // Индиго — у всех
 const coinGot = k => !!coins && coins.keys.includes(k);
 const coinsOn = () => signedIn() && coinsErr !== 'off';
-const palOk = k => !coins || coinOwn('pal:' + k);   // магазина нет (не вошли) — палитры как раньше
+const palOk = k => (PAL[k] || {}).p ? coinOwn('pal:' + k) : !coins || coinOwn('pal:' + k);   // магазина нет (не вошли) — обычные палитры как раньше, тематические темы — только купленные
 // Замочек на плитке палитры (look.js): ещё не ваша — откроется в магазине (цена — там)
 const palLock = k => palOk(k) ? '' : `<em class="pal-lock" title="В магазине">${I(IC.lock, 11)}</em>`;
 const cvOk = k => !COVER_SHOP[k] || coinOwn('cv:' + k);
@@ -104,6 +104,7 @@ function coinsHeal() {
   const z = coins.keys.filter(k => /^z:\d{4}-\d{2}-\d{2}$/.test(k)).map(k => k.slice(2)).filter(k => !S.frz.includes(k));
   if (z.length) { S.frz = [...S.frz, ...z].sort(); save(); }
   const p = S.settings.pal;
+  if (PAL[p] && PAL[p].p && !coinOwn('pal:' + p)) { S.settings.pal = LOOK_DEF.pal; save(); render(); return coinsFreeze(); }   // тема не куплена (выбрана без входа в старой версии, другой аккаунт)
   if (p !== 'indigo' && PAL[p] && !PAL[p].p && !coinOwn('pal:' + p) && coins.free < PAL_FREE) coinPick('pal:' + p, true);
   coinsFreeze();
 }
