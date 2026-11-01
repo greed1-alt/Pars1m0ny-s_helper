@@ -1,13 +1,13 @@
-/* parsimony.ru — страница о Parsimony. Цвета — палитра «Индиго» приложения (js/look.js), шрифты свои (как в приложении) */
+/* parsimony.ru — страница о Parsimony. Цвета чёрно-белые (выбор пользователя 1 ноября 2026): белая в светлой теме браузера, почти чёрная в тёмной; шрифты свои (как в приложении) */
 @font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url(fonts/inter-cyrillic.woff2) format('woff2');unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
 @font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url(fonts/inter-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:'Josefin Sans';font-style:normal;font-weight:300;font-display:swap;src:url(fonts/josefin-sans-300-latin.woff2) format('woff2')}
 
-:root{--bg:#fbfbfe;--pg:#f2f3f9;--sf:#fff;--line:#e1e4f0;--tx:#1a1c2b;--tx2:#4d536b;--mut:#6b7189;--acc:#4b4fd1;--accfg:#fff;--wm:#5b5ee0;--acc2:#a855f7;
-  --sh:0 1px 2px rgba(26,28,43,.05),0 8px 24px rgba(26,28,43,.07);--sh2:0 30px 60px -20px rgba(42,46,120,.35),0 10px 24px rgba(26,28,43,.08);
-  --c1:#ef4444;--c2:#38bdf8;--c3:#22c55e;--c4:#a855f7;--ok:#16a34a;--mo:#d97706;color-scheme:light dark}
-@media (prefers-color-scheme:dark){:root{--bg:#12131b;--pg:#171824;--sf:#1d1f2d;--line:#2a2d40;--tx:#e7e8f3;--tx2:#adb1c9;--mut:#8f94ad;--acc:#9599ff;--accfg:#10123a;--wm:#9fa3ff;--acc2:#c084fc;
-  --sh:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);--sh2:0 30px 60px -20px rgba(0,0,0,.6),0 10px 24px rgba(0,0,0,.3);--ok:#4ade80;--mo:#fbbf24}}
+:root{--bg:#fff;--pg:#f5f5f5;--sf:#fff;--line:#e5e5e5;--tx:#111;--tx2:#4d4d4d;--mut:#6b6b6b;--acc:#111;--accfg:#fff;--wm:#111;--acc2:#6b6b6b;--fin1:#111;--fin2:#333;--ph1:#3a3a3a;--ph2:#141414;--gl:5%;--gl2:3%;
+  --sh:0 1px 2px rgba(0,0,0,.05),0 8px 24px rgba(0,0,0,.06);--sh2:0 30px 60px -20px rgba(0,0,0,.3),0 10px 24px rgba(0,0,0,.08);
+  --c1:#e5484d;--c2:#8c8c8c;--c3:#30a46c;--c4:#5c5c5c;--ok:#2b9a5e;--mo:#c47f17;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#0e0e0e;--pg:#161616;--sf:#1c1c1c;--line:#2e2e2e;--tx:#f2f2f2;--tx2:#b8b8b8;--mut:#8f8f8f;--acc:#f2f2f2;--accfg:#111;--wm:#f2f2f2;--acc2:#a3a3a3;--fin1:#1f1f1f;--fin2:#333;--ph1:#3a3a3a;--ph2:#1a1a1a;--gl:9%;--gl2:5%;
+  --sh:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);--sh2:0 30px 60px -20px rgba(0,0,0,.6),0 10px 24px rgba(0,0,0,.3);--c2:#a3a3a3;--c4:#737373;--ok:#4ade80;--mo:#fbbf24}}
 
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
@@ -32,7 +32,7 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;line-height:1.15}
 .btn-lg{height:52px;padding:0 26px;font-size:16px;border-radius:14px}
 .btn-ghost{background:transparent;color:var(--tx);border-color:var(--line)}
 .btn-ghost:hover{background:var(--pg);filter:none}
-.btn-inv{background:#fff;color:#2c2fa8;border-color:#fff}
+.btn-inv{background:#fff;color:#111;border-color:#fff}
 
 /* Шапка */
 .top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
@@ -44,7 +44,7 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;line-height:1.15}
 
 /* Первый экран */
 .hero{position:relative;overflow:hidden;padding:72px 0 88px}
-.hero::before{content:"";position:absolute;inset:-30% -10% auto;height:620px;background:radial-gradient(ellipse at 70% 40%,color-mix(in srgb,var(--acc) 22%,transparent),transparent 60%),radial-gradient(ellipse at 15% 10%,color-mix(in srgb,var(--acc2) 14%,transparent),transparent 55%);pointer-events:none}
+.hero::before{content:"";position:absolute;inset:-30% -10% auto;height:620px;background:radial-gradient(ellipse at 70% 40%,color-mix(in srgb,var(--acc) var(--gl),transparent),transparent 60%),radial-gradient(ellipse at 15% 10%,color-mix(in srgb,var(--acc2) var(--gl2),transparent),transparent 55%);pointer-events:none}
 .hero-in{position:relative;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
 .eyebrow{margin:0 0 14px;font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--acc)}
 h1{font-size:clamp(36px,5.2vw,60px);font-weight:750}
@@ -58,7 +58,7 @@ h1{font-size:clamp(36px,5.2vw,60px);font-weight:750}
 
 /* Телефон (макет Главной) */
 .hero-art{position:relative;display:flex;justify-content:center}
-.phone{width:300px;max-width:100%;border-radius:44px;padding:10px;background:linear-gradient(160deg,#2b2e45,#14151f);box-shadow:var(--sh2)}
+.phone{width:300px;max-width:100%;border-radius:44px;padding:10px;background:linear-gradient(160deg,var(--ph1),var(--ph2));box-shadow:var(--sh2)}
 .scr{border-radius:35px;background:var(--pg);padding:18px 14px 20px;display:flex;flex-direction:column;gap:10px;min-height:560px;overflow:hidden}
 .ph-top{display:flex;align-items:center;justify-content:space-between;padding:2px 4px}
 .ph-wm{font-family:"Josefin Sans",Inter,sans-serif;font-weight:300;text-transform:uppercase;letter-spacing:.28em;font-size:12px;color:var(--wm)}
@@ -139,7 +139,7 @@ h2{font-size:clamp(28px,3.6vw,40px);font-weight:750}
 .msg{font-size:15px;max-width:88%}
 .msg.me{align-self:flex-end;background:var(--acc);color:var(--accfg);padding:10px 14px;border-radius:16px 16px 4px 16px}
 .msg.ai{display:flex;gap:10px;color:var(--tx)}
-.orb{width:26px;height:26px;border-radius:50%;flex:none;background:radial-gradient(circle at 35% 30%,#fff 0,#c4c6ff 18%,var(--acc) 55%,var(--acc2) 100%);box-shadow:0 0 18px color-mix(in srgb,var(--acc) 60%,transparent)}
+.orb{width:26px;height:26px;border-radius:50%;flex:none;background:radial-gradient(circle at 35% 30%,#fff 0,#d4d4d4 18%,var(--acc2) 60%,var(--acc) 100%);box-shadow:0 0 18px color-mix(in srgb,var(--acc) 60%,transparent)}
 .plan{border:1px solid var(--line);border-radius:16px;padding:14px;background:var(--pg)}
 .plan-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
 .plan-h small{font-size:12.5px;color:var(--mut)}
@@ -170,7 +170,7 @@ details p{margin:0 2px 20px;color:var(--tx2)}
 
 /* Последний призыв */
 .final{padding:24px 0 88px}
-.final-in{text-align:center;padding:56px 24px;border-radius:28px;background:linear-gradient(120deg,#3b3fc4,#6d4bd8 55%,#9b5de5);color:#fff;box-shadow:var(--sh2)}
+.final-in{text-align:center;padding:56px 24px;border-radius:28px;background:linear-gradient(120deg,var(--fin1),var(--fin2));color:#fff;box-shadow:var(--sh2)}
 .final-in h2{color:#fff}
 .final-in p{margin:12px 0 28px;font-size:18px;opacity:.9}
 @media (max-width:760px){.final{padding:8px 0 60px}.final-in{padding:44px 20px}}
