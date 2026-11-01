@@ -2355,8 +2355,11 @@ const EN_DICT = {"Работа":"Work",
 "бета":"beta",
 "Жар":"Ember",
 "Кислота":"Acid",
-"Сирень":"Lilac",
 "Чертёж":"Blueprint",
 "Леденец":"Candy",
 "Скафандр":"Spacesuit",
-"Лаборатория":"Lab"};
+"Лаборатория":"Lab",
+"Тетрадь":"Notebook",
+"Комикс":"Comic",
+"Пиксели":"Pixels",
+"У темы «*» один вид: светлая и тёмная на неё не действуют.":"The “*” theme has a single look: light and dark do not apply to it."};

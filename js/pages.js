@@ -291,7 +291,7 @@ ACT.accmenu = el => {
       <button data-act="accinv" role="menuitem">${I(IC.share, 18)}<span>Пригласить друга</span></button>
     </div>
     <div class="accm-foot"><button class="accm-set" data-act="accset" role="menuitem">${I(IC.gear, 18)}<span>Настройки</span></button>
-      <button class="ic" data-act="acctheme" role="menuitem" aria-label="${dark ? 'Светлая тема' : 'Тёмная тема'}" title="${dark ? 'Светлая тема' : 'Тёмная тема'}">${I(dark ? IC.sun : IC.moon, 18)}</button>
+      ${palFix(S.settings.pal) ? '' : `<button class="ic" data-act="acctheme" role="menuitem" aria-label="${dark ? 'Светлая тема' : 'Тёмная тема'}" title="${dark ? 'Светлая тема' : 'Тёмная тема'}">${I(dark ? IC.sun : IC.moon, 18)}</button>`}
       ${on ? `<button class="ic accm-out" data-act="accout" role="menuitem" aria-label="Выйти из аккаунта" title="Выйти из аккаунта">${I(IC.logout, 18)}</button>` : `<button class="ic" data-act="accin" role="menuitem" aria-label="Войти в аккаунт" title="Войти в аккаунт">${I(IC.user, 18)}</button>`}</div>
   </div>`;
   qc.classList.add('show', 'menu', 'acc');

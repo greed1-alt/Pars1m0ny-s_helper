@@ -416,7 +416,7 @@ body.ui2 main.sec .card-h{margin-bottom:10px}
 .pal-pv i{position:absolute;left:6px;right:6px;top:7px;bottom:7px;border-radius:6px;background:var(--s);box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .pal-pv b{position:absolute;left:12px;top:14px;width:42%;height:5px;border-radius:3px;background:var(--t);opacity:.6}
 .pal-pv em{position:absolute;right:12px;bottom:13px;width:18px;height:10px;border-radius:5px;background:var(--a)}
-.lk-prev{background:var(--glow,none),var(--page);border:1px solid var(--line);border-radius:calc(var(--rc) + 4px);padding:12px}
+.lk-prev{background:var(--page);border:1px solid var(--line);border-radius:calc(var(--rc) + 4px);padding:12px}
 .lk-card{--bg:var(--card);background:var(--card);border:1px solid var(--cardbd);box-shadow:var(--cardsh);border-radius:var(--rc);padding:14px;display:flex;flex-direction:column;gap:10px}
 .lk-ph{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .lk-ph b{font-size:15px;font-weight:650}

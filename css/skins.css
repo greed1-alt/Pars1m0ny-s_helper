@@ -1,0 +1,215 @@
+/* Тематические темы (1 ноября 2026): не только цвета, а атмосфера — фон, заливки, заголовки, форма кнопок и карточек.
+   У палитры в look.js: skin — какой блок отсюда включить (data-skin на <html>, в предпросмотре — на блоке), fix — у темы один вид (l / d).
+   --sk-bg — картинка фона: у страницы её рисует body::before, в предпросмотре — .lk-prev. Всё остальное приложение от этого файла не зависит. */
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:var(--sk-bg,none)}
+.lk-prev{background:var(--sk-bg,none),var(--page)}
+[data-skin] .lk-card{border-radius:var(--rc)}
+
+/* ---- Скафандр: постер «Технотекста» — зернистый графит, заливка заголовков от жёлтого к оранжевому, резкая тень ---- */
+[data-skin=techno]{--sk-bg:radial-gradient(90% 34% at 100% 0,rgba(247,148,29,.2),transparent 72%),radial-gradient(70% 30% at 0 100%,rgba(61,190,122,.1),transparent 72%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .13 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");--sk-fill:linear-gradient(180deg,#ffd84a 8%,#f9a01c 58%,#e9611d)}
+[data-skin=techno] body{--rc:6px;--r2:5px}
+[data-skin=techno] :is(.card,.fold.fc,.gl-card,.lk-card){background:linear-gradient(165deg,#414443,#343636 70%);border:1px solid #565958;box-shadow:5px 5px 0 #1b1c1c}
+[data-skin=techno] :is(.h2-greet,#ttl,.lk-ph b){background:var(--sk-fill);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-transform:uppercase;letter-spacing:.015em;-webkit-text-stroke:.5px transparent}
+[data-skin=techno] .h2-greet{font-size:33px;line-height:1.04}
+[data-skin=techno] body.ui2 main.sec .card-h>b{color:#ffcf6a;text-transform:uppercase;font-size:15px;letter-spacing:.05em}
+[data-skin=techno] .h2-date{color:#ffc34d}
+[data-skin=techno] :is(.btn.pri,.btn-new){background:linear-gradient(90deg,#ffcb33,#f9a01c 55%,#ee6a1f);border:0;color:#2a1500;border-radius:4px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;box-shadow:3px 3px 0 #1b1c1c}
+[data-skin=techno] .btn{border-radius:4px}
+[data-skin=techno] .ds-bar i{background:linear-gradient(90deg,#ffcb33,#ee6a1f)}
+[data-skin=techno] .om-box{background:#2a2c2c;border-color:#5b5e5d;border-radius:4px}
+[data-skin=techno] .ts-hero{background:linear-gradient(100deg,#ffcb33,#f9a01c 58%,#dd5a1c);color:#2a1500;box-shadow:5px 5px 0 #1b1c1c}
+[data-skin=techno] .ts-hero p{color:#3b2000}
+[data-skin=techno] header{background:rgba(35,37,37,.88);border-bottom:2px solid #f9a01c}
+[data-skin=techno] #tabbar{background:#232525;border-top:2px solid #f9a01c}
+[data-skin=techno] .tb-b.on{color:#ffc34d}
+[data-skin=techno] :is(.chk,.t3-ck,.t4-ck){border-radius:3px}
+[data-skin=techno] .om-go{background:linear-gradient(135deg,#ffcb33,#ee6a1f);color:#2a1500;border-radius:4px}
+[data-skin=techno] :is(.missbar,.demobar),[data-skin=techno] body.ui2 :is(.missbar,.demobar){background:#353737;border:1px solid #565958;border-left:4px solid #f9a01c;border-radius:4px}
+[data-skin=techno] #tinv{background:#2a2c2c;border:1px solid #f9a01c;border-radius:6px;box-shadow:5px 5px 0 #1b1c1c}
+[data-skin=techno] .seg2{border-radius:4px;background:#232525}
+[data-skin=techno] .seg2 button{border-radius:3px}
+[data-skin=techno] .seg2 button.on{background:#f9a01c;color:#2a1500;box-shadow:none}
+[data-skin=techno] :is(.pill,.om-t){border-radius:4px}
+
+/* ---- Жар: Neo Vision — чёрный, ржавое свечение из точек, тонкие линии, крупный лёгкий шрифт ---- */
+[data-skin=ember]{--sk-bg:radial-gradient(82% 46% at 92% 14%,transparent 18%,#0a0807 78%),radial-gradient(70% 34% at 0 100%,rgba(255,74,28,.13),transparent 74%),radial-gradient(circle,rgba(255,86,34,.62) 1.1px,transparent 1.7px) 0 0/8px 8px}
+[data-skin=ember] body{--rc:3px;--r2:3px}
+[data-skin=ember] :is(.card,.fold.fc,.gl-card,.lk-card){background:linear-gradient(180deg,rgba(26,18,14,.86),rgba(14,11,9,.92));border:1px solid #33241c;box-shadow:none}
+[data-skin=ember] :is(.h2-greet,#ttl,.lk-ph b){font-weight:400;letter-spacing:-.02em}
+[data-skin=ember] .h2-greet{font-size:36px;line-height:1.05}
+[data-skin=ember] .h2-date{color:#ff6d3a;font-weight:500;letter-spacing:.14em}
+[data-skin=ember] body.ui2 main.sec .card-h>b{font-weight:500;text-transform:uppercase;font-size:13.5px;letter-spacing:.09em}
+[data-skin=ember] :is(.btn.pri,.btn-new){background:linear-gradient(180deg,#ff6a33,#f4470f);border:0;color:#1d0700;border-radius:2px;box-shadow:0 0 22px rgba(255,74,28,.32)}
+[data-skin=ember] .btn{border-radius:2px}
+[data-skin=ember] .om-box{background:#0d0a08;border:1px solid #3a2a21;border-radius:2px}
+[data-skin=ember] .ds-bar i{background:linear-gradient(90deg,#9c2a08,#ff5a24)}
+[data-skin=ember] .ts-hero{background:radial-gradient(90% 120% at 100% 0,#ff5a24,#7a2206 62%,#2a0e04);box-shadow:none}
+[data-skin=ember] header{background:rgba(10,8,7,.82);border-bottom:1px solid #2e211b}
+[data-skin=ember] #tabbar{background:rgba(10,8,7,.9);border-top:1px solid #2e211b}
+[data-skin=ember] .tb-b.on{color:#ff6d3a}
+[data-skin=ember] :is(.chk,.t3-ck,.t4-ck){border-radius:2px}
+[data-skin=ember] .om-go{background:#ff5a24;color:#1d0700;border-radius:2px}
+[data-skin=ember] :is(.missbar,.demobar),[data-skin=ember] body.ui2 :is(.missbar,.demobar){background:rgba(20,14,11,.92);border:1px solid #33241c;border-left:2px solid #ff5a24;border-radius:2px}
+[data-skin=ember] #tinv{background:#120d0a;border:1px solid #4a2e20;border-radius:3px}
+[data-skin=ember] .seg2{border-radius:2px}
+[data-skin=ember] .seg2 button{border-radius:2px}
+[data-skin=ember] .seg2 button.on{background:#ff5a24;color:#1d0700;box-shadow:none}
+[data-skin=ember] :is(.pill,.om-t){border-radius:2px}
+
+/* ---- Кислота: Modal — чёрный, парящие неоновые кубы, стеклянные карточки, кнопки-таблетки ---- */
+[data-skin=acid]{--sk-bg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='390' height='520' viewBox='0 0 390 520'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23b8ff7a'/%3E%3Cstop offset='1' stop-color='%2312a336'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%234fe03a'/%3E%3Cstop offset='1' stop-color='%23063d12'/%3E%3C/linearGradient%3E%3ClinearGradient id='c' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%231f9c2c'/%3E%3Cstop offset='1' stop-color='%23042b0c'/%3E%3C/linearGradient%3E%3Cfilter id='f'%3E%3CfeGaussianBlur stdDeviation='.7'/%3E%3C/filter%3E%3Cfilter id='g'%3E%3CfeGaussianBlur stdDeviation='5'/%3E%3C/filter%3E%3Cg id='q'%3E%3Cpath d='M0 22 40 0l40 22-40 22z' fill='url(%23a)'/%3E%3Cpath d='M0 22l40 22v46L0 68z' fill='url(%23b)'/%3E%3Cpath d='M80 22 40 44v46l40-22z' fill='url(%23c)'/%3E%3C/g%3E%3C/defs%3E%3Cuse href='%23q' transform='translate(322 232) scale(1.25)' filter='url(%23f)' opacity='.9'/%3E%3Cuse href='%23q' transform='translate(204 86) scale(.34)' filter='url(%23f)' opacity='.7'/%3E%3Cuse href='%23q' transform='translate(-26 452) scale(.8)' filter='url(%23g)' opacity='.6'/%3E%3C/svg%3E") 100% 0/min(100%,520px) auto no-repeat,radial-gradient(90% 40% at 92% 6%,rgba(79,224,58,.24),transparent 72%)}
+[data-skin=acid] body{--rc:22px;--r2:14px}
+[data-skin=acid] :is(.card,.fold.fc,.gl-card,.lk-card){background:linear-gradient(150deg,rgba(62,120,58,.3),rgba(14,20,14,.74) 46%);border:1px solid rgba(126,234,94,.24);box-shadow:inset 0 1px 0 rgba(190,255,170,.13);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+[data-skin=acid] :is(.h2-greet,#ttl,.lk-ph b){background:linear-gradient(95deg,#fff 34%,#8df06e);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+[data-skin=acid] :is(.btn.pri,.btn-new){background:#7eea5e;border:0;color:#062003;border-radius:999px;box-shadow:0 0 20px rgba(126,234,94,.48)}
+[data-skin=acid] .btn{border-radius:999px}
+[data-skin=acid] .om-box{background:rgba(6,9,6,.66);border-color:rgba(126,234,94,.3);border-radius:999px}
+[data-skin=acid] .ds-bar i{background:#7eea5e;box-shadow:0 0 12px #7eea5e}
+[data-skin=acid] .ts-hero{background:linear-gradient(135deg,#1a6b2a,#0c3314 58%,#62d83e);box-shadow:0 0 30px rgba(79,224,58,.2)}
+[data-skin=acid] header{background:rgba(6,9,6,.6)}
+[data-skin=acid] #tabbar{background:rgba(6,9,6,.76);border-top:1px solid rgba(126,234,94,.2)}
+[data-skin=acid] .tb-b.on{color:#8df06e}
+[data-skin=acid] .tb-b.on svg{filter:drop-shadow(0 0 6px rgba(126,234,94,.8))}
+[data-skin=acid] .om-go{background:#7eea5e;color:#062003;border-radius:50%}
+[data-skin=acid] :is(.missbar,.demobar),[data-skin=acid] body.ui2 :is(.missbar,.demobar){background:rgba(16,24,16,.72);border:1px solid rgba(126,234,94,.24);border-radius:18px;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+[data-skin=acid] #tinv{background:rgba(12,18,12,.86);border:1px solid rgba(126,234,94,.3);border-radius:22px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+[data-skin=acid] .seg2{border-radius:999px}
+[data-skin=acid] .seg2 button{border-radius:999px}
+[data-skin=acid] .seg2 button.on{background:#7eea5e;color:#062003;box-shadow:0 0 14px rgba(126,234,94,.4)}
+
+/* ---- Чертёж: Tom, Dick & Harry — серая бумага, сетка тонких коралловых линий, углы без скруглений, подписи как на печатной машинке ---- */
+[data-skin=craft]{--sk-bg:linear-gradient(90deg,rgba(226,120,92,.42) 1px,transparent 1px) 0 0/25% 100%,linear-gradient(rgba(226,120,92,.42) 1px,transparent 1px) 0 18px/100% 118px;--sk-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace}
+[data-skin=craft] body{--rc:0px;--r2:0px}
+[data-skin=craft] :is(.card,.fold.fc,.gl-card,.lk-card){background:linear-gradient(180deg,#ece9e3,#e6e3dc);border:1px solid #e0917a;box-shadow:none}
+[data-skin=craft] :is(.h2-greet,#ttl,.lk-ph b){font-weight:400;letter-spacing:-.025em}
+[data-skin=craft] .h2-greet{font-size:36px;line-height:1.06}
+[data-skin=craft] :is(.h2-date,.tb-b,.card-h small,.card-h-r small,.om-t){font-family:var(--sk-mono);letter-spacing:0}
+[data-skin=craft] body.ui2 main.sec .card-h>b{font-weight:500;font-size:17px;letter-spacing:-.01em}
+[data-skin=craft] .h2-date{color:#c83a1a}
+[data-skin=craft] :is(.btn.pri,.btn-new){background:#d6401c;border:0;color:#fff;border-radius:0;font-weight:500}
+[data-skin=craft] :is(.btn,.pill,.om-box,.seg2,.seg2 button,.om-t){border-radius:0}
+[data-skin=craft] .om-box{background:#f2efe9;border:1px solid #e0917a}
+[data-skin=craft] .ds-bar i{background:#d6401c}
+[data-skin=craft] .ts-hero{background:#191817;box-shadow:none}
+[data-skin=craft] header{background:#e8e5df;border-bottom:1px solid #e0917a}
+[data-skin=craft] #tabbar{background:#e8e5df;border-top:1px solid #e0917a}
+[data-skin=craft] .tb-b.on{color:#c83a1a}
+[data-skin=craft] :is(.chk,.t3-ck,.t4-ck){border-radius:0}
+[data-skin=craft] .om-go{background:#d6401c;color:#fff;border-radius:0}
+[data-skin=craft] :is(.missbar,.demobar),[data-skin=craft] body.ui2 :is(.missbar,.demobar){background:#ece9e3;border:1px solid #e0917a;border-radius:0}
+[data-skin=craft] #tinv{background:#ece9e3;border:1px solid #e0917a;border-radius:0}
+[data-skin=craft] .seg2{background:none;box-shadow:inset 0 0 0 1px #e0917a}
+[data-skin=craft] .seg2 button.on{background:#191817;color:#ece9e3;box-shadow:none}
+
+/* ---- Леденец: Don't Board Me — розовый плакат, большие круги, красные узкие заголовки капсом, кремовые карточки, жёлтый мячик ---- */
+[data-skin=candy]{--sk-bg:radial-gradient(circle at 104% 9%,#fdf3e1 0 118px,transparent 119px),radial-gradient(circle at -6% 46%,#f6adc0 0 150px,transparent 151px),radial-gradient(circle at 100% 88%,#fdf3e1 0 190px,transparent 191px)}
+[data-skin=candy] body{--rc:10px;--r2:8px}
+[data-skin=candy] :is(.card,.fold.fc,.gl-card,.lk-card){background:#fdf7ea;border:0;box-shadow:none}
+[data-skin=candy] :is(.h2-greet,#ttl,.lk-ph b){color:#d92a20;text-transform:uppercase;letter-spacing:-.005em;transform:scaleX(.82);transform-origin:0 50%;-webkit-text-stroke:.7px currentColor}
+[data-skin=candy] #ttl{display:inline-block}
+[data-skin=candy] .lk-ph b{display:inline-block}
+[data-skin=candy] .h2-greet{font-size:44px;line-height:.98;width:122%}
+[data-skin=candy] .h2-date{color:#b4201a;display:flex;align-items:center;gap:7px}
+[data-skin=candy] .h2-date::before{content:"";width:13px;height:13px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff27a,#f4cf14 62%,#dcae00);flex:none}
+[data-skin=candy] body.ui2 main.sec .card-h>b{color:#d92a20;text-transform:uppercase;font-size:18px;letter-spacing:0;display:inline-block;transform:scaleX(.86);transform-origin:0 50%;-webkit-text-stroke:.4px currentColor}
+[data-skin=candy] :is(.btn.pri,.btn-new){background:#d92a20;border:0;color:#fff9ec;text-transform:uppercase;letter-spacing:.03em;font-weight:700;border-radius:8px}
+[data-skin=candy] .om-box{background:#fce6e8;border:2px solid #d92a20;border-radius:10px}
+[data-skin=candy] .ds-bar i{background:#d92a20}
+[data-skin=candy] .ts-hero{background:linear-gradient(120deg,#d92a20,#f0564a);box-shadow:none}
+[data-skin=candy] header{background:rgba(250,214,220,.9)}
+[data-skin=candy] #tabbar{background:#fdf7ea}
+[data-skin=candy] .tb-b.on{color:#d92a20}
+[data-skin=candy] .om-go{background:#d92a20;color:#fff9ec;border-radius:8px}
+[data-skin=candy] :is(.missbar,.demobar),[data-skin=candy] body.ui2 :is(.missbar,.demobar){background:#fdf7ea;border:0;border-radius:10px}
+[data-skin=candy] #tinv{background:#fdf7ea;border:2px solid #d92a20;border-radius:12px}
+[data-skin=candy] .seg2{background:#f7c8d1}
+[data-skin=candy] .seg2 button{color:#7a2c24}
+[data-skin=candy] .seg2 button.on{background:#d92a20;color:#fff9ec;box-shadow:none}
+
+/* ---- Тетрадь: школьная тетрадь в клетку с красным полем, карточки — листки на скотче, чернила ---- */
+[data-skin=note]{--sk-bg:linear-gradient(90deg,transparent 21px,rgba(226,62,62,.5) 21px,rgba(226,62,62,.5) 22.5px,transparent 22.5px),linear-gradient(rgba(120,160,214,.34) 1px,transparent 1px) 0 0/100% 22px,linear-gradient(90deg,rgba(120,160,214,.34) 1px,transparent 1px) 0 0/22px 100%}
+[data-skin=note] body{--rc:3px;--r2:4px}
+[data-skin=note] :is(.card,.fold.fc,.gl-card,.lk-card){position:relative;background:#fffef6;border:0;box-shadow:0 1px 1px rgba(28,44,102,.14),0 7px 14px -6px rgba(28,44,102,.3)}
+[data-skin=note] body.ui2 main.sec > .card:nth-of-type(odd),[data-skin=note] .h2-col > .card:nth-child(odd){transform:rotate(-.35deg)}
+[data-skin=note] body.ui2 main.sec > .card:nth-of-type(even),[data-skin=note] .h2-col > .card:nth-child(even){transform:rotate(.3deg)}
+[data-skin=note] :is(.card,.fold.fc,.gl-card,.lk-card)::before{content:"";position:absolute;left:50%;top:-9px;width:74px;height:19px;margin-left:-37px;background:rgba(255,226,120,.72);box-shadow:0 1px 1px rgba(0,0,0,.08);transform:rotate(-1.6deg);pointer-events:none;z-index:1}
+[data-skin=note] :is(.h2-greet,#ttl,.lk-ph b){color:#2346b8;text-decoration:underline wavy rgba(226,62,62,.75) 2px;text-underline-offset:6px}
+[data-skin=note] body.ui2 main.sec .card-h>b{color:#2346b8;text-decoration:underline rgba(35,70,184,.4) 2px;text-underline-offset:4px}
+[data-skin=note] .h2-date{color:#c8342f}
+[data-skin=note] :is(.btn.pri,.btn-new){background:#2346b8;border:0;color:#fff;border-radius:4px;box-shadow:2px 2px 0 rgba(35,70,184,.28)}
+[data-skin=note] .om-box{background:#fff9c9;border:0;border-radius:2px;box-shadow:0 5px 10px -5px rgba(28,44,102,.35)}
+[data-skin=note] .ds-bar i{background:repeating-linear-gradient(115deg,#2346b8 0 5px,#3d62d8 5px 9px)}
+[data-skin=note] .ts-hero{background:#2346b8;box-shadow:0 7px 14px -6px rgba(28,44,102,.45)}
+[data-skin=note] header{background:rgba(253,252,245,.9);border-bottom:1.5px solid rgba(226,62,62,.5)}
+[data-skin=note] #tabbar{background:#fffef6;border-top:1.5px solid rgba(120,160,214,.55)}
+[data-skin=note] .tb-b.on{color:#2346b8}
+[data-skin=note] :is(.chk,.t3-ck,.t4-ck){border-radius:3px}
+[data-skin=note] .om-go{background:#2346b8;color:#fff;border-radius:4px}
+[data-skin=note] :is(.missbar,.demobar),[data-skin=note] body.ui2 :is(.missbar,.demobar){background:#ffe3df;border:0;border-radius:2px;box-shadow:0 5px 10px -5px rgba(28,44,102,.3);transform:rotate(.25deg)}
+[data-skin=note] #tinv{background:#fff9c9;border:0;border-radius:2px;box-shadow:0 8px 18px -6px rgba(28,44,102,.4)}
+[data-skin=note] .seg2 button.on{background:#fffef6;color:#2346b8}
+
+/* ---- Комикс: жёлтый фон в растровую точку, жирные чёрные контуры, резкие тени, приветствие — облачко ---- */
+[data-skin=comic]{--sk-bg:radial-gradient(circle,rgba(0,0,0,.13) 1.7px,transparent 2px) 0 0/11px 11px;--sk-ink:#000}
+[data-skin=comic] body{--rc:6px;--r2:6px}
+[data-skin=comic] :is(.card,.fold.fc,.gl-card,.lk-card){background:#fff;border:3px solid #000;box-shadow:6px 6px 0 #000}
+[data-skin=comic] .h2-hi{position:relative;background:#fff;border:3px solid #000;border-radius:18px;padding:10px 14px;box-shadow:4px 4px 0 #000;margin-right:12px}
+[data-skin=comic] .h2-hi::before{content:"";position:absolute;right:-20px;top:24px;border:solid transparent;border-width:9px 0 9px 20px;border-left-color:#000}
+[data-skin=comic] .h2-hi::after{content:"";position:absolute;right:-14px;top:28px;border:solid transparent;border-width:5px 0 5px 13px;border-left-color:#fff}
+[data-skin=comic] .h2-greet{font-size:26px;text-transform:uppercase;letter-spacing:0;-webkit-text-stroke:.5px #000}
+[data-skin=comic] .h2-date{color:#c00d2a}
+[data-skin=comic] #ttl{text-transform:uppercase;-webkit-text-stroke:.5px #000}
+[data-skin=comic] body.ui2 main.sec .card-h>b{text-transform:uppercase;letter-spacing:.01em;font-size:17px;-webkit-text-stroke:.3px #000;background:linear-gradient(transparent 58%,#ffd84d 58%);padding:0 3px}
+[data-skin=comic] :is(.btn.pri,.btn-new){background:#ff3f4f;border:3px solid #000;color:#000;font-weight:700;text-transform:uppercase;box-shadow:3px 3px 0 #000}
+[data-skin=comic] :is(.btn.pri,.btn-new):active{transform:translate(3px,3px);box-shadow:none}
+[data-skin=comic] .btn{border:2px solid #000;font-weight:600}
+[data-skin=comic] .om-box{background:#fff;border:3px solid #000;border-radius:6px}
+[data-skin=comic] .h2-omni{border-color:#000!important}
+[data-skin=comic] .ds-bar{border:2px solid #000;height:12px}
+[data-skin=comic] .ds-bar i{background:#ff3f4f}
+[data-skin=comic] .ts-hero{background:#2b6bff;border:3px solid #000;box-shadow:6px 6px 0 #000}
+[data-skin=comic] header{background:#ffd84d;border-bottom:3px solid #000}
+[data-skin=comic] #tabbar{background:#fff;border-top:3px solid #000}
+[data-skin=comic] .tb-b{color:#000}
+[data-skin=comic] .tb-b.on{background:#ffd84d;box-shadow:inset 0 0 0 2px #000;font-weight:700}
+[data-skin=comic] :is(.chk,.t3-ck,.t4-ck){border:2.5px solid #000;border-radius:4px}
+[data-skin=comic] .om-go{background:#ff3f4f;color:#000;border:3px solid #000;border-radius:6px;opacity:1}
+[data-skin=comic] :is(.missbar,.demobar),[data-skin=comic] body.ui2 :is(.missbar,.demobar){background:#fff;border:3px solid #000;border-radius:6px;box-shadow:4px 4px 0 #000}
+[data-skin=comic] #tinv{background:#fff;border:3px solid #000;border-radius:6px;box-shadow:6px 6px 0 #000}
+[data-skin=comic] .seg2{background:#fff;box-shadow:inset 0 0 0 2px #000;padding:3px}
+[data-skin=comic] .seg2 button{color:#000}
+[data-skin=comic] .seg2 button.on{background:#000;color:#ffd84d;box-shadow:none}
+[data-skin=comic] :is(.om-t,.pill){border:2px solid #000;color:#000}
+[data-skin=comic] .om-t.on{background:#ffd84d;color:#000;border-color:#000}
+
+/* ---- Пиксели: экран старой игровой приставки — четыре оттенка зелёного, рамки ступеньками, всё прямоугольное ---- */
+[data-skin=pixel]{--sk-bg:repeating-linear-gradient(0deg,rgba(15,56,15,.06) 0 1px,transparent 1px 3px),repeating-linear-gradient(90deg,rgba(15,56,15,.06) 0 1px,transparent 1px 3px);--sk-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace}
+[data-skin=pixel] body{--rc:0px;--r2:0px;font-family:var(--sk-mono);word-spacing:-.22em}
+[data-skin=pixel] :is(.card,.fold.fc,.gl-card,.lk-card){background:#a9c82a;border:0;border-radius:0;box-shadow:-4px 0 0 #0f380f,4px 0 0 #0f380f,0 -4px 0 #0f380f,0 4px 0 #0f380f}
+[data-skin=pixel] body.ui2 main.sec{gap:22px}
+[data-skin=pixel] :is(.h2-greet,#ttl,.lk-ph b){text-transform:uppercase;letter-spacing:.02em;font-weight:700}
+[data-skin=pixel] .h2-greet{font-size:28px;text-shadow:2px 2px 0 #7fa512}
+[data-skin=pixel] body.ui2 main.sec .card-h>b{text-transform:uppercase;font-size:15px}
+[data-skin=pixel] body.ui2 main.sec .card-h>b::before{content:"▶ "}
+[data-skin=pixel] :is(.btn.pri,.btn-new){background:#0f380f;border:0;color:#c4e04a;border-radius:0;text-transform:uppercase;box-shadow:-3px 0 0 #0f380f,3px 0 0 #0f380f,0 -3px 0 #0f380f,0 3px 0 #0f380f,inset -3px -3px 0 #306230}
+[data-skin=pixel] :is(.btn,.pill,.om-box,.seg2,.seg2 button,.om-t,.h2-hc,.tb-b){border-radius:0}
+[data-skin=pixel] .om-box{background:#c4e04a;border:0;box-shadow:inset 3px 3px 0 #6f9a12}
+[data-skin=pixel] .h2-omni{border:0!important}
+[data-skin=pixel] .ds-bar{background:#6f9a12;height:12px;border-radius:0}
+[data-skin=pixel] .ds-bar i{background:repeating-linear-gradient(90deg,#0f380f 0 8px,transparent 8px 11px);border-radius:0}
+[data-skin=pixel] .ts-hero{background:#0f380f;color:#c4e04a;border-radius:0}
+[data-skin=pixel] .ts-hero p{color:#a9c82a}
+[data-skin=pixel] header{background:#8bac0f;border-bottom:4px solid #0f380f}
+[data-skin=pixel] #tabbar{background:#8bac0f;border-top:4px solid #0f380f}
+[data-skin=pixel] .tb-b{color:#306230}
+[data-skin=pixel] .tb-b.on{color:#0f380f;background:#a9c82a}
+[data-skin=pixel] :is(.chk,.t3-ck,.t4-ck){border:3px solid #0f380f;border-radius:0}
+[data-skin=pixel] .wordmark{font-family:var(--sk-mono);font-weight:700;letter-spacing:.14em;-webkit-text-fill-color:#0f380f}
+[data-skin=pixel] .om-go{background:#0f380f;color:#c4e04a;border-radius:0;opacity:1}
+[data-skin=pixel] :is(.missbar,.demobar),[data-skin=pixel] body.ui2 :is(.missbar,.demobar){background:#a9c82a;border:0;border-radius:0;box-shadow:-3px 0 0 #306230,3px 0 0 #306230,0 -3px 0 #306230,0 3px 0 #306230}
+[data-skin=pixel] #tinv{background:#c4e04a;border:0;border-radius:0;box-shadow:-4px 0 0 #0f380f,4px 0 0 #0f380f,0 -4px 0 #0f380f,0 4px 0 #0f380f}
+[data-skin=pixel] .seg2{background:#8bac0f}
+[data-skin=pixel] .seg2 button{color:#0f380f}
+[data-skin=pixel] .seg2 button.on{background:#0f380f;color:#c4e04a;box-shadow:none}
+[data-skin=pixel] :is(.om-t,.pill){border-color:#0f380f;color:#0f380f}
+[data-skin=pixel] .om-t.on{background:#0f380f;color:#c4e04a}

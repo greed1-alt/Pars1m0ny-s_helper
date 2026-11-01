@@ -42,7 +42,7 @@
     cache.set(c, r); return r;
   }
   const tr = s => { const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(s); return m[1] + one(m[2]) + m[3]; };
-  window.enTr = tr;
+  window.enTr = tr; window.enWalk = n => walk(n);
   const ATTR = ['placeholder', 'aria-label', 'title', 'data-tip', 'alt'], SEL = ATTR.map(a => `[${a}]`).join(',');
   const elAttrs = el => ATTR.forEach(a => { const v = el.getAttribute(a); if (!v || !CYR.test(v)) return; const t = tr(v); if (t !== v) el.setAttribute(a, t); });   // только если изменилось: иначе наблюдатель сработает снова и снова
   const textOf = n => { if (n.nodeValue && CYR.test(n.nodeValue)) { const p = n.parentNode; if (p && (p.nodeName === 'SCRIPT' || p.nodeName === 'STYLE' || p.nodeName === 'TEXTAREA')) return; const t = tr(n.nodeValue); if (t !== n.nodeValue) n.nodeValue = t; } };

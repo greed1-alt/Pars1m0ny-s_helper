@@ -241,14 +241,20 @@ ACT.cnpick = el => cnRun(async () => { const it = el.dataset.it; if (await coinP
 // светлая, тёмная и чёрная тема. Примерку на всё приложение пробовали и убрали («просто покажи как оно выглядит») — код в коммите 12d849c
 const PV_MODE = [['l', 'Светлая'], ['d', 'Тёмная'], ['b', 'Чёрная']];
 const palCSS = (k, m) => { const v = lookVars(k, m !== 'l', m === 'b'); return Object.keys(v).map(x => `${x}:${v[x]}`).join(';'); };
-ACT.cnpvt = el => { $('.cn-pv-app').style.cssText = palCSS(el.dataset.k, el.dataset.m); $$('.cn-pt button').forEach(b => { b.classList.toggle('on', b === el); b.setAttribute('aria-pressed', b === el); }); };
+const CSS_ALL = ['fonts', 'app', 'sections', 'ui2', 'skins'].map(f => `<link rel="stylesheet" href="css/${f}.css">`).join('');
+function palPvShow(el, k, m) {
+  const r = el.shadowRoot || el.attachShadow({ mode: 'open' }), sk = PAL[k].skin;
+  r.innerHTML = `${CSS_ALL}<div class="lk-prev"${sk ? ` data-skin="${sk}"` : ''} style="${palCSS(k, m)};color:var(--tx);font:14px/1.4 var(--font)">${lookDemo()}</div>`;
+  if (window.enWalk) enWalk(r.querySelector('.lk-prev'));
+}
+ACT.cnpvt = el => { palPvShow($('.cn-pv-app'), el.dataset.k, el.dataset.m); $$('.cn-pt button').forEach(b => { b.classList.toggle('on', b === el); b.setAttribute('aria-pressed', b === el); }); };
 
 // ---- Окно вещи ----
 function openShopItem(it) {
   const k = it.split(':')[1], price = coinPrice(it), own = it === 'frz' ? false : coinOwn(it), bal = coins ? coins.bal : 0, pm = S.settings.theme === 'black' ? 'b' : darkNow() ? 'd' : 'l';
   if (!price) return;
   const pv = it === 'frz' ? '<div class="cn-pv cn-pv-frz" aria-hidden="true">❄️</div>'
-    : it.startsWith('pal:') ? `<div class="seg2 cn-pt" role="group" aria-label="Как показать">${PV_MODE.map(([v, n]) => `<button class="${v === pm ? 'on' : ''}" aria-pressed="${v === pm}" data-act="cnpvt" data-k="${k}" data-m="${v}">${n}</button>`).join('')}</div><div class="lk-prev cn-pv-app" style="${palCSS(k, pm)}" aria-hidden="true">${lookDemo()}</div>`
+    : it.startsWith('pal:') ? `${palFix(k) ? '' : `<div class="seg2 cn-pt" role="group" aria-label="Как показать">${PV_MODE.map(([v, n]) => `<button class="${v === pm ? 'on' : ''}" aria-pressed="${v === pm}" data-act="cnpvt" data-k="${k}" data-m="${v}">${n}</button>`).join('')}</div>`}<div class="cn-pv-app" aria-hidden="true"></div>`
     : it.startsWith('cv:') ? `<div class="cn-pv cn-pv-cv" style="background-image:${COVER_GLOW},${COVERS[k]}"></div>`
     : `<div class="cn-pv cn-pv-fm">${avatarHTML(88, k)}</div>`;
   const desc = it === 'frz' ? `Пропустили день — серия привычек не сгорает: заморозка тратится сама. Про запас — до ${FRZ_MAX}, у вас ${coins ? coins.items.frz || 0 : 0}.`
@@ -267,6 +273,7 @@ function openShopItem(it) {
   else btns = buy();
   sheet(`<div class="sh-head"><h3>${esc(itemName(it))}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
     ${pv}<p class="cn-desc">${desc}</p><div class="cn-bal-s">У вас ${coinI(16)} <b>${NF0.format(bal)}</b></div><div class="cn-btns">${btns}</div>`);
+  if (it.startsWith('pal:')) palPvShow($('.cn-pv-app'), k, pm);
 }
 
 // ---- Страница ----

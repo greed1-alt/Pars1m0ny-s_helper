@@ -2,8 +2,8 @@
 // Выбирает сам пользователь: Настройки → Оформление. Цвета палитр — здесь; applyLook() ставит их переменными CSS на <html>.
 // «Графит» (ключ classic) — прежние цвета из css/app.css; 6 октября 2026 пользователь попросил другое название вместо «Классика». В CSS остались запасные значения и то, что от палитры не зависит (цвета графиков, тени окон).
 // Ключи цвета: bg — фон «с рамкой», pg — фон страницы под карточками, bg2 — боковая панель, sf — карточки и окна,
-// line — линии, tx/tx2/mut — текст основной/второй/приглушённый, acc/accfg — кнопки и выбранное, wm — надпись Parsimony, glow — цвет мягкого свечения фона (необязательно).
-// hc у палитры (необязательно) — второй цвет карточки серии в «Задачах», чтобы она не уходила в розовый.
+// line — линии, tx/tx2/mut — текст основной/второй/приглушённый, acc/accfg — кнопки и выбранное, wm — надпись Parsimony.
+// У палитры (необязательно): hc — второй цвет карточки серии в «Задачах», чтобы она не уходила в розовый; skin и fix — у тематических тем.
 const PAL = {
   indigo:{ n:'Индиго',
     l:{ bg:'#fbfbfe', pg:'#f2f3f9', bg2:'#eceef7', sf:'#ffffff', line:'#e1e4f0', tx:'#1a1c2b', tx2:'#4d536b', mut:'#80869e', acc:'#4b4fd1', accfg:'#ffffff', wm:'#5b5ee0' },
@@ -47,28 +47,23 @@ const PAL = {
   classic:{ n:'Графит',
     l:{ bg:'#ffffff', pg:'#f5f5f3', bg2:'#f7f7f5', sf:'#ffffff', line:'#e9e9e7', grid:'#efefed', tx:'#1d1d1c', tx2:'#5f5e5b', mut:'#8a8986', acc:'#2b2b2b', accfg:'#ffffff', wm:'#b4642c' },
     d:{ bg:'#191919', bg2:'#202020', sf:'#252525', line:'#2f2f2f', grid:'#292929', tx:'#ececec', tx2:'#b4b4b4', mut:'#7f7f7f', acc:'#e08a3c', accfg:'#1a0f02', wm:'#e8964a' } },
-  // Семь тем по образцам пользователя (31 октября 2026): берутся именно цвета, у каждой темы своя основа — тёмная или светлая
-  ember:{ n:'Жар', hc:'#ff8a2a',
-    l:{ bg:'#fffaf6', pg:'#f8efe8', bg2:'#f1e5db', sf:'#ffffff', line:'#ead8cb', tx:'#1d120c', tx2:'#5f4a3e', mut:'#917c6f', acc:'#bf3008', accfg:'#ffffff', wm:'#dc4414' },
-    d:{ bg:'#0a0807', bg2:'#100c0a', sf:'#18120f', line:'#2e211b', tx:'#f6efe9', tx2:'#bdaea3', mut:'#8a7a70', acc:'#ff5a24', accfg:'#1d0700', wm:'#ff6d3a', glow:'#ff4a1c' } },
-  acid:{ n:'Кислота', hc:'#7fdc2a',
-    l:{ bg:'#f5fbf2', pg:'#e6f4e1', bg2:'#dcefd5', sf:'#f9fdf7', line:'#c8e3c0', tx:'#0b190a', tx2:'#3d5839', mut:'#6a8765', acc:'#14781c', accfg:'#ffffff', wm:'#1c9426' },
-    d:{ bg:'#060906', bg2:'#0a0f0a', sf:'#111711', line:'#1f2b1f', tx:'#eef6ec', tx2:'#a9b8a6', mut:'#778774', acc:'#7eea5e', accfg:'#062003', wm:'#8df06e', glow:'#4fe03a' } },
-  lilac:{ n:'Сирень',
-    l:{ bg:'#fbfaff', pg:'#f0edfb', bg2:'#e8e3f7', sf:'#ffffff', line:'#dcd5f1', tx:'#15102a', tx2:'#4d4569', mut:'#7e7599', acc:'#5a33c8', accfg:'#ffffff', wm:'#6c44dc' },
-    d:{ bg:'#08070c', bg2:'#0d0b13', sf:'#14111d', line:'#272138', tx:'#f2effb', tx2:'#b4aecc', mut:'#7f7899', acc:'#c4aeff', accfg:'#1a0e3c', wm:'#cfbbff', glow:'#8a5cff' } },
-  craft:{ n:'Чертёж', hc:'#e8652f',
-    l:{ bg:'#e8e5df', pg:'#dfdcd5', bg2:'#d6d3cb', sf:'#ece9e3', line:'#e3a792', grid:'#e4bfae', tx:'#181716', tx2:'#494743', mut:'#6c6963', acc:'#a82c10', accfg:'#ffffff', wm:'#c83a1a' },
-    d:{ bg:'#151413', bg2:'#1b1a18', sf:'#211f1d', line:'#4a2d24', grid:'#33241f', tx:'#ece9e3', tx2:'#b6b2aa', mut:'#86827a', acc:'#f26b46', accfg:'#240900', wm:'#f47b59' } },
-  candy:{ n:'Леденец', hc:'#ff7a6b',
-    l:{ bg:'#fff4f3', pg:'#fad6dc', bg2:'#f7c8d1', sf:'#fdf7ea', line:'#f1b9c5', tx:'#471310', tx2:'#7a2c24', mut:'#964840', acc:'#b41a14', accfg:'#fff9ec', wm:'#d92a20' },
-    d:{ bg:'#1b0c10', bg2:'#231015', sf:'#2c151b', line:'#47232c', tx:'#fbeee6', tx2:'#e2b9b3', mut:'#ae7f7a', acc:'#ff6f62', accfg:'#2c0603', wm:'#ff8a7c' } },
-  techno:{ n:'Скафандр', hc:'#f7a81c',
-    l:{ bg:'#fff9ea', pg:'#fbefcf', bg2:'#f7e5b4', sf:'#fffbf1', line:'#efdcae', tx:'#2a2926', tx2:'#5b5445', mut:'#7f7259', acc:'#a44c00', accfg:'#ffffff', wm:'#d06a00' },
-    d:{ bg:'#2d2f2f', bg2:'#262828', sf:'#383a3a', line:'#4b4e4d', tx:'#f4ecdc', tx2:'#d6caaf', mut:'#a79d88', acc:'#fba31c', accfg:'#2a1700', wm:'#ffb62f', glow:'#f7941d' } },
-  lab:{ n:'Лаборатория', hc:'#ff8a00',
-    l:{ bg:'#e4e4e4', pg:'#dadada', bg2:'#d0d0d0', sf:'#ececec', line:'#bfbfbf', tx:'#0f0f0f', tx2:'#3e3e3e', mut:'#5e5e5e', acc:'#111111', accfg:'#ff9a1f', wm:'#d96a00' },
-    d:{ bg:'#151515', bg2:'#1b1b1b', sf:'#222222', line:'#353535', tx:'#efefef', tx2:'#b5b5b5', mut:'#838383', acc:'#ff9320', accfg:'#1d0e00', wm:'#ffa53a' } },
+  // Тематические темы (1 ноября 2026): у каждой своя атмосфера — css/skins.css (skin) и один вид, светлый или тёмный (fix)
+  ember:{ n:'Жар', skin:'ember', fix:'d', hc:'#ff8a2a',
+    d:{ bg:'#0a0807', bg2:'#100c0a', sf:'#18120f', line:'#2e211b', tx:'#f6efe9', tx2:'#bdaea3', mut:'#8a7a70', acc:'#ff5a24', accfg:'#1d0700', wm:'#ff6d3a' } },
+  acid:{ n:'Кислота', skin:'acid', fix:'d', hc:'#7fdc2a',
+    d:{ bg:'#060906', bg2:'#0a0f0a', sf:'#111711', line:'#1f2b1f', tx:'#eef6ec', tx2:'#a9b8a6', mut:'#778774', acc:'#7eea5e', accfg:'#062003', wm:'#8df06e' } },
+  craft:{ n:'Чертёж', skin:'craft', fix:'l', hc:'#e8652f',
+    l:{ bg:'#e8e5df', pg:'#dfdcd5', bg2:'#d6d3cb', sf:'#ece9e3', line:'#e3a792', grid:'#e4bfae', tx:'#181716', tx2:'#494743', mut:'#6c6963', acc:'#a82c10', accfg:'#ffffff', wm:'#c83a1a' } },
+  candy:{ n:'Леденец', skin:'candy', fix:'l', hc:'#ff7a6b',
+    l:{ bg:'#fff4f3', pg:'#fad6dc', bg2:'#f7c8d1', sf:'#fdf7ea', line:'#f1b9c5', tx:'#471310', tx2:'#7a2c24', mut:'#964840', acc:'#b41a14', accfg:'#fff9ec', wm:'#d92a20' } },
+  techno:{ n:'Скафандр', skin:'techno', fix:'d', hc:'#f7a81c',
+    d:{ bg:'#2d2f2f', bg2:'#262828', sf:'#383a3a', line:'#4b4e4d', tx:'#f4ecdc', tx2:'#d6caaf', mut:'#a79d88', acc:'#fba31c', accfg:'#2a1700', wm:'#ffb62f' } },
+  note:{ n:'Тетрадь', skin:'note', fix:'l', hc:'#4a6fe0',
+    l:{ bg:'#fdfcf5', pg:'#fbfaf2', bg2:'#f1efe3', sf:'#fffef6', line:'#c9d9ec', tx:'#1c2c66', tx2:'#3c4c86', mut:'#5f6fa2', acc:'#2346b8', accfg:'#ffffff', wm:'#2346b8' } },
+  comic:{ n:'Комикс', skin:'comic', fix:'l', hc:'#2b6bff',
+    l:{ bg:'#ffd84d', pg:'#ffd84d', bg2:'#fff3b8', sf:'#ffffff', line:'#000000', grid:'#d9d9d9', tx:'#000000', tx2:'#222222', mut:'#444444', acc:'#b00b26', accfg:'#ffffff', wm:'#000000' } },
+  pixel:{ n:'Пиксели', skin:'pixel', fix:'l', hc:'#306230',
+    l:{ bg:'#9bbc0f', pg:'#9bbc0f', bg2:'#8bac0f', sf:'#a9c82a', line:'#306230', grid:'#7f9f12', tx:'#0f380f', tx2:'#143f14', mut:'#1c471c', acc:'#0f380f', accfg:'#c4e04a', wm:'#0f380f' } },
 };
 const PAL_ORDER = Object.keys(PAL);
 // Чёрная тема: фон чисто чёрный, акцент — из палитры (у «Графита» — светло-серый, как раньше)
@@ -100,15 +95,17 @@ const ratioC = (a, b) => { const x = lumC(a), y = lumC(b); return (Math.max(x, y
 const readableC = (fg, toward, bgs, min = 4.5) => { for (let i = 0; i <= 20; i++) { const c = i ? mixC(fg, toward, i / 20) : fg; if (bgs.every(b => ratioC(c, b) >= min)) return c; } return toward; };
 
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
-const darkNow = () => { const t = S.settings.theme; return t === 'dark' || t === 'black' || (t === 'auto' && darkMQ.matches); };
+const palFix = k => (PAL[k] || {}).fix;   // у тематической темы один вид: выбор светлой и тёмной на неё не действует
+const darkNow = () => { const f = palFix(S.settings.pal); if (f) return f === 'd'; const t = S.settings.theme; return t === 'dark' || t === 'black' || (t === 'auto' && darkMQ.matches); };
 // Цвета палитры для текущей темы (без контраста) — для превью в настройках
-const palColors = (k, dark, black) => { const p = PAL[k] || PAL[LOOK_DEF.pal], c = Object.assign({}, dark ? p.d : p.l);
+const palColors = (k, dark, black) => { const p = PAL[k] || PAL[LOOK_DEF.pal], f = p.fix; if (f) { dark = f === 'd'; black = false; } const c = Object.assign({}, dark ? p.d : p.l);
   if (black) Object.assign(c, BLACK, k === 'classic' ? { acc:'#e6e6e6', accfg:'#111111', wm:'#8f8f8f' } : {});
   if (!c.pg) c.pg = c.bg; return c; };
 
 let lookKey = '';
 // Цвета оформления для палитры: applyLook ставит их на всю страницу, предпросмотр палитры — на свой блок
 function lookVars(k, dark, black) {
+  if (palFix(k)) dark = palFix(k) === 'd';
   const st = S.settings, c = palColors(k, dark, black);
   const page = st.card === 'line' ? c.bg : c.pg;
   let { tx, tx2, mut, line } = c;
@@ -124,17 +121,17 @@ function lookVars(k, dark, black) {
     '--tx':tx, '--tx2':tx2, '--mut':mut, '--acc':c.acc, '--accfg':c.accfg, '--wm':c.wm,
     '--hov': dark ? 'rgba(255,255,255,.055)' : rgba(c.tx, .055), '--hov2': dark ? 'rgba(255,255,255,.09)' : rgba(c.tx, .095), '--wk': dark ? 'rgba(255,255,255,.02)' : rgba(c.tx, .025),
     '--card':card, '--cardbd':cardbd, '--cardsh':cardsh, '--rc':{ s:'12px', m:'18px', l:'24px' }[st.round],
-    '--glow': c.glow ? `radial-gradient(100% 52% at 92% -6%,${rgba(c.glow, .2)},transparent 72%),radial-gradient(80% 40% at -8% 102%,${rgba(c.glow, .09)},transparent 72%)` : 'none',
     '--mix': bright ? (dark ? '40%' : '30%') : (dark ? '26%' : '17%'), '--mixtx': bright ? (dark ? '32%' : '72%') : (dark ? '52%' : '62%'),
   };
   return v;
 }
 function applyLook() {
-  const st = S.settings, dark = darkNow(), black = st.theme === 'black';
+  const st = S.settings, dark = darkNow(), fix = palFix(st.pal), black = st.theme === 'black' && !fix;
   const key = [st.theme, dark, st.pal, st.contrast, st.card, st.round, st.evc].join();
   if (key === lookKey) return; lookKey = key;
   const root = document.documentElement, v = lookVars(st.pal, dark, black);
-  root.dataset.theme = st.theme; root.dataset.card = st.card;
+  root.dataset.theme = fix ? (dark ? 'dark' : 'light') : st.theme; root.dataset.card = st.card;
+  if (PAL[st.pal].skin) root.dataset.skin = PAL[st.pal].skin; else delete root.dataset.skin;
   for (const k in v) root.style.setProperty(k, v[k]);
 }
 darkMQ.addEventListener('change', () => { if (S.settings.theme === 'auto') render(); });
@@ -166,7 +163,7 @@ function lookHTML() {
   return `<div class="set-sec">Оформление</div>
   <div class="lk-row"><div class="lk-h">Язык · Language</div><div class="seg2 lk-seg" role="group">${[['ru', 'Русский'], ['en', 'English']].map(([v, n]) => `<button class="${LANG === v ? 'on' : ''}" aria-pressed="${LANG === v}" data-act="lang" data-v="${v}">${n}</button>`).join('')}</div></div>
   <div class="lk-row"><div class="lk-h">Тема${hintK('theme')}</div>
-    <div class="thm">${THEME_N.map(([v, n]) => `<button class="${st.theme === v ? 'on' : ''}" data-act="theme" data-v="${v}" aria-pressed="${st.theme === v}"><span class="pv" style="${themePrev(v)}"></span>${n}</button>`).join('')}</div></div>
+    ${palFix(st.pal) ? '<p class="set-note" style="margin:0">У темы «' + PAL[st.pal].n + '» один вид: светлая и тёмная на неё не действуют.</p>' : `<div class="thm">${THEME_N.map(([v, n]) => `<button class="${st.theme === v ? 'on' : ''}" data-act="theme" data-v="${v}" aria-pressed="${st.theme === v}"><span class="pv" style="${themePrev(v)}"></span>${n}</button>`).join('')}</div>`}</div>
   <div class="lk-row"><div class="lk-h">Палитра${hintK('pal')}</div>
     <button class="lk-pick" data-act="palpick">${palPv(st.pal)}<span><b>${PAL[st.pal].n}</b><small>Нажмите, чтобы выбрать из ${PAL_ORDER.length}</small></span>${I(IC.right, 18)}</button>
     <div class="pals lk-wide">${PAL_ORDER.map(palSw).join('')}</div></div>

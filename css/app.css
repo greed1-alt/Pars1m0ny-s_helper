@@ -45,7 +45,6 @@
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0}
-body::before{content:"";position:fixed;inset:0;z-index:-1;background:var(--glow,none);pointer-events:none}
 body{font-family:var(--font);font-size:14px;line-height:1.4;background:var(--bg);color:var(--tx);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;-webkit-text-size-adjust:100%}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 input,select,textarea{font:inherit;color:inherit}

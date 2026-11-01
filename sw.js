@@ -1,7 +1,7 @@
-const CACHE = 'rem-v170';
+const CACHE = 'rem-v171';
 const NUDGE_C = 'rem-nudge', NUDGE_URL = new URL('nudge', self.registration.scope).href;   // помощник пишет сам: текст пуша до открытия чата (aiNudgeOpen в assistant.js)
 const FILES = ['./', './index.html', './beta.html', './privacy.html', './consent.html', './terms.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png', './favicon.png',
-  './css/fonts.css', './css/app.css', './css/sections.css', './css/ui2.css',
+  './css/fonts.css', './css/app.css', './css/sections.css', './css/ui2.css', './css/skins.css',
   ...['inter-cyrillic', 'inter-latin', 'inter-latin-ext', 'inter-greek', 'josefin-sans-300-latin'].map(n => './fonts/' + n + '.woff2'),   // свои шрифты (css/fonts.css) — работают и без интернета
   ...['core', 'i18n', 'en-dict', 'en', 'names', 'a11y', 'look', 'help', 'calendar', 'charts', 'sections', 'tasks', 'habits', 'finance', 'goals', 'pages', 'timer', 'ui2', 'layout', 'tour', 'input', 'share', 'cloud', 'friends', 'chat', 'admin', 'plans', 'shop', 'notify', 'assistant', 'map', 'main'].map(n => './js/' + n + '.js')];
 // cache:'reload' / 'no-cache' — мимо кэша браузера: GitHub Pages разрешает хранить файлы 10 минут, и без этого новая версия приходила с опозданием
