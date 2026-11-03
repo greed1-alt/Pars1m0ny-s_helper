@@ -50,8 +50,8 @@ const PAL = {
   // Тематические темы (1 ноября 2026): у каждой своя атмосфера — css/skins.css (skin) и один вид, светлый или тёмный (fix)
   ember:{ n:'Жар', p:400, skin:'ember', fix:'d', hc:'#ff8a2a',
     d:{ bg:'#0a0807', bg2:'#100c0a', sf:'#18120f', line:'#2e211b', tx:'#f6efe9', tx2:'#bdaea3', mut:'#8a7a70', acc:'#ff5a24', accfg:'#1d0700', wm:'#ff6d3a' } },
-  acid:{ n:'Кислота', p:400, skin:'acid', fix:'d', hc:'#7fdc2a',
-    d:{ bg:'#060906', bg2:'#0a0f0a', sf:'#111711', line:'#1f2b1f', tx:'#eef6ec', tx2:'#a9b8a6', mut:'#778774', acc:'#7eea5e', accfg:'#062003', wm:'#8df06e' } },
+  acid:{ n:'Кислота', p:400, skin:'acid', fix:'d', hc:'#b8ff2e',
+    d:{ bg:'#060906', bg2:'#0a0f0a', sf:'#111711', line:'#1f2b1f', tx:'#eef6ec', tx2:'#a9b8a6', mut:'#778774', acc:'#c8ff2e', accfg:'#172100', wm:'#d4ff4a' } },
   craft:{ n:'Чертёж', p:400, skin:'craft', fix:'l', hc:'#e8652f',
     l:{ bg:'#e8e5df', pg:'#dfdcd5', bg2:'#d6d3cb', sf:'#ece9e3', line:'#e3a792', grid:'#e4bfae', tx:'#181716', tx2:'#494743', mut:'#6c6963', acc:'#a82c10', accfg:'#ffffff', wm:'#c83a1a' } },
   candy:{ n:'Сладость', p:400, skin:'candy', fix:'l', hc:'#ff7a6b',
