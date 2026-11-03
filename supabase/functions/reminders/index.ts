@@ -300,6 +300,38 @@ async function sendTo(subs, payload, ttl) {
   }));
   return { ok, fail };
 }
+// ==== IO start ==== (запросы к базе; тест tools/test-reminders-io.mjs подставляет свои sb и sendTo)
+// Запросы порциями (3 ноября 2026, к открытому запуску): список id уходит в адрес запроса — 100 id ≈ 3,7 КБ при обычном пределе ~8 КБ;
+// строки — страницами по 1000 (больше сервер за раз не отдаёт); из записей — только то, что нужно для пушей, а не весь JSON человека.
+// Раньше все записи всех людей с уведомлениями читались одним запросом: примерно от 200 человек он бы не прошёл
+const CHUNK = 100, PAGE = 1000;
+const chunks = (a, n = CHUNK) => { const out = []; for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n)); return out; };
+async function allRows(mk) {
+  const out = [];
+  for (let i = 0; ; i += PAGE) { const { data, error } = await mk().range(i, i + PAGE - 1); if (error) throw error; out.push(...(data || [])); if (!data || data.length < PAGE) return out; }
+}
+// Какие настройки нужны пушам (ядро и очереди): часовой пояс, сводки, «помощник пишет сам», подначки, язык, свободные часы, выключатели пушей
+const SET_KEYS = ['tz', 'digest', 'nudge', 'phr', 'lang', 'freeHrs', 'frPush', 'msgPush', 'newsPush', 'admPush'];
+const SET_SEL = SET_KEYS.map(k => `s_${k}:data->settings->${k}`).join(',');
+const DATA_SEL = 'user_id,events:data->events,habits:data->habits,goals:data->goals,' + SET_SEL, PREF_SEL = 'user_id,' + SET_SEL;
+const prefOf = r => { const s = {}; for (const k of SET_KEYS) if (r['s_' + k] != null) s[k] = r['s_' + k]; return s; };
+const dataOf = r => ({ events: r.events, habits: r.habits, goals: r.goals, settings: prefOf(r) });
+// Подписки устройств: всех людей (ids = null) или только этих — id → [подписки]
+async function subsOf(ids) {
+  const SEL = 'endpoint,p256dh,auth,user_id', rows = [];
+  if (!ids) rows.push(...await allRows(() => sb.from('push_subscriptions').select(SEL).not('user_id', 'is', null).order('endpoint')));
+  else for (const c of chunks(ids)) { const { data, error } = await sb.from('push_subscriptions').select(SEL).in('user_id', c); if (error) throw error; rows.push(...(data || [])); }
+  const by = new Map();
+  for (const s of rows) { if (!by.has(s.user_id)) by.set(s.user_id, []); by.get(s.user_id).push(s); }
+  return by;
+}
+// Настройки уведомлений этих людей — id → settings
+async function prefsOf(ids) {
+  const m = new Map();
+  for (const c of chunks(ids)) { const { data } = await sb.from('user_data').select(PREF_SEL).in('user_id', c); for (const r of data || []) m.set(r.user_id, prefOf(r)); }
+  return m;
+}
+
 // Записать ключ в журнал; true — записан впервые (значит, ещё не отправляли)
 async function once(user_id, key, fireAt) {
   const { data, error } = await sb.from('reminder_log').upsert({ user_id, key, fire_at: new Date(fireAt).toISOString() }, { onConflict: 'user_id,key', ignoreDuplicates: true }).select('key');
@@ -308,18 +340,14 @@ async function once(user_id, key, fireAt) {
 }
 
 async function tick(now) {
-  const { data: subs, error } = await sb.from('push_subscriptions').select('endpoint,p256dh,auth,user_id').not('user_id', 'is', null);
-  if (error) throw error;
-  const byUser = new Map();
-  for (const s of subs || []) { if (!byUser.has(s.user_id)) byUser.set(s.user_id, []); byUser.get(s.user_id).push(s); }
-  const cfg = await appCfg();
-  let due = 0, sent = 0, rows = [];
-  if (byUser.size) {
-    const { data: rs, error: e2 } = await sb.from('user_data').select('user_id,data').in('user_id', [...byUser.keys()]);
+  const byUser = await subsOf(null), cfg = await appCfg(), prefs = new Map();
+  let due = 0, sent = 0;
+  for (const ids of chunks([...byUser.keys()])) {
+    const { data: rs, error: e2 } = await sb.from('user_data').select(DATA_SEL).in('user_id', ids);
     if (e2) throw e2;
-    rows = rs || [];
-    for (const row of rows) {
-      const data = row.data || {}, tz = tzOf(data);
+    for (const row of rs || []) {
+      const data = dataOf(row), tz = tzOf(data);
+      prefs.set(row.user_id, data.settings);
       for (const r of dueReminders(data, now - WINDOW, now)) {
         due++;
         if (!(await once(row.user_id, r.key, r.fire))) continue;
@@ -340,27 +368,26 @@ async function tick(now) {
     }
   }
   await sb.from('reminder_log').delete().lt('fire_at', new Date(now - 3 * DAY).toISOString());   // журнал за 3 дня, старше не нужен
-  sent += await friendPushes(byUser, rows, now);
-  sent += await msgPushes(byUser, rows);
-  sent += await annPushes(byUser, rows, now, cfg);
+  sent += await friendPushes(byUser, prefs, now);
+  sent += await msgPushes(byUser, prefs);
+  sent += await annPushes(byUser, prefs, now, cfg);
   sent += await adminPushes(now);
   return { users: byUser.size, due, sent };
 }
 
 // Заявки в друзья (21 октября 2026; supabase/sql/friends.sql: очередь fr_notify): «Имя зовёт вас в друзья», «Имя теперь в друзьях».
 // Каждая уходит один раз (sent_at). Нет подписки или в приложении выключен «Пуш о заявках» (settings.frPush = false) — просто отмечаем.
-// Таблицы ещё нет (SQL не выполнен) — молча пропускаем, напоминания работают как раньше
-async function friendPushes(byUser, rows, now) {
+// Таблицы ещё нет (SQL не выполнен) — молча пропускаем, напоминания работают как раньше. prefs — настройки получателей (id → settings)
+async function friendPushes(byUser, prefs, now) {
   const { data: q, error } = await sb.from('fr_notify').select('id').is('sent_at', null).order('id').limit(200);
   if (error || !q || !q.length) return 0;
   // забираем из очереди до отправки: запуск по записи в очередь (push_now.sql) и ежеминутный могут совпасть — пуш уйдёт один раз
   const { data: nts } = await sb.from('fr_notify').update({ sent_at: new Date(now).toISOString() }).in('id', q.map(n => n.id)).is('sent_at', null).select('id,to_uid,from_uid,kind');
   if (!nts || !nts.length) return 0;
   const who = await whoOf(nts.map(n => n.from_uid));
-  const dataOf = new Map(rows.map(r => [r.user_id, r.data || {}]));
   let ok = 0;
   for (const n of nts) {
-    const subs = byUser.get(n.to_uid), st = (dataOf.get(n.to_uid) || {}).settings || {};
+    const subs = byUser.get(n.to_uid), st = prefs.get(n.to_uid) || {};
     if (!subs || st.frPush === false) continue;
     const en = st.lang === 'en', body = n.kind === 'req' ? (en ? `${who(n.from_uid)} sent you a friend request` : `${who(n.from_uid)} зовёт вас в друзья`) : en ? `${who(n.from_uid)} is now your friend` : `${who(n.from_uid)} теперь в друзьях`;
     ok += (await sendTo(subs, JSON.stringify({ title: 'Parsimony', body, tag: 'fr-' + n.from_uid, url: './#s=profile', s: 'profile' }), 24 * 3600)).ok;
@@ -371,24 +398,25 @@ async function friendPushes(byUser, rows, now) {
 
 // Имя для пуша: имя из карточки друга, иначе @ник
 async function whoOf(ids) {
-  const { data: profs } = await sb.from('profiles').select('user_id,name,nick').in('user_id', [...new Set(ids)]);
-  return id => { const p = (profs || []).find(x => x.user_id === id); return (p && (String(p.name || '').trim() || (p.nick ? '@' + p.nick : ''))) || 'Кто-то'; };
+  const profs = new Map();
+  for (const c of chunks([...new Set(ids)])) { const { data } = await sb.from('profiles').select('user_id,name,nick').in('user_id', c); for (const p of data || []) profs.set(p.user_id, p); }
+  return id => { const p = profs.get(id); return (p && (String(p.name || '').trim() || (p.nick ? '@' + p.nick : ''))) || 'Кто-то'; };
 }
 
 // Сообщения друзей (23 октября 2026; supabase/sql/messages.sql: очередь msg_notify — одна строка «кому — от кого», n — сколько новых,
 // body — начало последнего). Прочитал раньше, чем дошла очередь, — строки уже нет, пуша не будет. Заголовок — имя друга, текст — сообщение;
 // новый пуш от того же друга заменяет прошлый (tag). Нет подписки или выключен «Пуш о сообщениях» (settings.msgPush = false) — просто снимаем.
 // Строку снимаем, только если с тех пор не пришло новое (тот же at). Таблицы ещё нет (SQL не выполнен) — молча пропускаем
-async function msgPushes(byUser, rows) {
+async function msgPushes(byUser, prefs) {
   const { data: q, error } = await sb.from('msg_notify').select('to_uid,from_uid,n,body,at').order('at').limit(300);
   if (error || !q || !q.length) return 0;
-  const who = await whoOf(q.map(x => x.from_uid)), dataOf = new Map(rows.map(r => [r.user_id, r.data || {}]));
+  const who = await whoOf(q.map(x => x.from_uid));
   let ok = 0;
   for (const x of q) {
     // забираем из очереди до отправки (как у заявок): новое сообщение того же друга меняет at — такая строка останется до следующего раза
     const { data: got } = await sb.from('msg_notify').delete().eq('to_uid', x.to_uid).eq('from_uid', x.from_uid).eq('at', x.at).select('to_uid');
     if (!got || !got.length) continue;
-    const subs = byUser.get(x.to_uid), st = (dataOf.get(x.to_uid) || {}).settings || {};
+    const subs = byUser.get(x.to_uid), st = prefs.get(x.to_uid) || {};
     if (subs && st.msgPush !== false) {
       const body = String(x.body || '').slice(0, 120) + (x.n > 1 ? (st.lang === 'en' ? ` · ${x.n - 1} more` : ` · ещё ${x.n - 1}`) : '');
       ok += (await sendTo(subs, JSON.stringify({ title: who(x.from_uid), body, tag: 'msg-' + x.from_uid, url: './#m=' + x.from_uid, m: x.from_uid }), 24 * 3600)).ok;
@@ -404,27 +432,21 @@ async function queueTick(now) {
   const ids = [...new Set([...(m || []), ...(f || [])].map(x => x.to_uid))];
   const ap = await adminPushes(now);   // отзывы и попытки без прав — тоже сразу (триггеры admin2.sql)
   if (!ids.length) return { users: 0, sent: ap };
-  const [{ data: subs, error }, { data: rs }] = await Promise.all([sb.from('push_subscriptions').select('endpoint,p256dh,auth,user_id').in('user_id', ids),
-    sb.from('user_data').select('user_id,settings:data->settings').in('user_id', ids)]);
-  if (error) throw error;
-  const byUser = new Map();
-  for (const s of subs || []) { if (!byUser.has(s.user_id)) byUser.set(s.user_id, []); byUser.get(s.user_id).push(s); }
-  const rows = (rs || []).map(r => ({ user_id: r.user_id, data: { settings: r.settings && typeof r.settings === 'object' ? r.settings : {} } }));
-  return { users: ids.length, sent: ap + (await friendPushes(byUser, rows, now)) + (await msgPushes(byUser, rows)) };
+  const byUser = await subsOf(ids), prefs = await prefsOf(ids);
+  return { users: ids.length, sent: ap + (await friendPushes(byUser, prefs, now)) + (await msgPushes(byUser, prefs)) };
 }
 
 // Настройки из админки (app_config): таблицы ещё нет — пусто, всё как раньше
 async function appCfg() { const { data, error } = await sb.from('app_config').select('k,v'); return error ? {} : Object.fromEntries((data || []).map(x => [x.k, x.v])); }
 // Объявление всем — один раз: сначала помечаем отправленным (два запуска одновременно не пришлют дважды), потом шлём всем, кроме выключивших
 // «Новости Parsimony» (S.settings.newsPush = false)
-async function annPushes(byUser, rows, now, cfg) {
+async function annPushes(byUser, prefs, now, cfg) {
   const a = cfg.ann; if (!a || typeof a !== 'object' || !a.push || a.pushed !== false || !a.id) return 0;
   const { data: got } = await sb.from('app_config').update({ v: { ...a, pushed: true }, updated_at: new Date(now).toISOString() }).eq('k', 'ann').eq('v->>id', String(a.id)).eq('v->>pushed', 'false').select('k');
   if (!got || !got.length) return 0;
-  const st = new Map(rows.map(r => [r.user_id, (r.data || {}).settings || {}]));
   const body = JSON.stringify({ title: String(a.title || 'Новости Parsimony').slice(0, 60), body: String(a.text || '').replace(/\s+/g, ' ').slice(0, 180), tag: 'ann', url: './#s=home', s: 'home' });
   let ok = 0;
-  for (const [uid, subs] of byUser) if ((st.get(uid) || {}).newsPush !== false) ok += (await sendTo(subs, body, 24 * 3600)).ok;
+  for (const [uid, subs] of byUser) if ((prefs.get(uid) || {}).newsPush !== false) ok += (await sendTo(subs, body, 24 * 3600)).ok;
   return ok;
 }
 // Админам: новый отзыв и попытка открыть админку без прав — каждое один раз (push_at: сначала пометить, потом слать); выключается в админке
@@ -441,18 +463,19 @@ async function adminPushes(now) {
   if (!fb.length && !dn.length) return 0;
   const { data: ad } = await sb.from('admins').select('user_id'), ids = (ad || []).map(x => x.user_id);
   if (!ids.length) return 0;
-  const [{ data: subs }, { data: rs }] = await Promise.all([sb.from('push_subscriptions').select('endpoint,p256dh,auth,user_id').in('user_id', ids), sb.from('user_data').select('user_id,settings:data->settings').in('user_id', ids)]);
+  const by = await subsOf(ids), pr = await prefsOf(ids);
   const mail = {};
   for (const x of dn) if (x.admin && !(x.admin in mail)) { const { data } = await sb.auth.admin.getUserById(x.admin); mail[x.admin] = (data && data.user && data.user.email) || 'неизвестный аккаунт'; }
   let ok = 0;
   for (const uid of ids) {
-    const s = (subs || []).filter(x => x.user_id === uid), p = (((rs || []).find(r => r.user_id === uid) || {}).settings || {}).admPush || {};
+    const s = by.get(uid) || [], p = (pr.get(uid) || {}).admPush || {};
     if (!s.length) continue;
     if (p.fb !== false) for (const x of fb) ok += (await sendTo(s, JSON.stringify({ title: 'Новый отзыв · ' + (FB_NAME[x.kind] || 'отзыв'), body: String(x.body || '').replace(/\s+/g, ' ').slice(0, 140) + (x.email ? ' — ' + x.email : ''), tag: 'adm-fb', url: './#s=admfb', s: 'admfb' }), 24 * 3600)).ok;
     if (p.deny !== false) for (const x of dn) ok += (await sendTo(s, JSON.stringify({ title: 'Попытка открыть админку', body: (mail[x.admin] || 'неизвестный аккаунт') + ' — без прав, доступ закрыт', tag: 'adm-deny', url: './#s=admlog', s: 'admlog' }), 24 * 3600)).ok;
   }
   return ok;
 }
+// ==== IO end ====
 
 async function testPush(uid, en) {
   const now = Date.now();
