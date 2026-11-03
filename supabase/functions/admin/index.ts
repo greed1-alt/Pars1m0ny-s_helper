@@ -20,12 +20,13 @@
 // число подписчиков в сводке; в настройках — включить тарифы (tiers_on) и лимиты помощника по тарифам (limits).
 // С 28 октября 2026 — ParsiCoins (supabase/sql/coins.sql): баланс в списке людей, начислить или списать (не ниже нуля) с пометкой — coins.
 // С 29 октября 2026 — регистрация (функция signup): открыть и закрыть (signup_on), новых в сутки (signup_day), ключ клиента капчи (captcha).
+// С 3 ноября 2026 — закрытая бета (supabase/sql/beta.sql): открыть или закрыть человеку доступ к beta.parsimony.ru (beta), отметка в списке людей.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 // ==== ADMIN start ==== (тест: tools/test-admin.mjs; db — доступ к базе, в тесте — подделка)
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@<>"'`,;:()[\]\\]{1,64}@[^\s@<>"'`,;:()[\]\\]+\.[a-zа-яё0-9-]{2,}$/i;
-const ACTIONS = ['stats', 'users', 'invite', 'ban', 'unban', 'nick', 'name', 'del', 'feedback', 'fbdone', 'log', 'cfg', 'setcfg', 'grant', 'revoke', 'coins'];
+const ACTIONS = ['stats', 'users', 'invite', 'ban', 'unban', 'nick', 'name', 'del', 'feedback', 'fbdone', 'log', 'cfg', 'setcfg', 'grant', 'revoke', 'coins', 'beta'];
 const CFG_KEYS = ['ann', 'maint', 'ai_limit', 'nudge', 'tiers_on', 'limits', 'signup_on', 'signup_day', 'captcha'], PLANS = ['plus', 'premium'];
 // Значение настройки — только известного вида; null — убрать объявление или плашку. У объявления id и время ставит сервер,
 // pushed: false — уведомление ещё не отправлено (его отправит функция reminders один раз)
@@ -80,13 +81,18 @@ async function adminHandle(db, token, body) {
     await db.log(uid, 'invite', email, { result: r });
     return [200, { result: r }];
   }
-  // Подписка: выдать на N дней (добавляется к оставшемуся сроку) или отменить; ParsiCoins — начислить или списать. Кому угодно, в том числе себе (для проверки)
-  if (a === 'grant' || a === 'revoke' || a === 'coins') {
+  // Подписка: выдать на N дней (добавляется к оставшемуся сроку) или отменить; ParsiCoins — начислить или списать; доступ к бете — открыть или закрыть.
+  // Кому угодно, в том числе себе (для проверки)
+  if (a === 'grant' || a === 'revoke' || a === 'coins' || a === 'beta') {
     const id = typeof body.id === 'string' && UUID_RE.test(body.id) ? body.id.toLowerCase() : '';
     if (!id) return [400, { error: 'id' }];
     const who = await db.email(id);
     if (!who) return [404, { error: 'none' }];
     if (a === 'revoke') { await db.revoke(id); await db.log(uid, 'revoke', who); return [200, { ok: true }]; }
+    if (a === 'beta') {
+      if (typeof body.on !== 'boolean') return [400, { error: 'on' }];
+      await db.beta(id, body.on); await db.log(uid, body.on ? 'beta_on' : 'beta_off', who); return [200, { ok: true }];
+    }
     const note = typeof body.note === 'string' ? body.note.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
     if (a === 'coins') {
       if (!Number.isInteger(body.amt) || body.amt === 0 || Math.abs(body.amt) > 100000) return [400, { error: 'amt' }];
@@ -157,11 +163,11 @@ const db = {
     const users = await allUsers(), today = iso(Date.now()).slice(0, 10);
     const [ud, subs, prof, adm, ai] = await Promise.all([sb.from('user_data').select('user_id,updated_at'), sb.from('push_subscriptions').select('user_id'),
       sb.from('profiles').select('user_id,nick,name'), sb.from('admins').select('user_id'), sb.from('ai_usage').select('user_id,n').eq('day', today)]);
-    const [sub, cn] = await Promise.all([sb.from('subscriptions').select('user_id,plan,until,source,note'), sb.from('coins').select('user_id,bal')]);
-    const m = (r, k) => new Map(rows(r).map(x => [x.user_id, k ? x[k] : x])), sync = m(ud, 'updated_at'), pr = m(prof), ad = m(adm), aiN = m(ai, 'n'), sp = m(sub), bal = m(cn, 'bal'), dev = {};
+    const [sub, cn, bt] = await Promise.all([sb.from('subscriptions').select('user_id,plan,until,source,note'), sb.from('coins').select('user_id,bal'), sb.from('beta_access').select('user_id')]);
+    const m = (r, k) => new Map(rows(r).map(x => [x.user_id, k ? x[k] : x])), sync = m(ud, 'updated_at'), pr = m(prof), ad = m(adm), aiN = m(ai, 'n'), sp = m(sub), bal = m(cn, 'bal'), beta = m(bt), dev = {};
     rows(subs).forEach(r => { dev[r.user_id] = (dev[r.user_id] || 0) + 1; });
     return users.map(u => ({ id: u.id, email: u.email || '', created: u.created_at, seen: u.last_sign_in_at || null, sync: sync.get(u.id) || null,
-      nick: (pr.get(u.id) || {}).nick || '', name: (pr.get(u.id) || {}).name || '', dev: dev[u.id] || 0, ai: aiN.get(u.id) || 0, bal: bal.get(u.id) || 0, admin: ad.has(u.id), banned: banned(u),
+      nick: (pr.get(u.id) || {}).nick || '', name: (pr.get(u.id) || {}).name || '', dev: dev[u.id] || 0, ai: aiN.get(u.id) || 0, bal: bal.get(u.id) || 0, admin: ad.has(u.id), beta: beta.has(u.id), banned: banned(u),
       ...(sp.has(u.id) ? { plan: Date.parse(sp.get(u.id).until) > Date.now() ? sp.get(u.id).plan : '', until: sp.get(u.id).until, subSrc: sp.get(u.id).source, subNote: sp.get(u.id).note || '' } : {}) }))
       .sort((a, b) => String(b.sync || b.seen || b.created).localeCompare(String(a.sync || a.seen || a.created)));
   },
@@ -195,6 +201,8 @@ const db = {
   },
   async revoke(id) { const { error } = await sb.from('subscriptions').delete().eq('user_id', id); if (error) throw error; },
   // ParsiCoins: всё — функция базы coins_admin (баланс не уходит ниже нуля, запись в историю человека)
+  // Закрытая бета: строка в beta_access — доступ открыт (админов beta_ok пускает и без неё)
+  async beta(id, on) { const { error } = on ? await sb.from('beta_access').upsert({ user_id: id }) : await sb.from('beta_access').delete().eq('user_id', id); if (error) throw error; },
   async coins(id, amt, note) { const { data, error } = await sb.rpc('coins_admin', { p_user: id, p_amt: amt, p_note: note || null }); if (error) throw error; return data; },
   async cfgGet() { const { data, error } = await sb.from('app_config').select('k,v'); if (error) throw error; return Object.fromEntries((data || []).map(x => [x.k, x.v])); },
   async cfgSet(k, v) {

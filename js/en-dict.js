@@ -2375,4 +2375,12 @@ const EN_DICT = {"Работа":"Work",
 "+* вам и другу":"+* for you and your friend",
 "ещё * ч * мин":"* h * min left",
 "ещё * мин":"* min left",
-"ещё * ч":"* h left"};
+"ещё * ч":"* h left",
+"Закрытая бета":"Closed beta",
+"Здесь проверяют новое до выпуска. Войти могут только тестировщики.":"New features are tested here before release. Only testers can sign in.",
+"Проверяю доступ…":"Checking access…",
+"Нет связи с сервером — не получается проверить доступ. Проверьте интернет.":"No connection to the server, so access can’t be checked. Check your internet.",
+"нет доступа к бете. Обычная версия Parsimony работает как всегда.":"has no access to the beta. The regular Parsimony works as usual.",
+"Войти другой почтой":"Sign in with another email",
+"Открыть Parsimony":"Open Parsimony",
+"У аккаунта":"The account"};

@@ -1377,3 +1377,16 @@ div.ai-row{cursor:default}
 .cn-pt{margin:4px 0 8px}
 .cn-pt button{flex:1}
 .cn-pv-app{margin:0 0 12px;color:var(--tx)}
+
+/* Закрытая бета (cloud.js, betaGate): посторонним на beta.parsimony.ru — экран входа, приложение под ним скрыто */
+html.bgated .app,html.bgated #tabbar,html.bgated #tinv{visibility:hidden}
+#bgate{position:fixed;inset:0;z-index:28;display:flex;align-items:center;justify-content:center;overflow:auto;background:var(--bg);color:var(--tx);
+  padding:calc(24px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))}
+.bg-card{width:min(380px,100%);display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.bg-logo{display:flex;align-items:center;font-size:24px;margin-bottom:10px}
+.bg-lock{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;background:color-mix(in srgb,var(--acc) 12%,var(--bg));color:var(--acc)}
+#bgate h1{margin:4px 0 0;font-size:26px;font-weight:700;letter-spacing:-.02em}
+#bgate p{margin:0;color:var(--tx2);font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+#bgate p b{color:var(--tx)}
+.bg-acts{width:100%;display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.bg-acts .btn{width:100%;height:46px;justify-content:center;font-size:15px;text-decoration:none}

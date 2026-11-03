@@ -154,6 +154,61 @@ function cloudStart() {
   setInterval(() => { if (signedIn() && !document.hidden) syncNow(); }, 60000);   // раз в минуту — проверить, не изменилось ли на другом устройстве
 }
 
+// ---- Закрытая бета (3 ноября 2026; просьба пользователя: «можно ли ограничить доступ к ней, чтобы посторонние не заходили на нее») ----
+// На beta.parsimony.ru приложение открывается только после входа и только тем, кого пускает сервер: функция beta_ok (supabase/sql/beta.sql) —
+// админы и те, кому админ открыл доступ в админке. Остальным — экран «Закрытая бета». Код беты и так открыт (публичный репозиторий), так что это
+// не замок на файлы, а дверь: посторонний не пользуется бетой и не видит новое в работе (чужих записей он не видел и раньше — их не отдаёт сервер).
+// Проверенный доступ запоминается на устройстве (remapp_beta = id аккаунта): бета открывается сразу и без сети, а сервер спрашивается заново в фоне
+const BETA_LS = 'remapp_beta';
+let betaSt = '', betaMail = '';   // betaSt: '' — открыто; 'in' — войдите; 'wait' — проверяю; 'no' — нет доступа (betaMail — у какой почты); 'off' — нет связи
+const betaLocked = () => IS_BETA && !(signedIn() && lsGet(BETA_LS) === auth.uid);
+async function betaCheck() {   // true / false; null — спросить не удалось (нет связи)
+  try { const ok = await api('/rest/v1/rpc/beta_ok', { method:'POST', user:true, body:{} }) === true; lsSet(BETA_LS, ok ? auth.uid : null); return ok; }
+  catch (e) {
+    if (e.status === 404) { lsSet(BETA_LS, auth.uid); return true; }   // функции ещё нет (beta.sql не выполнен) — пускаем, как до закрытой беты
+    return e.status === 401 || !signedIn() ? false : null;
+  }
+}
+function betaStart() {
+  if (!IS_BETA) return;
+  if (!betaLocked()) { betaRun(true); return; }   // уже проверен — открыто сразу, сервер спросим в фоне
+  betaSt = signedIn() ? 'wait' : 'in'; betaGate();
+  if (signedIn()) betaRun(false);
+}
+async function betaRun(quiet) {
+  const was = betaSt, ok = await betaCheck();
+  if (ok === null) { if (!quiet) { betaSt = 'off'; betaGate(); } return; }   // нет связи: проверенным раньше — открыто, остальным — «Повторить»
+  if (!ok) betaMail = auth && auth.email || '';
+  betaSt = ok ? '' : signedIn() ? 'no' : 'in'; betaGate();
+  if (ok && was && !S.settings.onboarded) setTimeout(onbOpen, 350);   // знакомство при первом запуске ждало, пока откроется бета
+}
+// После кода из письма: нет доступа — сразу выходим на этом устройстве, ничего не синхронизируя (записи аккаунта на бету не попадают)
+async function betaLogin() {
+  betaSt = 'wait'; betaGate();
+  const ok = await betaCheck();
+  if (ok) { betaSt = ''; betaGate(); return true; }
+  betaMail = auth && auth.email || '';
+  try { await api('/auth/v1/logout?scope=local', { method:'POST', user:true }); } catch (e) {}
+  auth = null; saveAuth(); betaSt = ok === null ? 'off' : 'no'; betaGate();
+  return false;
+}
+function betaGate() {
+  let g = $('#bgate');
+  document.documentElement.classList.toggle('bgated', !!betaSt);
+  if (!betaSt) { if (g) g.remove(); return; }
+  if (!g) { g = document.createElement('section'); g.id = 'bgate'; g.setAttribute('aria-labelledby', 'bg_t'); document.body.appendChild(g); }
+  const app = '<a class="btn" href="https://app.parsimony.ru/">Открыть Parsimony</a>';
+  const [text, acts] = betaSt === 'wait' ? ['Проверяю доступ…', '']
+    : betaSt === 'off' ? ['Нет связи с сервером — не получается проверить доступ. Проверьте интернет.', '<button class="btn pri" data-act="betaretry">Повторить</button>']
+    : betaSt === 'no' ? [`У аккаунта <b>${esc(betaMail)}</b> нет доступа к бете. Обычная версия Parsimony работает как всегда.`,
+      (signedIn() ? '<button class="btn pri" data-act="logout">Выйти из аккаунта</button>' : '<button class="btn pri" data-act="login">Войти другой почтой</button>') + app]
+    : ['Здесь проверяют новое до выпуска. Войти могут только тестировщики.', '<button class="btn pri" data-act="login">Войти</button>' + app];
+  g.innerHTML = `<div class="bg-card"><div class="bg-logo"><span class="wordmark">${APP_NAME}</span>${BETA_PILL}</div>
+    <span class="bg-lock" aria-hidden="true">${I(IC.lock, 26)}</span><h1 id="bg_t">Закрытая бета</h1>
+    <p role="status">${text}</p>${acts ? `<div class="bg-acts">${acts}</div>` : ''}</div>`;
+}
+ACT.betaretry = () => betaStart();
+
 // ---- Согласие на обработку персональных данных (20 октября 2026) ----
 // Документы — consent.html (согласие отдельным документом, как требует закон с 1 сентября 2025 года) и privacy.html (политика).
 // Даётся галочкой при входе — до того, как почта уйдёт на сервер; кто вошёл раньше — окном при следующем открытии.
@@ -170,7 +225,7 @@ function consentSave() { S.settings.consent = { v: CONSENT_V, at: new Date().toI
 function consentCheck() {
   if (!legalOn() || !signedIn() || consentOk()) return;
   if (consentAgreed) { consentAgreed = false; return consentSave(); }
-  if (sheetOpen() || onbIsOpen() || tour) return setTimeout(consentCheck, 5000);   // не поверх открытого окна, знакомства или тура
+  if (sheetOpen() || onbIsOpen() || tour || betaSt) return setTimeout(consentCheck, 5000);   // не поверх открытого окна, знакомства или тура
   openConsent(false);
 }
 function openConsent(no) {
@@ -340,6 +395,7 @@ async function lgVerify() {
   try { setSession(await api('/auth/v1/verify', { method:'POST', body:{ type:'email', email: lg.email, token: code } })); }
   catch (e) { lgBusy(false, 'Войти'); return lgErr(cloudErrText(e)); }
   consentAgreed = !!(lg && lg.agree); lg = null; lsSet(LG_LS, null); closeSheet();
+  if (IS_BETA && !(await betaLogin())) return;   // закрытая бета: нет доступа — дальше не идём
   try { await afterLogin(); } catch (e) { toast(cloudErrText(e)); syncUI(); }
 }
 ACT.login = () => { lg = null; openLogin(); };

@@ -312,6 +312,7 @@ document.addEventListener('pointercancel', e => endDrag(e, true));
 
 // ---- Клавиатура ----
 document.addEventListener('keydown', e => {
+  if (betaSt && !sheetOpen()) return;   // закрытая бета: пока не вошли — без горячих клавиш (js/cloud.js)
   const t = e.target, typing = /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || '') || t.isContentEditable, mod = e.ctrlKey || e.metaKey;
   if (cmdOpen()) {
     if (e.key === 'Escape') { e.preventDefault(); closeCmd(); }

@@ -43,10 +43,13 @@ if ('serviceWorker' in navigator) {
   });
 }
 render();
+betaStart();    // закрытая бета: посторонним — экран входа (js/cloud.js)
 if (swJustUpd) appVerLoad().then(v => toast('Приложение обновлено' + (v ? ' — версия ' + v : '')));
 cloudStart();   // аккаунт: забрать свежие записи с сервера (js/cloud.js)
 frStart();      // друзья: список и своя карточка (js/friends.js)
 checkNotif();
-checkShareHash();
-frHash();   // открыли ссылку-приглашение в друзья
-checkDayHash();   // открыли по нажатию на напоминание — показать этот день
+if (!betaSt) {   // на закрытой бете без доступа окна по ссылкам не открываем
+  checkShareHash();
+  frHash();   // открыли ссылку-приглашение в друзья
+  checkDayHash();   // открыли по нажатию на напоминание — показать этот день
+}

@@ -567,6 +567,7 @@ let onbStep = 0, onbT = null, onbAreas = null, onbName = '';
 const ONB_PH = ['встреча завтра в 15:00', 'кафе 450', 'сдать отчёт в пятницу !!', '+ зарплата 60 000', '2 литра воды каждый день'];
 const onbIsOpen = () => { const o = $('#onb'); return !!(o && o.classList.contains('show')); };
 function onbOpen() {
+  if (betaSt) return;   // закрытая бета: знакомство — после входа (betaRun в cloud.js)
   onbStep = 0; onbAreas = new Set(AREAS.map(a => a[0]).filter(secOn)); onbName = S.settings.name || '';
   if (!onbAreas.size) AREAS.forEach(a => onbAreas.add(a[0]));
   let el = $('#onb');

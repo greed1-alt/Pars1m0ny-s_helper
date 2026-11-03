@@ -24,6 +24,13 @@ rm -rf "$TMP/tools" "$TMP/docs" "$TMP/site"   # docs/ — архив CLAUDE.md, 
 printf 'beta.parsimony.ru\n' > "$TMP/CNAME"
 sed -i 's/"name": "Parsimony"/"name": "Parsimony β"/; s/"short_name": "Parsimony"/"short_name": "Parsimony β"/' "$TMP/manifest.json"
 grep -q 'Parsimony β' "$TMP/manifest.json" || { echo "manifest.json: не нашёл название для замены" >&2; exit 1; }
+# Бету не показывают поисковики (3 ноября 2026, просьба пользователя): robots.txt запрещает обход, у каждой страницы — noindex.
+# Посторонних на самой бете не пускает экран «Закрытая бета» (js/cloud.js, betaGate)
+printf 'User-agent: *\nDisallow: /\n' > "$TMP/robots.txt"
+for f in "$TMP"/*.html; do
+  sed -i 's#<meta charset="utf-8">#<meta charset="utf-8">\n<meta name="robots" content="noindex, nofollow">#' "$f"
+  grep -q 'name="robots" content="noindex' "$f" || { echo "$(basename "$f"): не добавил noindex" >&2; exit 1; }
+done
 
 cd "$TMP"
 git init -q -b main

@@ -30,6 +30,7 @@ const fake = () => {
   for (const a of ['ban', 'unban', 'nick', 'name', 'del', 'revoke']) db[a] = async id => { calls.push(a + ':' + id); };
   db.grant = async (id, plan, days, note) => { calls.push(`grant:${id}:${plan}:${days}:${note}`); return '2027-01-01T00:00:00.000Z'; };
   db.coins = async (id, amt, note) => { calls.push(`coins:${id}:${amt}:${note}`); return 150; };
+  db.beta = async (id, on) => { calls.push(`beta:${id}:${on}`); };
   return db;
 };
 const run = async (tok, body) => { const db = fake(); const [st, out] = await adminHandle(db, tok, body); return { st, out, db }; };
@@ -115,6 +116,15 @@ r = await run('tok-me', { action: 'coins', id: '55555555-5555-4555-8555-55555555
 r = await run('tok-me', { action: 'coins', id: BOB, amt: 100, note: ' за\n ошибку ' });
 ok(r.st === 200 && r.out.bal === 150 && r.db.calls.includes(`coins:${BOB}:100:за ошибку`) && r.db.logs[0].action === 'coins' && r.db.logs[0].info.amt === 100, 'начислить 100 — и в журнал');
 r = await run('tok-me', { action: 'coins', id: ME, amt: -30 }); ok(r.st === 200 && r.db.calls.includes(`coins:${ME}:-30:`), 'себе и списать — можно');
+
+// закрытая бета (3 ноября 2026): открыть и закрыть доступ — только админ, только да/нет, и в журнал
+r = await run('tok-eve', { action: 'beta', id: EVE, on: true }); ok(r.st === 403 && !r.db.calls.some(c => c.startsWith('beta')), 'бета — открыть себе без прав нельзя: 403');
+for (const on of [1, 'true', null, undefined]) { r = await run('tok-me', { action: 'beta', id: BOB, on }); ok(r.st === 400 && r.out.error === 'on' && !r.db.calls.some(c => c.startsWith('beta')), 'бета — только да/нет: ' + on); }
+r = await run('tok-me', { action: 'beta', id: 'bob', on: true }); ok(r.st === 400 && r.out.error === 'id', 'бета — плохой id');
+r = await run('tok-me', { action: 'beta', id: '55555555-5555-4555-8555-555555555555', on: true }); ok(r.st === 404 && !r.db.calls.some(c => c.startsWith('beta')), 'бета — нет такого');
+r = await run('tok-me', { action: 'beta', id: BOB, on: true }); ok(r.st === 200 && r.db.calls.includes(`beta:${BOB}:true`) && r.db.logs[0].action === 'beta_on' && r.db.logs[0].target === 'Bob@Mail.ru', 'бета — открыть доступ, в журнале');
+r = await run('tok-me', { action: 'beta', id: BOB, on: false }); ok(r.st === 200 && r.db.calls.includes(`beta:${BOB}:false`) && r.db.logs[0].action === 'beta_off', 'бета — закрыть доступ');
+
 
 // 3) по тексту функции
 ok(!/select\(\s*['"]\*/.test(src), 'нет select *');

@@ -218,6 +218,16 @@ return (data, today) => { S = data; TODAY = today; const w = frWeekStats(), hs =
   await db.query('insert into public.admins (user_id) values ($1)', [U.B]);
   ok((await as('B', 'select * from public.admins')).rows.length === 1, 'админ видит свою строку');
   ok((await as('C', 'select * from public.admins')).rows.length === 0, 'не админ не видит, кто админ');
+  // Закрытая бета (beta.sql): пускают админов и тех, кому открыл админ; список не видит и не меняет никто из приложения
+  const bsql = read('supabase/sql/beta.sql');
+  await db.exec(bsql); await db.exec(bsql);   // повторный запуск безопасен
+  ok(/permission/.test((await as(null, 'select public.beta_ok()')).err || ''), 'бета: без входа функция закрыта');
+  ok(await one('B', 'select public.beta_ok()') === true, 'бета: админа пускают');
+  ok(await one('C', 'select public.beta_ok()') === false, 'бета: обычного человека — нет');
+  ok(/permission/.test((await as('C', 'insert into public.beta_access (user_id) values ($1)', [U.C])).err || ''), 'бета: открыть доступ себе из приложения нельзя');
+  ok(/permission/.test((await as('B', 'select * from public.beta_access')).err || ''), 'бета: список не видит даже админ из приложения');
+  await db.query('insert into public.beta_access (user_id) values ($1)', [U.C]);
+  ok(await one('C', 'select public.beta_ok()') === true && await one('D', 'select public.beta_ok()') === false, 'бета: открыли доступ C — C пускают, D — нет');
   ok(/nick_bad/.test((await as('C', 'update public.profiles set nick = $1 where user_id = $2', ['parsimony', U.C])).err || ''), 'не админу ник parsimony нельзя');
   ok((await as('B', 'update public.profiles set nick = $1, name = $2 where user_id = $3 returning nick, name', ['parsimony', 'PARSIMONY', U.B])).rows[0].name === 'PARSIMONY', 'админу служебные ник и имя можно');
   ok(/nick_bad/.test((await as('B', 'update public.profiles set nick = $1 where user_id = $2', ['huy_admin', U.B])).err || ''), 'грубый ник нельзя и админу');
