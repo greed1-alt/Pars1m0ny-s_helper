@@ -346,6 +346,7 @@ function render(dir) {
   $('#side').innerHTML = sideHTML();
   tabbarRender();
   drawCharts();
+  greetFit();   // js/ui2.js
   if (S2.after) S2.after();
   hsRestore();
   if (dir) { main.classList.add(dir < 0 ? 'anim-l' : dir > 0 ? 'anim-r' : 'anim-f'); }

@@ -322,6 +322,16 @@ onMigrate(() => { delete S.settings.homeView; });
 const homeCustHTML = () => `<div class="h2-cust"><button class="lnk" data-act="blkcust" data-p="home">${I(IC.grid, 15)} Настроить Главную</button><button class="lnk" data-act="feedback">${I(IC.msg, 15)} Отзыв</button></div>`;
 
 // Приветствие с кольцом
+// Имя одним длинным словом («PARSIMONY») не рвём посередине (просьба пользователя 4 ноября 2026: у шрифтов тем буквы шире): не влезает
+// слово в строку — приветствие мельчает, но не меньше 60 %; не влезло и так — тогда перенос внутри слова, как раньше. Вызывает render()
+function greetFit() {
+  const g = $('.h2-greet'); if (!g) return;
+  g.style.fontSize = ''; g.style.overflowWrap = 'normal';
+  const base = parseFloat(getComputedStyle(g).fontSize);
+  for (let f = base; g.scrollWidth > g.clientWidth + 1 && f > base * .6;) { f--; g.style.fontSize = f + 'px'; }
+  if (g.scrollWidth > g.clientWidth + 1) g.style.overflowWrap = '';
+}
+if (document.fonts) document.fonts.addEventListener('loadingdone', greetFit);   // шрифт темы догрузился — ширина букв другая
 function homeHeroHTML(t) {
   const d = pd(t), name = (S.settings.name || '').trim();
   const tasks = secOn('tasks') || secOn('cal') ? dayTasks(t) : [], habs = todayHabs(t);
