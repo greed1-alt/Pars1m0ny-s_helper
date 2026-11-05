@@ -1,0 +1,52 @@
+#!/bin/bash
+# Перенос аккаунтов и записей со старого Supabase на этот сервер (5 ноября 2026).
+# Запуск: parsimony-migrate          — пробный и финальный одинаково: таблицы на этом сервере очищаются и заполняются заново.
+# Строка подключения к старой базе — OLD_DB_URL в /opt/supabase/.env (вписывает пользователь: parsimony-secret OLD_DB_URL).
+# Подписки устройств (push_subscriptions) не переносятся: ключи уведомлений здесь новые, устройства переподпишутся сами.
+# Пулер старого Supabase (IPv4) пропускает первое подключение, а следующие часто виснут — поэтому всё со старой базы
+# забирается за ОДНО подключение: каждая таблица — в свой файл JSON (\o), потом файлы загружаются сюда локально
+# (json_populate_recordset, только колонки этой базы, кроме вычисляемых; триггеры выключены — session_replication_role = replica).
+set -eo pipefail
+cd /opt/supabase
+OLD=$(grep ^OLD_DB_URL= .env | cut -d= -f2-)
+[ -n "$OLD" ] || { echo "нет OLD_DB_URL"; exit 1; }
+TABLES="auth.users auth.identities auth.sessions auth.refresh_tokens
+public.admins public.user_data public.profiles public.friends public.fr_stats public.fr_notify public.messages public.msg_notify
+public.feedback public.admin_log public.ai_usage public.app_config public.beta_access public.coins public.coin_log public.coin_items
+public.subscriptions public.signup_log public.reminder_log"
+n() { docker exec supabase-db timeout 100 psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -X -q "$@" </dev/null; }
+W=/tmp/mig; docker exec supabase-db sh -c "rm -rf $W && mkdir -m 700 $W"
+# 1) Выгрузка со старой базы. Через пулер в режиме «транзакции» (порт 6543): запрос иногда виснет — тогда через 20 с повтор, до 6 раз
+OLD6=${OLD/:5432\//:6543\/}
+get() {   # get ТАБЛИЦА ЗАПРОС ФАЙЛ
+  for a in 1 2 3 4 5 6; do
+    if docker exec -e OLD="$OLD6" supabase-db sh -c "timeout 20 psql \"\$OLD\" -v ON_ERROR_STOP=1 -X -q -tA -c \"$2\" > $3" </dev/null 2>/dev/null \
+       && [ -n "$(docker exec supabase-db head -c 1 $3)" ]; then return 0; fi
+    sleep 2
+  done
+  echo "  $1: не удалось забрать за 6 попыток"; exit 1
+}
+echo "Забираю данные со старой базы…"
+for t in $TABLES; do
+  get "$t" "select coalesce(json_agg(x), '[]') from $t x" "$W/$t.json"
+  get "$t" "select count(*) from $t" "$W/$t.count"
+done
+# 2) Загрузка сюда
+echo "Очищаю таблицы на этом сервере и загружаю…"
+n -c "set session_replication_role = replica; truncate $(echo $TABLES | tr ' ' ',') restart identity cascade;"
+for t in $TABLES; do
+  s=${t%%.*}; tb=${t#*.}
+  c=$(n -tAc "select string_agg(column_name, ',' order by ordinal_position) from information_schema.columns where table_schema='$s' and table_name='$tb' and is_generated='NEVER'")
+  printf '%s\n' "\\set j \`cat $W/$t.json\`" "set session_replication_role = replica;" \
+    "insert into $t ($c) overriding system value select $c from json_populate_recordset(null::$t, :'j'::json);" > /tmp/mig-imp.sql
+  docker cp -q /tmp/mig-imp.sql supabase-db:$W/imp.sql
+  n -f $W/imp.sql
+  printf "  %-24s старая %6s · новая %6s\n" "$t" "$(docker exec supabase-db cat $W/$t.count | tr -d ' \n')" "$(n -tAc "select count(*) from $t")"
+done
+rm -f /tmp/mig-imp.sql
+echo "Счётчики номеров (identity) — после последней строки…"
+n -tAc "select format('select setval(%L, coalesce((select max(%I) from %s), 0) + 1, false);', pg_get_serial_sequence(c.table_schema||'.'||c.table_name, c.column_name), c.column_name, c.table_schema||'.'||c.table_name)
+  from information_schema.columns c where c.table_schema in ('public','auth') and pg_get_serial_sequence(c.table_schema||'.'||c.table_name, c.column_name) is not null" > /tmp/seq.sql
+docker cp -q /tmp/seq.sql supabase-db:$W/seq.sql; n -f $W/seq.sql >/dev/null; rm -f /tmp/seq.sql
+docker exec supabase-db rm -rf $W
+echo "Готово."
