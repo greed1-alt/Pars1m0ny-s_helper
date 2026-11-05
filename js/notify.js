@@ -25,7 +25,18 @@ const b64 = v => { const raw = atob((v + '='.repeat((4 - v.length % 4) % 4)).rep
 async function pushRegister(sub) {
   const j = sub.toJSON();
   await api('/rest/v1/rpc/push_register', { method:'POST', user:true, body:{ p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_ua: navigator.userAgent.slice(0, 200) } });
-  lsSet(PUSH_LS, { uid: auth.uid, endpoint: j.endpoint, at: Date.now() });
+  lsSet(PUSH_LS, { uid: auth.uid, endpoint: j.endpoint, at: Date.now(), k: VAPID_PUBLIC });
+}
+// Подписка сделана другим ключом уведомлений (переезд на свой сервер, 5 ноября 2026: ключи новые) — переподписать молча:
+// разрешение уже дано, человек ничего не нажимает. Ключ подписки — из sub.options, где браузер его не отдаёт — по PUSH_LS.k
+const pushKeyOk = (sub, p) => {
+  try { const k = sub.options && sub.options.applicationServerKey; if (k) { const a = new Uint8Array(k), b = b64(VAPID_PUBLIC); return a.length === b.length && a.every((x, i) => x === b[i]); } } catch (e) {}
+  return !p || p.k === VAPID_PUBLIC;
+};
+async function pushSubFresh(reg, p) {
+  let sub = await reg.pushManager.getSubscription();
+  if (sub && !pushKeyOk(sub, p)) { try { await sub.unsubscribe(); } catch (e) {} sub = null; }
+  return sub || reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64(VAPID_PUBLIC) });
 }
 async function enablePush() {
   if (!signedIn()) { toast('Сначала войдите в аккаунт'); return openLogin(); }
@@ -35,7 +46,7 @@ async function enablePush() {
     // Разрешение спрашиваем сразу по нажатию: iPhone не покажет вопрос, если перед ним было ожидание
     if (Notification.permission !== 'granted' && await Notification.requestPermission() !== 'granted') { checkNotif(); return plog('Разрешение на уведомления не выдано. Его можно включить в настройках телефона или браузера.'); }
     const reg = await swReady();
-    const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64(VAPID_PUBLIC) });
+    const sub = await pushSubFresh(reg, lsGet(PUSH_LS));
     await pushRegister(sub);
     toast('Напоминания включены на этом устройстве');
   } catch (e) { plog('Не получилось: ' + (e instanceof CloudErr ? cloudErrText(e) : e.message)); }
@@ -52,10 +63,11 @@ async function disablePush(quiet) {
 // При входе и запуске: если разрешение уже есть, привязать устройство к текущему аккаунту (раз в сутки — обновить)
 async function pushSync() {
   if (!signedIn() || !pushSupported() || Notification.permission !== 'granted') return;
-  const sub = await pushSub(), p = lsGet(PUSH_LS);
+  let sub = await pushSub(); const p = lsGet(PUSH_LS);
   if (!sub || !p) return;   // человек сам не включал — не подписываем молча
-  if (p.uid === auth.uid && p.endpoint === sub.endpoint && Date.now() - (p.at || 0) < 864e5) return;
-  try { await pushRegister(sub); } catch (e) {}
+  const keyOk = pushKeyOk(sub, p);
+  if (keyOk && p.uid === auth.uid && p.endpoint === sub.endpoint && Date.now() - (p.at || 0) < 864e5) return;
+  try { if (!keyOk) sub = await pushSubFresh(await swReady(), p); await pushRegister(sub); } catch (e) {}
   checkNotif();
 }
 // «Проверить»: подписанное устройство — уведомление идёт через сервер, как настоящее напоминание; иначе — показываем прямо здесь

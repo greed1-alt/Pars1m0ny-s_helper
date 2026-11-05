@@ -36,13 +36,15 @@ async function api(path, o) {
 const setSession = j => {
   const u = j.user || {};
   auth = { at: j.access_token, rt: j.refresh_token, exp: Math.floor(Date.now() / 1000) + (Number(j.expires_in) || 3600),
-    uid: /^[0-9a-f-]{36}$/i.test(u.id || '') ? u.id : auth && auth.uid, email: String(u.email || auth && auth.email || '').slice(0, 200) };
+    uid: /^[0-9a-f-]{36}$/i.test(u.id || '') ? u.id : auth && auth.uid, email: String(u.email || auth && auth.email || '').slice(0, 200), srv: SUPABASE_URL };
   saveAuth();
 };
 let refreshing = null;
 async function accessToken() {
   if (!signedIn()) throw new CloudErr('signed out', 401);
-  if (auth.at && auth.exp - 60 > Date.now() / 1000) return auth.at;
+  // srv — сервер, который выдал токен: после переезда на свой сервер (5 ноября 2026) старый токен там не подходит —
+  // сразу обмениваем по refresh-токену (сеансы перенесены вместе с аккаунтами), входить заново не нужно
+  if (auth.at && auth.srv === SUPABASE_URL && auth.exp - 60 > Date.now() / 1000) return auth.at;
   if (!refreshing) refreshing = (async () => {
     try { setSession(await api('/auth/v1/token?grant_type=refresh_token', { method:'POST', body:{ refresh_token: auth.rt } })); }
     catch (e) { if (e.status >= 400 && e.status < 500) sessionLost(); throw e; }

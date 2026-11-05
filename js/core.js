@@ -1,7 +1,12 @@
 // ---- Ядро: настройки сервера, данные, иконки, даты, повторы, ввод фразой ----
-const SUPABASE_URL = 'https://zgasnvubcdprgsypkglh.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_D9zVovgo-2C3MBGolggC6w_SNb8fOzR';
-const VAPID_PUBLIC = 'BNLThhEBoIT1sgFRviDsI33JdA_Rz18EY5SN7ANL8_gXdctCj4vYguPYopLrBMhAsfgIropWotPwypRexGUeZYU';
+// Свой сервер в России (REG.RU, api.parsimony.ru, 5 ноября 2026): пока на нём только бета, рабочая версия — на старом Supabase
+// до переключения друзей (тогда эти три строки станут обычными, без NEW_SRV). Ключ уведомлений — свой у каждого сервера:
+// открытый — здесь, закрытый — только на сервере (старый закрытый ключ из Supabase не достать, у нового сервера — новая пара)
+const NEW_SRV = /^beta\./.test(location.hostname);
+const SUPABASE_URL = NEW_SRV ? 'https://api.parsimony.ru' : 'https://zgasnvubcdprgsypkglh.supabase.co';
+const SUPABASE_KEY = NEW_SRV ? 'sb_publishable_J5IpaNeLZBwLrOTIVhrG0K_UTdhZOld' : 'sb_publishable_D9zVovgo-2C3MBGolggC6w_SNb8fOzR';
+const VAPID_PUBLIC = NEW_SRV ? 'BF5HQRlxsnkhgiOXZC3qKy3UbuRERNrtOrKPUGHMMRJjKabrsSXRsmXZqaN7eYm7cVXwAEbpM31Ks_5CSTk8oU4'
+  : 'BNLThhEBoIT1sgFRviDsI33JdA_Rz18EY5SN7ANL8_gXdctCj4vYguPYopLrBMhAsfgIropWotPwypRexGUeZYU';
 
 
 const $ = s => document.querySelector(s);
