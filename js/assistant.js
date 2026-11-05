@@ -112,12 +112,14 @@ const aiHist = () => ai.msgs.slice(-AI_HIST).map(m => ({ r: m.r, t: ((m.t || '')
 // ---- Куда помощник может отправить кнопкой (ключи — те же, что в функции assistant → NAV) ----
 const aiSec = s => () => { if (!secOn(s)) { toast('Этот раздел выключен — его можно включить здесь'); return aiSet('secs')(); } if (s === 'tasks' && tView === 'goals') tView = 'main'; setSec(s); };
 const aiSet = k => () => stJump(k);   // pages.js: на телефоне — открыть раздел, на ПК — прокрутить к нему
-const AI_NAV = { home:['Главная', aiSec('home')], cal:['Календарь', aiSec('cal')], tasks:['Задачи', aiSec('tasks')], goals:['Цели', () => goGoals()], habits:['Привычки', aiSec('habits')], fin:['Финансы', aiSec('fin')],
+const AI_NAV = { home:['Главная', aiSec('home')], cal:['Календарь', aiSec('cal')], day:['Открыть день', null], tasks:['Задачи', aiSec('tasks')], goals:['Цели', () => goGoals()], habits:['Привычки', aiSec('habits')], fin:['Финансы', aiSec('fin')],
   budget:['Бюджет на месяц', () => openBudget()], missed:['Вы пропустили', () => ACT.missopen()], profile:['Профиль', () => setSec('profile')], settings:['Настройки', () => { if (sec !== 'settings') return setSec('settings'); stOpen = null; render(); window.scrollTo(0, 0); }],
   set_look:['Оформление', aiSet('look')], set_cal:['Вид календаря', aiSet('cal')], set_cats:['Мои календари', aiSet('cats')], set_layout:['Главная и разделы', aiSet('secs')], sections:['Разделы и вкладки', () => openSecs()],
   set_notif:['Уведомления', aiSet('notif')], set_data:['Аккаунт и данные', aiSet('data')], tour:['Знакомство с приложением', () => openTourMenu()], feedback:['Отзыв', () => ACT.feedback()],
   weekplan:['Разложить дела на неделю', () => aiDayRun(AI_WEEK_TXT, '', true)] };   // из итогов недели (пуш в воскресенье) — в том же чате
-ACT.ainav = el => { const n = AI_NAV[el.dataset.to]; if (!n) return; if (el.dataset.to === 'weekplan') return n[1](); closeSheet(); n[1](); };
+// day — конкретный день: календарь сразу на нём (openDay, notify.js; 5 ноября 2026)
+const aiNavOk = n => n && AI_NAV[n.to] && (n.to !== 'day' || /^d{4}-d{2}-d{2}$/.test(n.date || ''));
+ACT.ainav = el => { const n = AI_NAV[el.dataset.to]; if (!n) return; if (el.dataset.to === 'day') return openDay(el.dataset.date); if (el.dataset.to === 'weekplan') return n[1](); closeSheet(); n[1](); };
 
 // ---- Окно ----
 const aiInit = () => { if (!ai) { const st = aiLoad(); ai = { msgs: st.msgs, hello: st.hello || '', draft: '', busy: false, err: '', left: null, imgs: [] }; } };
@@ -200,7 +202,7 @@ function aiMsg(m, i) {
     ${okN > 1 ? `<button class="ai-undoall" data-act="aiundoall" data-i="${i}">${I(IC.undo, 14)} Отменить всё</button>` : ''}${aiAskHTML(m, i)}` : it.length ? `<div class="ai-list">${(added ? it.filter(x => x.on) : it).map((x, j) => aiRow(x, i + ':' + j, added ? 'done' : 'pick')).join('')}</div>
     ${added ? `<p class="ai-ok">${I(IC.check, 14)} ${m.added ? 'Готово: ' + plural(m.added, ['запись', 'записи', 'записей']) : 'Ничего не изменилось — это уже было'}</p>`
       : `<button class="btn pri ai-add" data-act="aiapply" data-i="${i}"${on ? '' : ' disabled'}>${on ? (it.every(x => !x.on || x.type === 'check') ? 'Отметить' : `Добавить ${plural(on, ['запись', 'записи', 'записей'])}`) : 'Выберите, что добавить'}</button>`}` : '';
-  const nav = (m.nav || []).filter(n => AI_NAV[n.to]).map(n => `<button class="ai-nav" data-act="ainav" data-to="${n.to}">${esc(n.label || AI_NAV[n.to][0])}${I(IC.right, 14)}</button>`).join('');
+  const nav = (m.nav || []).filter(aiNavOk).map(n => `<button class="ai-nav" data-act="ainav" data-to="${n.to}"${n.to === 'day' ? ` data-date="${esc(n.date)}"` : ''}>${esc(n.label || AI_NAV[n.to][0])}${I(IC.right, 14)}</button>`).join('');
   // Ответ без «пузыря», со светящимся шаром; только что пришедший (tw) — печатается, записи и кнопки появляются после текста (aiTypeRun)
   const more = list + (nav ? `<div class="ai-navs">${nav}</div>` : ''), tw = m.tw && m.t;
   return `<div class="ai-m a${i >= aiSeen ? ' new' : ''}"><span class="ai-orb xs" aria-hidden="true"></span><div class="ai-mb">${m.t ? (tw ? `<p class="ai-tw" data-i="${i}"></p>` : `<p>${aiTxt(m.t)}</p>`) : ''}${more ? (tw ? `<div class="ai-later">${more}</div>` : more) : ''}</div></div>`;
@@ -469,7 +471,7 @@ async function aiSend(text) {
     ...(imgs.length ? { images: imgs.map(x => x.data), ...(imgs.length === 1 ? { image: imgs[0].data } : {}) } : {}) });
   ai.busy = false;
   if (j.err) { ai.err = j.err; if (imgs.length) ai.imgs = imgs; }   // «Повторить» отправит картинки ещё раз
-  else { let items = Array.isArray(j.items) ? j.items.filter(x => x && AI_T[x.type] && (edit || !AI_ACT.includes(x.type))) : [], nav = Array.isArray(j.nav) ? j.nav.filter(n => n && AI_NAV[n.to]) : [];
+  else { let items = Array.isArray(j.items) ? j.items.filter(x => x && AI_T[x.type] && (edit || !AI_ACT.includes(x.type))) : [], nav = Array.isArray(j.nav) ? j.nav.filter(aiNavOk) : [];
     // С одной картинки — до AI_IMG_ITEMS новых записей: функция assistant режет так же, здесь — на случай её прежней версии
     let cut = 0; if (imgs.length) { let k = 0; items = items.filter(x => { if (AI_ACT.includes(x.type) || ++k <= AI_IMG_ITEMS * imgs.length) return true; cut++; return false; }); }
     const refs = {}; items.forEach(x => { if (x.ref && R.map[x.ref]) refs[x.ref] = R.map[x.ref]; });

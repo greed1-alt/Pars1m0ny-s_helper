@@ -42,7 +42,7 @@ const LITE = env('AI_MODEL_LITE') || (PROVIDER === 'gigachat' ? 'GigaChat-2' : M
 const MAX_TEXT = 2000, MAX_ITEMS = 40, MAX_DATA = 6000, MAX_HIST = 8;
 const IMG_MAX = 3, IMG_ITEMS = 5, SCHED_MAX = 40;   // картинок в одном сообщении; новых записей с одной картинки
 // Куда помощник может отправить кнопкой (ключи знает приложение, js/assistant.js → AI_NAV)
-const NAV = ['home', 'cal', 'tasks', 'goals', 'habits', 'fin', 'budget', 'missed', 'profile', 'settings', 'set_look', 'set_cal', 'set_cats', 'set_layout', 'sections', 'set_notif', 'set_data', 'tour', 'feedback'];
+const NAV = ['home', 'cal', 'day', 'tasks', 'goals', 'habits', 'fin', 'budget', 'missed', 'profile', 'settings', 'set_look', 'set_cal', 'set_cats', 'set_layout', 'sections', 'set_notif', 'set_data', 'tour', 'feedback'];
 
 const sb = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 // Лимит в сутки (27–28 октября 2026): пока тарифы выключены в админке — один для всех (app_config.ai_limit, иначе AI_DAILY_LIMIT);
@@ -69,7 +69,9 @@ const time = v => typeof v === 'string' && TIME_RE.test(v) ? v : null;
 const block = (v, n) => typeof v === 'string' ? v.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, n) : '';   // как str, но строки сохраняются
 const REF_RE = /^[em]\d{1,3}$/;
 const remindOf = v => Array.isArray(v) ? [...new Set(v.map(Number).filter(m => Number.isInteger(m) && m >= 0 && m <= 10080))].sort((a, b) => b - a).slice(0, 5) : [];
-const cleanNav = v => Array.isArray(v) ? v.filter(x => x && NAV.includes(x.to)).slice(0, 3).map(x => ({ to: x.to, label: str(x.label, 40) })) : [];
+// day — конкретный день в календаре (5 ноября 2026: «не даёт ссылку на сами дни»), только с правильной датой
+const cleanNav = v => Array.isArray(v) ? v.filter(x => x && NAV.includes(x.to) && (x.to !== 'day' || date(x.date))).slice(0, 3)
+  .map(x => ({ to: x.to, label: str(x.label, 40), ...(x.to === 'day' ? { date: x.date } : {}) })) : [];
 const list = (v, n, len) => Array.isArray(v) ? v.map(x => str(x, len)).filter(Boolean).slice(0, n) : [];
 const days = v => Array.isArray(v) ? [...new Set(v.map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))].sort() : [];
 const PRIOS = ['urgent', 'high', 'mid', 'low'], REPEATS = ['daily', 'weekdays', 'weekly', 'monthly', 'yearly'], KINDS = ['daily', 'weekly', 'monthly'];
@@ -179,7 +181,7 @@ const SYSTEM = `Ты — Parsimony, помощник в приложении-п�
 reply — твой ответ в чате: до 5 коротких предложений; перечисления — отдельными строками, каждая начинается с «• ». Без markdown: никаких **, #, таблиц.
 items — записи для приложения, если пользователь рассказывает о делах, встречах, привычках, целях, тратах или мыслях. Приложение добавляет их сразу, а пользователь может отменить любую, поэтому в reply коротко скажи, что сделал: «Добавил врача на завтра в 10:00 и трату 350 ₽», «Отметил зарядку». Если пользователь только спрашивает или болтает — items пустой. Если что-то важное непонятно — не добавляй, а спроси в reply.
 fix — true, только если пользователь исправляет записи из твоего предыдущего ответа («нет, в 11», «не врач, а стоматолог», «не 350, а 450»): тогда в items верни только исправленные записи целиком, со всеми полями, — они заменят прошлые такие же (остальные прошлые записи останутся). Если пользователь просто добавляет ещё что-то — fix не ставь.
-nav — до 2 кнопок перехода в нужное место приложения: [{"to":"ключ","label":"короткая подпись"}]. Ставь, когда спрашивают, где или как что-то сделать, или когда кнопка явно поможет. Ключи — только из списка «Места» ниже; иначе nav пустой.
+nav — до 2 кнопок перехода в нужное место приложения: [{"to":"ключ","label":"короткая подпись"}]. Ставь, когда спрашивают, где или как что-то сделать, или когда кнопка явно поможет. Ключи — только из списка «Места» ниже; иначе nav пустой. Спрашивают про конкретный день («что на завтра», «что в пятницу», «7 ноября») — перечисли в reply дела этого дня из сводки со временем и дай кнопку этого дня: {"to":"day","date":"ГГГГ-ММ-ДД","label":"Пт, 6 ноября"}.
 
 Виды записей (поле type):
 1. "task" — дело, которое отмечают как сделанное: {"type":"task","title":"...","date":"ГГГГ-ММ-ДД" или null,"time":"ЧЧ:ММ" или null,"time2":"ЧЧ:ММ" или null,"prio":"urgent"|"high"|"mid"|"low","cat":"название календаря из списка" или null,"repeat":ПОВТОР или null,"remind":[минуты до начала] или null,"loc":"место" или null}
@@ -247,7 +249,7 @@ nav — до 2 кнопок перехода в нужное место прил
 - Разложить дела на сегодня по времени: кнопка «Разложить по времени» у задач дня или фраза «распредели дела на сегодня» — помощник оценит, сколько займёт каждое дело, и предложит время в свободных часах (Настройки → Календарь → «Свободное время для помощника»); пропущенные дела можно добавить галочками.
 - Знак «?» рядом с непонятным — подсказка. Подробный тур — Настройки → О приложении → Знакомство с приложением. «Отменить» — в сообщении после действия или Ctrl+Z. На ПК меню команд — Ctrl+K.
 
-Места (ключи для nav): home — Главная; cal — Календарь; tasks — Задачи; goals — Цели; habits — Привычки; fin — Финансы; budget — окно «Бюджет на месяц»; missed — окно «Вы пропустили»; profile — Профиль; settings — Настройки; set_look — Оформление; set_cal — настройки календаря; set_cats — Календари (категории); set_layout — Расположение; sections — Разделы и вкладки; set_notif — Напоминания; set_data — Аккаунт и данные; tour — Знакомство с приложением; feedback — Отзыв.
+Места (ключи для nav): home — Главная; cal — Календарь; day — конкретный день в календаре (с полем date); tasks — Задачи; goals — Цели; habits — Привычки; fin — Финансы; budget — окно «Бюджет на месяц»; missed — окно «Вы пропустили»; profile — Профиль; settings — Настройки; set_look — Оформление; set_cal — настройки календаря; set_cats — Календари (категории); set_layout — Расположение; sections — Разделы и вкладки; set_notif — Напоминания; set_data — Аккаунт и данные; tour — Знакомство с приложением; feedback — Отзыв.
 
 Отвечай только JSON, без пояснений вокруг.`;
 
@@ -580,7 +582,7 @@ Deno.serve(async req => {
       const en = body.lang === 'en' ? EN_NOTE : '';
       m = hello ? await askModel(HELLO + en, userMessage('', ctx), { model: LITE, temp: 0.8, max: 300 })
         : ids.length ? await askImages(text, ctx, body.history, ids, SYSTEM + en)
-        : await askModel(SYSTEM + en, userMessage(text, ctx, { history: body.history }), { model: body.ask ? LITE : MODEL, temp: 0.2, max: 2500 });
+        : await askModel(SYSTEM + en, userMessage(text, ctx, { history: body.history }), { model: MODEL, temp: 0.2, max: 2500 });
     } finally { await drop(); }   // после разбора картинки в хранилище Сбера не нужны
     if (m.error) { await refund(); return json({ error: m.error, code: m.code || 0, p: PROVIDER }, m.error === 'off' ? 503 : 502); }   // p — какая нейросеть ответила (видно в окне помощника)
     const out = m.out || outOf(m.text);
