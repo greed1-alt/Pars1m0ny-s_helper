@@ -57,7 +57,7 @@ function frFeed() {
   if (sh.about) { if (st.motto) me.m = String(st.motto).slice(0, 90); if (st.about) me.ab = String(st.about).slice(0, 600); }
   if (sh.bd && isDate(st.birthday)) me.bd = st.birthday.slice(5);
   if (sh.city) { const c = [st.city, st.country].filter(Boolean).join(', '); if (c) me.city = c.slice(0, 80); }
-  return { v: 1, at: t, cs, ev: ev.slice(0, 600), wk: frWeekStats(), me, tot: { t: s.tasksDone, h: s.marks, b: s.best, d: s.days, s: isDate(st.since) ? st.since : '' }, ach: got.map(a => a.n), a: got.length, an: ACH.length };
+  return { v: 1, at: t, cs, ev: ev.slice(0, 600), wk: frWeekStats(), me, tot: { t: s.tasksDone, h: s.marks, b: s.best, d: s.days, s: isDate(st.since) ? st.since : '' }, ach: got.map(a => a.n), a: got.length, an: ACH.length, hrs: frHrsList() };
 }
 // Имя и значок — из профиля; фото не уходит (оно хранится только на устройстве)
 const frBody = () => { const st = S.settings, a = st.avatar || {}; const cv = st.cover || {};
@@ -130,7 +130,8 @@ function frClean(f) {
     me: { m: str(me.m, 90), ab: str(me.ab, 600), bd: /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(me.bd || '') ? me.bd : '', city: str(me.city, 80) },
     // s — с какого дня в приложении; в карточках до 21 октября его нет — считаем по числу дней от даты ленты
     tot: { t: num(tot.t, 999999), h: num(tot.h, 999999), b: num(tot.b), d: num(tot.d, 99999), s: isDate(tot.s) ? tot.s : isDate(f.at) && num(tot.d, 99999) ? addDays(f.at, 1 - num(tot.d, 99999)) : '' },
-    ach: (Array.isArray(f.ach) ? f.ach : []).filter(n => typeof n === 'string' && ACH.some(a => a[1] === n)).slice(0, ACH.length), a: num(f.a), an: num(f.an) };
+    ach: (Array.isArray(f.ach) ? f.ach : []).filter(n => typeof n === 'string' && ACH.some(a => a[1] === n)).slice(0, ACH.length), a: num(f.a), an: num(f.an),
+    hrs: frHrsClean(f.hrs) };   // «Когда я занят для друзей» (6 ноября 2026); у карточек со старых версий их нет — пусто
 }
 async function frLoad(quiet) {
   if (!signedIn()) return;
@@ -295,10 +296,11 @@ function frCardHTML() {
 // «О друге» — девиз, «Обо мне», день рождения, город и ваше «Не забыть»; «Достижения и итоги». ПК — две колонки.
 const FR_NEAR = 4, FR_NWIN = ['окно', 'окна', 'окон'];
 const frFirst = f => { const n = frName(f); return n.startsWith('@') ? n : n.split(/\s+/)[0] || n; };   // «Вы и Саша»: без склонений — именительный
-// События друга в день k по времени (с календарём, чтобы взять цвет)
+// События друга в день k по времени (с календарём, чтобы взять цвет) и его часы «Занят для друзей» (h: 1 — это они, а не событие)
 function frEvs(f, k) {
-  const cs = new Map(f.feed.cs.map(c => [c.i, c]));
-  return f.feed.ev.filter(e => occurs(e, k)).sort((a, b) => (a.time || '').localeCompare(b.time || '')).map(e => ({ e, c: cs.get(e.cat) || {} }));
+  const cs = new Map(f.feed.cs.map(c => [c.i, c])), d = dowIdx(k);
+  const hrs = f.feed.hrs.filter(r => r.d.includes(d)).map(r => ({ e: { title: '', time: r.a, time2: r.b }, c: { c: FR_HRS_C }, h: 1 }));
+  return [...hrs, ...f.feed.ev.filter(e => occurs(e, k)).map(e => ({ e, c: cs.get(e.cat) || {} }))].sort((a, b) => (a.e.time || '').localeCompare(b.e.time || ''));
 }
 const frWhen = e => e.time ? e.time + (e.time2 ? '–' + e.time2 : '') : 'Весь день';
 const frEvLi = ({ e, c }, sub) => `<li class="frb-ev${e.title ? '' : ' busy'}"><span class="frb-tm">${frWhen(e)}</span><i style="--c:${c.c}"></i><span class="frb-et"><b>${e.title ? esc(e.title) : 'Занят'}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</span></li>`;
@@ -316,8 +318,8 @@ function frVsHTML(f) {
 }
 // Ближайшее: сегодня (что ещё не закончилось) и завтра; пусто — первый день с делами на две недели. Ниже — первое общее окно
 function frNearHTML(f) {
-  const fd = f.feed, head = `<div class="card-h"><b>${I(IC.cal, 17)} Ближайшее</b>${fd.cs.length ? `<button class="pill sm" data-act="frcal" data-u="${f.uid}">Весь календарь →</button>` : ''}</div>`;
-  if (!fd.cs.length) return `<div class="card frb-near">${head}<p class="hm-empty">Друг пока не открыл вам календари — ни дел, ни общего свободного времени не видно.</p></div>`;
+  const fd = f.feed, open = fd.cs.length || fd.hrs.length, head = `<div class="card-h"><b>${I(IC.cal, 17)} Ближайшее</b>${open ? `<button class="pill sm" data-act="frcal" data-u="${f.uid}">Весь календарь →</button>` : ''}</div>`;
+  if (!open) return `<div class="card frb-near">${head}<p class="hm-empty">Друг пока не открыл вам календари — ни дел, ни общего свободного времени не видно.</p></div>`;
   const t = todayK(), now = new Date(), hm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
   let out = '', n = 0;
   for (let i = 0; i < FR_DAYN && n < FR_NEAR && !(i >= 2 && n); i++) {
@@ -330,7 +332,7 @@ function frNearHTML(f) {
     <div class="frb-free"><span class="frb-fl">${I(IC.users, 15)} Свободны вместе ${hint(FR_FREE_HINT, 'Как ищем свободное время')}</span>
       ${w ? slot + (all > 1 ? `<button class="frb-more" data-act="frcal" data-u="${f.uid}">ещё ${plural(all - 1, FR_NWIN)}</button>` : '') : '<span class="frb-none">на неделе общих окон нет</span>'}</div></div>`;
 }
-const FR_FREE_HINT = 'Ближайшие 7 дней с 9:00 до 22:00: окна от часа, когда нет ни ваших событий со временем, ни событий друга — по календарям, которые друг вам открыл. События на весь день не учитываются. Нажмите на окно — в вашем календаре появится встреча.';
+const FR_FREE_HINT = 'Ближайшие 7 дней с 9:00 до 22:00: окна от часа, когда нет ни ваших событий со временем, ни событий друга — по календарям, которые друг вам открыл, — и когда никто из вас не отметил «Занят для друзей». События на весь день не учитываются. Нажмите на окно — в вашем календаре появится встреча.';
 // О друге: что друг сам открыл (девиз, «Обо мне», день рождения без года, город) и ваше «Не забыть» (видите только вы)
 function frAboutHTML(f, note) {
   const me = f.feed ? f.feed.me : null, bd = me && me.bd ? bdayInfo('2000-' + me.bd) : null, li = [];
@@ -375,9 +377,10 @@ ACT.frcal = el => {
   const f = fr.list.find(x => x.uid === el.dataset.u && x.state === 'ok'); if (!f || !f.feed) return;
   const fd = f.feed, t = todayK(), cs = new Map(fd.cs.map(c => [c.i, c])), seen = new Set(), rec = [];
   fd.ev.forEach(e => { if (!isRec(e)) return; const key = [e.title, e.time, e.time2, e.cat, canon(e.repeat)].join('|'); if (!seen.has(key)) { seen.add(key); rec.push(e); } });
-  const reg = rec.sort((a, b) => (a.time || '').localeCompare(b.time || '')).map(e => frEvLi({ e, c: cs.get(e.cat) || {} }, repText(e)));
+  const reg = [...fd.hrs.map(r => frEvLi({ e: { title: '', time: r.a, time2: r.b }, c: { c: FR_HRS_C } }, frDaysTxt(r.d))),
+    ...rec.sort((a, b) => (a.time || '').localeCompare(b.time || '')).map(e => frEvLi({ e, c: cs.get(e.cat) || {} }, repText(e)))];
   let days = '';
-  for (let i = 0; i < FR_DAYN; i++) { const k = addDays(t, i), evs = frEvs(f, k).filter(x => !isRec(x.e)); if (evs.length) days += `<div class="frb-dh">${frDayH(k, i)}</div><ul class="frb-evs">${evs.map(x => frEvLi(x)).join('')}</ul>`; }
+  for (let i = 0; i < FR_DAYN; i++) { const k = addDays(t, i), evs = frEvs(f, k).filter(x => !x.h && !isRec(x.e)); if (evs.length) days += `<div class="frb-dh">${frDayH(k, i)}</div><ul class="frb-evs">${evs.map(x => frEvLi(x)).join('')}</ul>`; }
   const free = frFree(f);
   sheet(`<div class="sh-head"><h3>Календарь · ${esc(frName(f))}</h3><button class="ic" data-act="close" title="Закрыть (Esc)" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   <div class="frb-sheet">
@@ -386,7 +389,7 @@ ACT.frcal = el => {
     ${reg.length ? `<div class="set-sec">Регулярно</div><ul class="frb-evs">${reg.join('')}</ul>` : ''}
     <div class="set-sec">Две недели</div>
     ${days || '<p class="hm-empty">Разовых дел на две недели нет.</p>'}
-    <p class="set-note">«Занят» — календарь, у которого друг показывает только время. Календари: ${fd.cs.map(c => `<span class="fr-cal"><i style="--c:${c.c}"></i>${c.n ? esc(c.n) : 'без названия'}</span>`).join(' ')}</p>
+    ${fd.cs.length ? `<p class="set-note">«Занят» — календарь, у которого друг показывает только время. Календари: ${fd.cs.map(c => `<span class="fr-cal"><i style="--c:${c.c}"></i>${c.n ? esc(c.n) : 'без названия'}</span>`).join(' ')}</p>` : ''}
   </div>`);
 };
 // Достижения друга целиком: названия и за что
@@ -428,7 +431,7 @@ const frBusy = (list, k) => list.filter(e => isTime(e.time) && occurs(e, k)).map
 function frFree(f) {
   const t = todayK(), now = new Date(), nowM = now.getHours() * 60 + now.getMinutes(), mine = S.events.filter(e => !e.demo), out = [];
   for (let i = 0; i < 7; i++) {
-    const k = addDays(t, i), busy = [...frBusy(mine, k), ...frBusy(f.feed.ev, k)].sort((a, b) => a[0] - b[0]), wins = [];
+    const k = addDays(t, i), busy = [...frBusy(mine, k), ...frBusy(f.feed.ev, k), ...frHrsOn(frHrsList(), k), ...frHrsOn(f.feed.hrs, k)].sort((a, b) => a[0] - b[0]), wins = [];
     let from = i ? FR_FREE[0] : Math.max(FR_FREE[0], Math.ceil(nowM / 30) * 30);
     busy.forEach(([a, b]) => { if (a > from) wins.push([from, Math.min(a, FR_FREE[1])]); from = Math.max(from, b); });
     wins.push([from, FR_FREE[1]]);
@@ -437,6 +440,41 @@ function frFree(f) {
   }
   return out;
 }
+// ---- Когда я занят для друзей (просьба пользователя 6 ноября 2026: «указать время, в которое я буду занят для других, условно с 8 до 16») ----
+// S.settings.frHrs = [{ d: [0..6], a: 'ЧЧ:ММ', b: 'ЧЧ:ММ' }] — дни (0 — понедельник, как dowIdx) и часы, до FR_HRS_MAX строк. Уходят в карточку (feed.hrs):
+// у друзей на вашей странице — «Занят», в «Свободны вместе» эти часы не попадают — ни у них, ни у вас. Ваш календарь не меняется. Настройки → «Друзья и приватность»
+const FR_HRS_MAX = 6, FR_HRS_C = '#94a3b8', FR_HRS_DEF = { d: [0, 1, 2, 3, 4], a: '09:00', b: '18:00' };
+const frHrsOk = r => !!r && Array.isArray(r.d) && r.d.length > 0 && r.d.every(x => Number.isInteger(x) && x >= 0 && x <= 6) && HM_RE.test(r.a || '') && HM_RE.test(r.b || '') && timeMin(r.a) < timeMin(r.b);
+const frHrsClean = v => (Array.isArray(v) ? v : []).slice(0, FR_HRS_MAX).map(r => r && typeof r === 'object' ? { d: [...new Set(Array.isArray(r.d) ? r.d : [])].filter(x => Number.isInteger(x) && x >= 0 && x <= 6).sort((x, y) => x - y), a: String(r.a || ''), b: String(r.b || '') } : null).filter(frHrsOk);
+const frHrsList = () => frHrsClean(S.settings.frHrs);
+const frHrsOn = (list, k) => { const d = dowIdx(k); return list.filter(r => r.d.includes(d)).map(r => [timeMin(r.a), timeMin(r.b)]); };
+// «По будням», «Пн–Чт», «Пн, Ср, Пт»
+const frDaysTxt = d => { const s = [...d].sort((x, y) => x - y), j = s.join('');
+  if (j === '0123456') return 'Каждый день'; if (j === '01234') return 'По будням'; if (j === '56') return 'По выходным';
+  return s.length >= 3 && s.every((x, i) => !i || x === s[i - 1] + 1) ? DOW[s[0]] + '–' + DOW[s[s.length - 1]] : s.map(i => DOW[i]).join(', '); };
+function frHrsHTML() {
+  const l = frHrsList();
+  return `${l.length ? '' : '<p class="set-note">Не задано — друзья видят только события из календарей, которые вы им открыли.</p>'}
+    ${l.map((r, i) => `<div class="frh-row"><div class="frh-days" role="group" aria-label="Дни недели">${DOW.map((n, d) => `<button class="frh-d${r.d.includes(d) ? ' on' : ''}" data-act="frhday" data-i="${i}" data-d="${d}" aria-pressed="${r.d.includes(d)}">${n}</button>`).join('')}</div>
+      <span class="ai-fh"><input id="frh_${i}_a" class="fin" type="time" step="900" value="${r.a}" aria-label="Занят с"><span aria-hidden="true">–</span><input id="frh_${i}_b" class="fin" type="time" step="900" value="${r.b}" aria-label="Занят до"></span>
+      <button class="ic frh-x" data-act="frhdel" data-i="${i}" aria-label="Убрать это время" title="Убрать">${I(IC.x, 16)}</button></div>`).join('')}
+    ${l.length < FR_HRS_MAX ? `<button class="btn frh-add" data-act="frhadd">${I(IC.plus, 15)} ${l.length ? 'Добавить ещё время' : 'Указать, когда я занят'}</button>` : ''}`;
+}
+// Сохранить и обновить: карточка уйдёт друзьям сама (SAVE_HOOKS → frSoon)
+const frHrsSet = (l, msg) => { S.settings.frHrs = l; save(); render(); if (msg) toast(msg); };
+ACT.frhadd = () => { const l = frHrsList(); if (l.length >= FR_HRS_MAX) return; l.push(Object.assign({}, FR_HRS_DEF, { d: [...FR_HRS_DEF.d] })); frHrsSet(l); };
+ACT.frhdel = el => { const l = frHrsList(); l.splice(+el.dataset.i, 1); frHrsSet(l, 'Время убрано — друзья больше не видят его'); };
+ACT.frhday = el => {
+  const l = frHrsList(), r = l[+el.dataset.i], d = +el.dataset.d; if (!r) return;
+  if (r.d.includes(d)) { if (r.d.length === 1) return toast('Нужен хотя бы один день'); r.d = r.d.filter(x => x !== d); } else r.d = [...r.d, d].sort((x, y) => x - y);
+  frHrsSet(l);
+};
+document.addEventListener('change', e => { const m = /^frh_(\d+)_([ab])$/.exec(e.target.id || ''); if (!m) return;
+  const l = frHrsList(), r = l[+m[1]], v = e.target.value; if (!r) return;
+  if (!HM_RE.test(v)) { e.target.value = r[m[2]]; return; }
+  const n = Object.assign({}, r, { [m[2]]: v });
+  if (timeMin(n.a) >= timeMin(n.b)) { e.target.value = r[m[2]]; return toast('Начало должно быть раньше конца'); }
+  l[+m[1]] = n; frHrsSet(l, `Занят для друзей: ${frDaysTxt(n.d)}, ${n.a}–${n.b}`); });
 const frDayLbl = (k, i) => i < 2 ? relDay(k)[0].toUpperCase() + relDay(k).slice(1) : dowName(k) + ', ' + pd(k).getDate() + ' ' + MONS[pd(k).getMonth()];
 ACT.frmeet = el => {
   const f = fr.list.find(x => x.uid === el.dataset.u); if (!f) return;

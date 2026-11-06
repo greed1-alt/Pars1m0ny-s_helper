@@ -426,7 +426,8 @@ function settingsHTML() {
     ${!signedIn() ? `<p class="set-note">Друзья работают с аккаунтом — войдите по почте.</p><button class="btn pri" style="width:100%" data-act="login">${I(IC.user, 16)} Войти</button>`
       : `<p class="set-note">${st.fr ? 'Ваш ник, что друзья видят в календарях и профиле, уведомления о заявках и сообщениях.' : 'Создайте карточку — друзья найдут вас по нику, увидят, когда вы заняты, и смогут писать вам.'}</p>
       <button class="btn${st.fr ? '' : ' pri'}" style="width:100%" data-act="frset">${I(IC.users, 16)} ${st.fr ? 'Что видят друзья и уведомления' : 'Создать карточку для друзей'}</button>
-      <button class="btn" style="width:100%;margin-top:8px" data-act="accgo" data-s="profile" data-to="pf-friends">${I(IC.user, 16)} Мои друзья и заявки</button>`}`;
+      <button class="btn" style="width:100%;margin-top:8px" data-act="accgo" data-s="profile" data-to="pf-friends">${I(IC.user, 16)} Мои друзья и заявки</button>
+      ${st.fr ? `<div class="set-sec">${withHint('Когда я занят для друзей', 'frHrs')}</div>${frHrsHTML()}` : ''}`}`;
   const about = `<div class="set-sec">О приложении</div>
     <div class="st-about"><span class="wordmark">${APP_NAME}</span><small>Календарь, задачи, привычки и финансы — в одном месте.</small><small class="st-ver">${appVerText()}</small></div>
     <button class="btn" style="width:100%" data-act="help">${I(IC.key, 16)} Горячие клавиши</button>

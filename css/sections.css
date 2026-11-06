@@ -298,6 +298,14 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .frb-sheet .frf-day{flex-wrap:wrap;gap:6px 10px}
 .frb-sheet .frf-d{width:auto;flex-basis:100%}
 .frb-sheet>.set-sec:first-child{margin-top:0}
+/* Настройки → «Когда я занят для друзей»: строка — дни недели, часы «с — до», убрать */
+.frh-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.frh-days{display:flex;gap:4px;flex-basis:100%}
+.frh-d{flex:1 1 0;min-width:0;height:34px;border-radius:var(--r2);border:1px solid var(--line);font-size:12.5px;font-weight:600;color:var(--tx2)}
+.frh-d.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 14%,transparent);color:var(--tx)}
+@media(hover:hover){.frh-d:not(.on):hover{background:var(--hov)}}
+.frh-x{margin-left:auto}
+.frh-add{width:100%;margin-top:10px}
 @media(max-width:899px){
   .frb-head .pf-cover{height:100px}
   .frb-head .pf-bar{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px;row-gap:12px;align-items:end;padding:0 14px 14px}
