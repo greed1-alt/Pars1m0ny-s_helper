@@ -73,7 +73,7 @@ PWA-календарь-планер **Parsimony** (название — конс
 - → history: «Бета и рабочая версия», «Скорость открытия».
 
 ## Адрес и домен
-- `parsimony.ru` — на reg.ru, DNS — в deSEC (`ns1.desec.io`, `ns2.desec.org`): CNAME `app` и `beta` → `greed1-alt.github.io.`, сам `parsimony.ru` — A/AAAA GitHub Pages (страница `site/`, репозиторий `greed1-alt/parsimony-site`; до 29 октября 2026 — заглушка reg.ru), `www` → `greed1-alt.github.io.`, записи писем Resend, TXT подтверждения GitHub. В репозитории `CNAME` = `app.parsimony.ru`, Enforce HTTPS включён. Старый адрес github.io и старые ссылки (`#share=…`) сами ведут на новый (sw.js, `redirect:'manual'`).
+- `parsimony.ru` — на reg.ru, DNS — в deSEC (`ns1.desec.io`, `ns2.desec.org`): CNAME `app` и `beta` → `greed1-alt.github.io.`, сам `parsimony.ru` — A/AAAA GitHub Pages (страница `site/`, репозиторий `greed1-alt/parsimony-site`; до 29 октября 2026 — заглушка reg.ru), `www` → `greed1-alt.github.io.`, записи писем Resend (поддомен `send`, `resend._domainkey`), почта `support@parsimony.ru` — ящик на REG.RU (MX `mx1`/`mx2.hosting.reg.ru`, SPF корня — без `a`: корень указывает на GitHub, DKIM `dkim._domainkey`; NS на REG.RU не переносить), TXT подтверждения GitHub. В репозитории `CNAME` = `app.parsimony.ru`, Enforce HTTPS включён. Старый адрес github.io и старые ссылки (`#share=…`) сами ведут на новый (sw.js, `redirect:'manual'`).
 - Если GitHub снова капризничает: Remove → Save в Settings → Pages делает коммиты «Delete/Create CNAME» прямо в `main` — подтянуть в `dev`: `git merge --ff-only origin/main`.
 - → history: «Свой адрес app.parsimony.ru».
 
