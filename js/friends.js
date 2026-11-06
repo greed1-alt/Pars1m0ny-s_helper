@@ -290,28 +290,71 @@ function frCardHTML() {
 }
 
 // ---- Страница друга ----
-function frDayRows(f, k) {
+// Вариант Б «Короткая лента» (выбор пользователя 6 ноября 2026; было ~4 экрана на телефоне, стало ~2): шапка с кнопками в одну строку;
+// «Вы и Имя · неделя» — сравнение; «Ближайшее» — сегодня и завтра и первое общее свободное окно, весь календарь — окном (ACT.frcal);
+// «О друге» — девиз, «Обо мне», день рождения, город и ваше «Не забыть»; «Достижения и итоги». ПК — две колонки.
+const FR_NEAR = 4, FR_NWIN = ['окно', 'окна', 'окон'];
+const frFirst = f => { const n = frName(f); return n.startsWith('@') ? n : n.split(/\s+/)[0] || n; };   // «Вы и Саша»: без склонений — именительный
+// События друга в день k по времени (с календарём, чтобы взять цвет)
+function frEvs(f, k) {
   const cs = new Map(f.feed.cs.map(c => [c.i, c]));
-  return f.feed.ev.filter(e => occurs(e, k)).sort((a, b) => (a.time || '').localeCompare(b.time || '')).map(e => {
-    const c = cs.get(e.cat) || {}, when = e.time ? e.time + (e.time2 ? '–' + e.time2 : '') : 'Весь день';
-    return `<li class="fr-ev${e.title ? '' : ' busy'}"><span class="fr-t">${when}</span><i style="--c:${c.c}"></i><span class="fr-ev-t"><b>${e.title ? esc(e.title) : 'Занят'}</b>${c.n ? `<small>${esc(c.n)}</small>` : ''}</span></li>`;
-  }).join('');
+  return f.feed.ev.filter(e => occurs(e, k)).sort((a, b) => (a.time || '').localeCompare(b.time || '')).map(e => ({ e, c: cs.get(e.cat) || {} }));
+}
+const frWhen = e => e.time ? e.time + (e.time2 ? '–' + e.time2 : '') : 'Весь день';
+const frEvLi = ({ e, c }, sub) => `<li class="frb-ev${e.title ? '' : ' busy'}"><span class="frb-tm">${frWhen(e)}</span><i style="--c:${c.c}"></i><span class="frb-et"><b>${e.title ? esc(e.title) : 'Занят'}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</span></li>`;
+const frDayH = (k, i) => i < 2 ? relDay(k)[0].toUpperCase() + relDay(k).slice(1) : dowName(k) + ', ' + pd(k).getDate() + ' ' + MONG[pd(k).getMonth()];
+// Сравнение недели: вы и друг (очки = задачи + отметки привычек, как в таблице лидеров)
+function frVsHTML(f) {
+  const me = frWeekStats(), w = frWk(f), nm = frFirst(f), board = frBoard(fr.list.filter(x => x.state === 'ok')), place = board.findIndex(r => r.uid === f.uid) + 1;
+  const row = (label, a, b, fmt) => { const s = a + b, p = s ? Math.round(a / s * 100) : 50;
+    return `<div class="frv-r"><span class="frv-l">${label}</span><b class="frv-a">${fmt ? fmt(a) : a}</b><span class="frv-bar" role="img" aria-label="${label}: вы — ${a}, ${esc(nm)} — ${b}"><i style="width:${p}%"></i></span><b class="frv-b">${fmt ? fmt(b) : b}</b></div>`; };
+  const d = frScore(me) - frScore(w), lead = d > 0 ? 'Вы впереди на ' + plural(d, FR_PTS) : d < 0 ? esc(nm) + ' впереди на ' + plural(-d, FR_PTS) : 'Пока поровну';
+  return `<div class="card frv" style="--fc:${safeColor(f.ava.c)}"><div class="card-h"><b>Вы и ${esc(nm)} · неделя ${hint('С понедельника: выполненные задачи и отметки привычек. Очки — их сумма, как в таблице лидеров. Серия — дни подряд, когда выполнены все ежедневные привычки. Место — в таблице недели среди ваших друзей.', 'Как считается неделя')}</b></div>
+    <div class="frv-r frv-h" aria-hidden="true"><span></span><b>Вы</b><b>${esc(nm)}</b></div>
+    ${row('Задачи', me.t, w.t)}${row('Привычки', me.h, w.h)}${row('Серия', me.s, w.s, v => v ? v + ' дн.' : '—')}
+    <p class="frv-sum"><b>${lead}</b><span>${esc(nm)}: ${place}-е место из ${board.length}</span></p></div>`;
+}
+// Ближайшее: сегодня (что ещё не закончилось) и завтра; пусто — первый день с делами на две недели. Ниже — первое общее окно
+function frNearHTML(f) {
+  const fd = f.feed, head = `<div class="card-h"><b>${I(IC.cal, 17)} Ближайшее</b>${fd.cs.length ? `<button class="pill sm" data-act="frcal" data-u="${f.uid}">Весь календарь →</button>` : ''}</div>`;
+  if (!fd.cs.length) return `<div class="card frb-near">${head}<p class="hm-empty">Друг пока не открыл вам календари — ни дел, ни общего свободного времени не видно.</p></div>`;
+  const t = todayK(), now = new Date(), hm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  let out = '', n = 0;
+  for (let i = 0; i < FR_DAYN && n < FR_NEAR && !(i >= 2 && n); i++) {
+    const k = addDays(t, i), evs = frEvs(f, k).filter(x => i || !x.e.time || (x.e.time2 || x.e.time) > hm).slice(0, FR_NEAR - n);
+    if (evs.length) { out += `<div class="frb-dh">${frDayH(k, i)}</div><ul class="frb-evs">${evs.map(x => frEvLi(x)).join('')}</ul>`; n += evs.length; }
+  }
+  const free = frFree(f), all = free.reduce((s, d) => s + d.wins.length, 0), w = free[0] && free[0].wins[0];
+  const slot = w ? `<button class="frf-slot" data-act="frmeet" data-u="${f.uid}" data-k="${free[0].k}" data-a="${w[0]}" data-b="${w[1]}" aria-label="Встреча ${frDayLbl(free[0].k, dayDiff(t, free[0].k))}, ${frHM(w[0])}–${frHM(w[1])}">${frDayLbl(free[0].k, dayDiff(t, free[0].k))}, ${frHM(w[0])}–${frHM(w[1])}</button>` : '';
+  return `<div class="card frb-near">${head}${out || '<p class="hm-empty">На две недели вперёд ничего не запланировано.</p>'}
+    <div class="frb-free"><span class="frb-fl">${I(IC.users, 15)} Свободны вместе ${hint(FR_FREE_HINT, 'Как ищем свободное время')}</span>
+      ${w ? slot + (all > 1 ? `<button class="frb-more" data-act="frcal" data-u="${f.uid}">ещё ${plural(all - 1, FR_NWIN)}</button>` : '') : '<span class="frb-none">на неделе общих окон нет</span>'}</div></div>`;
+}
+const FR_FREE_HINT = 'Ближайшие 7 дней с 9:00 до 22:00: окна от часа, когда нет ни ваших событий со временем, ни событий друга — по календарям, которые друг вам открыл. События на весь день не учитываются. Нажмите на окно — в вашем календаре появится встреча.';
+// О друге: что друг сам открыл (девиз, «Обо мне», день рождения без года, город) и ваше «Не забыть» (видите только вы)
+function frAboutHTML(f, note) {
+  const me = f.feed ? f.feed.me : null, bd = me && me.bd ? bdayInfo('2000-' + me.bd) : null, li = [];
+  if (bd) li.push(`<li>${I(IC.gift, 16)}<span>День рождения — ${bd.d.getDate()} ${MONG[bd.d.getMonth()]}${bd.days === 0 ? ' · сегодня! 🎉' : bd.days <= 30 ? ' · через ' + plural(bd.days, NDAY) : ''}</span></li>`);
+  if (me && me.city) li.push(`<li>${I(IC.globe, 16)}<span>${esc(me.city)}</span></li>`);
+  if (!(me && (me.m || me.ab)) && !li.length && !note.t) return '';
+  return `<div class="card frb-about"><div class="card-h"><b>О друге</b></div>
+    ${me && me.m ? `<p class="frp-motto">${esc(me.m)}</p>` : ''}${me && me.ab ? `<p class="pf-about-t">${esc(me.ab)}</p>` : ''}
+    ${li.length ? `<ul class="pf-det">${li.join('')}</ul>` : ''}
+    ${note.t ? `<div class="frb-mine"><div class="frb-mh"><span>${I(IC.lock, 14)} Не забыть <small>видите только вы</small></span><button class="pill sm" data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 13)} Изменить</button></div><p class="pf-about-t">${esc(note.t)}</p></div>` : ''}</div>`;
+}
+// Достижения и итоги за всё время — одной карточкой
+function frAchHTML(f) {
+  const fd = f.feed, tot = Object.assign({}, fd.tot, f.st ? frTot(f) : {}), ach = ACH.filter(a => fd.ach.includes(a[1])), MAX = 8;
+  const tile = (l, v) => `<div class="frb-t"><small>${l}</small><b>${v}</b></div>`;
+  return `<div class="card frb-ach"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения · ${ach.length} из ${ACH.length}</b>${ach.length ? `<button class="pill sm" data-act="frach" data-u="${f.uid}">Все →</button>` : ''}</div>
+    ${ach.length ? `<div class="frp-ach">${ach.slice(0, MAX).map(a => `<span class="frp-b" title="${esc(a[1])}" role="img" aria-label="${esc(a[1])}">${a[0]}</span>`).join('')}${ach.length > MAX ? `<button class="frp-b frb-plus" data-act="frach" data-u="${f.uid}" aria-label="Все достижения">+${ach.length - MAX}</button>` : ''}</div>` : '<p class="hm-empty">Достижений пока нет — всё впереди.</p>'}
+    <div class="frb-tot">${tile('Задач выполнено', NF0.format(tot.t))}${tile('Отметок привычек', NF0.format(tot.h))}${tile('Лучшая серия', tot.b ? plural(tot.b, NDAY) : '—')}${tile('В ' + APP_NAME + ' с', tot.s ? pd(tot.s).getDate() + ' ' + MONG[pd(tot.s).getMonth()] + ' ' + tot.s.slice(0, 4) : '—')}</div></div>`;
 }
 function frPageHTML() {
   const f = fr.list.find(x => x.uid === fr.cur && x.state === 'ok');
   if (!f) return `<div class="pe-head"><button class="ic pe-back" data-act="sec" data-s="profile" aria-label="Назад к профилю" title="Назад к профилю">${I(IC.left, 20)}</button><div><h2>Друг</h2></div></div><div class="card"><p class="hm-empty">Этого человека больше нет в списке друзей.</p></div>`;
-  const t = todayK(), w = frWk(f), board = frBoard(fr.list.filter(x => x.state === 'ok')), place = board.findIndex(r => r.uid === f.uid) + 1, fd = f.feed;
-  const note = frNote(f.uid), rel = FR_REL.find(r => r[0] === note.r), since = f.since ? new Date(f.since) : null;
-  let days = '';
-  if (fd && fd.cs.length) for (let i = 0; i < FR_DAYN; i++) { const k = addDays(t, i), rows = frDayRows(f, k); if (rows) days += `<div class="fr-day"><div class="fr-dh">${i < 2 ? relDay(k)[0].toUpperCase() + relDay(k).slice(1) + ', ' : ''}${fmtLong(k)}</div><ul class="fr-evs">${rows}</ul></div>`; }
-  const st = (label, val, sub, c, ic) => `<div class="frp-t" style="--c:${c}"><span class="frp-ic" aria-hidden="true">${ic}</span><span><b>${val}</b><span>${label}</span><small>${sub}</small></span></div>`;
-  const me = fd ? fd.me : null, bd = me && me.bd ? bdayInfo('2000-' + me.bd) : null;
-  const about = me && (me.m || me.ab || bd || me.city) ? `<div class="card frp-about"><div class="card-h"><b>Обо мне</b></div>
-    ${me.m ? `<p class="frp-motto">${esc(me.m)}</p>` : ''}${me.ab ? `<p class="pf-about-t">${esc(me.ab)}</p>` : ''}
-    <ul class="pf-det">${bd ? `<li>${I(IC.gift, 16)}<span>День рождения — ${bd.d.getDate()} ${MONG[bd.d.getMonth()]}${bd.days === 0 ? ' · сегодня! 🎉' : bd.days <= 30 ? ' · через ' + plural(bd.days, NDAY) : ''}</span></li>` : ''}${me.city ? `<li>${I(IC.globe, 16)}<span>${esc(me.city)}</span></li>` : ''}</ul></div>` : '';
-  const tot = fd && Object.assign({}, fd.tot, f.st ? frTot(f) : {}), row = (n, v) => `<li><span>${n}</span><b>${v}</b></li>`;
-  const ach = fd ? ACH.filter(a => fd.ach.includes(a[1])) : [];
-  return `<div class="card pf-card frp-card">
+  const fd = f.feed, note = frNote(f.uid), rel = FR_REL.find(r => r[0] === note.r), since = f.since ? new Date(f.since) : null;
+  return `<div class="card pf-card frp-card frb-head">
     <div class="pf-cover" style="background-image:${COVER_GLOW},${COVERS[f.ava.cv] || COVERS.dusk}"><button class="frp-back" data-act="sec" data-s="profile" aria-label="Назад к профилю" title="Назад к профилю">${I(IC.left, 18)}</button></div>
     <div class="pf-bar">
       <span class="pf-ava">${frAva(f, 104)}</span>
@@ -319,29 +362,33 @@ function frPageHTML() {
         <div class="pf-tags">${note.n ? `<span class="pf-nick">${esc(frReal(f))}</span>` : ''}${f.nick && (!note.n || f.name) ? `<span class="pf-nick">@${esc(f.nick)}</span>` : ''}${rel ? `<span class="frp-rel">${rel[1]} ${rel[2]}</span>` : ''}</div>
         <small class="frp-since">${since ? 'В друзьях с ' + since.getDate() + ' ' + MONG[since.getMonth()] + ' ' + since.getFullYear() : 'В друзьях'}${f.at ? ' · обновлено ' + ago(f.at) : ''}</small>
       </div>
-      <div class="pf-acts"><span class="frp-ok">${I(IC.check, 15)} В друзьях</span>${msgErr !== 'nosql' ? `<button class="btn pri" data-act="msgto" data-u="${f.uid}">${I(IC.chat, 15)} Написать</button>` : ''}<button class="btn" data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 15)} Пометки</button><button class="btn pf-more" data-act="frmenu" data-u="${f.uid}" aria-label="Ещё" title="Ещё">${I(IC.more, 18)}</button></div>
+      <div class="pf-acts">${msgErr !== 'nosql' ? `<button class="btn pri" data-act="msgto" data-u="${f.uid}">${I(IC.chat, 15)} Написать</button>` : ''}<button class="btn" data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 15)} Пометки</button><button class="btn pf-more" data-act="frmenu" data-u="${f.uid}" aria-label="Ещё" title="Ещё">${I(IC.more, 18)}</button></div>
     </div>
   </div>
-  ${!fd ? '<div class="card"><p class="hm-empty">Пока пусто — числа и календарь появятся, когда друг откроет приложение.</p></div>' : `<div class="frp-cols">
-    <div class="frp-col">
-      <div class="card frp-week"><div class="card-h"><b>Эта неделя ${hint('С понедельника: выполненные задачи и отметки привычек. Серия — дни подряд, когда выполнены все ежедневные привычки. Место — в таблице недели среди ваших друзей.', 'Как считается неделя')}</b></div>
-        <div class="frp-st">${st('Задачи', w.t, 'выполнено', 'var(--c-blue)', I(IC.check, 18))}${st('Привычки', w.h, 'отметок', 'var(--c-green)', I(IC.spark, 18))}${st('Серия', w.s ? plural(w.s, NDAY) : '—', 'привычки подряд', 'var(--c-orange)', '🔥')}${st('Место', place + ' из ' + board.length, 'среди друзей', 'var(--c-violet)', I(IC.trophy, 18))}</div></div>
-      ${frFreeHTML(f)}
-      <div class="card frp-cal"><div class="card-h"><b>${I(IC.cal, 17)} Календарь на две недели</b></div>
-        ${!fd.cs.length ? '<p class="hm-empty">Друг пока не открыл вам ни одного календаря.</p>' : days || '<p class="hm-empty">На ближайшие две недели ничего не запланировано.</p>'}
-        ${fd.cs.length ? `<p class="set-note">«Занят» — календарь, у которого друг показывает только время. Календари: ${fd.cs.map(c => `<span class="fr-cal"><i style="--c:${c.c}"></i>${c.n ? esc(c.n) : 'без названия'}</span>`).join(' ')}</p>` : ''}
-      </div>
-    </div>
-    <div class="frp-col">
-      ${note.t ? `<div class="card frp-mine"><div class="card-h"><b>${I(IC.lock, 16)} Не забыть</b><button class="pill sm" data-act="frnotes" data-u="${f.uid}">${I(IC.edit, 13)} Изменить</button></div><p class="pf-about-t">${esc(note.t)}</p><small class="frp-lock">Видите только вы</small></div>` : ''}
-      ${about}
-      <div class="card frp-tot-c"><div class="card-h"><b>За всё время</b></div>
-        <ul class="frp-tot">${row('Задач выполнено', NF0.format(tot.t))}${row('Отметок привычек', NF0.format(tot.h))}${row('Лучшая серия', tot.b ? plural(tot.b, NDAY) : '—')}${row('В ' + APP_NAME + ' с', tot.s ? pd(tot.s).getDate() + ' ' + MONG[pd(tot.s).getMonth()] + ' ' + tot.s.slice(0, 4) : '—')}</ul></div>
-      <div class="card frp-ach-c"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения</b><span class="card-h-r"><small>${ach.length} из ${ACH.length}</small>${ach.length ? `<button class="pill sm" data-act="frach" data-u="${f.uid}">Все →</button>` : ''}</span></div>
-        ${ach.length ? `<div class="frp-ach">${ach.map(a => `<span class="frp-b" title="${esc(a[1])}" role="img" aria-label="${esc(a[1])}">${a[0]}</span>`).join('')}</div>` : '<p class="hm-empty">Пока ни одного — всё впереди.</p>'}</div>
-    </div>
+  ${!fd ? `<div class="card"><p class="hm-empty">Пока пусто — числа и календарь появятся, когда друг откроет приложение.</p></div>${frAboutHTML(f, note)}` : `<div class="frb-cols">
+    <div class="frb-col">${frVsHTML(f)}${frNearHTML(f)}</div>
+    <div class="frb-col">${frAboutHTML(f, note)}${frAchHTML(f)}</div>
   </div>`}`;
 }
+// Весь календарь друга окном: общие свободные окна на неделю, регулярные дела одной строкой каждое и разовые — по дням на две недели
+ACT.frcal = el => {
+  const f = fr.list.find(x => x.uid === el.dataset.u && x.state === 'ok'); if (!f || !f.feed) return;
+  const fd = f.feed, t = todayK(), cs = new Map(fd.cs.map(c => [c.i, c])), seen = new Set(), rec = [];
+  fd.ev.forEach(e => { if (!isRec(e)) return; const key = [e.title, e.time, e.time2, e.cat, canon(e.repeat)].join('|'); if (!seen.has(key)) { seen.add(key); rec.push(e); } });
+  const reg = rec.sort((a, b) => (a.time || '').localeCompare(b.time || '')).map(e => frEvLi({ e, c: cs.get(e.cat) || {} }, repText(e)));
+  let days = '';
+  for (let i = 0; i < FR_DAYN; i++) { const k = addDays(t, i), evs = frEvs(f, k).filter(x => !isRec(x.e)); if (evs.length) days += `<div class="frb-dh">${frDayH(k, i)}</div><ul class="frb-evs">${evs.map(x => frEvLi(x)).join('')}</ul>`; }
+  const free = frFree(f);
+  sheet(`<div class="sh-head"><h3>Календарь · ${esc(frName(f))}</h3><button class="ic" data-act="close" title="Закрыть (Esc)" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  <div class="frb-sheet">
+    <div class="set-sec">Свободны вместе ${hint(FR_FREE_HINT, 'Как ищем свободное время')}</div>
+    ${free.length ? `<div class="frf-days">${free.map(d => `<div class="frf-day"><span class="frf-d">${frDayLbl(d.k, dayDiff(t, d.k))}</span><span class="frf-w">${d.wins.map(([a, b]) => `<button class="frf-slot" data-act="frmeet" data-u="${f.uid}" data-k="${d.k}" data-a="${a}" data-b="${b}" aria-label="Встреча ${frDayLbl(d.k, dayDiff(t, d.k))}, ${frHM(a)}–${frHM(b)}">${frHM(a)}–${frHM(b)}</button>`).join('')}</span></div>`).join('')}</div>` : '<p class="hm-empty">На этой неделе общих свободных окон нет.</p>'}
+    ${reg.length ? `<div class="set-sec">Регулярно</div><ul class="frb-evs">${reg.join('')}</ul>` : ''}
+    <div class="set-sec">Две недели</div>
+    ${days || '<p class="hm-empty">Разовых дел на две недели нет.</p>'}
+    <p class="set-note">«Занят» — календарь, у которого друг показывает только время. Календари: ${fd.cs.map(c => `<span class="fr-cal"><i style="--c:${c.c}"></i>${c.n ? esc(c.n) : 'без названия'}</span>`).join(' ')}</p>
+  </div>`);
+};
 // Достижения друга целиком: названия и за что
 ACT.frach = el => {
   const f = fr.list.find(x => x.uid === el.dataset.u); if (!f || !f.feed) return;
@@ -391,13 +438,6 @@ function frFree(f) {
   return out;
 }
 const frDayLbl = (k, i) => i < 2 ? relDay(k)[0].toUpperCase() + relDay(k).slice(1) : dowName(k) + ', ' + pd(k).getDate() + ' ' + MONS[pd(k).getMonth()];
-function frFreeHTML(f) {
-  const fd = f.feed, head = `<div class="card-h"><b>${I(IC.users, 17)} Свободны вместе ${hint('Ближайшие 7 дней с 9:00 до 22:00: окна от часа, когда нет ни ваших событий со временем, ни событий друга — по календарям, которые друг вам открыл. События на весь день не учитываются. Нажмите на окно — в вашем календаре появится встреча.', 'Как ищем свободное время')}</b></div>`;
-  if (!fd.cs.length) return `<div class="card frp-free">${head}<p class="hm-empty">Друг не открыл вам календари — общее время не посчитать.</p></div>`;
-  const t = todayK(), days = frFree(f);
-  return `<div class="card frp-free">${head}${days.length ? `<div class="frf-days">${days.slice(0, 5).map(d => `<div class="frf-day"><span class="frf-d">${frDayLbl(d.k, dayDiff(t, d.k))}</span><span class="frf-w">${d.wins.slice(0, 3).map(([a, b]) => `<button class="frf-slot" data-act="frmeet" data-u="${f.uid}" data-k="${d.k}" data-a="${a}" data-b="${b}" aria-label="Встреча ${frDayLbl(d.k, dayDiff(t, d.k))}, ${frHM(a)}–${frHM(b)}">${frHM(a)}–${frHM(b)}</button>`).join('')}</span></div>`).join('')}</div>`
-    : '<p class="hm-empty">На этой неделе общих свободных окон нет.</p>'}</div>`;
-}
 ACT.frmeet = el => {
   const f = fr.list.find(x => x.uid === el.dataset.u); if (!f) return;
   const a = +el.dataset.a, b = +el.dataset.b;
