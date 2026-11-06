@@ -228,11 +228,7 @@ function profileHTML() {
     <div class="pf-cn"><b>${NF0.format(coins.bal)}</b><span>${coinsReady().length ? 'Можно забрать наград: ' + coinsReady().length : 'Задания дня и недели, награды за достижения и серию'}</span>
       <button class="btn${coinsReady().length ? ' pri' : ''}" data-act="shopopen" data-tab="tasks">Задания</button></div></div>` : ''}
     ${plansOn() ? `<div class="card pf-plans"><div class="card-h"><b>${I(IC.spark, 17)} Тарифы</b></div><p class="pf-plan-now">${planNow() === 'free' ? 'Сейчас — бесплатный тариф' : 'У вас ' + esc(planLine())}</p>
-      <button class="btn pri" data-act="plansopen">Смотреть тарифы</button></div>` : `<div class="card pf-plans"><div class="card-h"><b>${I(IC.spark, 17)} Тарифы</b><span class="soon">Скоро</span></div>
-      <div class="plans"><div class="plan cur"><small>Сейчас</small><b>Базовый</b><span>бесплатно</span></div><div class="plan pro"><small>Скоро</small><b>Премиум</b><span>стоимость — позже</span></div></div>
-      <ul class="plan-perks"><li>${I(IC.spark, 14)} Переливающееся имя в профиле и на Главной</li><li>${I(IC.check, 14)} Синхронизация iPhone и компьютера</li><li>${I(IC.check, 14)} Друзья и общие календари</li></ul>
-      <p class="set-note" style="margin-top:6px">Здесь будут тарифы, их возможности и цены.</p>
-    </div>`}`;
+      <button class="btn pri" data-act="plansopen">Смотреть тарифы</button></div>` : ''}`;   // тарифы закрыты (6 ноября 2026: «закрыть на время платные тарифы») — без заглушки «Скоро»
 }
 // Меню «⋯» рядом с «Редактировать профиль»
 ACT.pfmenu = el => {
@@ -279,7 +275,7 @@ ACT.accmenu = el => {
     <div class="accm-chips"><span class="accm-chip c1"><span aria-hidden="true">🔥</span><b>${wk.s ? plural(wk.s, NDAY) : '—'}</b><small>серия</small></span><span class="accm-chip c2"><span aria-hidden="true">⭐</span><b>${plural(frScore(wk), FR_PTS)}</b><small>за неделю</small></span></div>
     ${plansOn() ? `<button class="accm-prem" data-act="plansopen" role="menuitem">${I(IC.spark, 24)}<span><b>${planNow() === 'free' ? APP_NAME + ' Плюс и Премиум' : 'Ваш тариф — ' + PLAN_NAME[planNow()]}</b><small>${planNow() === 'free' ? 'Больше помощника, тем и возможностей' : esc(planLine())}</small></span></button>`
       : cn ? `<button class="accm-prem accm-shop" data-act="shopopen" role="menuitem">${coinI(28)}<span><b>${NF0.format(coins.bal)} ${COIN}</b><small>${cnN ? 'Можно забрать наград: ' + cnN : 'Задания, награды и магазин'}</small></span>${cnN ? `<em class="accm-badge" aria-hidden="true">${cnN}</em>` : ''}</button>`
-      : `<button class="accm-prem" data-act="accgo" data-s="profile" data-to="pf-plans" role="menuitem">${I(IC.spark, 24)}<span><b>${APP_NAME} Премиум</b><small>Переливающееся имя и другие привилегии — скоро</small></span></button>`}
+      : ''}
     <div class="accm-list">
       ${msgOn() ? `<button data-act="accmsg" role="menuitem">${I(IC.chat, 18)}<span>Сообщения</span>${msgUnread ? `<em class="accm-badge" aria-label="Новых: ${msgUnread}">${msgUnread > 99 ? '99+' : msgUnread}</em>` : ''}</button>` : ''}
       <button data-act="accgo" data-s="profile" data-to="pf-friends" role="menuitem">${I(IC.users, 18)}<span>Друзья</span>${inc ? `<em class="accm-badge" aria-label="Новых заявок: ${inc}">${inc}</em>` : ''}</button>

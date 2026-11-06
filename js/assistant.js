@@ -118,7 +118,7 @@ const AI_NAV = { home:['Главная', aiSec('home')], cal:['Календар�
   set_notif:['Уведомления', aiSet('notif')], set_data:['Аккаунт и данные', aiSet('data')], tour:['Знакомство с приложением', () => openTourMenu()], feedback:['Отзыв', () => ACT.feedback()],
   weekplan:['Разложить дела на неделю', () => aiDayRun(AI_WEEK_TXT, '', true)] };   // из итогов недели (пуш в воскресенье) — в том же чате
 // day — конкретный день: календарь сразу на нём (openDay, notify.js; 5 ноября 2026)
-const aiNavOk = n => n && AI_NAV[n.to] && (n.to !== 'day' || /^d{4}-d{2}-d{2}$/.test(n.date || ''));
+const aiNavOk = n => n && AI_NAV[n.to] && (n.to !== 'day' || /^\d{4}-\d{2}-\d{2}$/.test(n.date || ''));
 ACT.ainav = el => { const n = AI_NAV[el.dataset.to]; if (!n) return; if (el.dataset.to === 'day') return openDay(el.dataset.date); if (el.dataset.to === 'weekplan') return n[1](); closeSheet(); n[1](); };
 
 // ---- Окно ----
