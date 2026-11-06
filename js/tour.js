@@ -117,7 +117,7 @@ function tourStart(k) {
     ['wheel', 'touchmove'].forEach(ev => box.addEventListener(ev, e => e.preventDefault(), { passive:false }));
     document.body.appendChild(box);
   }
-  box.classList.add('show'); document.documentElement.classList.add('touring');
+  box.classList.add('show'); document.documentElement.classList.add('touring'); if (!tourFollowing) { tourFollowing = true; requestAnimationFrame(tourFollow); }
   tourGo(0, 1);
 }
 function tourGo(i, dir) {
@@ -145,70 +145,63 @@ function tourDraw(st, el) {
   if (el) tourHeal(el, 1);
   const nx = pop.querySelector('[data-act="tournext"]'); if (nx) nx.focus({ preventScroll:true });
 }
-// Прокрутка к элементу. ПК: по центру экрана (высокий блок — с начала, под шапкой).
-// Телефон: подсказка у верхнего края, а блок — сразу под ней; если выше прокрутить нельзя (блок в начале страницы) — подсказка снизу.
-// Элементы шапки и нижних вкладок не прокручиваются — подсказка встаёт с противоположной стороны.
-const popSide = (pop, side) => { pop.style.cssText = side === 'bottom' ? 'left:12px;bottom:calc(12px + env(safe-area-inset-bottom))' : 'left:12px;top:calc(12px + env(safe-area-inset-top))'; };
+// Окошко тура — по центру экрана и одной ширины (выбор пользователя 6 ноября 2026: «полную инструкцию отдельным окошком по середине
+// и проверить каждое окошко на ровность»; раньше на телефоне — у верхнего или нижнего края, на ПК — рядом с элементом). Центр держат стили
+// (.tour-pop.mid: top 50%, translate), поэтому окошко не сбивается, когда текст или страница дорисовываются. Страница прокручивается так, чтобы
+// подсвеченная часть встала над окошком или под ним — где меньше прокрутки; высокий блок — началом под шапку (окошко закрывает середину).
+// Чтобы поднять и блок в самом конце страницы, на время тура внизу есть запас (html.touring body::after). Страница не прокручивается
+// (День в календаре на телефоне) и окошко закрыло бы блок — только тогда оно встаёт сразу под ним или над ним
+const tourBox = () => { const p = $('#tour .tour-pop'), w = p.offsetWidth, h = p.offsetHeight; return { p, w, h, l: Math.round((innerWidth - w) / 2), t: Math.round(Math.max(8, (innerHeight - h) / 2)) }; };
+// Свободная полоса экрана: от низа шапки до верха нижних вкладок
+const tourBand = () => { const hd = $('header'), tb = $('#tabbar'); return [(hd ? hd.getBoundingClientRect().bottom : 0) + 8, innerHeight - (tb && tb.offsetHeight && getComputedStyle(tb).display !== 'none' ? tb.getBoundingClientRect().height : 0) - 8]; };
+// Насколько окошко по центру (b) закрывает элемент по высоте, если они на одной вертикали
+const tourOver = (el, b) => { const r = el.getBoundingClientRect(); if (Math.min(b.l + b.w, r.right) - Math.max(b.l, r.left) <= 8) return 0; return Math.max(0, Math.min(b.t + b.h, r.bottom) - Math.max(b.t, r.top)); };
+const tourStill = el => !!el.closest('header, #tabbar, #side');   // шапка, вкладки и боковая панель не прокручиваются
 function tourScroll(el) {
-  const H = innerHeight;
-  if (innerWidth >= 600) {
-    const tall = el.getBoundingClientRect().height > H * .7;
-    el.scrollIntoView({ block: tall ? 'start' : 'center', inline:'nearest' });
-    const inner = el.closest('.wgwrap, #side, header, #tabbar'), hh = $('header').offsetHeight;
-    if (tall && scrollY > 0 && !inner) window.scrollBy(0, -(hh + 12));
-    // Подсказка не помещается ни под блоком, ни над ним — ставим блок под шапку, подсказку под него
-    const ph = $('#tour .tour-pop').offsetHeight, r = el.getBoundingClientRect();
-    if (!inner && !tall && H - r.bottom < ph + 30 && r.top < ph + 30 && r.height + ph + 40 <= H - hh) window.scrollBy(0, r.top - (hh + 16));
-    return;
-  }
-  const pop = $('#tour .tour-pop');
-  if (el.closest('header, #tabbar')) { tour.side = el.getBoundingClientRect().top < H / 2 ? 'bottom' : 'top'; return; }
-  tour.side = 'top'; popSide(pop, 'top');
-  el.scrollIntoView({ block:'nearest', inline:'nearest' });   // только чтобы вынуть элемент из ряда, который листается вбок
-  // Прокрутка страницы — простым scrollTo(0, y): его понимают все браузеры (на iPhone прокрутка при overflow:hidden у страницы откатывалась, 20 октября 2026)
-  const want = pop.getBoundingClientRect().bottom + 14;
-  window.scrollTo(0, Math.max(0, scrollY + el.getBoundingClientRect().top - want));
-  if (el.getBoundingClientRect().top >= want - 2) return;
-  tour.side = 'bottom'; popSide(pop, 'bottom');
-  const lim = pop.getBoundingClientRect().top - 14, b = el.getBoundingClientRect().bottom;
-  if (b > lim) window.scrollTo(0, scrollY + b - lim);
+  el.scrollIntoView({ block:'nearest', inline:'nearest' });   // вынуть элемент из ряда, который листается вбок, и из внутренней прокрутки
+  if (tourStill(el)) return;
+  const b = tourBox(), [y0, y1] = tourBand(), gap = 14, r0 = el.getBoundingClientRect();
+  if (!tourOver(el, b) && r0.top >= y0 && r0.bottom <= y1) return;   // уже виден и не закрыт — страницу не трогаем
+  const up = b.t - gap - y0, down = y1 - (b.t + b.h + gap);
+  const dyOf = k => { const r = el.getBoundingClientRect(); return k === 'up' ? r.bottom - (b.t - gap) : k === 'down' ? r.top - (b.t + b.h + gap) : r.top - y0; };
+  const kinds = ['up', 'down'].filter(k => r0.height <= (k === 'up' ? up : down)).sort((x, y) => Math.abs(dyOf(x)) - Math.abs(dyOf(y)));
+  for (const k of [...kinds, 'top']) { window.scrollTo(0, Math.max(0, scrollY + dyOf(k))); if (k === 'top' || !tourOver(el, b)) return; }
 }
-// Телефон: подсказка закрывает свой элемент? (на iPhone прокрутка может догнать или откатиться не сразу)
-const tourCovers = el => { const p = $('#tour .tour-pop').getBoundingClientRect(), r = el.getBoundingClientRect(); return Math.min(p.bottom, r.bottom) - Math.max(p.top, r.top) > 8; };
-// Через мгновение после показа шага проверяем ещё раз: закрыт подсказкой или ушёл за край экрана — прокручиваем заново;
-// всё равно закрыт — подсказка на другую сторону экрана. В конце рамка встаёт туда, где элемент на самом деле
+// Через мгновение после показа шага — ещё раз: на iPhone прокрутка может догнать или откатиться не сразу
 function tourHeal(el, n) {
   const i0 = tour && tour.i;
   setTimeout(() => {
     if (!tour || tour.i !== i0 || !el.isConnected) return;
-    const r = el.getBoundingClientRect(), off = r.bottom < 8 || r.top > innerHeight - 24;
-    if (innerWidth < 600 && !el.closest('header, #tabbar') && (tourCovers(el) || off)) {
-      if (n) { tourScroll(el); tourPlace(el); return tourHeal(el, n - 1); }
-      if (tourCovers(el)) tour.side = tour.side === 'top' ? 'bottom' : 'top';
-    }
+    const r = el.getBoundingClientRect(), [y0, y1] = tourBand(), off = r.bottom < y0 || r.top > y1;
+    if (n && !tourStill(el) && (off || tourOver(el, tourBox()) && r.height < innerHeight / 2)) { tourScroll(el); tourPlace(el); return tourHeal(el, n - 1); }
     tourPlace(el);
   }, 80);
 }
-// Подсветка — «окно» в затемнении вокруг элемента; подсказка — под ним, над ним или (на телефоне) у края экрана
+// Подсветка — «окно» в затемнении вокруг элемента; окошко с текстом — по центру, а если закрыло бы элемент, который некуда прокрутить, — под ним или над ним
 function tourPlace(el) {
   const box = $('#tour'); if (!box) return;
-  const pop = box.querySelector('.tour-pop'), hole = box.querySelector('.tour-hole'), W = innerWidth, H = innerHeight, pad = 6;
-  if (!el) { hole.classList.add('none'); box.classList.add('dim'); pop.style.cssText = `left:${Math.max(12, (W - pop.offsetWidth) / 2)}px;top:${Math.max(12, (H - pop.offsetHeight) / 2)}px`; return; }
-  box.classList.remove('dim'); hole.classList.remove('none');
-  const r = el.getBoundingClientRect(), top = Math.max(4, r.top - pad), bot = Math.min(H - 4, r.bottom + pad);
-  hole.style.cssText = `left:${Math.max(4, r.left - pad)}px;top:${top}px;width:${Math.min(W - 8, r.width + pad * 2)}px;height:${Math.max(0, bot - top)}px`;
-  const pw = pop.offsetWidth, ph = pop.offsetHeight, gap = 12;
-  let x, y;
-  if (W < 600) return popSide(pop, tour && tour.side || ((top + bot) / 2 < H / 2 ? 'bottom' : 'top'));
-  {
-    x = Math.max(12, Math.min(r.left, W - pw - 12));
-    if (bot + gap + ph < H - 8) y = bot + gap;
-    else if (top - gap - ph > 8) y = top - gap - ph;
-    else if (r.right + gap + pw < W - 8) { x = r.right + gap; y = Math.max(12, Math.min(top, H - ph - 12)); }
-    else if (r.left - gap - pw > 8) { x = r.left - gap - pw; y = Math.max(12, Math.min(top, H - ph - 12)); }
-    else { x = W - pw - 16; y = H - ph - 16; }
+  const hole = box.querySelector('.tour-hole'), b = tourBox(), W = innerWidth, H = innerHeight, pad = 6, gap = 14;
+  let top = null;
+  if (el && !tourStill(el) && tourOver(el, b)) {
+    const r = el.getBoundingClientRect(), [y0, y1] = tourBand();
+    // закрыло бы меньше трети блока — остаётся по центру
+    if (r.height < H / 2 && tourOver(el, b) > r.height / 3) { if (r.bottom + gap + b.h <= y1) top = r.bottom + gap; else if (r.top - gap - b.h >= y0) top = r.top - gap - b.h; }
   }
-  pop.style.cssText = `left:${x}px;top:${Math.max(8, y)}px`;
+  b.p.classList.toggle('mid', top == null); b.p.style.top = top == null ? '' : Math.round(top) + 'px';
+  if (tour) tour.el = el;
+  if (!el) { hole.classList.add('none'); box.classList.add('dim'); return; }
+  box.classList.remove('dim'); hole.classList.remove('none');
+  const r = el.getBoundingClientRect(), t = Math.max(4, r.top - pad), bt = Math.min(H - 4, r.bottom + pad), left = Math.max(4, r.left - pad);
+  hole.style.cssText = `left:${left}px;top:${t}px;width:${Math.max(0, Math.min(W - 4, r.right + pad) - left)}px;height:${Math.max(0, bt - t)}px`;
+  if (tour) tour.r = [r.left, r.top, r.width, r.height].map(Math.round).join();
+}
+// Блок сдвинулся сам (дорисовалась страница, анимация) — рамка догоняет его в том же кадре
+let tourFollowing = false;
+function tourFollow() {
+  if (!tour) { tourFollowing = false; return; }
+  const el = tour.el;
+  if (el && el.isConnected) { const r = el.getBoundingClientRect(); if ([r.left, r.top, r.width, r.height].map(Math.round).join() !== tour.r) tourPlace(el); }
+  requestAnimationFrame(tourFollow);
 }
 // После перерисовки страницы (render) подсветка находит элемент заново
 function tourSync() { if (!tour || tourChecking || tour.i < 0) return; const st = tour.list[tour.i]; if (st && st.s === sec) tourPlace(tourFind(st.el)); }

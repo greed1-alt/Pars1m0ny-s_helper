@@ -222,6 +222,7 @@ body.ui2 .fh-t b{font-size:15px}
 .onb-foot .btn{height:48px;padding:0 18px;font-size:15px;border-radius:14px}
 .onb-foot.last{flex-direction:column;align-items:stretch;gap:6px}
 .onb-foot.last .btn.pri{height:54px;font-size:16px}
+.onb-next{margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--mut);text-align:center}
 .onb-sub{display:flex;justify-content:space-between;gap:8px}
 .onb-sub button{padding:10px 4px;font-size:14px;font-weight:600;color:var(--tx2)}
 @media(hover:hover){.onb-sub button:hover{color:var(--tx)}}
@@ -495,7 +496,7 @@ body.ui2 main.sec .h2-tight .h2-blk.card{padding-top:12px;padding-bottom:12px}
 #tour.dim{background:rgba(0,0,0,.55)}
 .tour-hole{position:fixed;border-radius:14px;box-shadow:0 0 0 200vmax rgba(0,0,0,.55),0 0 0 3px var(--acc);pointer-events:none;transition:left .25s,top .25s,width .25s,height .25s}
 .tour-hole.none{display:none}
-.tour-pop{position:fixed;width:min(360px,calc(100vw - 24px));background:var(--sf);color:var(--tx);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh2);padding:14px 16px 14px;display:flex;flex-direction:column;gap:8px;transition:left .25s,top .25s}
+.tour-pop{position:fixed;left:50%;transform:translateX(-50%);width:min(380px,calc(100vw - 32px));background:var(--sf);color:var(--tx);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh2);padding:14px 16px 14px;display:flex;flex-direction:column;gap:8px;transition:left .25s,top .25s}
 .tour-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-4px -6px -2px 0}
 .tour-top small{font-size:12px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
 .tour-top .ic{width:32px;height:32px}
@@ -506,7 +507,11 @@ body.ui2 main.sec .h2-tight .h2-blk.card{padding-top:12px;padding-bottom:12px}
 .tour-foot{display:flex;justify-content:space-between;gap:8px;margin-top:4px}
 .tour-foot .btn{min-height:42px;padding:0 18px}
 .tour-foot .btn.pri{min-width:120px}
-@media(max-width:599px){.tour-pop{left:12px!important;width:calc(100vw - 24px)}}
+/* Окошко тура — по центру экрана на всех размерах (tourPlace в tour.js), одной ширины: 380 px, на телефоне — экран без полей по 16 px.
+   Центр держат стили, а не расчёт: окошко не сбивается, когда текст или страница дорисовываются. Внизу страницы на время тура — запас,
+   чтобы и последний блок можно было поднять над окошком */
+.tour-pop.mid{top:50%;transform:translate(-50%,-50%)}
+html.touring body::after{content:"";display:block;height:70vh}
 
 /* Приглашение «Впервые здесь?» — внизу экрана, над вкладками */
 #tinv{position:fixed;z-index:25;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translate(-50%,16px);width:min(460px,calc(100vw - 24px));display:flex;align-items:center;gap:10px;padding:10px 8px 10px 12px;background:var(--sf);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh2);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}

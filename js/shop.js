@@ -1,7 +1,7 @@
 // ---- ParsiCoins: внутренняя валюта, задания и магазин (28 октября 2026) ----
 // Решения пользователя: название — «ParsiCoins» («пока пусть будут, потом если что поменяем» — константа COIN); монеты — за задания дня
 // и недели (платят мало), достижения, серию дней подряд и друга в Parsimony (временно); в магазине — палитры (3 на выбор бесплатно,
-// остальные — за монеты; Индиго — у всех), рамки аватара, обложки профиля, заморозка серии. Платных функций пока нет.
+// остальные — за монеты; Графит и Индиго — у всех), рамки аватара, обложки профиля, заморозка серии. Платных функций пока нет.
 // Баланс, награды и покупки решает сервер (supabase/sql/coins.sql): монеты не дописать себе в приложении, награда выдаётся один раз,
 // заданий — не больше 3 в день и 3 в неделю. Здесь — показать, проверить условие задания и попросить сервер.
 // Каталог и награды — копия coins.sql (тест tools/test-coins.mjs сверяет). Кэш на устройстве — remapp_coins
@@ -47,7 +47,8 @@ const ACH_COINS = { first: 10, t50: 30, t300: 80, w7: 30, w30: 100, m100: 30, bi
 const ST_MILES = [[3, 10], [7, 25], [14, 40], [30, 80], [60, 120], [100, 200]];   // серия дней подряд → монеты
 const INV_COINS = 50, INV_MAX = 10;
 const PAL_FREE = 3, PAL_PRICE = 200, CV_PRICE = 150, FRZ_PRICE = 50, FRZ_MAX = 2;
-const PAL_SHOP = PAL_ORDER.filter(k => k !== 'indigo'), PAL_THEME = PAL_SHOP.filter(k => PAL[k].skin), PAL_PLAIN = PAL_SHOP.filter(k => !PAL[k].skin);   // Индиго — у всех
+const PAL_BASE = ['classic', 'indigo'];   // у всех бесплатно: Графит (по умолчанию с 6 ноября 2026) и Индиго (по умолчанию раньше)
+const PAL_SHOP = PAL_ORDER.filter(k => !PAL_BASE.includes(k)), PAL_THEME = PAL_SHOP.filter(k => PAL[k].skin), PAL_PLAIN = PAL_SHOP.filter(k => !PAL[k].skin);   // Индиго — у всех
 const COVER_SHOP = { boreal: 'Северное сияние', neon: 'Неон', gold: 'Золото', cosmos: 'Космос', seaset: 'Закат у моря', berry: 'Ягоды' };   // градиенты — COVERS (pages.js)
 const FRAMES = {
   gold: { n: 'Золото', p: 200, g: 'conic-gradient(#fff3b0,#f7d774,#b8860b,#f7d774,#fff3b0,#c9a227,#fff3b0)' },
@@ -74,7 +75,7 @@ onMigrate(() => {
 // ---- Состояние (решает сервер) ----
 let coins = lsGet(CN_LS), coinsErr = '', cnBusy = false, cnTab = 'tasks', cnDirty = true, cnReady = [];
 if (coins && (typeof coins !== 'object' || !coins.items)) coins = null;
-const coinOwn = it => it === 'pal:indigo' || !!coins && (coins.items[it] || 0) > 0;   // Индиго — у всех
+const coinOwn = it => PAL_BASE.some(k => it === 'pal:' + k) || !!coins && (coins.items[it] || 0) > 0;   // Графит и Индиго — у всех
 const coinGot = k => !!coins && coins.keys.includes(k);
 const coinsOn = () => signedIn() && coinsErr !== 'off';
 const palOk = k => (PAL[k] || {}).p ? coinOwn('pal:' + k) : !coins || coinOwn('pal:' + k);   // магазина нет (не вошли) — обычные палитры как раньше, тематические темы — только купленные
@@ -105,7 +106,7 @@ function coinsHeal() {
   if (z.length) { S.frz = [...S.frz, ...z].sort(); save(); }
   const p = S.settings.pal;
   if (PAL[p] && PAL[p].p && !coinOwn('pal:' + p)) { S.settings.pal = LOOK_DEF.pal; save(); render(); return coinsFreeze(); }   // тема не куплена (выбрана без входа в старой версии, другой аккаунт)
-  if (p !== 'indigo' && PAL[p] && !PAL[p].p && !coinOwn('pal:' + p) && coins.free < PAL_FREE) coinPick('pal:' + p, true);
+  if (!PAL_BASE.includes(p) && PAL[p] && !PAL[p].p && !coinOwn('pal:' + p) && coins.free < PAL_FREE) coinPick('pal:' + p, true);
   coinsFreeze();
 }
 // Вчера (или позавчера) не все ежедневные привычки — заморозка тратится сама, если есть серия, которую она спасёт. Раз в день
@@ -310,8 +311,8 @@ function shopItemsHTML() {
   const free = PAL_FREE - coins.free, frz = coins.items.frz || 0;
   return `<div class="card"><div class="card-h"><b>Тематические темы</b><small>своя атмосфера</small></div>
       <div class="cn-grid">${PAL_THEME.map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div></div>
-    <div class="card"><div class="card-h"><b>Палитры</b><small>${free > 0 ? `бесплатно — ещё ${free} на выбор` : 'Индиго и 3 бесплатных — уже ваши'}</small></div>
-      <div class="cn-grid">${tile('pal:indigo', palPv('indigo'), PAL.indigo.n)}${PAL_PLAIN.map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div></div>
+    <div class="card"><div class="card-h"><b>Палитры</b><small>${free > 0 ? `бесплатно — ещё ${free} на выбор` : 'Графит, Индиго и 3 бесплатных — уже ваши'}</small></div>
+      <div class="cn-grid">${PAL_BASE.map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}${PAL_PLAIN.map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div></div>
     <div class="card"><div class="card-h"><b>Рамки аватара</b></div><div class="cn-grid">${Object.keys(FRAMES).map(k => tile('fm:' + k, avatarHTML(48, k), FRAMES[k].n)).join('')}</div></div>
     <div class="card"><div class="card-h"><b>Обложки профиля</b></div><div class="cn-grid cn-cvs">${Object.keys(COVER_SHOP).map(k => tile('cv:' + k, `<span class="cn-cv" style="background-image:${COVER_GLOW},${COVERS[k]}"></span>`, COVER_SHOP[k])).join('')}</div></div>
     <div class="card"><div class="card-h"><b>Заморозка серии</b>${hintK('frz')}</div>

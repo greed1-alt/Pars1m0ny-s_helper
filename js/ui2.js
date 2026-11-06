@@ -573,12 +573,12 @@ function habitsHTML() {
 }
 
 // ---- Знакомство при первом запуске: 3 шага ----
-let onbStep = 0, onbT = null, onbAreas = null, onbName = '';
+let onbStep = 0, onbT = null, onbAreas = null, onbName = '', onbAgain = false;   // onbAgain — открыли снова из «Знакомства»: тур сам не запускается
 const ONB_PH = ['встреча завтра в 15:00', 'кафе 450', 'сдать отчёт в пятницу !!', '+ зарплата 60 000', '2 литра воды каждый день'];
 const onbIsOpen = () => { const o = $('#onb'); return !!(o && o.classList.contains('show')); };
 function onbOpen() {
   if (betaSt) return;   // закрытая бета: знакомство — после входа (betaRun в cloud.js)
-  onbStep = 0; onbAreas = new Set(AREAS.map(a => a[0]).filter(secOn)); onbName = S.settings.name || '';
+  onbStep = 0; onbAreas = new Set(AREAS.map(a => a[0]).filter(secOn)); onbName = S.settings.name || ''; onbAgain = !!S.settings.onboarded;
   if (!onbAreas.size) AREAS.forEach(a => onbAreas.add(a[0]));
   let el = $('#onb');
   if (!el) { el = document.createElement('div'); el.id = 'onb'; el.className = 'onb'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Знакомство с ' + APP_NAME); document.body.appendChild(el); }
@@ -614,7 +614,8 @@ function onbDraw() {
     ${last ? '' : `<div class="onb-art">${s.art}</div>`}
     <div class="onb-txt"><small>Шаг ${onbStep + 1} из ${steps.length}</small><h2>${s.h}</h2>${s.p ? `<p>${s.p}</p>` : ''}</div>
     ${last ? s.art : ''}
-    ${last ? `<div class="onb-foot last"><button class="btn pri" data-act="onbdone">Начать</button><button class="btn" data-act="onbtour">${I(IC.spark, 16)} Начать и показать, где что находится</button>
+    ${last ? `<div class="onb-foot last"><button class="btn pri" data-act="onbtour">Начать</button>
+      ${onbAgain ? '' : '<p class="onb-next">Дальше — тур по приложению: покажу, где что находится. Закрыть его можно в любой момент.</p>'}
       <div class="onb-sub"><button data-act="onbback">← Назад</button><button data-act="onbdemo" title="Заполнить разделы примером">Посмотреть на примере</button></div></div>`
     : `<div class="onb-foot"><div class="onb-dots">${steps.map((_, i) => `<i class="${i === onbStep ? 'on' : ''}"></i>`).join('')}</div>
       ${onbStep ? '<button class="btn" data-act="onbback">Назад</button>' : ''}<button class="btn pri" data-act="onbnext">Далее</button></div>`}</div>`;
@@ -650,9 +651,10 @@ function onbFinish(demo, thenTour) {
 ACT.onbnext = () => { onbStep = Math.min(2, onbStep + 1); onbDraw(); };
 ACT.onbback = () => { const n = $('#onb_name'); if (n) onbName = n.value; onbStep = Math.max(0, onbStep - 1); onbDraw(); };
 ACT.onbskip = () => { S.settings.onboarded = 1; save(); onbClose(); };
-ACT.onbdone = () => onbFinish(false);
-ACT.onbtour = () => onbFinish(false, true);
-ACT.onbdemo = () => onbFinish(true);
+// После приветствия полный тур начинается сам (выбор пользователя 6 ноября 2026: «полную инструкцию при входе»); закрыть — × или Esc
+ACT.onbdone = () => onbFinish(false, !onbAgain);
+ACT.onbtour = () => onbFinish(false, !onbAgain);
+ACT.onbdemo = () => onbFinish(true, !onbAgain);
 ACT.onbarea = el => { const n = $('#onb_name'); if (n) onbName = n.value; const k = el.dataset.k; onbAreas.has(k) ? onbAreas.size > 1 && onbAreas.delete(k) : onbAreas.add(k); onbDraw(); };
 ACT.onbshow = () => onbOpen();
 // Пока открыто знакомство, горячие клавиши приложения не работают: Enter — дальше, Esc — пропустить
@@ -660,7 +662,7 @@ document.addEventListener('keydown', e => {
   if (!onbIsOpen()) return;
   e.stopImmediatePropagation();
   if (e.key === 'Escape') { e.preventDefault(); ACT.onbskip(); }
-  else if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); onbStep < 2 ? ACT.onbnext() : onbFinish(false); }
+  else if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); onbStep < 2 ? ACT.onbnext() : onbFinish(false, !onbAgain); }
   else if (e.key === 'ArrowRight' && e.target.tagName !== 'INPUT' && onbStep < 2) ACT.onbnext();
   else if (e.key === 'ArrowLeft' && e.target.tagName !== 'INPUT' && onbStep > 0) ACT.onbback();
 }, true);

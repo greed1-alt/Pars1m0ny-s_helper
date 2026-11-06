@@ -67,7 +67,7 @@ const PAL = {
   pixel:{ n:'Пиксели', p:500, skin:'pixel', fix:'l', hc:'#33582f',
     l:{ bg:'#7f9354', pg:'#7f9354', bg2:'#7d9152', sf:'#8ea262', line:'#33582f', grid:'#6a7e44', tx:'#0a1f0e', tx2:'#0a1f0e', mut:'#0c2410', acc:'#0a1f0e', accfg:'#cbdb92', wm:'#0e2a12' } },
 };
-const PAL_ORDER = Object.keys(PAL);
+const PAL_ORDER = ['classic', ...Object.keys(PAL).filter(k => k !== 'classic')];   // Графит — первым: палитра по умолчанию с 6 ноября 2026
 // Чёрная тема: фон чисто чёрный, акцент — из палитры (у «Графита» — светло-серый, как раньше)
 const BLACK = { bg:'#000000', pg:'#000000', bg2:'#0a0a0a', sf:'#141414', line:'#232323', grid:'#1b1b1b', tx:'#f2f2f2', tx2:'#b0b0b0', mut:'#767676' };
 const LOOK_OPT = {
@@ -76,7 +76,9 @@ const LOOK_OPT = {
   round:[['s', 'Меньше'], ['m', 'Обычные'], ['l', 'Круглее']],
   evc:[['pastel', 'Пастельные'], ['bright', 'Яркие']],
 };
-const LOOK_DEF = { pal:'indigo', contrast:'normal', card:'soft', round:'m', evc:'pastel' };
+// Палитра по умолчанию — Графит (просьба пользователя 6 ноября 2026: «сделать базовую тему при входе на сайт графит»; раньше — Индиго).
+// Касается новых людей: у остальных палитра уже записана в настройках (onMigrate ниже ставил её с первого запуска)
+const LOOK_DEF = { pal:'classic', contrast:'normal', card:'soft', round:'m', evc:'pastel' };
 onMigrate(() => { if (LANG === 'en' || S.settings.lang) S.settings.lang = LANG; });   // язык пушей (функция reminders): как на устройстве, которое открывали последним
 onMigrate(() => {
   const st = S.settings;
