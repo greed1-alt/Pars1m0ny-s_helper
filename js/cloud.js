@@ -216,7 +216,7 @@ ACT.betaretry = () => betaStart();
 // Даётся галочкой при входе — до того, как почта уйдёт на сервер; кто вошёл раньше — окном при следующем открытии.
 // Запись — S.settings.consent = { v: редакция, at: время }: синхронизируется с аккаунтом, это и есть подтверждение согласия.
 // Изменились условия (новая редакция документов) — новая CONSENT_V, и приложение спросит снова
-const CONSENT_V = '2026-10-29.2';   // 21 октября — друзья, шрифты без Google; 23 октября — голос, переписка; 29 октября — полная редакция для юриста (ParsiCoins, капча, оператор, сроки, права); .2 — под рабочую версию: без беты, база в России (Timeweb)
+const CONSENT_V = '2026-11-06';   // 6 ноября — хостинг REG.RU вместо Timeweb (переезд на свой сервер); 21 октября — друзья, шрифты без Google; 23 октября — голос, переписка; 29 октября — полная редакция для юриста (ParsiCoins, капча, оператор, сроки, права); .2 — под рабочую версию: без беты, база в России (Timeweb)
 // Пока политика — черновик (ждёт текст-образец от пользователя и юриста, 20 октября 2026), галочка, окно и ссылки — только на бете
 // и когда открыта регистрация (её открывает админ, когда документы готовы: app_config.signup_on, admin.js). Ссылку в памятку beta.html — тогда же
 const legalOn = () => IS_BETA || appCfg.signup_on === true;
@@ -347,7 +347,7 @@ function openLogin(keep) {
     <div id="lg_err" class="lg-err" role="alert">${esc(lg.err)}</div>
     <button class="btn pri lg-go" data-act="lgverify">Войти</button>
     <div class="lg-row"><button class="lnk" data-act="lgback">Другая почта</button><button class="lnk" data-act="lgresend" id="lg_resend"${wait ? ' disabled' : ''}>${wait ? `Новый код — через ${wait} с` : 'Отправить код ещё раз'}</button></div>`}
-  ${signupOn() ? '' : `<p class="set-note lg-beta">${I(IC.alert, 14)} Бета-версия: войти могут только приглашённые. Записи хранятся на сервере Supabase за пределами России.</p>`}`, keep);
+  ${signupOn() ? '' : `<p class="set-note lg-beta">${I(IC.alert, 14)} Бета-версия: войти могут только приглашённые. Записи хранятся на нашем сервере в России.</p>`}`, keep);
   if (lg.step === 'new') capMount();
   const i = $(lg.step === 'email' ? '#lg_email' : '#lg_code'); if (i) setTimeout(() => i.focus(), 60);
   clearInterval(openLogin.t);

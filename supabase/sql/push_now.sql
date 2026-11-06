@@ -12,7 +12,7 @@ create or replace function public.push_now() returns trigger
 language plpgsql security definer set search_path = public, extensions as $$
 begin
   perform net.http_post(
-    url := 'https://zgasnvubcdprgsypkglh.supabase.co/functions/v1/reminders',
+    url := 'http://api-gw:8000/functions/v1/reminders',   -- свой сервер (6 ноября 2026): внутри, через шлюз
     headers := jsonb_build_object('Content-Type', 'application/json',
       'apikey', (select decrypted_secret from vault.decrypted_secrets where name = 'reminders_key')),
     body := '{"queue":true}'::jsonb,
