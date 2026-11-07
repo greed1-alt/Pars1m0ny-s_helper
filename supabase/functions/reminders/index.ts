@@ -311,7 +311,7 @@ async function allRows(mk) {
   for (let i = 0; ; i += PAGE) { const { data, error } = await mk().range(i, i + PAGE - 1); if (error) throw error; out.push(...(data || [])); if (!data || data.length < PAGE) return out; }
 }
 // Какие настройки нужны пушам (ядро и очереди): часовой пояс, сводки, «помощник пишет сам», подначки, язык, свободные часы, выключатели пушей
-const SET_KEYS = ['tz', 'digest', 'nudge', 'phr', 'lang', 'freeHrs', 'frPush', 'msgPush', 'newsPush', 'admPush'];
+const SET_KEYS = ['tz', 'digest', 'nudge', 'phr', 'lang', 'freeHrs', 'frPush', 'msgPush', 'newsPush', 'admPush', 'bdPush'];
 const SET_SEL = SET_KEYS.map(k => `s_${k}:data->settings->${k}`).join(',');
 const DATA_SEL = 'user_id,events:data->events,habits:data->habits,goals:data->goals,' + SET_SEL, PREF_SEL = 'user_id,' + SET_SEL;
 const prefOf = r => { const s = {}; for (const k of SET_KEYS) if (r['s_' + k] != null) s[k] = r['s_' + k]; return s; };
@@ -370,6 +370,7 @@ async function tick(now) {
   await sb.from('reminder_log').delete().lt('fire_at', new Date(now - 3 * DAY).toISOString());   // журнал за 3 дня, старше не нужен
   sent += await friendPushes(byUser, prefs, now);
   sent += await msgPushes(byUser, prefs);
+  sent += await bdayPushes(byUser, prefs, now);
   sent += await annPushes(byUser, prefs, now, cfg);
   sent += await adminPushes(now);
   return { users: byUser.size, due, sent };
@@ -420,6 +421,39 @@ async function msgPushes(byUser, prefs) {
     if (subs && st.msgPush !== false) {
       const body = String(x.body || '').slice(0, 120) + (x.n > 1 ? (st.lang === 'en' ? ` · ${x.n - 1} more` : ` · ещё ${x.n - 1}`) : '');
       ok += (await sendTo(subs, JSON.stringify({ title: who(x.from_uid), body, tag: 'msg-' + x.from_uid, url: './#m=' + x.from_uid, m: x.from_uid }), 24 * 3600)).ok;
+    }
+  }
+  return ok;
+}
+
+// Дни рождения друзей (7 ноября 2026): в день рождения друга — пуш «🎂 Имя празднует день рождения» с 9:00 до 22:00 по часовому поясу человека,
+// каждый — один раз (журнал reminder_log, ключ bday|друг|день). Дату знаем, только если друг сам открыл её друзьям (frShow.bd → feed.me.bd, без года).
+// 29 февраля в невисокосный год — 28-го (как в приложении: frBdays). Нажатие — переписка с другом. Выключается в карточке друзей (settings.bdPush = false).
+// Таблиц друзей ещё нет — молча пропускаем
+const BD_RE = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+async function bdayPushes(byUser, prefs, now) {
+  const ids = [...byUser.keys()].filter(id => (prefs.get(id) || {}).bdPush !== false);
+  if (!ids.length) return 0;
+  const fr = new Map();   // человек с уведомлениями → его друзья
+  for (const c of chunks(ids)) for (const [col, oth] of [['a', 'b'], ['b', 'a']]) {
+    const { data, error } = await sb.from('friends').select('a,b').eq('ok', true).in(col, c);
+    if (error) return 0;
+    for (const r of data || []) { if (!fr.has(r[col])) fr.set(r[col], []); fr.get(r[col]).push(r[oth]); }
+  }
+  const fids = [...new Set([...fr.values()].flat())], bd = new Map();
+  for (const c of chunks(fids)) { const { data } = await sb.from('profiles').select('user_id,name,nick,bd:feed->me->>bd').in('user_id', c); for (const p of data || []) if (BD_RE.test(p.bd || '')) bd.set(p.user_id, p); }
+  if (!bd.size) return 0;
+  let ok = 0;
+  for (const [uid, list] of fr) {
+    const st = prefs.get(uid) || {}, p = partsIn(now, tzOf({ settings: st }));
+    if (p.h < 9 || p.h >= 22) continue;
+    const md = `${pad(p.m)}-${pad(p.d)}`, leap = p.y % 4 === 0 && (p.y % 100 !== 0 || p.y % 400 === 0), en = st.lang === 'en';
+    for (const f of list) {
+      const b = bd.get(f); if (!b || (b.bd === '02-29' && !leap ? '02-28' : b.bd) !== md) continue;
+      const name = String(b.name || '').trim() || (b.nick ? '@' + b.nick : ''); if (!name) continue;
+      if (!(await once(uid, `bday|${f}|${ymd(p.y, p.m, p.d)}`, now))) continue;
+      const body = JSON.stringify({ title: en ? `🎂 It's ${name}'s birthday` : `🎂 ${name} празднует день рождения`, body: en ? 'Say happy birthday: tap to open your chat' : 'Поздравьте — откроется переписка', tag: 'bday-' + f, url: './#m=' + f, m: f });
+      ok += (await sendTo(byUser.get(uid), body, 12 * 3600)).ok;
     }
   }
   return ok;

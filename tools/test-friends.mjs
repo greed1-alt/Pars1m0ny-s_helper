@@ -277,6 +277,40 @@ return (data, today) => { S = data; TODAY = today; const w = frWeekStats(), hs =
   ok((await as('A', 'select * from public.msg_list($1)', [U.B])).rows.length === 0 && (await db.query('select count(*)::int n from public.msg_notify where $1 in (to_uid, from_uid) and $2 in (to_uid, from_uid)', [U.A, U.B])).rows[0].n === 0, 'удалили из друзей — переписки и пушей нет');
   ok((await as('D', 'select * from public.msg_list($1)', [U.C])).rows.length === 1, 'переписка других друзей осталась');
 
+  // Вызов на неделю (challenges.sql, 7 ноября 2026). Сейчас друзья C–D; A и B больше не друзья. Награда — через coins.sql
+  await db.exec('create role service_role; grant usage on schema public to service_role;'); await db.exec(read('supabase/sql/coins.sql'));
+  const chs = read('supabase/sql/challenges.sql'); await db.exec(chs); await db.exec(chs);   // повторный запуск безопасен
+  const chSend = (w, to, k) => one(w, 'select public.ch_send($1, $2)', [U[to], k]);
+  ok(/permission/.test((await as(null, 'select public.ch_list()')).err || ''), 'вызов: без входа закрыто');
+  ok(/permission/.test((await as('C', 'select * from public.fr_challenges')).err || ''), 'вызов: таблицу напрямую не прочитать');
+  ok(/permission/.test((await as('C', 'select public.ch_val($1, current_date, $2)', [U.D, 't'])).err || ''), 'вызов: чужие числа напрямую не посчитать');
+  ok((await chSend('A', 'B', 't')).err === 'notfriend', 'вызов: не другу — нельзя');
+  ok((await chSend('C', 'D', 'x')).err === 'bad', 'вызов: только задачи, привычки или очки');
+  const c1 = await chSend('C', 'D', 't');
+  ok(c1.ok && c1.id > 0, 'C бросает вызов другу D');
+  ok((await chSend('D', 'C', 'h')).err === 'exists', 'одна пара — один вызов в неделю (и в обратную сторону)');
+  ok(await one('C', 'select public.ch_answer($1, true)', [c1.id]) === false, 'принять может только тот, кого вызвали');
+  const lD = await one('D', 'select public.ch_list()');
+  ok(lD.length === 1 && lD[0].peer === U.C && lD[0].mine === false && lD[0].state === 'sent', 'D видит вызов от C');
+  ok(await one('D', 'select public.ch_answer($1, true)', [c1.id]) === true && await one('D', 'select public.ch_answer($1, false)', [c1.id]) === false, 'D принял; передумать нельзя');
+  // Прошлая неделя: вызов C–D на задачи; у C — 3 сделанные задачи той недели, у D — одна. Итог подводит первый, кто откроет список
+  const wk = await one('C', 'select public.ch_week()'), pw = new Date(Date.parse(wk) - 7 * 864e5).toISOString().slice(0, 10), pwd = n => new Date(Date.parse(pw) + n * 864e5).toISOString().slice(0, 10);
+  const tasks = n => ({ events: Array.from({ length: n }, (_, i) => ({ id: 't' + i, title: 'Задача ' + i, task: true, done: true, date: pwd(i % 7) })) });
+  await db.query('insert into public.user_data (user_id, data) values ($1, $2), ($3, $4) on conflict (user_id) do update set data = excluded.data', [U.C, tasks(3), U.D, tasks(1)]);
+  const old = (await db.query("insert into public.fr_challenges (a, b, kind, week, state) values ($1, $2, 't', $3, 'on') returning id", [U.D, U.C, pw])).rows[0].id;
+  const oldNo = (await db.query("insert into public.fr_challenges (a, b, kind, week, state) values ($1, $2, 'h', $3, 'sent') returning id", [U.C, U.D, new Date(Date.parse(pw) - 7 * 864e5).toISOString().slice(0, 10)])).rows[0].id;
+  const lC = await one('C', 'select public.ch_list()'), done = lC.find(x => x.id === old);
+  ok(done && done.state === 'done' && done.my === 3 && done.their === 1 && done.won === true && done.coins === 25, 'итог прошлой недели: у C 3 задачи против 1 — победа и 25 ParsiCoins');
+  ok((await db.query('select bal from public.coins where user_id = $1', [U.C])).rows[0].bal === 25 && !(await db.query('select bal from public.coins where user_id = $1', [U.D])).rows.length, 'монеты — только победителю');
+  await one('D', 'select public.ch_list()'); await one('C', 'select public.ch_list()');
+  ok((await db.query('select bal from public.coins where user_id = $1', [U.C])).rows[0].bal === 25, 'награда один раз, сколько бы ни открывали');
+  const dD = (await one('D', 'select public.ch_list()')).find(x => x.id === old);
+  ok(dD.my === 1 && dD.their === 3 && dD.won === false && dD.coins == null, 'D видит свой проигрыш');
+  ok((await db.query('select state from public.fr_challenges where id = $1', [oldNo])).rows[0].state === 'no' && !lC.some(x => x.id === oldNo), 'неотвеченный вызов прошлых недель закрыт и не показывается');
+  const now1 = (await one('C', 'select public.ch_list()')).find(x => x.id === c1.id);
+  ok(now1.state === 'on' && now1.my === 0 && now1.their === 0, 'текущий вызов: числа этой недели');
+  ok((await chSend('C', 'D', 'h')).err === 'exists', 'с тем же другом второй вызов на неделю нельзя');
+
   // Удаление аккаунта — всё уходит
   await db.query('delete from auth.users where id = $1', [U.A]);
   ok((await db.query('select count(*)::int n from public.profiles where user_id = $1', [U.A])).rows[0].n === 0, 'удалили аккаунт — карточки нет');

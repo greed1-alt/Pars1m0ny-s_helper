@@ -23,7 +23,7 @@ function fakeDb(T) {
     const out = {};
     for (const part of sel.split(',')) {
       const [alias, path] = part.includes(':') ? part.split(':') : [part, part];
-      let v = row; for (const k of path.split('->')) v = v == null ? undefined : v[k];
+      let v = row; for (const k of path.split(/->>?/)) v = v == null ? undefined : v[k];
       out[alias] = v === undefined ? null : v;
     }
     return out;
@@ -49,7 +49,8 @@ function fakeDb(T) {
       const rows = T[t].filter(r => q.f.every(f => f(r)));
       if (q.op === 'delete') { T[t] = T[t].filter(r => !rows.includes(r)); return { data: rows }; }
       if (q.op === 'update') { rows.forEach(r => Object.assign(r, q.payload)); return { data: rows }; }
-      let out = t === 'user_data' ? (log.sels.push(q.sel), rows.map(r => pick(r, q.sel))) : rows;
+      if (t === 'user_data') log.sels.push(q.sel);
+      let out = q.sel === '*' ? rows : rows.map(r => pick(r, q.sel));
       if (q.range) { log.pages++; out = out.slice(q.range[0], q.range[1] + 1); }
       return { data: out.slice(0, Math.min(q.limit || 1000, 1000)), error: null };   // больше 1000 строк за раз сервер не отдаёт
     };
@@ -110,6 +111,31 @@ const devices = T => T.push_subscriptions.length;
   ok(db.log.ins.filter(x => x.t === 'profiles').every(x => x.n <= CHUNK) && db.log.ins.filter(x => x.t === 'profiles').length >= 3, 'имена отправителей — порциями');
   ok(db.log.ins.every(x => x.n <= CHUNK), 'и подписки, и настройки получателей — порциями');
   ok(r.users > 290, 'получателей в очереди: ' + r.users);
+}
+
+// 3) Дни рождения друзей (7 ноября 2026): у Ани (9) сегодня день рождения, она открыла его друзьям; её друзья — 7 (получит, английский), 10 (получит, русский), 8 (выключил пуш),
+// 11 (у него ночь по часовому поясу); у 12 друг 13 — день рождения не открыт. Повторно в тот же день — не шлём
+{
+  const T = world(), db = fakeDb(T), sent = [];
+  T.friends = [{ a: uid(9), b: uid(7), ok: true }, { a: uid(10), b: uid(9), ok: true }, { a: uid(8), b: uid(9), ok: true }, { a: uid(11), b: uid(9), ok: true }, { a: uid(12), b: uid(13), ok: true }, { a: uid(9), b: uid(20), ok: false }];
+  T.profiles.find(p => p.user_id === uid(9)).feed = { me: { bd: '11-03' } };
+  T.profiles.find(p => p.user_id === uid(13)).feed = { me: {} };
+  T.user_data.find(r => r.user_id === uid(8)).data.settings.bdPush = false;
+  T.user_data.find(r => r.user_id === uid(11)).data.settings.tz = 'Pacific/Kiritimati';   // UTC+14: там уже 2:00 4 ноября — ночь, и это не её день
+  const { tick } = make(db, async (subs, payload) => { const p = JSON.parse(payload); if (p.tag && p.tag.startsWith('bday-')) sent.push({ uid: subs[0].user_id, p }); return { ok: subs.length, fail: 0 }; });
+  await tick(NOW);
+  ok(sent.length === 2 && sent.some(x => x.uid === uid(7)) && sent.some(x => x.uid === uid(10)), 'пуш о дне рождения — только друзьям с включённым пушем, у кого сейчас день: ' + sent.map(x => x.uid.slice(-2)).join(','));
+  const ru = sent.find(x => x.uid === uid(10)).p, en = sent.find(x => x.uid === uid(7)).p;
+  ok(ru.title === '🎂 Аня празднует день рождения' && en.title === "🎂 It's Аня's birthday" && ru.url === './#m=' + uid(9), 'текст на языке получателя и переход в переписку: ' + ru.title + ' / ' + en.title);
+  ok(!sent.some(x => x.uid === uid(20)), 'заявка не принята — не друзья');
+  await tick(NOW + 60000);
+  ok(sent.length === 2, 'в тот же день повторно не шлёт');
+  ok(db.log.ins.filter(x => x.t === 'friends' || x.t === 'profiles').every(x => x.n <= 100), 'друзья и даты — порциями');
+  const early = world(), db2 = fakeDb(early), s2 = [];
+  early.friends = [{ a: uid(9), b: uid(7), ok: true }]; early.profiles.find(p => p.user_id === uid(9)).feed = { me: { bd: '11-03' } };
+  const m2 = make(db2, async (subs, payload) => { const p = JSON.parse(payload); if (p.tag && p.tag.startsWith('bday-')) s2.push(p); return { ok: subs.length, fail: 0 }; });
+  await m2.tick(Date.UTC(2026, 10, 3, 7, 0));
+  ok(s2.length === 0, 'раньше 9:00 по часовому поясу — не шлёт');
 }
 
 console.log(`Напоминания и база: всё прошло (${n} проверок)`);

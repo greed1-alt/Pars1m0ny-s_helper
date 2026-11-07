@@ -138,7 +138,7 @@ async function frLoad(quiet) {
   try {
     const j = await api('/rest/v1/rpc/friends_list', { method: 'POST', user: true, body: {} });
     fr.list = (Array.isArray(j) ? j : []).map(frRow).filter(Boolean); fr.at = Date.now(); if (fr.err === 'nosql') fr.err = '';
-    frSave(); frNotify(); msgSync();   // js/chat.js: кнопка «Сообщения», переписки
+    frSave(); frNotify(); msgSync(); frChLoad();   // js/chat.js: кнопка «Сообщения», переписки; вызовы на неделю
     if (sec === 'profile' || sec === 'friend') render();
   } catch (e) {
     if (frNoSql(e)) { fr.err = 'nosql'; frSave(); } else if (!quiet) toast(cloudErrText(e));
@@ -305,17 +305,129 @@ function frEvs(f, k) {
 const frWhen = e => e.time ? e.time + (e.time2 ? '–' + e.time2 : '') : 'Весь день';
 const frEvLi = ({ e, c }, sub) => `<li class="frb-ev${e.title ? '' : ' busy'}"><span class="frb-tm">${frWhen(e)}</span><i style="--c:${c.c}"></i><span class="frb-et"><b>${e.title ? esc(e.title) : 'Занят'}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</span></li>`;
 const frDayH = (k, i) => i < 2 ? relDay(k)[0].toUpperCase() + relDay(k).slice(1) : dowName(k) + ', ' + pd(k).getDate() + ' ' + MONG[pd(k).getMonth()];
+// Цвет части друга в полоске — цвет его значка; похож на цвет приложения (обе части слились бы) — серый
+const frHexRGB = h => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || "").trim()); return m ? [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16)) : null; };
+function frBarC(f) {
+  const c = safeColor(f.ava.c), a = frHexRGB(getComputedStyle(document.documentElement).getPropertyValue("--acc")), b = frHexRGB(c);
+  return a && b && Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 90 ? "var(--mut)" : c;
+}
 // Сравнение недели: вы и друг (очки = задачи + отметки привычек, как в таблице лидеров)
 function frVsHTML(f) {
   const me = frWeekStats(), w = frWk(f), nm = frFirst(f), board = frBoard(fr.list.filter(x => x.state === 'ok')), place = board.findIndex(r => r.uid === f.uid) + 1;
-  const row = (label, a, b, fmt) => { const s = a + b, p = s ? Math.round(a / s * 100) : 50;
-    return `<div class="frv-r"><span class="frv-l">${label}</span><b class="frv-a">${fmt ? fmt(a) : a}</b><span class="frv-bar" role="img" aria-label="${label}: вы — ${a}, ${esc(nm)} — ${b}"><i style="width:${p}%"></i></span><b class="frv-b">${fmt ? fmt(b) : b}</b></div>`; };
+  const ch = frChOf(f.uid).cur, on = ch && ch.state === 'on' ? ch.kind : '';   // идёт вызов — его строка с флажком 🏁 (числа те же, не повторяем)
+  const row = (label, a, b, fmt, k) => { const s = a + b, p = s ? Math.round(a / s * 100) : 50;
+    return `<div class="frv-r${k && on === k ? ' ch' : ''}"><span class="frv-l">${k && on === k ? '🏁 ' : ''}${label}</span><b class="frv-a">${fmt ? fmt(a) : a}</b><span class="frv-bar" role="img" aria-label="${label}: вы — ${a}, ${esc(nm)} — ${b}"><i style="width:${p}%"></i></span><b class="frv-b">${fmt ? fmt(b) : b}</b></div>`; };
   const d = frScore(me) - frScore(w), lead = d > 0 ? 'Вы впереди на ' + plural(d, FR_PTS) : d < 0 ? esc(nm) + ' впереди на ' + plural(-d, FR_PTS) : 'Пока поровну';
-  return `<div class="card frv" style="--fc:${safeColor(f.ava.c)}"><div class="card-h"><b>Вы и ${esc(nm)} · неделя ${hint('С понедельника: выполненные задачи и отметки привычек. Очки — их сумма, как в таблице лидеров. Серия — дни подряд, когда выполнены все ежедневные привычки. Место — в таблице недели среди ваших друзей.', 'Как считается неделя')}</b></div>
+  return `<div class="card frv" style="--fc:${frBarC(f)}"><div class="card-h"><b>Вы и ${esc(nm)} · неделя ${hint('С понедельника: выполненные задачи и отметки привычек. Очки — их сумма, как в таблице лидеров. Серия — дни подряд, когда выполнены все ежедневные привычки. Место — в таблице недели среди ваших друзей.', 'Как считается неделя')}</b></div>
     <div class="frv-r frv-h" aria-hidden="true"><span></span><b>Вы</b><b>${esc(nm)}</b></div>
-    ${row('Задачи', me.t, w.t)}${row('Привычки', me.h, w.h)}${row('Серия', me.s, w.s, v => v ? v + ' дн.' : '—')}
-    <p class="frv-sum"><b>${lead}</b><span>${esc(nm)}: ${place}-е место из ${board.length}</span></p></div>`;
+    ${row('Задачи', me.t, w.t, null, 't')}${row('Привычки', me.h, w.h, null, 'h')}${row('Серия', me.s, w.s, v => v ? v + ' дн.' : '—')}
+    <p class="frv-sum${on === 'p' ? ' ch' : ''}"><b>${on === 'p' ? '🏁 ' : ''}${lead}</b><span>${esc(nm)}: ${place}-е место из ${board.length}</span></p>${frChHTML(f)}${frCheerHTML(f)}</div>`;
 }
+// ---- Подбодрить и дни рождения (7 ноября 2026, «новые действия с другом») ----
+// «Подбодрить» — короткое сообщение в переписку (уходит пушем, как обычное сообщение); каждому другу — раз в день (отметка — в кэше на устройстве, fr.cheer)
+const FR_CHEER = [['💪', 'Так держать!', 'Keep it up!'], ['🔥', 'Ты в ударе!', "You're on fire!"], ['👏', 'Молодец!', 'Well done!'], ['❤️', 'Я в тебя верю!', 'I believe in you!']];
+function frCheerHTML(f) {
+  if (msgErr === 'nosql') return '';
+  const c = fr.cheer && fr.cheer[f.uid];
+  if (c && c.d === todayK()) return `<p class="frc frc-done">${esc(c.e)} Сегодня уже подбодрили — завтра можно снова</p>`;
+  return `<div class="frc"><span class="frc-l">Подбодрить</span><span class="frc-b">${FR_CHEER.map(([e, ru], i) => `<button class="frc-e" data-act="frcheer" data-u="${f.uid}" data-i="${i}" aria-label="Подбодрить: ${ru}" title="${ru}">${e}</button>`).join('')}</span></div>`;
+}
+ACT.frcheer = async el => {
+  const f = fr.list.find(x => x.uid === el.dataset.u && x.state === 'ok'), ch = FR_CHEER[+el.dataset.i]; if (!f || !ch) return;
+  if (fr.cheer && fr.cheer[f.uid] && fr.cheer[f.uid].d === todayK()) return;
+  const body = ch[0] + ' ' + (LANG === 'en' ? ch[2] : ch[1]);
+  $$('.frc-e').forEach(b => { b.disabled = true; });
+  try {
+    await frRpc('msg_send', { p_to: f.uid, p_body: body, p_ev: null });
+    const t = todayK(); fr.cheer = Object.fromEntries(Object.entries(fr.cheer || {}).filter(([, v]) => v && v.d === t)); fr.cheer[f.uid] = { d: t, e: ch[0] };
+    frSave(); render(); toast(`${frFirst(f)} получит: ${body}`);
+  } catch (e) { $$('.frc-e').forEach(b => { b.disabled = false; }); toast(msgErrText(e)); }
+};
+// Дни рождения друзей: сегодня или завтра — карточка на Главной (только у тех, кто сам открыл день рождения друзьям); «Поздравить» — переписка с готовым поздравлением.
+// 29 февраля в невисокосный год — 28-го (так же считает пуш в функции reminders)
+function frBdays() {
+  if (!signedIn()) return [];
+  const y = +todayK().slice(0, 4), leap = y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0), out = [];
+  for (const f of fr.list) {
+    if (f.state !== 'ok' || !f.feed || !f.feed.me.bd) continue;
+    const b = bdayInfo('2000-' + (f.feed.me.bd === '02-29' && !leap ? '02-28' : f.feed.me.bd));
+    if (b && b.days <= 1) out.push({ f, days: b.days });
+  }
+  return out.sort((a, b) => a.days - b.days);
+}
+const frBdayHTML = () => frBdays().map(({ f, days }) => `<div class="card frbd"><span class="frbd-e" aria-hidden="true">🎂</span><span class="frbd-t"><b>${esc(frName(f))}</b><small>${days ? 'Завтра день рождения — не забудьте поздравить' : 'Сегодня день рождения!'}</small></span>${days ? '' : `<button class="btn pri" data-act="frbday" data-u="${f.uid}">Поздравить</button>`}</div>`).join('');
+ACT.frbday = el => {
+  const u = el.dataset.u; openMsgs(u);
+  if (mc && mc.peer === u && !mc.draft[u]) { mc.draft[u] = LANG === 'en' ? 'Happy birthday! 🎉' : 'С днём рождения! 🎉'; msgDraw(); }
+};
+// ---- Вызов на неделю (7 ноября 2026; supabase/sql/challenges.sql) ----
+// Кто больше задач, отметок привычек или очков до воскресенья. Числа и итог считает сервер (ch_list подводит итог прошлой недели: победителю — 25 ParsiCoins,
+// при ничьей — по 10). Уведомление другу — обычное сообщение в переписку. SQL ещё не выполнен — вызова нет нигде (frChNo, только до перезапуска)
+const FR_CH_K = { t: ['задач', 'Задачи', 'tasks'], h: ['отметок привычек', 'Привычки', 'habit check-ins'], p: ['очков', 'Очки: задачи + привычки', 'points'] };
+let frChNo = false;
+const frChRow = r => r && Number.isFinite(+r.id) && /^[0-9a-f-]{36}$/i.test(r.peer || '') && FR_CH_K[r.kind] && isDate(r.week) && ['sent', 'on', 'no', 'done'].includes(r.state)
+  ? { id: +r.id, peer: r.peer.toLowerCase(), mine: r.mine === true, kind: r.kind, week: r.week, state: r.state, my: Math.max(0, +r.my || 0), their: Math.max(0, +r.their || 0), won: typeof r.won === 'boolean' ? r.won : null, coins: Math.max(0, +r.coins || 0) } : null;
+async function frChLoad() {
+  if (!signedIn() || frChNo) return;
+  try {
+    const j = await frRpc('ch_list', {});
+    fr.ch = (Array.isArray(j) ? j : []).map(frChRow).filter(Boolean); frSave();
+    // Итог прошлой недели — один раз тостом
+    const seen = new Set(fr.chSeen || []), news = fr.ch.filter(c => c.state === 'done' && !seen.has(c.id));
+    fr.chSeen = fr.ch.filter(c => c.state === 'done').map(c => c.id); frSave();
+    const top = news.find(c => c.coins);
+    if (top) { const f = fr.list.find(x => x.uid === top.peer); toast(`Вызов недели: ${top.won ? 'победа' : 'ничья'} ${top.my} : ${top.their}${f ? ' (соперник — ' + frFirst(f) + ')' : ''} · +${top.coins} ${COIN}`); }
+    if (sec === 'friend' || sec === 'home') render();
+  } catch (e) { if (frNoSql(e)) frChNo = true; }
+}
+// Вызов с другом: этой недели (cur) и итог прошлой (last)
+const frChOf = uid => { const wk = frMonday(todayK()), l = (fr.ch || []).filter(c => c.peer === uid); return { cur: l.find(c => c.week >= wk), last: l.find(c => c.week < wk && c.state === 'done') }; };
+const frChLeft = c => { const n = dayDiff(todayK(), addDays(c.week, 6)); return n <= 0 ? 'последний день' : 'осталось ' + plural(n, NDAY); };
+function frChHTML(f) {
+  if (frChNo || !fr.ch) return '';
+  const { cur, last } = frChOf(f.uid), nm = esc(frFirst(f)), what = c => FR_CH_K[c.kind][0];
+  let h = '';
+  if (last) h += `<p class="frx frx-res">Итог прошлой недели — ${last.won ? 'победа' : last.won === false ? 'в этот раз не вышло' : 'ничья'}: вы ${last.my} : ${last.their} ${nm}${last.coins ? ` · +${last.coins} ${COIN}` : ''}</p>`;
+  if (!cur) h += `<button class="btn frx-go" data-act="chpick" data-u="${f.uid}">🏁 Вызов на неделю</button>`;
+  else if (cur.state === 'on') h += `<p class="frx frx-on"><b>🏁 Вызов недели: кто больше ${what(cur)}</b><span>${frChLeft(cur)} · победителю 25 ${COIN}</span></p>`;
+  else if (cur.state === 'sent' && cur.mine) h += `<p class="frx">🏁 Вызов отправлен: кто больше ${what(cur)} до воскресенья — ждём ответа</p>`;
+  else if (cur.state === 'sent') h += frChAsk(cur, f);
+  else if (cur.state === 'no' && cur.mine) h += `<p class="frx">Вызов не принят — попробуйте на следующей неделе</p>`;
+  return h;
+}
+const frChAsk = (c, f) => `<div class="frx frx-in"><b>🏁 ${esc(frFirst(f))} бросает вызов: кто больше ${FR_CH_K[c.kind][0]} до воскресенья</b><small>Победителю — 25 ${COIN}, при ничьей — по 10</small><span class="frx-btns"><button class="btn pri" data-act="chyes" data-id="${c.id}" data-u="${f.uid}">Принять</button><button class="btn" data-act="chno" data-id="${c.id}">Не сейчас</button></span></div>`;
+// Главная: входящие вызовы этой недели — сразу с ответом
+const frChHomeHTML = () => frChNo || !fr.ch ? '' : fr.ch.filter(c => c.state === 'sent' && !c.mine && c.week >= frMonday(todayK())).map(c => { const f = fr.list.find(x => x.uid === c.peer && x.state === 'ok'); return f ? `<div class="card frx-card">${frChAsk(c, f)}</div>` : ''; }).join('');
+ACT.chpick = el => {
+  const f = fr.list.find(x => x.uid === el.dataset.u && x.state === 'ok'); if (!f) return;
+  sheet(`<div class="sh-head"><h3>Вызов на неделю · ${esc(frFirst(f))}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  <p class="set-note" style="margin:0 0 12px">Кто больше — до воскресенья? Числа считает сервер, те же, что в таблице лидеров. Победителю — 25 ${COIN}, при ничьей — по 10. С каждым другом — один вызов в неделю.</p>
+  <div class="frx-kinds">${Object.entries(FR_CH_K).map(([k, v]) => `<button class="frx-k" data-act="chsend" data-u="${f.uid}" data-k="${k}"><b>${v[1]}</b><small>кто больше ${v[0]}</small></button>`).join('')}</div>`);
+};
+const FR_CH_ERR = { exists: 'С этим другом вызов на этой неделе уже есть', limit: 'На этой неделе вы уже бросили три вызова', notfriend: 'Этот человек больше не в друзьях', bad: 'Не вышло — попробуйте ещё раз' };
+ACT.chsend = async el => {
+  const f = fr.list.find(x => x.uid === el.dataset.u && x.state === 'ok'), k = el.dataset.k; if (!f || !FR_CH_K[k]) return;
+  $$('.frx-k').forEach(b => { b.disabled = true; });
+  try {
+    const r = await frRpc('ch_send', { p_to: f.uid, p_kind: k });
+    if (!r || !r.ok) { closeSheet(); return toast(FR_CH_ERR[r && r.err] || FR_CH_ERR.bad); }
+    const body = LANG === 'en' ? `🏁 I challenge you this week: who gets more ${FR_CH_K[k][2]} by Sunday? Answer on my page in Parsimony or on Home.` : `🏁 Бросаю тебе вызов на неделю: кто больше ${FR_CH_K[k][0]} до воскресенья? Ответить можно на моей странице в Parsimony или на Главной.`;
+    frRpc('msg_send', { p_to: f.uid, p_body: body, p_ev: null }).catch(() => {});   // уведомление другу; не дошло — вызов всё равно есть
+    closeSheet(); toast(`Вызов отправлен — ${frFirst(f)} получит сообщение`);
+    await frChLoad();
+  } catch (e) { closeSheet(); toast(frNoSql(e) ? 'Вызовы ещё не включены на сервере' : cloudErrText(e)); if (frNoSql(e)) { frChNo = true; render(); } }
+};
+async function frChAnswer(el, yes) {
+  $$('.frx-btns .btn').forEach(b => { b.disabled = true; });
+  try {
+    const okk = await frRpc('ch_answer', { p_id: +el.dataset.id, p_ok: yes });
+    if (okk && yes && el.dataset.u) frRpc('msg_send', { p_to: el.dataset.u, p_body: LANG === 'en' ? "✅ Challenge accepted! Let's see who wins 💪" : '✅ Принимаю вызов! Посмотрим, кто кого 💪', p_ev: null }).catch(() => {});
+    toast(!okk ? 'Этот вызов уже не ждёт ответа' : yes ? 'Вызов принят — до воскресенья!' : 'Хорошо, в другой раз');
+  } catch (e) { toast(cloudErrText(e)); }
+  await frChLoad(); render();
+}
+ACT.chyes = el => frChAnswer(el, true);
+ACT.chno = el => frChAnswer(el, false);
 // Ближайшее: сегодня (что ещё не закончилось) и завтра; пусто — первый день с делами на две недели. Ниже — первое общее окно
 function frNearHTML(f) {
   const fd = f.feed, open = fd.cs.length || fd.hrs.length, head = `<div class="card-h"><b>${I(IC.cal, 17)} Ближайшее</b>${open ? `<button class="pill sm" data-act="frcal" data-u="${f.uid}">Весь календарь →</button>` : ''}</div>`;
@@ -588,7 +700,7 @@ ACT.frjoin = async () => {
 let frSet = null;   // { nick, lv: { id календаря: уровень }, err, busy, inv, first — карточки ещё не было }
 function openFrSet(invite) {
   if (!signedIn()) return ACT.login();
-  if (!frSet) frSet = { nick: fr.nick || S.settings.nick || '', lv: Object.fromEntries(S.cats.map(c => [c.id, frLvl(c)])), err: '', inv: !!invite, first: !S.settings.fr, show: Object.assign({}, S.settings.frShow), push: S.settings.frPush !== false, mpush: S.settings.msgPush !== false };
+  if (!frSet) frSet = { nick: fr.nick || S.settings.nick || '', lv: Object.fromEntries(S.cats.map(c => [c.id, frLvl(c)])), err: '', inv: !!invite, first: !S.settings.fr, show: Object.assign({}, S.settings.frShow), push: S.settings.frPush !== false, mpush: S.settings.msgPush !== false, bpush: S.settings.bdPush !== false };
   const st = frSet, first = st.first;
   sheet(`<div class="sh-head"><h3>${first ? 'Карточка для друзей' : 'Друзья: настройки'}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   ${st.inv ? '<p class="set-note">Вас позвали в друзья. Создайте карточку — и приглашение откроется само.</p>' : ''}
@@ -602,13 +714,14 @@ function openFrSet(invite) {
   <div class="set-sec">Уведомления</div>
   <div class="set-row"><span>Пуш о заявках в друзья</span><input id="frpush" class="sw" type="checkbox"${st.push ? ' checked' : ''}></div>
   <div class="set-row"><span>Пуш о сообщениях друзей</span><input id="msgpush" class="sw" type="checkbox"${st.mpush ? ' checked' : ''}></div>
+  <div class="set-row"><span>Пуш о днях рождения друзей<small>утром в день рождения, если друг открыл его друзьям</small></span><input id="bdpush" class="sw" type="checkbox"${st.bpush ? ' checked' : ''}></div>
   <p class="set-note">Ещё друзья видят только числа: задачи и отметки привычек за неделю и за всё время, серию и полученные достижения.</p>
   <p class="fr-err" id="fr_err" aria-live="polite">${esc(st.err)}</p>
   ${first ? '' : `<div class="fr-more"><button class="btn" data-act="frinvnew">Новая ссылка-приглашение</button><button class="btn dng" data-act="froff">Удалить карточку</button></div>`}
   <div class="sh-foot"><button class="btn pri" data-act="frsave"${st.busy ? ' disabled' : ''}>${st.busy ? 'Сохраняю…' : first ? 'Создать карточку' : 'Сохранить'}</button></div>`, true);
 }
 ACT.frset = () => { frSet = null; openFrSet(); };
-const frSetRead = () => { const i = $('#fr_nick'), p = $('#frpush'), mp = $('#msgpush'); if (i) frSet.nick = i.value; if (p) frSet.push = p.checked; if (mp) frSet.mpush = mp.checked; FR_SHOW.forEach(([k]) => { const c = $('#frsh_' + k); if (c) frSet.show[k] = c.checked; }); };
+const frSetRead = () => { const i = $('#fr_nick'), p = $('#frpush'), mp = $('#msgpush'), bp = $('#bdpush'); if (i) frSet.nick = i.value; if (p) frSet.push = p.checked; if (mp) frSet.mpush = mp.checked; if (bp) frSet.bpush = bp.checked; FR_SHOW.forEach(([k]) => { const c = $('#frsh_' + k); if (c) frSet.show[k] = c.checked; }); };
 ACT.frlv = el => { frSetRead(); frSet.lv[el.dataset.c] = el.dataset.v; shDirty = true; openFrSet(); };
 ACT.frsave = async () => {
   const st = frSet; if (!st || st.busy) return;
@@ -623,6 +736,7 @@ ACT.frsave = async () => {
   const sh = {}; FR_SHOW.forEach(([k]) => { if (st.show[k]) sh[k] = 1; }); if (Object.keys(sh).length) S.settings.frShow = sh; else delete S.settings.frShow;
   if (st.push) delete S.settings.frPush; else S.settings.frPush = false;   // пуш о заявках — по умолчанию включён (сервер: reminders)
   if (st.mpush) delete S.settings.msgPush; else S.settings.msgPush = false;   // пуш о сообщениях друзей — тоже (reminders: msgPushes)
+  if (st.bpush) delete S.settings.bdPush; else S.settings.bdPush = false;   // пуш о днях рождения друзей — тоже (reminders: bdayPushes)
   S.settings.fr = 1; save();
   st.busy = true; openFrSet();
   const res = await frPublish(nick);

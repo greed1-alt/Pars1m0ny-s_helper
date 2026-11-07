@@ -258,11 +258,11 @@ body[data-nonew="1"] .btn-new{display:none!important}
 /* Страница друга — вариант Б «Короткая лента» (6 ноября 2026): сравнение недели, «Ближайшее», «О друге», «Достижения и итоги»; ПК — две колонки */
 .frb-cols,.frb-col{display:flex;flex-direction:column;gap:12px}
 .frb-col>.card{margin:0}
-.frv-r{display:grid;grid-template-columns:72px 40px minmax(0,1fr) 40px;align-items:center;gap:8px;padding:5px 0}
+.frv-r{display:grid;grid-template-columns:96px 40px minmax(0,1fr) 40px;align-items:center;gap:8px;padding:5px 0}
 .frv-h{padding:0 0 2px}
 .frv-h b{font-size:12px;font-weight:600;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .frv-h b:last-child{grid-column:3/5;text-align:right}
-.frv-l{font-size:13px;color:var(--tx2)}
+.frv-l{font-size:13px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .frv-a,.frv-b{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .frv-b{text-align:right}
 .frv-bar{display:flex;height:8px;border-radius:999px;overflow:hidden;background:var(--fc)}
@@ -298,6 +298,38 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .frb-sheet .frf-day{flex-wrap:wrap;gap:6px 10px}
 .frb-sheet .frf-d{width:auto;flex-basis:100%}
 .frb-sheet>.set-sec:first-child{margin-top:0}
+/* «Подбодрить» — под сравнением недели; день рождения друга — карточка на Главной (7 ноября 2026) */
+.frc{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 0;padding-top:12px;border-top:1px solid var(--line)}
+.frc-l{font-size:13px;font-weight:600;color:var(--tx2)}
+.frc-b{display:flex;gap:6px}
+.frc-e{width:40px;height:40px;border-radius:12px;font-size:20px;line-height:1;background:var(--hov);display:grid;place-items:center}
+@media(hover:hover){.frc-e:hover{background:var(--hov2)}}
+.frc-e:disabled{opacity:.5}
+.frc-done{font-size:13px;color:var(--mut)}
+/* Вызов на неделю: строка вызова — с флажком 🏁 и подсветкой, блок под сравнением, карточка на Главной (7 ноября 2026) */
+.frv-r.ch .frv-l,.frv-sum.ch b{color:var(--acc);font-weight:600}
+.frx{display:flex;flex-direction:column;gap:3px;margin:12px 0 0;font-size:13px;line-height:1.45;color:var(--tx2)}
+.frx b{font-size:14px;color:var(--tx)}
+.frx small,.frx-on span{font-size:12.5px;color:var(--mut)}
+.frx-on{padding:10px 12px;border-radius:var(--r3);background:color-mix(in srgb,var(--acc) 9%,transparent)}
+.frx-in{padding:12px;border-radius:var(--r3);border:1px solid color-mix(in srgb,var(--acc) 35%,var(--line));background:color-mix(in srgb,var(--acc) 6%,transparent)}
+.frx-btns{display:flex;gap:8px;margin-top:6px}
+.frx-btns .btn{flex:1 1 0;min-width:0}
+.frx-res{color:var(--tx2)}
+.frx-go{width:100%;margin-top:12px}
+.frx-card{padding:0;border:0;background:none;box-shadow:none}
+.frx-card .frx{margin:0}
+.frx-kinds{display:flex;flex-direction:column;gap:8px}
+.frx-k{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r3);text-align:left}
+.frx-k b{font-size:15px}
+.frx-k small{font-size:13px;color:var(--mut)}
+@media(hover:hover){.frx-k:hover{background:var(--hov)}}
+.frbd{display:flex;align-items:center;gap:12px;padding:12px 14px;border-color:color-mix(in srgb,var(--acc) 35%,var(--line));background:color-mix(in srgb,var(--acc) 6%,var(--bg))}
+.frbd-e{flex:none;font-size:26px;line-height:1}
+.frbd-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.frbd-t b{font-size:15px;overflow-wrap:anywhere}
+.frbd-t small{font-size:13px;color:var(--tx2)}
+.frbd .btn{flex:none}
 /* Настройки → «Когда я занят для друзей»: строка — дни недели, часы «с — до», убрать */
 .frh-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
 .frh-days{display:flex;gap:4px;flex-basis:100%}
