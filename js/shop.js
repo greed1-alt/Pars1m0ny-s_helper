@@ -5,7 +5,9 @@
 // остальные — за монеты; Графит и Индиго — у всех), рамки аватара, обложки профиля, заморозка серии. Платных функций пока нет.
 // Баланс, награды и покупки решает сервер (supabase/sql/coins.sql): монеты не дописать себе в приложении, награда выдаётся один раз,
 // заданий — не больше 3 в день и 3 в неделю. Здесь — показать, проверить условие задания и попросить сервер.
-// Каталог и награды — копия coins.sql (тест tools/test-coins.mjs сверяет). Кэш на устройстве — remapp_coins
+// Каталог и награды — копия coins.sql (тест tools/test-coins.mjs сверяет). Кэш на устройстве — remapp_coins.
+// Честно (8 ноября 2026): условие награды сервер проверяет сам (coin_ok) — здесь те же правила, чтобы «Забрать» не обманывало:
+// примеры для пробы не считаются; привычки, самочувствие и траты по дням — только «вовремя» (qLive); серия за монеты — qStreak
 const COIN = 'ParsiCoins', CN_LS = 'remapp_coins';
 // Значок монеты — пиксельное золотое древо, рисунок по клеткам (выбор пользователя 31 октября 2026). 17×17: тёмный контур, край — светлый сверху слева и тёмный
 // справа снизу, вековой дуб: крона полного размера с контрастной листвой и просветами, тень под ней, толстый ствол с корнями; для мелких — 13×13.
@@ -93,9 +95,10 @@ async function coinsLoad() {
   try {
     const j = await cnRpc('coins_state'), was = JSON.stringify([coins && coins.bal, coins && coins.keys, coins && coins.items]);
     const items = {}; Object.entries(j && j.items || {}).forEach(([k, n]) => { if (typeof k === 'string' && Number.isInteger(n)) items[k] = n; });
+    const days = l => (Array.isArray(l) ? l : []).filter(isDate), ld = j && j.ld && typeof j.ld === 'object' ? { h: days(j.ld.h), b: days(j.ld.b), f: days(j.ld.f) } : null;
     coins = { bal: Math.max(0, j.bal | 0), items, free: j.free | 0, keys: (Array.isArray(j.keys) ? j.keys : []).filter(k => typeof k === 'string'),
-      log: (Array.isArray(j.log) ? j.log : []).filter(x => x && typeof x.k === 'string').slice(0, 40), fz: coins && coins.fz || '' };
-    coinsErr = ''; cnDirty = true; lsSet(CN_LS, coins);
+      log: (Array.isArray(j.log) ? j.log : []).filter(x => x && typeof x.k === 'string').slice(0, 40), fz: coins && coins.fz || '', ld, lbn: Math.max(0, +(j && j.lbn) || 0) };
+    coinsErr = ''; cnDirty = true; cnLdMake(); lsSet(CN_LS, coins);
     coinsHeal();
     if (JSON.stringify([coins.bal, coins.keys, coins.items]) !== was) render();
   } catch (e) {
@@ -118,10 +121,12 @@ async function coinsFreeze() {
   const t = todayK(), n = coins.items.frz || 0;
   if (!n || coins.fz === t) return;
   coins.fz = t; lsSet(CN_LS, coins);
-  const fz = new Set(S.frz), miss = [addDays(t, -2), addDays(t, -1)].filter(k => { const d = dayStat(k); return d.plan && d.done < d.plan && !fz.has(k); });
+  // День не засчитан «вовремя» (как серия за монеты — qStreak): свои привычки, без примеров; заморозки — с сервера
+  const fz = new Set(coins.keys.filter(k => /^z:/.test(k)).map(k => k.slice(2))), done = k => { const d = qHabStat(k); return d.plan > 0 && qLive('h', k, () => d.done === d.plan); };
+  const miss = [addDays(t, -2), addDays(t, -1)].filter(k => qHabStat(k).plan && !done(k) && !fz.has(k));
   if (!miss.length || miss.length > n) return;
   let run = 0;
-  for (let k = addDays(miss[0], -1), i = 0; i < 400; i++, k = addDays(k, -1)) { const d = dayStat(k); if (!d.plan || fz.has(k)) continue; if (d.done === d.plan) run++; else break; }
+  for (let k = addDays(miss[0], -1), i = 0; i < 400; i++, k = addDays(k, -1)) { if (!qHabStat(k).plan || fz.has(k)) continue; if (done(k)) run++; else break; }
   if (!run) return;
   try {
     for (const k of miss) { const r = await cnRpc('coins_freeze', { p_day: k }); if (!r || !r.ok) return; if (!S.frz.includes(k)) S.frz.push(k); }
@@ -134,10 +139,33 @@ async function coinsFreeze() {
 // ---- Задания ----
 // Сделано задач за дни [a, b] (f — какие считать); шаги к целям — задачи цели и шаги без срока, отмеченные в эти дни (doneAt)
 const qDone = (a, b, f) => S.events.reduce((n, e) => { if (!e.task || e.demo || (f && !f(e))) return n; const r = k => k >= a && k <= b; return n + (isRec(e) ? (e.doneDates || []).filter(r).length : e.done && r(e.date) ? 1 : 0); }, 0);
-const qSteps = (a, b) => qDone(a, b, e => e.goal) + S.goals.reduce((n, g) => n + (g.steps || []).filter(s => s.done && s.doneAt >= a && s.doneAt <= b).length, 0);
+const qSteps = (a, b) => qDone(a, b, e => e.goal) + S.goals.reduce((n, g) => n + (g.demo ? 0 : (g.steps || []).filter(s => s.done && s.doneAt >= a && s.doneAt <= b).length), 0);
 const qDays = (a, b, f) => { let n = 0; for (let k = a; k <= b; k = addDays(k, 1)) if (f(k)) n++; return n; };
-const qHab = k => { const d = dayStat(k); return d.plan > 0 && d.done === d.plan; };
-const qBio = k => !!S.bio.log[k] && Object.keys(S.bio.log[k]).length > 0;
+// Свои ежедневные привычки дня (без примеров): сколько запланировано и сколько отмечено — как coin_hab_stat на сервере
+const qHabStat = k => { let done = 0, plan = 0; S.habits.forEach(h => { if (h.kind !== 'daily' || h.demo || k < hStart(h) || !hDow(h, k)) return; plan++; if (h.log[k]) done++; }); return { done, plan }; };
+const qHab = k => { const d = qHabStat(k); return d.plan > 0 && d.done === d.plan; };
+// Самочувствие за день — хоть один свой показатель (значения примера — в bio.demoKeys)
+const qBio = k => { const l = S.bio.log[k]; if (!l || typeof l !== 'object') return false; const dk = S.bio.demoKeys || []; return Object.keys(l).some(id => !dk.includes(k + '|' + id)); };
+// Дни «вовремя»: сервер видел их выполненными в тот же день или на следующий (coins_state → ld, coin_days) — за монеты считаются только они.
+// Сегодня и вчера — ещё и по записям на устройстве: перед «Забрать» они уходят на сервер (coinSync), и сервер их запишет
+let cnLd = null;   // { h, b, f } — множества дней
+function cnLdMake() { cnLd = coins && coins.ld ? { h: new Set(coins.ld.h), b: new Set(coins.ld.b), f: new Set(coins.ld.f) } : null; cnDirty = true; }
+cnLdMake();
+const qLive = (kind, k, local) => { const t = todayK(); if (k <= t && k >= addDays(t, -1) && local(k)) return true; return cnLd ? cnLd[kind].has(k) : local(k); };
+// Серия за монеты — как habitStreaks, но день засчитан, только если отмечен вовремя; свои привычки; заморозки — из журнала монет.
+// Сервер считает так же (coin_streak в coins.sql)
+function qStreak() {
+  const hs = S.habits.filter(h => h.kind === 'daily' && !h.demo), t = todayK(); if (!hs.length) return { cur: 0, best: 0 };
+  const fz = new Set((coins ? coins.keys : []).filter(k => /^z:/.test(k)).map(k => k.slice(2)));
+  let k = hs.reduce((m, h) => { const s = hStart(h); return s < m ? s : m; }, t), run = 0, best = 0;
+  if (k < addDays(t, -730)) k = addDays(t, -730);
+  for (; k <= t; k = addDays(k, 1)) {
+    const d = qHabStat(k);
+    if (d.plan && qLive('h', k, () => d.done === d.plan)) { run++; best = Math.max(best, run); }
+    else if (d.plan && k !== t && !fz.has(k)) run = 0;
+  }
+  return { cur: run, best };
+}
 const qFin = k => S.fin.ops.some(o => o.date === k && !o.demo);
 const qOne = (a, b) => S.events.filter(e => !e.demo && !isRec(e) && e.date >= a && e.date <= b).length;
 const qNotes = (a, b) => S.notes.filter(n => !n.demo && n.date >= a && n.date <= b).length;
@@ -152,7 +180,7 @@ function qMarkSet(k) { if (!signedIn()) return; const m = lsGet(QM_LS), o = m &&
 const QUEST_D = [
   ['t3', 'Выполнить 3 задачи', () => secOn('tasks'), t => [qDone(t, t), 3]],
   ['tall', 'Закрыть все задачи на сегодня (от двух)', () => secOn('tasks'), t => { const l = S.events.filter(e => e.task && !e.demo && occurs(e, t)); return [l.filter(e => isDone(e, t)).length, Math.max(2, l.length)]; }],
-  ['hall', 'Отметить все привычки дня', qHasHab, t => { const d = dayStat(t); return [d.done, Math.max(1, d.plan)]; }],
+  ['hall', 'Отметить все привычки дня', qHasHab, t => { const d = qHabStat(t); return [d.done, Math.max(1, d.plan)]; }],
   ['fin', 'Записать трату или доход', () => secOn('fin'), t => [qFin(t) ? 1 : 0, 1]],
   ['bio', 'Отметить самочувствие', qHasBio, t => [qBio(t) ? 1 : 0, 1]],
   ['note', 'Записать мысль дня', () => true, t => [Math.min(1, qNotes(t, t)), 1]],
@@ -163,9 +191,9 @@ const QUEST_D = [
 ];
 const QUEST_W = [
   ['t15', 'Выполнить 15 задач', () => secOn('tasks'), (m, t) => [qDone(m, t), 15]],
-  ['h5', '5 дней — все привычки', qHasHab, (m, t) => [qDays(m, t, qHab), 5]],
-  ['f5', 'Записывать траты 5 дней', () => secOn('fin'), (m, t) => [qDays(m, t, qFin), 5]],
-  ['b5', 'Отмечать самочувствие 5 дней', qHasBio, (m, t) => [qDays(m, t, qBio), 5]],
+  ['h5', '5 дней — все привычки', qHasHab, (m, t) => [qDays(m, t, k => qLive('h', k, qHab)), 5]],
+  ['f5', 'Записывать траты 5 дней', () => secOn('fin'), (m, t) => [qDays(m, t, k => qLive('f', k, qFin)), 5]],
+  ['b5', 'Отмечать самочувствие 5 дней', qHasBio, (m, t) => [qDays(m, t, k => qLive('b', k, qBio)), 5]],
   ['g3', 'Сделать 3 шага к целям', qHasGoal, (m, t) => [qSteps(m, t), 3]],
   ['n3', 'Записать 3 мысли дня', () => true, (m, t) => [qNotes(m, t), 3]],
   ['pw', 'Запланировать 5 дел на следующую неделю', () => true, (m, t) => [qOne(addDays(m, 7), addDays(m, 13)), 5]],
@@ -174,9 +202,9 @@ const QUEST_W = [
 // Задания месяца — темп заданий недели, выдержанный весь месяц: (первое число, сегодня) → [сделано, нужно]
 const QUEST_M = [
   ['mt60', 'Выполнить 60 задач', () => secOn('tasks'), (a, t) => [qDone(a, t), 60]],
-  ['mh20', '20 дней — все привычки', qHasHab, (a, t) => [qDays(a, t, qHab), 20]],
-  ['mf20', 'Записывать траты 20 дней', () => secOn('fin'), (a, t) => [qDays(a, t, qFin), 20]],
-  ['mb20', 'Отмечать самочувствие 20 дней', qHasBio, (a, t) => [qDays(a, t, qBio), 20]],
+  ['mh20', '20 дней — все привычки', qHasHab, (a, t) => [qDays(a, t, k => qLive('h', k, qHab)), 20]],
+  ['mf20', 'Записывать траты 20 дней', () => secOn('fin'), (a, t) => [qDays(a, t, k => qLive('f', k, qFin)), 20]],
+  ['mb20', 'Отмечать самочувствие 20 дней', qHasBio, (a, t) => [qDays(a, t, k => qLive('b', k, qBio)), 20]],
   ['mg10', 'Сделать 10 шагов к целям', qHasGoal, (a, t) => [qSteps(a, t), 10]],
   ['mn12', 'Записать 12 мыслей дня', () => true, (a, t) => [qNotes(a, t), 12]],
 ];
@@ -188,7 +216,7 @@ const FIRST = [
   ['rep', '🔁', 'Создать повторяющееся дело', () => true, () => S.events.some(e => !e.demo && isRec(e)), 10],
   ['rem', '🔔', 'Поставить напоминание у события', () => true, () => S.events.some(e => !e.demo && remOffs(e).length > 0), 10],
   ['cal', '🗂️', 'Создать свой календарь', () => true, () => S.cats.some(c => !DEF.cats.some(d => d.id === c.id)), 10],
-  ['bud', '💰', 'Задать бюджет на месяц', () => secOn('fin'), () => S.fin.cats.some(c => c.plan > 0), 10],
+  ['bud', '💰', 'Задать бюджет на месяц', () => secOn('fin'), () => S.fin.cats.some(c => c.plan > 0 && !(S.fin.demoPlans && c.id in S.fin.demoPlans)), 10],
   ['ai', '💬', 'Задать вопрос помощнику', () => true, qAsked, 10],
   ['push', '📲', 'Включить уведомления на этом устройстве', () => true, () => { const p = lsGet(PUSH_LS); return !!p && signedIn() && p.uid === auth.uid; }, 15],
   ['card', '🪪', 'Создать карточку для друзей', () => true, () => !!S.settings.fr, 10],
@@ -218,11 +246,12 @@ const qFirst = () => FIRST.filter(f => coinGot('f:' + f[0]) || f[3]()).map(([id,
   const k = 'f:' + id, got = coinGot(k); let ok = got; if (!ok) try { ok = !!done(); } catch (x) {}
   return { k, e, t, a, ok, got };
 });
-// Награды, которые можно забрать: достижения, серия, друзья
+// Награды, которые можно забрать: достижения, серия, друзья. Серия и «30 дней самочувствия» — по дням «вовремя», как на сервере
 function coinRewards() {
-  const s = profileStats(), out = [];
-  achState(s).forEach(a => { if (a.ok && ACH_COINS[a.id] && !coinGot('a:' + a.id)) out.push({ k: 'a:' + a.id, e: a.e, t: `Достижение «${a.n}»`, a: ACH_COINS[a.id] }); });
-  ST_MILES.forEach(([n, a]) => { if (s.best >= n && !coinGot('s:' + n)) out.push({ k: 's:' + n, e: '🔥', t: `Серия ${plural(n, NDAY)} подряд`, a }); });
+  const s = profileStats(), lv = qStreak(), t = todayK(), out = [];
+  const bio = cnLd && coins ? coins.lbn + [addDays(t, -1), t].filter(k => qBio(k) && !cnLd.b.has(k)).length : s.bioDays;
+  achState(Object.assign({}, s, { best: lv.best, bioDays: bio })).forEach(a => { if (a.ok && ACH_COINS[a.id] && !coinGot('a:' + a.id)) out.push({ k: 'a:' + a.id, e: a.e, t: `Достижение «${a.n}»`, a: ACH_COINS[a.id] }); });
+  ST_MILES.forEach(([n, a]) => { if (lv.best >= n && !coinGot('s:' + n)) out.push({ k: 's:' + n, e: '🔥', t: `Серия ${plural(n, NDAY)} подряд`, a }); });
   const inv = coins ? coins.keys.filter(k => k.startsWith('i:')).length : 0;
   fr.list.filter(f => f.state === 'ok' && f.uid && !coinGot('i:' + f.uid)).slice(0, Math.max(0, INV_MAX - inv))
     .forEach(f => out.push({ k: 'i:' + f.uid, e: '🤝', t: `Друг в ${APP_NAME}: ${frName(f)}`, a: INV_COINS }));
@@ -238,7 +267,14 @@ const coinDot = () => coinsReady().length ? '<i class="fr-dot cn-dot" aria-hidde
 
 // ---- Запросы ----
 const CN_ERR = { already: 'Уже получено', limit: 'На сегодня задания закончились — новые завтра', late: 'Время этого задания вышло', friend: 'Это не ваш друг',
-  new: 'Друг ещё не начал пользоваться приложением — заберите позже', early: 'Ещё не выполнено', money: `Не хватает ${COIN}`, own: 'Уже есть', max: `Больше ${FRZ_MAX} заморозок не хранится`, key: 'Не получилось', item: 'Не получилось' };
+  new: 'Друг ещё не начал пользоваться приложением — заберите позже', early: 'Пока не засчитано — сервер не видит этого в ваших записях', money: `Не хватает ${COIN}`, own: 'Уже есть', max: `Больше ${FRZ_MAX} заморозок не хранится`, key: 'Не получилось', item: 'Не получилось' };
+// Перед «Забрать» — записи на сервер: условие проверяет он (coin_ok), и дни «вовремя» он записывает при сохранении
+async function coinSync() {
+  if (!signedIn() || typeof syncNow !== 'function') return;
+  clearTimeout(syncTimer);
+  for (let i = 0; i < 40 && syncBusy; i++) await new Promise(r => setTimeout(r, 150));
+  try { await syncNow(); } catch (e) {}
+}
 async function coinClaim(k, quiet) {
   const r = await cnRpc('coins_claim', { p_key: k });
   if (r && r.ok) { coins.bal = r.bal; coins.keys.push(k); cnDirty = true; lsSet(CN_LS, coins); if (!quiet) toast(`+${r.amt} ${COIN}`); return r.amt; }
@@ -261,11 +297,11 @@ ACT.shopopen = el => { if (typeof closeQuick === 'function') closeQuick(); if (e
 const CN_FS_N = 5;   // первых шагов сразу (сначала те, что можно забрать), остальные — «Ещё N»
 ACT.cnfsall = () => { cnFsAll = true; render(); };
 ACT.cntab = el => { cnTab = el.dataset.t === 'shop' ? 'shop' : 'tasks'; render(); };
-ACT.cnclaim = el => cnRun(async () => { const bal = coins.bal, amt = await coinClaim(el.dataset.k), ms = amt ? coinFly(el, 5) : 0;
+ACT.cnclaim = el => cnRun(async () => { await coinSync(); const bal = coins.bal, amt = await coinClaim(el.dataset.k), ms = amt ? coinFly(el, 5) : 0;
   if (ms) { coins.bal = bal; render(); coins.bal = bal + amt; setTimeout(() => { render(); coinBump(); }, ms); } else render();   // число — когда долетят
   coinsLoad(); });
 ACT.cnall = el => cnRun(async () => {
-  const bal = coins.bal; let sum = 0; for (const x of coinsReady().slice()) sum += await coinClaim(x.k, true);
+  await coinSync(); const bal = coins.bal; let sum = 0; for (const x of coinsReady().slice()) sum += await coinClaim(x.k, true);
   toast(sum ? `+${sum} ${COIN}` : 'Не получилось — попробуйте позже');
   const ms = sum ? coinFly(el, 8) : 0;
   if (ms) { coins.bal = bal; render(); coins.bal = bal + sum; setTimeout(() => { render(); coinBump(); }, ms); } else render();

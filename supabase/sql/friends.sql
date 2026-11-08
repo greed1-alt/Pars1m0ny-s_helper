@@ -195,19 +195,19 @@ declare
   dd date; dk text; pl int; dn int; run int := 0; best int := 0; i int;
   fz jsonb := case when jsonb_typeof(d->'frz') = 'array' then d->'frz' else '[]'::jsonb end;   -- заморозки серии (coins.sql)
 begin
-  -- Задачи: за неделю — без примеров; за всё время — все (как в профиле)
+  -- Задачи: без примеров (с 8 ноября 2026 и за всё время — как в профиле: пример для пробы не приносит достижений)
   if jsonb_typeof(d->'events') = 'array' then
     for e in select * from jsonb_array_elements(d->'events') loop
       continue when jsonb_typeof(e) <> 'object' or not public.fr_truthy(e->'task');
       if jsonb_typeof(e->'repeat') = 'object' and coalesce(e->'repeat'->>'type', '') not in ('', 'none') then
         if jsonb_typeof(e->'doneDates') = 'array' then
-          tt := tt + jsonb_array_length(e->'doneDates');
           if not public.fr_truthy(e->'demo') then
+            tt := tt + jsonb_array_length(e->'doneDates');
             select wt + count(*) into wt from jsonb_array_elements(e->'doneDates') y
               where jsonb_typeof(y) = 'string' and (y #>> '{}') collate "C" >= ms collate "C" and (y #>> '{}') collate "C" <= ts collate "C";
           end if;
         end if;
-      elsif public.fr_truthy(e->'done') then
+      elsif public.fr_truthy(e->'done') and not public.fr_truthy(e->'demo') then
         tt := tt + 1;
         if not public.fr_truthy(e->'demo') and jsonb_typeof(e->'date') = 'string' and (e->>'date') collate "C" >= ms collate "C" and (e->>'date') collate "C" <= ts collate "C" then wt := wt + 1; end if;
       end if;
@@ -218,8 +218,8 @@ begin
     for h in select * from jsonb_array_elements(d->'habits') loop
       continue when jsonb_typeof(h) <> 'object';
       lg := case when jsonb_typeof(h->'log') = 'object' then h->'log' else '{}'::jsonb end;
-      th := th + (select count(*) from jsonb_object_keys(lg));
       if not public.fr_truthy(h->'demo') then
+        th := th + (select count(*) from jsonb_object_keys(lg));
         for k, v in select * from jsonb_each(lg) loop
           if public.fr_truthy(v) and k ~ '^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$' and k collate "C" >= ms collate "C" and k collate "C" <= ts collate "C" then wh := wh + 1; end if;
         end loop;
@@ -277,6 +277,9 @@ declare today date;
 begin
   begin today := (now() at time zone coalesce(p_data->'settings'->>'tz', 'Europe/Moscow'))::date;
   exception when others then today := (now() at time zone 'Europe/Moscow')::date; end;
+  -- Заморозки серии — только настоящие, из журнала монет (z:день); в записях их приложение может дописать себе (8 ноября 2026)
+  begin p_data := jsonb_set(p_data, '{frz}', coalesce((select jsonb_agg(substr(key, 3)) from public.coin_log where user_id = p_user and key like 'z:%'), '[]'::jsonb));
+  exception when others then p_data := p_data - 'frz'; end;
   insert into public.fr_stats (user_id, st, updated_at) values (p_user, public.fr_calc(p_data, today), now())
     on conflict (user_id) do update set st = excluded.st, updated_at = excluded.updated_at;
 exception when others then null;

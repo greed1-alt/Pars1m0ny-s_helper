@@ -319,7 +319,7 @@ return (data, today) => { S = data; TODAY = today; const w = frWeekStats(), hs =
   const oldNo = (await db.query("insert into public.fr_challenges (a, b, kind, week, state) values ($1, $2, 'h', $3, 'sent') returning id", [U.C, U.D, new Date(Date.parse(pw) - 7 * 864e5).toISOString().slice(0, 10)])).rows[0].id;
   const lC = await one('C', 'select public.ch_list()'), done = lC.find(x => x.id === old);
   ok(done && done.state === 'done' && done.my === 3 && done.their === 1 && done.won === true && done.coins === 25, 'итог прошлой недели: у C 3 задачи против 1 — победа и 25 ParsiCoins');
-  ok((await db.query('select bal from public.coins where user_id = $1', [U.C])).rows[0].bal === 25 && !(await db.query('select bal from public.coins where user_id = $1', [U.D])).rows.length, 'монеты — только победителю');
+  ok((await db.query('select bal from public.coins where user_id = $1', [U.C])).rows[0].bal === 25 && ((await db.query('select bal from public.coins where user_id = $1', [U.D])).rows[0] || { bal: 0 }).bal === 0, 'монеты — только победителю');
   await one('D', 'select public.ch_list()'); await one('C', 'select public.ch_list()');
   ok((await db.query('select bal from public.coins where user_id = $1', [U.C])).rows[0].bal === 25, 'награда один раз, сколько бы ни открывали');
   const dD = (await one('D', 'select public.ch_list()')).find(x => x.id === old);
@@ -328,6 +328,30 @@ return (data, today) => { S = data; TODAY = today; const w = frWeekStats(), hs =
   const now1 = (await one('C', 'select public.ch_list()')).find(x => x.id === c1.id);
   ok(now1.state === 'on' && now1.my === 0 && now1.their === 0, 'текущий вызов: числа этой недели');
   ok((await chSend('C', 'D', 'h')).err === 'exists', 'с тем же другом второй вызов на неделю нельзя');
+  // Честно (8 ноября 2026): считается только с дня, когда приняли; у каждого — не больше трёх принятых вызовов в неделю
+  const w2 = new Date(Date.parse(pw) - 14 * 864e5).toISOString().slice(0, 10), w2d = n => new Date(Date.parse(w2) + n * 864e5).toISOString().slice(0, 10);
+  const tk = ds => ({ events: ds.map((d, i) => ({ id: 'q' + i, title: 'З', task: true, done: true, date: d })) });
+  await db.query('update public.user_data set data = $2 where user_id = $1', [U.C, tk([w2d(0), w2d(1), w2d(2)])]);
+  await db.query('update public.user_data set data = $2 where user_id = $1', [U.D, tk([w2d(4)])]);
+  const late = (await db.query("insert into public.fr_challenges (a, b, kind, week, state, on_day) values ($1, $2, 't', $3, 'on', $4) returning id", [U.C, U.D, w2, w2d(3)])).rows[0].id;
+  await one('C', 'select public.ch_list()');
+  const lr = (await db.query('select av, bv, winner from public.fr_challenges where id = $1', [late])).rows[0];
+  ok(lr.av === 0 && lr.bv === 1 && lr.winner === U.D, 'вызов принят в четверг: задачи C до четверга не в счёт — победа D (' + lr.av + ' : ' + lr.bv + ')');
+  const UX = ['e', 'f', '1'].map(c => '00000000-0000-4000-8000-0000000000e' + c);
+  await db.query('insert into auth.users (id) select unnest($1::uuid[])', [UX]);
+  for (const x of UX) await db.query('insert into public.friends (a, b, ok) values ($1, $2, true)', [x, U.C]);
+  for (const x of UX.slice(0, 2)) await db.query("insert into public.fr_challenges (a, b, kind, week, state) values ($1, $2, 'h', $3, 'on')", [x, U.C, wk]);
+  const c4 = (await db.query("insert into public.fr_challenges (a, b, kind, week) values ($1, $2, 'p', $3) returning id", [UX[2], U.C, wk])).rows[0].id;
+  ok(await one('C', 'select public.ch_answer($1, true)', [c4]) === false, 'четвёртый принятый вызов за неделю — нельзя');
+  ok(await one('C', 'select public.ch_answer($1, false)', [c4]) === true, 'отказаться — можно');
+  // Серия у друзей: заморозка — только настоящая (из журнала монет), а не дописанная в записи
+  const td = (await db.query("select (now() at time zone 'UTC')::date::text d")).rows[0].d, tdd = n => new Date(Date.parse(td) - n * 864e5).toISOString().slice(0, 10);
+  const frzData = { settings: { tz: 'UTC' }, frz: [tdd(1)], habits: [{ kind: 'daily', days: [], from: tdd(9), log: Object.fromEntries([2, 3, 4, 5].map(n => [tdd(n), 1])) }] };
+  await db.query('update public.user_data set data = $2 where user_id = $1', [U.C, frzData]);
+  ok((await db.query('select st from public.fr_stats where user_id = $1', [U.C])).rows[0].st.s === 0, 'заморозка, дописанная в записи, серию не спасает');
+  await db.query('insert into public.coin_log (user_id, key, amt) values ($1, $2, 0)', [U.C, 'z:' + tdd(1)]);
+  await db.query('update public.user_data set data = $2 where user_id = $1', [U.C, { ...frzData, x: 1 }]);
+  ok((await db.query('select st from public.fr_stats where user_id = $1', [U.C])).rows[0].st.s === 4, 'настоящая заморозка (куплена и потрачена) — спасает: серия 4');
 
   // Удаление аккаунта — всё уходит
   await db.query('delete from auth.users where id = $1', [U.A]);

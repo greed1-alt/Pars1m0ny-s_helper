@@ -120,13 +120,14 @@ function profileStats() {
   const t = todayK();
   return {
     days: Math.max(1, dayDiff(S.settings.since || t, t) + 1),
-    tasksDone: S.events.filter(e => e.task).reduce((a, e) => a + (isRec(e) ? (e.doneDates || []).length : e.done ? 1 : 0), 0),
-    marks: S.habits.reduce((a, h) => a + Object.keys(h.log).length, 0),
-    bioDays: Object.keys(S.bio.log).length,
-    ops: S.fin.ops.length,
-    saved: S.fin.ops.filter(o => fcat(o.cat).g === 'sav').reduce((a, o) => a + o.amt, 0),
-    notes: S.notes.length,
-    goalsSet: S.goals.length,
+    // Пример для пробы (demo) не считается — иначе он приносил бы достижения и ParsiCoins (8 ноября 2026; сервер — fr_calc, coin_ok)
+    tasksDone: S.events.filter(e => e.task && !e.demo).reduce((a, e) => a + (isRec(e) ? (e.doneDates || []).length : e.done ? 1 : 0), 0),
+    marks: S.habits.reduce((a, h) => a + (h.demo ? 0 : Object.keys(h.log).length), 0),
+    bioDays: Object.keys(S.bio.log).filter(qBio).length,
+    ops: S.fin.ops.filter(o => !o.demo).length,
+    saved: S.fin.ops.filter(o => !o.demo && fcat(o.cat).g === 'sav').reduce((a, o) => a + o.amt, 0),
+    notes: S.notes.filter(n => !n.demo).length,
+    goalsSet: S.goals.filter(g => !g.demo).length,
     ...habitStreaks(),
   };
 }

@@ -395,13 +395,13 @@ function frChHTML(f) {
   else if (cur.state === 'no' && cur.mine) h += `<p class="frx">Вызов не принят — попробуйте на следующей неделе</p>`;
   return h;
 }
-const frChAsk = (c, f) => `<div class="frx frx-in"><b>🏁 ${esc(frFirst(f))} бросает вызов: кто больше ${FR_CH_K[c.kind][0]} до воскресенья</b><small>Победителю — 25 ${COIN}, при ничьей — по 10</small><span class="frx-btns"><button class="btn pri" data-act="chyes" data-id="${c.id}" data-u="${f.uid}">Принять</button><button class="btn" data-act="chno" data-id="${c.id}">Не сейчас</button></span></div>`;
+const frChAsk = (c, f) => `<div class="frx frx-in"><b>🏁 ${esc(frFirst(f))} бросает вызов: кто больше ${FR_CH_K[c.kind][0]} до воскресенья</b><small>Считаем с дня, когда примете. Победителю — 25 ${COIN}, при ничьей — по 10</small><span class="frx-btns"><button class="btn pri" data-act="chyes" data-id="${c.id}" data-u="${f.uid}">Принять</button><button class="btn" data-act="chno" data-id="${c.id}">Не сейчас</button></span></div>`;
 // Главная: входящие вызовы этой недели — сразу с ответом
 const frChHomeHTML = () => frChNo || !fr.ch ? '' : fr.ch.filter(c => c.state === 'sent' && !c.mine && c.week >= frMonday(todayK())).map(c => { const f = fr.list.find(x => x.uid === c.peer && x.state === 'ok'); return f ? `<div class="card frx-card">${frChAsk(c, f)}</div>` : ''; }).join('');
 ACT.chpick = el => {
   const f = fr.list.find(x => x.uid === el.dataset.u && x.state === 'ok'); if (!f) return;
   sheet(`<div class="sh-head"><h3>Вызов на неделю · ${esc(frFirst(f))}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
-  <p class="set-note" style="margin:0 0 12px">Кто больше — до воскресенья? Числа считает сервер, те же, что в таблице лидеров. Победителю — 25 ${COIN}, при ничьей — по 10. С каждым другом — один вызов в неделю.</p>
+  <p class="set-note" style="margin:0 0 12px">Кто больше — до воскресенья? Считаем с дня, когда друг примет вызов; числа считает сервер, те же, что в таблице лидеров. Победителю — 25 ${COIN}, при ничьей — по 10. С каждым другом — один вызов в неделю, всего — не больше трёх принятых.</p>
   <div class="frx-kinds">${Object.entries(FR_CH_K).map(([k, v]) => `<button class="frx-k" data-act="chsend" data-u="${f.uid}" data-k="${k}"><b>${v[1]}</b><small>кто больше ${v[0]}</small></button>`).join('')}</div>`);
 };
 const FR_CH_ERR = { exists: 'С этим другом вызов на этой неделе уже есть', limit: 'На этой неделе вы уже бросили три вызова', notfriend: 'Этот человек больше не в друзьях', bad: 'Не вышло — попробуйте ещё раз' };
@@ -422,7 +422,7 @@ async function frChAnswer(el, yes) {
   try {
     const okk = await frRpc('ch_answer', { p_id: +el.dataset.id, p_ok: yes });
     if (okk && yes && el.dataset.u) frRpc('msg_send', { p_to: el.dataset.u, p_body: LANG === 'en' ? "✅ Challenge accepted! Let's see who wins 💪" : '✅ Принимаю вызов! Посмотрим, кто кого 💪', p_ev: null }).catch(() => {});
-    toast(!okk ? 'Этот вызов уже не ждёт ответа' : yes ? 'Вызов принят — до воскресенья!' : 'Хорошо, в другой раз');
+    toast(!okk ? (yes ? 'Не получилось: вызов уже не ждёт ответа или у кого-то из вас уже 3 вызова на этой неделе' : 'Этот вызов уже не ждёт ответа') : yes ? 'Вызов принят — считаем с сегодняшнего дня до воскресенья!' : 'Хорошо, в другой раз');
   } catch (e) { toast(cloudErrText(e)); }
   await frChLoad(); render();
 }
