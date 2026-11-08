@@ -277,6 +277,24 @@ return (data, today) => { S = data; TODAY = today; const w = frWeekStats(), hs =
   ok((await as('A', 'select * from public.msg_list($1)', [U.B])).rows.length === 0 && (await db.query('select count(*)::int n from public.msg_notify where $1 in (to_uid, from_uid) and $2 in (to_uid, from_uid)', [U.A, U.B])).rows[0].n === 0, 'удалили из друзей — переписки и пушей нет');
   ok((await as('D', 'select * from public.msg_list($1)', [U.C])).rows.length === 1, 'переписка других друзей осталась');
 
+  // Страница по нику (profile_page.sql, 8 ноября 2026): только вошедшим; всегда — ник, имя, значок; остальное — только что человек открыл всем
+  const pps = read('supabase/sql/profile_page.sql'); await db.exec(pps); await db.exec(pps);
+  const nickOf = async w => (await db.query('select nick from public.profiles where user_id = $1', [U[w]])).rows[0].nick;
+  const nD = await nickOf('D'), page = (w, nk) => one(w, 'select public.profile_page($1)', [nk]);
+  ok(/permission/.test((await as(null, 'select public.profile_page($1)', [nD])).err || ''), 'страница по нику: без входа — нельзя');
+  await db.query('update public.profiles set feed = $1 where user_id = $2', [{ v: 1, me: { m: 'Девиз D', ab: 'Обо мне D', bd: '05-05', city: 'Москва' }, ach: ['Первый шаг'], tot: { t: 5, h: 7, b: 2, s: '2026-10-01' }, cs: [{ i: 'c', c: '#ff0000', l: 'all' }], ev: [{ t: 'Секрет', d: '2026-11-08', c: 'c' }] }, U.D]);
+  const p0 = await page('C', nD);
+  ok(p0 && p0.nick === nD && p0.rel === 'ok' && p0.uid === U.D && !p0.ach && !p0.tot && !p0.m && !p0.ab, 'по умолчанию — только ник, имя, значок; другу — и id');
+  await db.query("update public.profiles set feed = feed || '{\"pub\":{\"ach\":1,\"tot\":1,\"about\":1}}'::jsonb where user_id = $1", [U.D]);
+  const p1 = await page('C', '@' + nD.toUpperCase() + ' '), s1 = JSON.stringify(p1);
+  ok(p1 && p1.m === 'Девиз D' && p1.ab === 'Обо мне D' && p1.ach[0] === 'Первый шаг' && p1.tot && p1.tot.s === '2026-10-01', 'открыл всем — видны девиз, «Обо мне», достижения, итоги (ник — без @ и регистра)');
+  ok(!/05-05|Москва|Секрет|#ff0000/.test(s1), 'день рождения, город и календарь — никогда');
+  const pB = await page('B', nD);
+  ok(pB && pB.rel === '' && !pB.uid && pB.m === 'Девиз D', 'не другу — без id, но с тем, что открыто всем');
+  ok(await page('C', 'нет_такого') === null, 'нет такого ника — пусто');
+  const pMe = await page('D', nD);
+  ok(pMe.rel === 'me' && pMe.uid === U.D, 'своя страница — «это вы»');
+
   // Вызов на неделю (challenges.sql, 7 ноября 2026). Сейчас друзья C–D; A и B больше не друзья. Награда — через coins.sql
   await db.exec('create role service_role; grant usage on schema public to service_role;'); await db.exec(read('supabase/sql/coins.sql'));
   const chs = read('supabase/sql/challenges.sql'); await db.exec(chs); await db.exec(chs);   // повторный запуск безопасен

@@ -57,7 +57,7 @@ function frFeed() {
   if (sh.about) { if (st.motto) me.m = String(st.motto).slice(0, 90); if (st.about) me.ab = String(st.about).slice(0, 600); }
   if (sh.bd && isDate(st.birthday)) me.bd = st.birthday.slice(5);
   if (sh.city) { const c = [st.city, st.country].filter(Boolean).join(', '); if (c) me.city = c.slice(0, 80); }
-  return { v: 1, at: t, cs, ev: ev.slice(0, 600), wk: frWeekStats(), me, tot: { t: s.tasksDone, h: s.marks, b: s.best, d: s.days, s: isDate(st.since) ? st.since : '' }, ach: got.map(a => a.n), a: got.length, an: ACH.length, hrs: frHrsList() };
+  return { v: 1, at: t, cs, ev: ev.slice(0, 600), wk: frWeekStats(), me, tot: { t: s.tasksDone, h: s.marks, b: s.best, d: s.days, s: isDate(st.since) ? st.since : '' }, ach: got.map(a => a.n), a: got.length, an: ACH.length, hrs: frHrsList(), pub: frPubOut() };
 }
 // Имя и значок — из профиля; фото не уходит (оно хранится только на устройстве)
 const frBody = () => { const st = S.settings, a = st.avatar || {}; const cv = st.cover || {};
@@ -258,7 +258,7 @@ ACT.frleaders = () => { setSec('leaders'); frLoad(true); if (frScope === 'all') 
 ACT.frlb = el => { frLb = el.dataset.k; render(); };
 ACT.frscope = el => { frScope = el.dataset.k; render(); if (frScope === 'all') frLoadAll(); };
 // Чужой человек из общего списка — то же окно, что после поиска по нику: «Позвать в друзья» / «Заявка уже отправлена» / «Принять»
-ACT.frpeek = el => { const r = frAll && frAll.rows.find(x => x.nick === el.dataset.n); if (!r) return; frFound = { q: r.nick, row: { nick: r.nick, name: r.name, ava: r.ava, rel: r.rel } }; openFrAdd(); };
+ACT.frpeek = el => openPerson(el.dataset.n);   // чужой в общем списке — его страница по нику (8 ноября 2026; раньше — окно «Добавить по нику»)
 ACT.frjoinall = async () => {
   if (!S.settings.fr) return openFrSet();
   S.settings.frRank = 1; save(); const res = await frPublish();
@@ -428,6 +428,70 @@ async function frChAnswer(el, yes) {
 }
 ACT.chyes = el => frChAnswer(el, true);
 ACT.chno = el => frChAnswer(el, false);
+// ---- Страница человека по нику (8 ноября 2026; supabase/sql/profile_page.sql) ----
+// Решения пользователя: открыть может только вошедший; видно ник, имя, значок, рамку и обложку, остальное — только что человек сам открыл всем
+// (карточка для друзей → «Видно всем по нику», S.settings.pub → feed.pub): достижения, итоги за всё время, девиз и «Обо мне». Ссылка — …/#u=ник.
+// Друг — сразу его полная страница
+const FR_PUB = [['ach', 'Достижения'], ['tot', 'Итоги за всё время'], ['about', 'Девиз и «Обо мне»']];
+const frPubOut = () => { const p = S.settings.pub || {}; return Object.fromEntries(FR_PUB.filter(([k]) => p[k]).map(([k]) => [k, 1])); };
+let pr = null;   // { nick, d — ответ сервера, busy, err }
+const prClean = d => d && typeof d === 'object' && FR_NICK.test(d.nick || '') ? {
+  nick: d.nick, name: String(d.name || '').slice(0, 40), ava: frAvaOk(d.ava), rel: ['me', 'ok', 'out', 'in', ''].includes(d.rel) ? d.rel : '',
+  uid: /^[0-9a-f-]{36}$/i.test(d.uid || '') ? d.uid.toLowerCase() : '',
+  ach: Array.isArray(d.ach) ? d.ach.filter(n => typeof n === 'string' && ACH.some(a => a[1] === n)) : null,
+  tot: d.tot && typeof d.tot === 'object' ? { t: Math.max(0, +d.tot.t || 0), h: Math.max(0, +d.tot.h || 0), b: Math.max(0, +d.tot.b || 0), s: isDate(d.tot.s) ? d.tot.s : '' } : null,
+  m: typeof d.m === 'string' ? d.m.slice(0, 90) : '', ab: typeof d.ab === 'string' ? d.ab.slice(0, 600) : '' } : null;
+async function openPerson(nick) {
+  nick = String(nick || '').trim().replace(/^@/, '').toLowerCase();
+  if (!FR_NICK.test(nick)) return toast('Ник — от 3 знаков: латинские буквы, цифры, точка и _');
+  if (sheetOpen()) closeSheet();
+  const f = fr.list.find(x => x.nick === nick && x.state === 'ok');
+  if (f) { fr.cur = f.uid; frSave(); setSec('friend'); return frLoad(true); }   // друг — его полная страница
+  pr = { nick, d: null, busy: signedIn(), err: '' };
+  setSec('person'); window.scrollTo(0, 0);
+  if (!signedIn()) return;
+  try { const j = await frRpc('profile_page', { p_nick: nick }); pr.d = prClean(j); if (!pr.d) pr.err = 'none'; }
+  catch (e) { pr.err = frNoSql(e) ? 'Страницы по нику ещё не включены на сервере' : cloudErrText(e); }
+  pr.busy = false; if (sec === 'person') render();
+}
+function prPageHTML() {
+  if (!pr) return '<div class="card"><p class="hm-empty">Страница не выбрана.</p></div>';
+  const head = t => `<div class="pe-head"><button class="ic pe-back" data-act="prback" aria-label="Назад" title="Назад">${I(IC.left, 20)}</button><div><h2>@${esc(pr.nick)}</h2></div></div><div class="card"><p class="hm-empty">${t}</p>`;
+  if (!signedIn()) return head('Страницы людей в ' + APP_NAME + ' видят только те, кто вошёл в аккаунт.') + `<button class="btn pri" style="width:100%" data-act="login">Войти</button></div>`;
+  if (!pr.d && !pr.busy && !pr.err) setTimeout(() => openPerson(pr.nick), 0);   // вошли, пока страница была открыта
+  if (pr.busy || !pr.d && !pr.err) return head('Загружаю…') + '</div>';
+  if (pr.err) return head(pr.err === 'none' ? `Человека с ником @${esc(pr.nick)} нет — проверьте написание.` : esc(pr.err)) + '</div>';
+  const d = pr.d, nm = d.name || '@' + d.nick, f = d.uid && fr.list.find(x => x.uid === d.uid);
+  const acts = d.rel === 'me' ? `<button class="btn pri" data-act="prlink">${I(IC.share, 15)} Ссылка на мою страницу</button><button class="btn" data-act="frset">Что видно всем</button>`
+    : d.rel === 'ok' && d.uid ? `<button class="btn pri" data-act="fropen" data-u="${d.uid}">Страница друга</button>${msgErr !== 'nosql' ? `<button class="btn" data-act="msgto" data-u="${d.uid}">${I(IC.chat, 15)} Написать</button>` : ''}`
+    : d.rel === 'out' ? '<span class="frp-rel">Заявка отправлена</span>'
+    : `<button class="btn pri" data-act="prask">${d.rel === 'in' ? 'Принять заявку' : 'Позвать в друзья'}</button>`;
+  const about = d.m || d.ab ? `<div class="card frb-about"><div class="card-h"><b>О себе</b></div>${d.m ? `<p class="frp-motto">${esc(d.m)}</p>` : ''}${d.ab ? `<p class="pf-about-t">${esc(d.ab)}</p>` : ''}</div>` : '';
+  const ach = d.ach ? ACH.filter(a => d.ach.includes(a[1])) : null, tile = (l, v) => `<div class="frb-t"><small>${l}</small><b>${v}</b></div>`;
+  const achC = ach ? `<div class="card frb-ach"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения · ${ach.length} из ${ACH.length}</b></div>${ach.length ? `<div class="frp-ach">${ach.map(a => `<span class="frp-b" title="${esc(a[1])}" role="img" aria-label="${esc(a[1])}">${a[0]}</span>`).join('')}</div>` : '<p class="hm-empty">Достижений пока нет — всё впереди.</p>'}</div>` : '';
+  const totC = d.tot ? `<div class="card"><div class="card-h"><b>Итоги за всё время</b></div><div class="frb-tot">${tile('Задач выполнено', NF0.format(d.tot.t))}${tile('Отметок привычек', NF0.format(d.tot.h))}${tile('Лучшая серия', d.tot.b ? plural(d.tot.b, NDAY) : '—')}${tile('В ' + APP_NAME + ' с', d.tot.s ? pd(d.tot.s).getDate() + ' ' + MONG[pd(d.tot.s).getMonth()] + ' ' + d.tot.s.slice(0, 4) : '—')}</div></div>` : '';
+  const none = about || achC || totC ? '' : `<div class="card"><p class="hm-empty">${d.rel === 'me' ? 'Вы ещё ничего не открыли всем: остальные видят только ник, имя и значок. Достижения, итоги и «Обо мне» включаются в карточке для друзей → «Видно всем по нику».' : 'Больше ничего этот человек всем не открыл.'}</p></div>`;
+  return `<div class="card pf-card frp-card frb-head">
+    <div class="pf-cover" style="background-image:${COVER_GLOW},${COVERS[d.ava.cv] || COVERS.dusk}"><button class="frp-back" data-act="prback" aria-label="Назад" title="Назад">${I(IC.left, 18)}</button></div>
+    <div class="pf-bar"><span class="pf-ava">${frAva(d, 104)}</span>
+      <div class="pf-who"><h2 class="pf-nm">${esc(nm)}</h2><div class="pf-tags">${d.name ? `<span class="pf-nick">@${esc(d.nick)}</span>` : ''}${d.rel === 'ok' ? '<span class="frp-rel">В друзьях</span>' : d.rel === 'me' ? '<span class="frp-rel">Это вы · так видят все</span>' : ''}</div>
+        ${f ? `<small class="frp-since">${esc(frName(f))}</small>` : ''}</div>
+      <div class="pf-acts">${acts}</div></div></div>
+  ${none}<div class="frb-cols"><div class="frb-col">${about}${totC}</div><div class="frb-col">${achC}</div></div>`;
+}
+SEC.person = { name: 'Человек', icon: IC.user, noNav: true, title: () => 'Друзья', html: prPageHTML, move: () => {} };
+ACT.propen = el => openPerson(el.dataset.n);
+ACT.prback = () => { if (!navBack()) setSec('profile'); };
+ACT.prask = async () => {
+  if (!pr || !pr.d) return;
+  try { const r = await frRpc('friend_add', { p_nick: pr.d.nick }); toast(FR_ADD_MSG[r] || 'Готово'); frLoad(true); openPerson(pr.d.nick); }
+  catch (e) { toast(cloudErrText(e)); }
+};
+ACT.prlink = () => {
+  if (!fr.nick) return toast('Сначала задайте ник в карточке для друзей');
+  const url = location.origin + location.pathname + '#u=' + fr.nick;
+  if (navigator.share && innerWidth < 900) navigator.share({ title: APP_NAME, url }).catch(() => {}); else copyText(url, 'Ссылка на вашу страницу скопирована');
+};
 // Ближайшее: сегодня (что ещё не закончилось) и завтра; пусто — первый день с делами на две недели. Ниже — первое общее окно
 function frNearHTML(f) {
   const fd = f.feed, open = fd.cs.length || fd.hrs.length, head = `<div class="card-h"><b>${I(IC.cal, 17)} Ближайшее</b>${open ? `<button class="pill sm" data-act="frcal" data-u="${f.uid}">Весь календарь →</button>` : ''}</div>`;
@@ -639,7 +703,7 @@ function openFrAdd() {
   sheet(`<div class="sh-head"><h3>Добавить друга</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   <div class="frow"><span class="fl">Ник друга</span><input id="fr_q" class="fin" value="${esc(q)}" placeholder="@ник" maxlength="25" autocapitalize="off" autocomplete="off" spellcheck="false" enterkeyhint="search"></div>
   <button class="btn pri" style="width:100%;margin-top:10px" data-act="frfind">Найти</button>
-  ${frFound ? r ? `<div class="fr-found"><div class="fr-row">${frWhoHTML({ name: r.name, nick: r.nick, ava: frAvaOk(r.ava) })}</div>
+  ${frFound ? r ? `<div class="fr-found"><div class="fr-row">${frWhoHTML({ name: r.name, nick: r.nick, ava: frAvaOk(r.ava) })}<button class="btn sm" data-act="propen" data-n="${esc(r.nick)}">Страница</button></div>
       ${r.rel === 'in' ? `<p class="set-note">Этот человек уже зовёт вас в друзья.</p><button class="btn pri" style="width:100%" data-act="frask">Принять</button>`
         : rel ? `<p class="set-note">${rel}</p>` : `<button class="btn pri" style="width:100%" data-act="frask">Позвать в друзья</button><p class="set-note">Друг увидит заявку у себя в профиле. Пока он не примет её, никто ничего не видит.</p>`}</div>`
     : `<p class="set-note fr-found">Никого с ником «${esc(q)}». Проверьте написание — или отправьте другу ссылку-приглашение.</p><button class="btn" style="width:100%" data-act="invite">${I(IC.share, 15)} Пригласить по ссылке</button>` : ''}`);
@@ -670,7 +734,10 @@ async function frInvite() {
   const text = `${who ? who + ' зовёт' : 'Зову'} тебя в друзья в ${APP_NAME}. Если ссылка откроется в браузере, а не в приложении, — скопируй её и вставь в поиск ${APP_NAME}.`;
   if (navigator.share) navigator.share({ title: APP_NAME, text, url }).catch(() => {}); else copyText(text + ' ' + url, 'Ссылка скопирована — отправьте её другу');
 }
-function frHash() { const c = frCode(location.hash); if (!c) return; history.replaceState(null, '', location.pathname + location.search); frOpenCode(c); }
+function frHash() {
+  const u = /^#u=@?([a-z0-9_.]{3,24})$/i.exec(location.hash || '');   // страница человека по нику (openPerson)
+  if (u) { history.replaceState(null, '', location.pathname + location.search); return openPerson(u[1]); }
+  const c = frCode(location.hash); if (!c) return; history.replaceState(null, '', location.pathname + location.search); frOpenCode(c); }
 addEventListener('hashchange', frHash);
 function frOpenCode(c) { fr.code = c; frSave(); frInviteGo(); }
 async function frInviteGo() {
@@ -700,7 +767,7 @@ ACT.frjoin = async () => {
 let frSet = null;   // { nick, lv: { id календаря: уровень }, err, busy, inv, first — карточки ещё не было }
 function openFrSet(invite) {
   if (!signedIn()) return ACT.login();
-  if (!frSet) frSet = { nick: fr.nick || S.settings.nick || '', lv: Object.fromEntries(S.cats.map(c => [c.id, frLvl(c)])), err: '', inv: !!invite, first: !S.settings.fr, show: Object.assign({}, S.settings.frShow), push: S.settings.frPush !== false, mpush: S.settings.msgPush !== false, bpush: S.settings.bdPush !== false };
+  if (!frSet) frSet = { nick: fr.nick || S.settings.nick || '', lv: Object.fromEntries(S.cats.map(c => [c.id, frLvl(c)])), err: '', inv: !!invite, first: !S.settings.fr, show: Object.assign({}, S.settings.frShow), pub: Object.assign({}, S.settings.pub), push: S.settings.frPush !== false, mpush: S.settings.msgPush !== false, bpush: S.settings.bdPush !== false };
   const st = frSet, first = st.first;
   sheet(`<div class="sh-head"><h3>${first ? 'Карточка для друзей' : 'Друзья: настройки'}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   ${st.inv ? '<p class="set-note">Вас позвали в друзья. Создайте карточку — и приглашение откроется само.</p>' : ''}
@@ -711,6 +778,8 @@ function openFrSet(invite) {
   ${S.cats.map(c => `<div class="fr-lv"><span class="fr-lv-n"><i style="--c:${safeColor(c.color)}"></i>${esc(c.name)}</span><div class="seg2" role="group" aria-label="${esc(c.name)}: что видят друзья">${FR_LVL.map(([v, n]) => `<button class="${st.lv[c.id] === v ? 'on' : ''}" data-act="frlv" data-c="${esc(c.id)}" data-v="${v}" aria-pressed="${st.lv[c.id] === v}">${n}</button>`).join('')}</div></div>`).join('')}
   <div class="set-sec">Из профиля</div>
   ${FR_SHOW.map(([k, n]) => `<div class="set-row"><span>${n}</span><input id="frsh_${k}" class="sw" type="checkbox"${st.show[k] ? ' checked' : ''}></div>`).join('')}
+  <div class="set-sec">Видно всем по нику ${hint('Кто вошёл в ' + APP_NAME + ' и найдёт вас по нику или откроет ссылку на вашу страницу, всегда видит ник, имя, значок, рамку и обложку. Отмеченное ниже — тоже. Календарь, день рождения и город всем не показываются никогда.', 'Что видно всем')}</div>
+  ${FR_PUB.map(([k, n]) => `<div class="set-row"><span>${n}${k === 'about' ? '<small>откроется и друзьям</small>' : ''}</span><input id="frpub_${k}" class="sw" type="checkbox"${st.pub[k] ? ' checked' : ''}></div>`).join('')}
   <div class="set-sec">Уведомления</div>
   <div class="set-row"><span>Пуш о заявках в друзья</span><input id="frpush" class="sw" type="checkbox"${st.push ? ' checked' : ''}></div>
   <div class="set-row"><span>Пуш о сообщениях друзей</span><input id="msgpush" class="sw" type="checkbox"${st.mpush ? ' checked' : ''}></div>
@@ -721,7 +790,7 @@ function openFrSet(invite) {
   <div class="sh-foot"><button class="btn pri" data-act="frsave"${st.busy ? ' disabled' : ''}>${st.busy ? 'Сохраняю…' : first ? 'Создать карточку' : 'Сохранить'}</button></div>`, true);
 }
 ACT.frset = () => { frSet = null; openFrSet(); };
-const frSetRead = () => { const i = $('#fr_nick'), p = $('#frpush'), mp = $('#msgpush'), bp = $('#bdpush'); if (i) frSet.nick = i.value; if (p) frSet.push = p.checked; if (mp) frSet.mpush = mp.checked; if (bp) frSet.bpush = bp.checked; FR_SHOW.forEach(([k]) => { const c = $('#frsh_' + k); if (c) frSet.show[k] = c.checked; }); };
+const frSetRead = () => { const i = $('#fr_nick'), p = $('#frpush'), mp = $('#msgpush'), bp = $('#bdpush'); if (i) frSet.nick = i.value; if (p) frSet.push = p.checked; if (mp) frSet.mpush = mp.checked; if (bp) frSet.bpush = bp.checked; FR_SHOW.forEach(([k]) => { const c = $('#frsh_' + k); if (c) frSet.show[k] = c.checked; }); FR_PUB.forEach(([k]) => { const c = $('#frpub_' + k); if (c) frSet.pub[k] = c.checked; }); };
 ACT.frlv = el => { frSetRead(); frSet.lv[el.dataset.c] = el.dataset.v; shDirty = true; openFrSet(); };
 ACT.frsave = async () => {
   const st = frSet; if (!st || st.busy) return;
@@ -733,6 +802,8 @@ ACT.frsave = async () => {
   if (st.err) return openFrSet();
   const was = !st.first;
   snap(); S.cats.forEach(c => { const v = st.lv[c.id]; if (v === 'busy') delete c.fr; else if (v) c.fr = v; });
+  if (st.pub.about) st.show.about = true;   // «Обо мне» всем — значит, и друзьям
+  const pb = {}; FR_PUB.forEach(([k]) => { if (st.pub[k]) pb[k] = 1; }); if (Object.keys(pb).length) S.settings.pub = pb; else delete S.settings.pub;
   const sh = {}; FR_SHOW.forEach(([k]) => { if (st.show[k]) sh[k] = 1; }); if (Object.keys(sh).length) S.settings.frShow = sh; else delete S.settings.frShow;
   if (st.push) delete S.settings.frPush; else S.settings.frPush = false;   // пуш о заявках — по умолчанию включён (сервер: reminders)
   if (st.mpush) delete S.settings.msgPush; else S.settings.msgPush = false;   // пуш о сообщениях друзей — тоже (reminders: msgPushes)
