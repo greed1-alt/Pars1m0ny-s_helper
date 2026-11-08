@@ -42,17 +42,23 @@ create or replace function public.coin_reward(p_key text) returns int
 language plpgsql immutable set search_path = '' as $$
 declare
   p text[] := string_to_array(p_key, ':');
-  qd text[] := array['t3','tall','hall','fin','bio','note','plan','goal'];   -- задания дня
-  qw text[] := array['t15','h5','f5','b5','g3','n3','pw'];                   -- задания недели
+  qd text[] := array['t3','tall','hall','fin','bio','note','plan','goal','cheer','msg'];   -- задания дня
+  qw text[] := array['t15','h5','f5','b5','g3','n3','pw','ch'];                   -- задания недели
+  qm text[] := array['mt60','mh20','mf20','mb20','mg10','mn12'];                  -- задания месяца (8 ноября 2026)
+  fs_k text[] := array['prof','hab','rep','rem','cal','bud','ai','push','card','friend','tour'];   -- первые шаги, один раз
+  fs_v int[] := array[10,10,10,10,10,10,10,15,10,15,10];
   ach_k text[] := array['first','t50','t300','w7','w30','m100','bio30','ops50','save10k','notes10','goal1','days30'];
   ach_v int[] := array[10,30,80,30,100,30,40,30,50,20,10,50];
   st_k text[] := array['3','7','14','30','60','100'];
   st_v int[] := array[10,25,40,80,120,200];
-  q_d int := 5; q_w int := 20; inv int := 50;
+  q_d int := 5; q_w int := 20; q_m int := 40; q_x int := 20; inv int := 50;   -- q_x — бонус недели (все задания дня 5 дней)
 begin
   if p_key is null or char_length(p_key) > 80 then return null; end if;
   if p[1] = 'd' and cardinality(p) = 3 and p[3] = any (qd) then return q_d; end if;
   if p[1] = 'w' and cardinality(p) = 3 and p[3] = any (qw) then return q_w; end if;
+  if p[1] = 'm' and cardinality(p) = 3 and p[3] = any (qm) then return q_m; end if;
+  if p[1] = 'q' and cardinality(p) = 2 then return q_x; end if;
+  if p[1] = 'f' and cardinality(p) = 2 and p[2] = any (fs_k) then return fs_v[array_position(fs_k, p[2])]; end if;
   if p[1] = 'a' and cardinality(p) = 2 and p[2] = any (ach_k) then return ach_v[array_position(ach_k, p[2])]; end if;
   if p[1] = 's' and cardinality(p) = 2 and p[2] = any (st_k) then return st_v[array_position(st_k, p[2])]; end if;
   if p[1] = 'i' and cardinality(p) = 2 then return inv; end if;
@@ -113,13 +119,14 @@ begin
     'items', coalesce((select jsonb_object_agg(item, n) from public.coin_items where user_id = me), '{}'::jsonb),
     'free', (select count(*) from public.coin_items where user_id = me and free),
     'keys', coalesce((select jsonb_agg(key) from public.coin_log where user_id = me
-      and (key ~ '^[asizp]:' or (key ~ '^[dw]:' and at > now() - interval '10 days'))), '[]'::jsonb),
+      and (key ~ '^[asizpf]:' or (key ~ '^[dwq]:' and at > now() - interval '10 days') or (key ~ '^m:' and at > now() - interval '40 days'))), '[]'::jsonb),
     'log', coalesce((select jsonb_agg(jsonb_build_object('k', key, 'a', amt, 'n', note, 't', at) order by id desc)
       from (select id, key, amt, note, at from public.coin_log where user_id = me order by id desc limit 40) x), '[]'::jsonb));
 end $$;
 
--- Забрать награду. Задание — только за сегодня (± день на часовые пояса) или эту неделю, не больше 3; друг — только настоящий друг,
--- который уже пользуется приложением, до 10 друзей, монеты получают оба
+-- Забрать награду. Задание — только за сегодня (± день на часовые пояса) или эту неделю, не больше 3; месяца — с 1-го числа этого месяца,
+-- не больше 2; бонус недели — когда в журнале за эту неделю 5 дней со всеми тремя заданиями дня; первые шаги — один раз;
+-- друг — только настоящий друг, который уже пользуется приложением, до 5 друзей (было 10), монеты получают оба
 create or replace function public.coins_claim(p_key text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare me uuid := auth.uid(); amt int := public.coin_reward(p_key); p text[] := string_to_array(p_key, ':'); d date; them uuid; bl int;
@@ -128,23 +135,27 @@ begin
   if amt is null then return jsonb_build_object('err', 'key'); end if;
   bl := public.coin_lock(me);
   if exists (select 1 from public.coin_log where user_id = me and key = p_key) then return jsonb_build_object('err', 'already'); end if;
-  if p[1] in ('d', 'w') then
+  if p[1] in ('d', 'w', 'm', 'q') then
     begin d := p[2]::date; exception when others then return jsonb_build_object('err', 'key'); end;
     if p[2] <> d::text then return jsonb_build_object('err', 'key'); end if;
     if p[1] = 'd' and (d < current_date - 1 or d > current_date + 1) then return jsonb_build_object('err', 'late'); end if;
-    if p[1] = 'w' and (extract(isodow from d) <> 1 or d < current_date - 7 or d > current_date + 1) then return jsonb_build_object('err', 'late'); end if;
-    if (select count(*) from public.coin_log where user_id = me and key like p[1] || ':' || p[2] || ':%') >= 3 then return jsonb_build_object('err', 'limit'); end if;
+    if p[1] in ('w', 'q') and (extract(isodow from d) <> 1 or d < current_date - 7 or d > current_date + 1) then return jsonb_build_object('err', 'late'); end if;
+    if p[1] = 'm' and (extract(day from d) <> 1 or d < date_trunc('month', current_date - 1)::date or d > date_trunc('month', current_date + 1)::date) then return jsonb_build_object('err', 'late'); end if;
+    if p[1] in ('d', 'w') and (select count(*) from public.coin_log where user_id = me and key like p[1] || ':' || p[2] || ':%') >= 3 then return jsonb_build_object('err', 'limit'); end if;
+    if p[1] = 'm' and (select count(*) from public.coin_log where user_id = me and key like 'm:' || p[2] || ':%') >= 2 then return jsonb_build_object('err', 'limit'); end if;
+    if p[1] = 'q' and (select count(*) from (select 1 from public.coin_log where user_id = me and key like 'd:%'
+        and split_part(key, ':', 2) between d::text and (d + 6)::text group by split_part(key, ':', 2) having count(*) >= 3) z) < 5 then return jsonb_build_object('err', 'early'); end if;
   elsif p[1] = 'i' then
     begin them := p[2]::uuid; exception when others then return jsonb_build_object('err', 'key'); end;
     if p[2] <> them::text or them = me then return jsonb_build_object('err', 'key'); end if;
     if not exists (select 1 from public.friends where ((a = me and b = them) or (a = them and b = me)) and ok) then return jsonb_build_object('err', 'friend'); end if;
     if coalesce((select rev from public.user_data where user_id = them), 0) < 3 then return jsonb_build_object('err', 'new'); end if;
-    if (select count(*) from public.coin_log where user_id = me and key like 'i:%') >= 10 then return jsonb_build_object('err', 'limit'); end if;
+    if (select count(*) from public.coin_log where user_id = me and key like 'i:%') >= 5 then return jsonb_build_object('err', 'limit'); end if;
   end if;
   perform public.coin_add(me, p_key, amt, null);
   if p[1] = 'i' then
     perform public.coin_lock(them);
-    if (select count(*) from public.coin_log where user_id = them and key like 'i:%') < 10 then perform public.coin_add(them, 'i:' || me::text, amt, null); end if;
+    if (select count(*) from public.coin_log where user_id = them and key like 'i:%') < 5 then perform public.coin_add(them, 'i:' || me::text, amt, null); end if;
   end if;
   return jsonb_build_object('ok', true, 'amt', amt, 'bal', bl + amt);
 end $$;

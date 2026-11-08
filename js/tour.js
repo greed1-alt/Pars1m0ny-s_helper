@@ -207,7 +207,7 @@ function tourFollow() {
 function tourSync() { if (!tour || tourChecking || tour.i < 0) return; const st = tour.list[tour.i]; if (st && st.s === sec) tourPlace(tourFind(st.el)); }
 function tourEnd(done) {
   if (!tour) return;
-  tour.keys.forEach(k => { S.settings.toured[k] = 1; }); save();
+  tour.keys.forEach(k => { S.settings.toured[k] = 1; }); if (done) S.settings.tourDone = 1; save();   // tourDone — первый шаг «Пройти знакомство до конца» (shop.js)
   tour = null;
   const box = $('#tour'); if (box) box.classList.remove('show'); document.documentElement.classList.remove('touring');
   if (done) toast('Готово! Повторить знакомство — Настройки → «Знакомство с приложением»');

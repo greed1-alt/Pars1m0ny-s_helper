@@ -187,7 +187,7 @@ async function msgSend(ev) {
   mc.list.push(tmp); mc.act = 0;
   if (!ev && ta) { ta.value = ''; mc.draft[peer] = ''; msgGrow(); }
   msgLog(true);
-  try { const r = await frRpc('msg_send', { p_to: peer, p_body: text, p_ev: ev || null }), was = tmp.id; tmp.id = +(r && r.id) || tmp.id; tmp.at = (r && r.at) || tmp.at; delete tmp.wait;
+  try { const r = await frRpc('msg_send', { p_to: peer, p_body: text, p_ev: ev || null }), was = tmp.id; tmp.id = +(r && r.id) || tmp.id; tmp.at = (r && r.at) || tmp.at; delete tmp.wait; qMarkSet('msg');   // задание дня «Написать другу» (shop.js)
     if (mc && mc.seen) mc.seen.add(tmp.id); if (mc && mc.fx.has(was)) mc.fx.set(tmp.id, mc.fx.get(was)); }   // уже въезжает — продолжает, а не начинает заново
   catch (e) {
     if (mc) mc.list = mc.list.filter(m => m !== tmp);

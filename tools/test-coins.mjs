@@ -28,6 +28,14 @@ const frames = [...shop.slice(shop.indexOf('const FRAMES = {'), shop.indexOf('\n
 
 ok(same(sqlArr('qd'), keysIn(shop, 'const QUEST_D = [')), 'задания дня в coins.sql (qd) и shop.js (QUEST_D) разные');
 ok(same(sqlArr('qw'), keysIn(shop, 'const QUEST_W = [')), 'задания недели в coins.sql (qw) и shop.js (QUEST_W) разные');
+ok(same(sqlArr('qm'), keysIn(shop, 'const QUEST_M = [')), 'задания месяца в coins.sql (qm) и shop.js (QUEST_M) разные');
+const firstRows = [...shop.slice(shop.indexOf('const FIRST = ['), shop.indexOf('\n];', shop.indexOf('const FIRST = ['))).matchAll(/^  \['(\w+)', .*, (\d+)\],$/gm)].map(m => [m[1], +m[2]]);
+ok(firstRows.length === 11 && same(sqlArr('fs_k'), firstRows.map(x => x[0])) && same(sqlArr('fs_v'), firstRows.map(x => x[1])), 'первые шаги и их монеты в coins.sql (fs_k, fs_v) и shop.js (FIRST) разные');
+ok(firstRows.reduce((a, x) => a + x[1], 0) === 120, 'первые шаги — всего 120');
+ok(sqlNum('q_m') === jsNum('Q_M') && sqlNum('q_x') === jsNum('Q_X'), 'награды за задание месяца и бонус недели в coins.sql и shop.js разные');
+ok(/like 'm:' \|\| p\[2\] \|\| ':%'\) >= 2/.test(sql) && jsNum('Q_MMAX') === 2, 'заданий месяца — 2 и там, и там');
+ok(/having count\(\*\) >= 3\) z\) < 5/.test(sql) && jsNum('Q_XDAYS') === 5, 'бонус недели — 5 дней со всеми тремя заданиями и там, и там');
+ok(/key like 'i:%'\) >= 5 then/.test(sql) && /key like 'i:%'\) < 5 then/.test(sql) && jsNum('INV_MAX') === 5, 'за друга — до 5 друзей и там, и там');
 ok(achIds.length === 12 && new Set(achIds).size === achIds.length, 'у каждого достижения (ACH, pages.js) свой ключ: ' + achIds.join());
 ok(same(sqlArr('ach_k'), achIds) && same(Object.keys(achCoins), achIds), 'награды за достижения: ключи в coins.sql, ACH_COINS и ACH не совпадают');
 ok(same(sqlArr('ach_v'), achIds.map(k => achCoins[k])), 'награды за достижения: суммы в coins.sql и ACH_COINS разные');
@@ -63,7 +71,7 @@ if (!pgEntry || !existsSync(pgEntry)) {
   await db.exec(read('supabase/sql/friends.sql'));
   await db.exec(sql); await db.exec(sql);   // повторный запуск безопасен
 
-  const U = { A:'00000000-0000-4000-8000-00000000000a', B:'00000000-0000-4000-8000-00000000000b', C:'00000000-0000-4000-8000-00000000000c' };
+  const U = { A:'00000000-0000-4000-8000-00000000000a', B:'00000000-0000-4000-8000-00000000000b', C:'00000000-0000-4000-8000-00000000000c', D:'00000000-0000-4000-8000-00000000000d' };
   await db.query('insert into auth.users (id) select unnest($1::uuid[])', [Object.values(U)]);
   const as = async (who, q, p) => {
     await db.exec(who === 'srv' ? `set role service_role;` : who ? `set role authenticated; select set_config('request.jwt.claim.sub', '${U[who]}', false);` : `set role anon; select set_config('request.jwt.claim.sub', '', false);`);
@@ -108,6 +116,30 @@ if (!pgEntry || !existsSync(pgEntry)) {
   ok((await claim('A', 'a:w30')).err === 'already' && (await claim('A', 'a:nope')).err === 'key', 'достижение — один раз, только из списка');
   r = await claim('A', 's:7'); ok(r.ok && r.amt === 25 && (await claim('A', 's:8')).err === 'key', 'серия 7 дней — +25, других нет');
   let bal = (await state('A')).bal; ok(bal === 5 * 4 + 20 * 3 + 100 + 25, 'баланс сходится: ' + bal);
+  // Задания месяца: с первого числа этого месяца, по 40, не больше двух
+  const mo = today.slice(0, 8) + '01', moOld = dAdd(mo, -40).slice(0, 8) + '01';
+  r = await claim('D', `m:${mo}:mt60`); ok(r.ok && r.amt === 40, 'задание месяца — +40');
+  ok((await claim('D', `m:${dAdd(mo, 1)}:mh20`)).err === 'late', 'месяц — только с первого числа');
+  ok((await claim('D', `m:${moOld}:mh20`)).err === 'late', 'задание позапрошлого месяца — нельзя');
+  ok((await claim('D', `m:${mo}:nope`)).err === 'key' && (await claim('D', `m:${mo}:t3`)).err === 'key', 'нет такого задания месяца');
+  ok((await claim('D', `m:${mo}:mh20`)).ok && (await claim('D', `m:${mo}:mf20`)).err === 'limit', 'не больше двух заданий месяца');
+  ok((await state('D')).keys.includes(`m:${mo}:mt60`), 'полученное задание месяца видно в состоянии');
+  // Первые шаги — один раз, суммы с сервера
+  r = await claim('D', 'f:push'); ok(r.ok && r.amt === 15, 'первый шаг «уведомления» — +15');
+  ok((await claim('D', 'f:push')).err === 'already' && (await claim('D', 'f:nope')).err === 'key' && (await claim('D', 'f:prof:x')).err === 'key', 'первый шаг — один раз, только из списка');
+  r = await claim('D', 'f:prof'); ok(r.ok && r.amt === 10, 'первый шаг «профиль» — +10');
+  ok((await state('D')).keys.includes('f:push'), 'первые шаги видны в состоянии');
+  // Бонус недели: все три задания дня в пять дней этой недели — +20; раньше, за прошлую неделю, дважды — нельзя
+  const dlog = (k) => db.query('insert into public.coin_log (user_id, key, amt) values ($1, $2, 5)', [U.D, k]);
+  ok((await claim('D', `q:${mon}`)).err === 'early', 'бонус недели — ничего не сделано, нельзя');
+  ok((await claim('D', `q:${dAdd(mon, 1)}`)).err === 'late' && (await claim('D', 'q:нет')).err === 'key' && (await claim('D', `q:${dAdd(mon, -14)}`)).err === 'late', 'бонус — только с понедельника этой недели');
+  for (let i = 0; i < 4; i++) for (const k of ['t3', 'tall', 'hall']) await dlog(`d:${dAdd(mon, i)}:${k}`);
+  await dlog(`d:${dAdd(mon, 4)}:t3`); await dlog(`d:${dAdd(mon, 4)}:tall`);
+  for (const k of ['t3', 'tall', 'hall']) await dlog(`d:${dAdd(mon, -1)}:${k}`);
+  ok((await claim('D', `q:${mon}`)).err === 'early', 'бонус недели — 4 полных дня (прошлое воскресенье не в счёт), нельзя');
+  await dlog(`d:${dAdd(mon, 4)}:hall`);
+  r = await claim('D', `q:${mon}`); ok(r.ok && r.amt === 20, 'бонус недели — 5 полных дней, +20');
+  ok((await claim('D', `q:${mon}`)).err === 'already' && (await state('D')).keys.includes('q:' + mon), 'бонус — один раз в неделю, виден в состоянии');
   // Друг: только настоящий, только если уже пользуется, монеты обоим, один раз на пару
   ok((await claim('A', 'i:' + U.B)).err === 'friend', 'не друг — нельзя');
   ok((await claim('A', 'i:' + U.A)).err === 'key' && (await claim('A', 'i:' + U.B.toUpperCase())).err === 'key' && (await claim('A', 'i:нет')).err === 'key', 'себя и кривой id — нельзя');

@@ -1,6 +1,7 @@
 // ---- ParsiCoins: внутренняя валюта, задания и магазин (28 октября 2026) ----
 // Решения пользователя: название — «ParsiCoins» («пока пусть будут, потом если что поменяем» — константа COIN); монеты — за задания дня
-// и недели (платят мало), достижения, серию дней подряд и друга в Parsimony (временно); в магазине — палитры (3 на выбор бесплатно,
+// и недели (платят мало), достижения, серию дней подряд и друга в Parsimony (временно, до 5 друзей); с 8 ноября 2026 — ещё первые шаги (один раз),
+// задания месяца, задания с друзьями и бонус недели (все задания дня 5 дней) — «максимально сбалансированными»; в магазине — палитры (3 на выбор бесплатно,
 // остальные — за монеты; Графит и Индиго — у всех), рамки аватара, обложки профиля, заморозка серии. Платных функций пока нет.
 // Баланс, награды и покупки решает сервер (supabase/sql/coins.sql): монеты не дописать себе в приложении, награда выдаётся один раз,
 // заданий — не больше 3 в день и 3 в неделю. Здесь — показать, проверить условие задания и попросить сервер.
@@ -43,9 +44,12 @@ const coinBump = () => { const b = $('.cn-bal'); if (b) b.classList.add('bump');
 
 // ---- Каталог (как в coins.sql) ----
 const Q_D = 5, Q_W = 20, Q_MAX = 3;   // задание дня, недели; сколько заданий в день и в неделю
+// Задание месяца (тот же темп, что у недели, но весь месяц) и сколько их в месяц; бонус недели — все задания дня в Q_XDAYS дней из семи.
+// Доход активного человека: до ~105 за дни + 60 за неделю + 20 бонус + ~18 за месяц в неделю (было ~165); палитра — 200, тема — 400–500
+const Q_M = 40, Q_MMAX = 2, Q_X = 20, Q_XDAYS = 5;
 const ACH_COINS = { first: 10, t50: 30, t300: 80, w7: 30, w30: 100, m100: 30, bio30: 40, ops50: 30, save10k: 50, notes10: 20, goal1: 10, days30: 50 };
 const ST_MILES = [[3, 10], [7, 25], [14, 40], [30, 80], [60, 120], [100, 200]];   // серия дней подряд → монеты
-const INV_COINS = 50, INV_MAX = 10;
+const INV_COINS = 50, INV_MAX = 5;   // до 5 друзей (решение пользователя 8 ноября 2026; было 10)
 const PAL_FREE = 3, PAL_PRICE = 200, CV_PRICE = 150, FRZ_PRICE = 50, FRZ_MAX = 2;
 const PAL_BASE = ['classic', 'indigo'];   // у всех бесплатно: Графит (по умолчанию с 6 ноября 2026) и Индиго (по умолчанию раньше)
 const PAL_SHOP = PAL_ORDER.filter(k => !PAL_BASE.includes(k)), PAL_THEME = PAL_SHOP.filter(k => PAL[k].skin), PAL_PLAIN = PAL_SHOP.filter(k => !PAL[k].skin);   // Индиго — у всех
@@ -73,7 +77,7 @@ onMigrate(() => {
 });
 
 // ---- Состояние (решает сервер) ----
-let coins = lsGet(CN_LS), coinsErr = '', cnBusy = false, cnTab = 'tasks', cnDirty = true, cnReady = [];
+let coins = lsGet(CN_LS), coinsErr = '', cnBusy = false, cnTab = 'tasks', cnDirty = true, cnReady = [], cnFsAll = false;   // cnFsAll — показаны все первые шаги
 if (coins && (typeof coins !== 'object' || !coins.items)) coins = null;
 const coinOwn = it => PAL_BASE.some(k => it === 'pal:' + k) || !!coins && (coins.items[it] || 0) > 0;   // Графит и Индиго — у всех
 const coinGot = k => !!coins && coins.keys.includes(k);
@@ -139,6 +143,11 @@ const qOne = (a, b) => S.events.filter(e => !e.demo && !isRec(e) && e.date >= a 
 const qNotes = (a, b) => S.notes.filter(n => !n.demo && n.date >= a && n.date <= b).length;
 const qHasHab = () => secOn('habits') && hByKind('daily').some(h => !h.demo), qHasBio = () => secOn('habits') && (S.bio.metrics || []).length > 0;
 const qHasGoal = () => S.goals.some(g => !g.done && !g.demo);
+const qHasFr = () => signedIn() && fr.list.some(f => f.state === 'ok' && f.uid);
+// Отметки для заданий, которых нет в записях (написал другу): только на этом устройстве и для этого аккаунта; при выходе стираются (cloud.js)
+const QM_LS = 'remapp_qm';
+const qMark = k => { const m = lsGet(QM_LS); return m && signedIn() && m.uid === auth.uid ? m[k] || '' : ''; };
+function qMarkSet(k) { if (!signedIn()) return; const m = lsGet(QM_LS), o = m && m.uid === auth.uid ? m : { uid: auth.uid }; o[k] = todayK(); lsSet(QM_LS, o); cnDirty = true; }
 // [ключ, текст, есть ли такое задание у человека, (сегодня / понедельник, сегодня) → [сделано, нужно]]
 const QUEST_D = [
   ['t3', 'Выполнить 3 задачи', () => secOn('tasks'), t => [qDone(t, t), 3]],
@@ -149,6 +158,8 @@ const QUEST_D = [
   ['note', 'Записать мысль дня', () => true, t => [Math.min(1, qNotes(t, t)), 1]],
   ['plan', 'Запланировать дело на завтра', () => true, t => [Math.min(1, qOne(addDays(t, 1), addDays(t, 1))), 1]],
   ['goal', 'Сделать шаг к цели', qHasGoal, t => [Math.min(1, qSteps(t, t)), 1]],
+  ['cheer', 'Подбодрить друга', qHasFr, t => [Object.values(fr.cheer || {}).some(v => v && v.d === t) ? 1 : 0, 1]],
+  ['msg', 'Написать другу', qHasFr, t => [qMark('msg') === t ? 1 : 0, 1]],
 ];
 const QUEST_W = [
   ['t15', 'Выполнить 15 задач', () => secOn('tasks'), (m, t) => [qDone(m, t), 15]],
@@ -158,19 +169,55 @@ const QUEST_W = [
   ['g3', 'Сделать 3 шага к целям', qHasGoal, (m, t) => [qSteps(m, t), 3]],
   ['n3', 'Записать 3 мысли дня', () => true, (m, t) => [qNotes(m, t), 3]],
   ['pw', 'Запланировать 5 дел на следующую неделю', () => true, (m, t) => [qOne(addDays(m, 7), addDays(m, 13)), 5]],
+  ['ch', 'Сыграть вызов недели с другом', () => qHasFr() && !frChNo, m => [(fr.ch || []).some(c => c.week === m && (c.state === 'on' || c.state === 'done')) ? 1 : 0, 1]],
+];
+// Задания месяца — темп заданий недели, выдержанный весь месяц: (первое число, сегодня) → [сделано, нужно]
+const QUEST_M = [
+  ['mt60', 'Выполнить 60 задач', () => secOn('tasks'), (a, t) => [qDone(a, t), 60]],
+  ['mh20', '20 дней — все привычки', qHasHab, (a, t) => [qDays(a, t, qHab), 20]],
+  ['mf20', 'Записывать траты 20 дней', () => secOn('fin'), (a, t) => [qDays(a, t, qFin), 20]],
+  ['mb20', 'Отмечать самочувствие 20 дней', qHasBio, (a, t) => [qDays(a, t, qBio), 20]],
+  ['mg10', 'Сделать 10 шагов к целям', qHasGoal, (a, t) => [qSteps(a, t), 10]],
+  ['mn12', 'Записать 12 мыслей дня', () => true, (a, t) => [qNotes(a, t), 12]],
+];
+// Первые шаги — один раз, учат приложению (не повторяют достижения): [ключ, значок, текст, есть ли у человека, сделано ли, монеты]. Всего 120
+const qAsked = () => { const a = typeof ai !== 'undefined' && ai ? ai : typeof aiLoad === 'function' ? aiLoad() : null; return !!a && Array.isArray(a.msgs) && a.msgs.some(m => m.r === 'u'); };
+const FIRST = [
+  ['prof', '👤', 'Заполнить профиль: имя и значок', () => true, () => !!(S.settings.name || '').trim() && !!((S.settings.avatar || {}).e || okImg((S.settings.avatar || {}).img)), 10],
+  ['hab', '🌱', 'Завести привычку', () => secOn('habits'), () => S.habits.some(h => !h.demo), 10],
+  ['rep', '🔁', 'Создать повторяющееся дело', () => true, () => S.events.some(e => !e.demo && isRec(e)), 10],
+  ['rem', '🔔', 'Поставить напоминание у события', () => true, () => S.events.some(e => !e.demo && remOffs(e).length > 0), 10],
+  ['cal', '🗂️', 'Создать свой календарь', () => true, () => S.cats.some(c => !DEF.cats.some(d => d.id === c.id)), 10],
+  ['bud', '💰', 'Задать бюджет на месяц', () => secOn('fin'), () => S.fin.cats.some(c => c.plan > 0), 10],
+  ['ai', '💬', 'Задать вопрос помощнику', () => true, qAsked, 10],
+  ['push', '📲', 'Включить уведомления на этом устройстве', () => true, () => { const p = lsGet(PUSH_LS); return !!p && signedIn() && p.uid === auth.uid; }, 15],
+  ['card', '🪪', 'Создать карточку для друзей', () => true, () => !!S.settings.fr, 10],
+  ['friend', '🤝', 'Добавить первого друга', () => true, () => fr.list.some(f => f.state === 'ok'), 15],
+  ['tour', '🧭', 'Пройти знакомство до конца', () => true, () => !!S.settings.tourDone, 10],
 ];
 const qHash = s => { let h = 2166136261; for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 // Три задания на день (неделю): полученные остаются на месте, остальные — по жребию дня и человека, только из того, чем он пользуется
-function qPick(list, pre) {
+function qPick(list, pre, max = Q_MAX) {
   const got = list.filter(q => coinGot(pre + q[0])), seed = (signedIn() ? auth.uid : S.settings.dev) + pre;
   const rest = list.filter(q => !coinGot(pre + q[0]) && q[2]()).sort((a, b) => qHash(seed + a[0]) - qHash(seed + b[0]));
-  return [...got, ...rest].slice(0, Q_MAX).sort((a, b) => list.indexOf(a) - list.indexOf(b));
+  return [...got, ...rest].slice(0, max).sort((a, b) => list.indexOf(a) - list.indexOf(b));
 }
 function questsNow() {
-  const t = todayK(), m = frMonday(t), dp = 'd:' + t + ':', wp = 'w:' + m + ':';
+  const t = todayK(), m = frMonday(t), mo = t.slice(0, 8) + '01', dp = 'd:' + t + ':', wp = 'w:' + m + ':', mp = 'm:' + mo + ':';
   const row = (q, pre, a, st) => { const [have, need] = st, got = coinGot(pre + q[0]); return { k: pre + q[0], t: q[1], a, have: got ? need : Math.min(have, need), need, ok: got || have >= need, got }; };   // полученное — полной полоской, даже если запись потом удалили
-  return { d: qPick(QUEST_D, dp).map(q => row(q, dp, Q_D, q[3](t))), w: qPick(QUEST_W, wp).map(q => row(q, wp, Q_W, q[3](m, t))) };
+  return { d: qPick(QUEST_D, dp).map(q => row(q, dp, Q_D, q[3](t))), w: qPick(QUEST_W, wp).map(q => row(q, wp, Q_W, q[3](m, t))), m: qPick(QUEST_M, mp, Q_MMAX).map(q => row(q, mp, Q_M, q[3](mo, t))) };
 }
+// Бонус недели: в Q_XDAYS дней из семи получены все задания дня; сервер проверяет то же по своему журналу (coins_claim, ключ q:<понедельник>)
+function qBonus() {
+  const m = frMonday(todayK()), k = 'q:' + m, got = coinGot(k), keys = coins ? coins.keys : [];
+  const have = qDays(m, addDays(m, 6), d => keys.filter(x => x.startsWith('d:' + d + ':')).length >= Q_MAX);
+  return { k, t: `Бонус: все задания дня — ${plural(Q_XDAYS, NDAY)} за неделю`, a: Q_X, have: got ? Q_XDAYS : Math.min(have, Q_XDAYS), need: Q_XDAYS, ok: got || have >= Q_XDAYS, got };
+}
+// Первые шаги: только то, чем человек пользуется (полученные — всегда, для счёта «N из M»)
+const qFirst = () => FIRST.filter(f => coinGot('f:' + f[0]) || f[3]()).map(([id, e, t, , done, a]) => {
+  const k = 'f:' + id, got = coinGot(k); let ok = got; if (!ok) try { ok = !!done(); } catch (x) {}
+  return { k, e, t, a, ok, got };
+});
 // Награды, которые можно забрать: достижения, серия, друзья
 function coinRewards() {
   const s = profileStats(), out = [];
@@ -184,18 +231,18 @@ function coinRewards() {
 // Сколько можно забрать прямо сейчас (точка на аватаре, число в меню); пересчёт — только после изменений
 function coinsReady() {
   if (!coins || !coinsOn()) return [];
-  if (cnDirty) { const q = questsNow(); cnReady = [...q.d, ...q.w].filter(x => x.ok && !x.got).concat(coinRewards()); cnDirty = false; }
+  if (cnDirty) { const q = questsNow(); cnReady = [...qFirst(), ...q.d, ...q.w, qBonus(), ...q.m].filter(x => x.ok && !x.got).concat(coinRewards()); cnDirty = false; }
   return cnReady;
 }
 const coinDot = () => coinsReady().length ? '<i class="fr-dot cn-dot" aria-hidden="true"></i>' : '';
 
 // ---- Запросы ----
 const CN_ERR = { already: 'Уже получено', limit: 'На сегодня задания закончились — новые завтра', late: 'Время этого задания вышло', friend: 'Это не ваш друг',
-  new: 'Друг ещё не начал пользоваться приложением — заберите позже', money: `Не хватает ${COIN}`, own: 'Уже есть', max: `Больше ${FRZ_MAX} заморозок не хранится`, key: 'Не получилось', item: 'Не получилось' };
+  new: 'Друг ещё не начал пользоваться приложением — заберите позже', early: 'Ещё не выполнено', money: `Не хватает ${COIN}`, own: 'Уже есть', max: `Больше ${FRZ_MAX} заморозок не хранится`, key: 'Не получилось', item: 'Не получилось' };
 async function coinClaim(k, quiet) {
   const r = await cnRpc('coins_claim', { p_key: k });
   if (r && r.ok) { coins.bal = r.bal; coins.keys.push(k); cnDirty = true; lsSet(CN_LS, coins); if (!quiet) toast(`+${r.amt} ${COIN}`); return r.amt; }
-  if (!quiet) toast(CN_ERR[r && r.err] || 'Не получилось');
+  if (!quiet) toast(r && r.err === 'limit' && k.startsWith('i:') ? `Награду за друзей уже получили — за ${INV_MAX} друзей` : CN_ERR[r && r.err] || 'Не получилось');
   if (r && r.err === 'already') coins.keys.push(k);
   return 0;
 }
@@ -211,6 +258,8 @@ const cnRun = async f => { if (cnBusy) return; cnBusy = true; try { await f(); }
 
 // ---- Действия ----
 ACT.shopopen = el => { if (typeof closeQuick === 'function') closeQuick(); if (el && el.dataset.tab) cnTab = el.dataset.tab; setSec('shop'); coinsLoad(); };
+const CN_FS_N = 5;   // первых шагов сразу (сначала те, что можно забрать), остальные — «Ещё N»
+ACT.cnfsall = () => { cnFsAll = true; render(); };
 ACT.cntab = el => { cnTab = el.dataset.t === 'shop' ? 'shop' : 'tasks'; render(); };
 ACT.cnclaim = el => cnRun(async () => { const bal = coins.bal, amt = await coinClaim(el.dataset.k), ms = amt ? coinFly(el, 5) : 0;
   if (ms) { coins.bal = bal; render(); coins.bal = bal + amt; setTimeout(() => { render(); coinBump(); }, ms); } else render();   // число — когда долетят
@@ -281,28 +330,35 @@ function openShopItem(it) {
 
 // ---- Страница ----
 SEC.shop = { name: COIN, icon: IC.coin, noNav: true, title: () => COIN, html: () => shopHTML(), move: () => {} };
+// Первый шаг: значок, текст и монеты (без полоски — это одно действие)
+const cnRowF = x => `<div class="cn-q${x.ok ? ' ok' : ''}"><span class="cn-q-e" aria-hidden="true">${x.e}</span><span class="cn-q-t"><b>${esc(x.t)}</b></span>
+  ${x.ok ? `<button class="btn pri sm" data-act="cnclaim" data-k="${esc(x.k)}">Забрать +${x.a}</button>` : `<span class="cn-q-a">${coinI(15)} ${x.a}</span>`}</div>`;
 const cnRow = x => `<div class="cn-q${x.got ? ' got' : x.ok ? ' ok' : ''}"><span class="cn-q-t"><b>${esc(x.t)}</b>
   <span class="cn-q-p"><span class="ds-bar"><i style="width:${Math.round(x.have / x.need * 100)}%"></i></span><small>${x.have} / ${x.need}</small></span></span>
   ${x.got ? `<span class="cn-q-got">${I(IC.check, 15)} Получено</span>` : x.ok ? `<button class="btn pri sm" data-act="cnclaim" data-k="${esc(x.k)}">Забрать +${x.a}</button>` : `<span class="cn-q-a">${coinI(15)} ${x.a}</span>`}</div>`;
 const cnLogName = k => {
   const p = k.split(':'), q = (l, id) => (l.find(x => x[0] === id) || [])[1] || '', a = ACH.find(x => x[5] === p[1]), f = p[0] === 'i' && fr.list.find(x => x.uid === p[1]);
-  return p[0] === 'd' ? 'Задание дня: ' + q(QUEST_D, p[2]) : p[0] === 'w' ? 'Задание недели: ' + q(QUEST_W, p[2]) : p[0] === 'a' ? `Достижение «${a ? a[1] : p[1]}»`
+  return p[0] === 'd' ? 'Задание дня: ' + q(QUEST_D, p[2]) : p[0] === 'w' ? 'Задание недели: ' + q(QUEST_W, p[2]) : p[0] === 'm' ? 'Задание месяца: ' + q(QUEST_M, p[2])
+    : p[0] === 'q' ? 'Бонус недели: все задания дня' : p[0] === 'f' ? 'Первые шаги: ' + ((FIRST.find(x => x[0] === p[1]) || [])[2] || p[1]) : p[0] === 'a' ? `Достижение «${a ? a[1] : p[1]}»`
     : p[0] === 's' ? `Серия ${plural(+p[1] || 0, NDAY)} подряд` : p[0] === 'i' ? 'Друг в ' + APP_NAME + (f ? ': ' + frName(f) : '') : p[0] === 'z' ? 'Заморозка серии: ' + fmtLong(p[1])
     : p[0] === 'p' ? itemName(p.slice(1).join(':')) + ' — бесплатно' : p[0] === 'b' ? itemName(p.slice(1, -1).join(':')) : p[0] === 'adm' ? 'От ' + APP_NAME : k;
 };
 function shopTasksHTML() {
-  const q = questsNow(), rw = coinRewards(), ready = coinsReady().length, s = profileStats();
+  const q = questsNow(), rw = coinRewards(), ready = coinsReady().length, s = profileStats(), fs = qFirst(), fsLeft = fs.filter(x => !x.got).sort((a, b) => b.ok - a.ok);
+  const inv = coins.keys.filter(k => k.startsWith('i:')).length;
   const nextSt = ST_MILES.find(([n]) => s.best < n), left = ACH.filter(a => !coinGot('a:' + a[5])).length - rw.filter(x => x.k.startsWith('a:')).length;
   const log = coins.log.map(x => `<li><span>${esc(cnLogName(x.k))}${x.n ? `<small>${esc(x.n)}</small>` : ''}</span><b class="${x.a > 0 ? 'pl' : x.a < 0 ? 'mn' : ''}">${x.a > 0 ? '+' + x.a : x.a < 0 ? '−' + -x.a : ''}</b>
     <time>${esc(new Date(x.t).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' }))}</time></li>`).join('');
   return `${ready > 1 ? `<button class="btn pri cn-all" data-act="cnall">Забрать всё · ${ready}</button>` : ''}
+    ${fsLeft.length ? `<div class="card"><div class="card-h"><b>Первые шаги</b><small>${fs.length - fsLeft.length} из ${fs.length} · один раз</small></div>${(cnFsAll ? fsLeft : fsLeft.slice(0, CN_FS_N)).map(cnRowF).join('')}${!cnFsAll && fsLeft.length > CN_FS_N ? `<p class="cn-next"><button class="lnk" data-act="cnfsall">Ещё ${fsLeft.length - CN_FS_N}</button></p>` : ''}</div>` : ''}
     <div class="card"><div class="card-h"><b>Задания дня</b><small>по ${Q_D} · новые в полночь</small></div>${q.d.map(cnRow).join('') || '<p class="hm-empty">Сегодня заданий нет.</p>'}</div>
-    <div class="card"><div class="card-h"><b>Задания недели</b><small>по ${Q_W} · новые в понедельник</small></div>${q.w.map(cnRow).join('') || '<p class="hm-empty">Заданий нет.</p>'}</div>
+    <div class="card"><div class="card-h"><b>Задания недели</b><small>по ${Q_W} · новые в понедельник</small></div>${q.w.map(cnRow).join('') || '<p class="hm-empty">Заданий нет.</p>'}${cnRow(qBonus())}</div>
+    <div class="card"><div class="card-h"><b>Задания месяца</b><small>по ${Q_M} · новые 1-го числа</small></div>${q.m.map(cnRow).join('') || '<p class="hm-empty">Заданий нет.</p>'}</div>
     <div class="card"><div class="card-h"><b>Награды</b>${hintK('coins')}</div>
       ${rw.map(x => `<div class="cn-q ok"><span class="cn-q-e" aria-hidden="true">${x.e}</span><span class="cn-q-t"><b>${esc(x.t)}</b></span><button class="btn pri sm" data-act="cnclaim" data-k="${esc(x.k)}">Забрать +${x.a}</button></div>`).join('')}
       <p class="cn-next">${nextSt ? `<span aria-hidden="true">🔥</span> Серия ${plural(nextSt[0], NDAY)} подряд — +${nextSt[1]} <small>(сейчас лучшая — ${plural(s.best, NDAY)})</small><br>` : ''}
         ${left > 0 ? `${I(IC.trophy, 15)} Ещё ${plural(left, ['достижение', 'достижения', 'достижений'])} — от 10 до 100 <button class="lnk" data-act="achall">Какие</button><br>` : ''}
-        ${I(IC.users, 15)} За друга в ${APP_NAME} — +${INV_COINS} вам и другу <button class="lnk" data-act="accinv">Пригласить</button></p></div>
+        ${inv < INV_MAX ? `${I(IC.users, 15)} За друга в ${APP_NAME} — +${INV_COINS} вам и другу, до ${INV_MAX} друзей <button class="lnk" data-act="accinv">Пригласить</button>` : ''}</p></div>
     ${log ? foldHTML('cn-log', 'История', '', () => `<ul class="cn-log">${log}</ul>`, false) : ''}`;
 }
 function shopItemsHTML() {
