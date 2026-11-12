@@ -1,0 +1,115 @@
+#!/bin/bash
+# Переезд api.parsimony.ru на новый сервер REG.RU в регионе «Москва ФЗ-152» (подготовлено 12 ноября 2026).
+# Почему: REG.RU подписывает поручение на обработку персональных данных только для серверов ФЗ-152,
+# без него сведения в уведомлении Роскомнадзору были бы недостоверными.
+# Переносится всё как есть: Supabase (/opt/supabase с .env — те же ключи: токены входа и подписки на уведомления
+# остаются рабочими), база (папка данных), тома Docker (сертификат Caddy, ключи Vault/pgsodium — db-config),
+# SQL, служебные скрипты, cron выгрузки, защита (ufw, fail2ban, parsimony-fw, SSH только по ключу).
+# Секретов здесь нет: они едут внутри /opt/supabase/.env с сервера на сервер и в репозиторий не попадают.
+#
+# Запуск с компьютера (Git Bash), по шагам, каждый — после проверки предыдущего:
+#   bash tools/server/parsimony-move НОВЫЙ_IP check   — новый сервер виден, система, память, диск
+#   bash tools/server/parsimony-move НОВЫЙ_IP base    — обновления, часовой пояс, swap, ufw, SSH, fail2ban, Docker
+#   bash tools/server/parsimony-move НОВЫЙ_IP copy    — СТОП на старом (простой начинается), копия всего на новый
+#   bash tools/server/parsimony-move НОВЫЙ_IP start   — запуск на новом, защита, выгрузка по ночам
+#   bash tools/server/parsimony-move НОВЫЙ_IP proxy   — старый Caddy пересылает api.parsimony.ru на новый (простой кончился)
+#   → пользователь меняет A-запись api.parsimony.ru в deSEC на НОВЫЙ_IP (TTL там 1 час — пока он идёт, работает proxy)
+#   bash tools/server/parsimony-move НОВЫЙ_IP verify  — снаружи: адрес смотрит на новый, API отвечает, сертификат, cron
+# Откат до смены A-записи: на старом `cd /opt/supabase && docker compose up -d` (proxy снять: вернуть Caddyfile из .bak).
+# Старый сервер удалять через несколько дней, когда в журнале его Caddy не останется запросов.
+set -o pipefail
+OLD=194.67.125.109
+NEW=${1:?нужен IP нового сервера}
+STEP=${2:?нужен шаг: check base copy start proxy verify}
+KEY="$HOME/.ssh/parsimony_timeweb"
+SSHO="-i $KEY -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=20"
+o() { ssh $SSHO root@$OLD "$@"; }
+n() { ssh $SSHO root@$NEW "$@"; }
+die() { echo "СТОП: $*"; exit 1; }
+
+case "$STEP" in
+check)
+  n 'cat /etc/os-release | grep PRETTY; echo "ядер: $(nproc)"; free -m | head -2; df -h / | tail -1; ip -4 -br addr | grep -v "^lo"' || die "нет входа на новый сервер по ключу"
+  ;;
+
+base)
+  # Служебные файлы — как на старом (там они проверены). Через этот компьютер: напрямую сервер к серверу ключа нет
+  T=$(mktemp -d) || die "нет временной папки"
+  for f in /etc/ssh/sshd_config.d/00-parsimony.conf /etc/fail2ban/jail.d/parsimony.conf /etc/sysctl.d/99-parsimony.conf \
+           /etc/docker/daemon.json /etc/cron.d/parsimony-dump /etc/systemd/system/parsimony-fw.service \
+           /usr/local/bin/parsimony-dump /usr/local/bin/parsimony-fw /usr/local/bin/parsimony-secret /usr/local/bin/parsimony-migrate; do
+    o "cat $f" > "$T/$(basename $f)" || die "не прочитал $f"
+  done
+  n 'DEBIAN_FRONTEND=noninteractive apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get -y -q upgrade \
+     && DEBIAN_FRONTEND=noninteractive apt-get -y -q install docker.io docker-compose-v2 ufw fail2ban unattended-upgrades \
+     && timedatectl set-timezone Europe/Moscow \
+     && { swapon --show | grep -q swapfile || { fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo "/swapfile none swap sw 0 0" >> /etc/fstab; }; } \
+     && mkdir -p /etc/docker /etc/fail2ban/jail.d /var/backups/parsimony' || die "не поставились пакеты"
+  for f in 00-parsimony.conf:/etc/ssh/sshd_config.d parsimony.conf:/etc/fail2ban/jail.d 99-parsimony.conf:/etc/sysctl.d daemon.json:/etc/docker \
+           parsimony-dump:/etc/cron.d parsimony-fw.service:/etc/systemd/system; do
+    n "cat > ${f#*:}/${f%%:*}" < "$T/${f%%:*}" || die "не записал ${f%%:*}"
+  done
+  # cron и скрипты называются одинаково (parsimony-dump) — скрипты кладу отдельно
+  for s in parsimony-dump parsimony-fw parsimony-secret parsimony-migrate; do n "cat > /usr/local/bin/$s && chmod 755 /usr/local/bin/$s" < "$T/$s" || die "не записал $s"; done
+  rm -rf "$T"
+  n 'chmod 644 /etc/cron.d/parsimony-dump && sysctl --system >/dev/null \
+     && printf "APT::Periodic::Update-Package-Lists \"1\";\nAPT::Periodic::Unattended-Upgrade \"1\";\n" > /etc/apt/apt.conf.d/20auto-upgrades \
+     && ufw default deny incoming && ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp && ufw --force enable \
+     && sshd -t && systemctl restart ssh fail2ban docker && systemctl daemon-reload \
+     && echo "база готова: $(docker --version), $(docker compose version --short)"' || die "настройка не прошла"
+  echo "Проверь: вход по ключу работает → bash tools/server/parsimony-move $NEW check"
+  ;;
+
+copy)
+  n 'test ! -e /opt/supabase/.env' || die "на новом уже есть /opt/supabase/.env — копия уже была? (удалить вручную, если начинаем заново)"
+  echo "Останавливаю Supabase на старом сервере — с этой минуты приложение не сохраняет на сервер (данные ждут на телефонах)…"
+  o 'cd /opt/supabase && docker compose stop' || die "не остановился"
+  o '/usr/local/bin/parsimony-dump >/dev/null 2>&1; true'   # на всякий случай — свежая выгрузка рядом (база уже стоит — выгрузка может не выйти, это не страшно)
+  # Тома Docker сначала заводим (иначе Docker их не знает и создаст пустые поверх), потом кладём в них содержимое
+  n 'for v in supabase_caddy_data supabase_caddy_config supabase_db-config supabase_deno-cache; do docker volume create $v >/dev/null; done' || die "тома не создались"
+  echo "Копирую (папка, тома Docker, SQL)…"
+  o 'tar czf - -C / opt/supabase opt/parsimony-sql \
+       var/lib/docker/volumes/supabase_caddy_data var/lib/docker/volumes/supabase_caddy_config \
+       var/lib/docker/volumes/supabase_db-config var/lib/docker/volumes/supabase_deno-cache' \
+    | n 'tar xzf - -C / && echo "размер: $(du -sh /opt/supabase | cut -f1)"' || die "копия не прошла — старый можно поднять: cd /opt/supabase && docker compose up -d"
+  o 'md5sum /opt/supabase/.env | cut -c1-32' > /tmp/pm_a; n 'md5sum /opt/supabase/.env | cut -c1-32' > /tmp/pm_b
+  cmp -s /tmp/pm_a /tmp/pm_b || die ".env отличается — не запускать"
+  rm -f /tmp/pm_a /tmp/pm_b
+  echo "Скопировано. Дальше: bash tools/server/parsimony-move $NEW start"
+  ;;
+
+start)
+  n 'cd /opt/supabase && docker compose up -d >/dev/null 2>&1; sleep 25; docker ps --format "{{.Names}}: {{.Status}}"' || die "не запустилось"
+  n 'systemctl enable --now parsimony-fw >/dev/null 2>&1; iptables -S DOCKER-USER | grep -c PARS-LIMIT'
+  n 'docker exec supabase-db psql -U postgres -d postgres -tAc "select count(*) from auth.users" && docker exec supabase-db psql -U postgres -d postgres -tAc "select jobname from cron.job"'
+  # Изнутри нового сервера: API отвечает с его сертификатом (резолвим имя на себя)
+  n 'curl -s -o /dev/null -w "API: %{http_code}\n" --resolve api.parsimony.ru:443:127.0.0.1 https://api.parsimony.ru/rest/v1/' || die "API на новом не отвечает"
+  echo "Если всё живое: bash tools/server/parsimony-move $NEW proxy"
+  ;;
+
+proxy)
+  # Пока A-запись меняется (TTL до часа), старый сервер принимает запросы по старому адресу и пересылает их на новый
+  o "cd /opt/supabase && cp volumes/proxy/caddy/Caddyfile volumes/proxy/caddy/Caddyfile.bak-move && cat > volumes/proxy/caddy/Caddyfile <<EOF
+api.parsimony.ru {
+	reverse_proxy https://$NEW {
+		header_up Host api.parsimony.ru
+		transport http {
+			tls_server_name api.parsimony.ru
+		}
+	}
+}
+EOF
+docker compose up -d --no-deps caddy >/dev/null 2>&1 || docker start supabase-caddy; sleep 5; docker logs --tail 5 supabase-caddy 2>&1 | tail -3" || die "proxy не поднялся"
+  curl -s -o /dev/null -w "через старый адрес: %{http_code}\n" --resolve api.parsimony.ru:443:$OLD https://api.parsimony.ru/rest/v1/
+  echo "Теперь — A-запись api.parsimony.ru в deSEC на $NEW. Потом: bash tools/server/parsimony-move $NEW verify"
+  ;;
+
+verify)
+  nslookup api.parsimony.ru 1.1.1.1 2>/dev/null | grep -A2 "Name:" | tail -1
+  curl -s -o /dev/null -w "API напрямую на новый: %{http_code}\n" --resolve api.parsimony.ru:443:$NEW https://api.parsimony.ru/rest/v1/
+  curl -s -o /dev/null -w "API по имени: %{http_code}\n" https://api.parsimony.ru/rest/v1/
+  n 'docker logs --since 10m supabase-caddy 2>&1 | grep -c "\"status\":2" ; ls /var/backups/parsimony | tail -1; cat /etc/cron.d/parsimony-dump'
+  ;;
+
+*) die "нет такого шага: $STEP" ;;
+esac
