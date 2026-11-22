@@ -150,7 +150,7 @@ function cloudStart() {
   const pend = lsGet(LG_LS);
   if (!signedIn() && pend && EMAIL_RE.test(pend.email || '') && Date.now() - pend.sentAt < 15 * 60000) { lg = { step:'code', email: pend.email, sentAt: pend.sentAt, err:'', agree: !!pend.agree }; setTimeout(() => openLogin(), 400); }
   else lsSet(LG_LS, null);
-  if (signedIn()) { syncNow(); pushSync(); setTimeout(consentCheck, 2500); }   // вошли раньше, чем появилось согласие, — спросить один раз
+  if (signedIn()) { syncNow().then(() => setTimeout(consentCheck, 800), () => setTimeout(consentCheck, 800)); pushSync(); }   // согласие — после того, как приехали данные с сервера: там оно может уже быть   // вошли раньше, чем появилось согласие, — спросить один раз
   document.addEventListener('visibilitychange', () => { if (!signedIn()) return; clearTimeout(syncTimer); syncNow(); });   // при закрытии — сразу, без таймера: его iPhone может не дождаться
   addEventListener('online', () => { if (signedIn()) syncNow(); });
   setInterval(() => { if (signedIn() && !document.hidden) syncNow(); }, 60000);   // раз в минуту — проверить, не изменилось ли на другом устройстве
@@ -222,7 +222,9 @@ const CONSENT_V = '2026-11-08a';   // 8 ноября (a — вписан поч�
 const legalOn = () => IS_BETA || appCfg.signup_on === true;
 const signupOn = () => appCfg.signup_on === true && /^ysc1_/.test(appCfg.captcha || '');   // регистрация открыта и капча настроена (функция signup)
 let consentAgreed = false;   // отметил галочку при входе — записываем, как только аккаунт подключён и данные загружены
-const consentOk = () => !!(S.settings.consent && S.settings.consent.v === CONSENT_V);
+// Согласие на эту или более новую редакцию (редакции — даты с буквой: '2026-11-08' < '2026-11-08a'). Раньше было «ровно эта»: бета (новее)
+// и рабочая версия (старее) на одном аккаунте спрашивали по очереди при каждом открытии (жалоба пользователя 22 ноября 2026)
+const consentOk = () => { const c = S.settings.consent; return !!(c && typeof c.v === 'string' && c.v >= CONSENT_V); };
 function consentSave() { S.settings.consent = { v: CONSENT_V, at: new Date().toISOString() }; save(); }
 function consentCheck() {
   if (!legalOn() || !signedIn() || consentOk()) return;
