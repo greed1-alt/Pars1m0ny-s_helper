@@ -2542,4 +2542,11 @@ const EN_DICT = {"* Открыть в Яндекс Картах":"* Open in Yand
 "нет доступа к бете. Обычная версия Parsimony работает как всегда.":"has no access to the beta. The regular Parsimony works as usual.",
 "Войти другой почтой":"Sign in with another email",
 "Открыть Parsimony":"Open Parsimony",
-"У аккаунта":"The account"};
+"У аккаунта":"The account",
+"Хром":"Chrome",
+"Закат":"Sunset",
+"Ночь":"Night",
+"Сумерки":"Dusk",
+"Небосвод":"Skyline",
+"Жидкое стекло":"Liquid glass",
+"как в iOS 26":"like iOS 26"};

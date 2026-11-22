@@ -1326,6 +1326,7 @@ div.ai-row{cursor:default}
 .cn-log b.pl{color:var(--ok)}
 .cn-log time{font-size:12px;color:var(--mut);text-align:right}
 .cn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.cn-set{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:14px 0 8px}
 .cn-it{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 6px 9px;border:1.5px solid var(--line);border-radius:12px;text-align:center;min-width:0}
 .cn-it .pal-pv{align-self:stretch;height:46px}
 .cn-it .ava{margin:6px 0 4px}

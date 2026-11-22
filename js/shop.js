@@ -54,7 +54,7 @@ const ST_MILES = [[3, 10], [7, 25], [14, 40], [30, 80], [60, 120], [100, 200]]; 
 const INV_COINS = 50, INV_MAX = 5;   // до 5 друзей (решение пользователя 8 ноября 2026; было 10)
 const PAL_FREE = 3, PAL_PRICE = 200, CV_PRICE = 150, FRZ_PRICE = 50, FRZ_MAX = 2;
 const PAL_BASE = ['classic', 'indigo'];   // у всех бесплатно: Графит (по умолчанию с 6 ноября 2026) и Индиго (по умолчанию раньше)
-const PAL_SHOP = PAL_ORDER.filter(k => !PAL_BASE.includes(k)), PAL_THEME = PAL_SHOP.filter(k => PAL[k].skin), PAL_PLAIN = PAL_SHOP.filter(k => !PAL[k].skin);   // Индиго — у всех
+const PAL_SHOP = PAL_ORDER.filter(k => !PAL_BASE.includes(k)), PAL_THEME = PAL_SHOP.filter(k => PAL[k].skin && !PAL[k].glass), PAL_GLASS = PAL_SHOP.filter(k => PAL[k].glass), PAL_PLAIN = PAL_SHOP.filter(k => !PAL[k].skin);   // Индиго — у всех
 const COVER_SHOP = { boreal: 'Северное сияние', neon: 'Неон', gold: 'Золото', cosmos: 'Космос', seaset: 'Закат у моря', berry: 'Ягоды' };   // градиенты — COVERS (pages.js)
 const FRAMES = {
   gold: { n: 'Золото', p: 200, g: 'conic-gradient(#fff3b0,#f7d774,#b8860b,#f7d774,#fff3b0,#c9a227,#fff3b0)' },
@@ -329,7 +329,7 @@ ACT.cnpick = el => cnRun(async () => { const it = el.dataset.it; if (await coinP
 // светлая, тёмная и чёрная тема. Примерку на всё приложение пробовали и убрали («просто покажи как оно выглядит») — код в коммите 12d849c
 const PV_MODE = [['l', 'Светлая'], ['d', 'Тёмная'], ['b', 'Чёрная']];
 const palCSS = (k, m) => { const v = lookVars(k, m !== 'l', m === 'b'); return Object.keys(v).map(x => `${x}:${v[x]}`).join(';'); };
-const CSS_ALL = ['fonts', 'app', 'sections', 'ui2', 'skins'].map(f => `<link rel="stylesheet" href="css/${f}.css">`).join('');
+const CSS_ALL = ['fonts', 'app', 'sections', 'ui2', 'skins', 'glass'].map(f => `<link rel="stylesheet" href="css/${f}.css">`).join('');
 function palPvShow(el, k, m) {
   const r = el.shadowRoot || el.attachShadow({ mode: 'open' }), sk = PAL[k].skin;
   r.innerHTML = `${CSS_ALL}<div class="lk-prev"${sk ? ` data-skin="${sk}"` : ''} style="${palCSS(k, m)};color:var(--tx);font:14px/1.4 var(--font)">${lookDemo()}</div>`;
@@ -403,6 +403,9 @@ function shopItemsHTML() {
   const free = PAL_FREE - coins.free, frz = coins.items.frz || 0;
   return `<div class="card"><div class="card-h"><b>Тематические темы</b><small>своя атмосфера</small></div>
       <div class="cn-grid">${PAL_THEME.map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div></div>
+    <div class="card"><div class="card-h"><b>Жидкое стекло</b><small>как в iOS 26</small></div>
+      <div class="cn-grid">${PAL_GLASS.filter(k => !PAL[k].set).map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div>
+      ${[...new Set(PAL_GLASS.map(k => PAL[k].set).filter(Boolean))].map(n => `<div class="cn-set">${esc(n)}</div><div class="cn-grid">${PAL_GLASS.filter(k => PAL[k].set === n).map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div>`).join('')}</div>
     <div class="card"><div class="card-h"><b>Палитры</b><small>${free > 0 ? `бесплатно — ещё ${free} на выбор` : 'Графит, Индиго и 3 бесплатных — уже ваши'}</small></div>
       <div class="cn-grid">${PAL_BASE.map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}${PAL_PLAIN.map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div></div>
     <div class="card"><div class="card-h"><b>Рамки аватара</b></div><div class="cn-grid">${Object.keys(FRAMES).map(k => tile('fm:' + k, avatarHTML(48, k), FRAMES[k].n)).join('')}</div></div>

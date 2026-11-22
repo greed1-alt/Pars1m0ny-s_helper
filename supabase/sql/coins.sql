@@ -71,9 +71,9 @@ create or replace function public.coin_price(p_item text) returns int
 language plpgsql immutable set search_path = '' as $$
 declare
   p text[] := string_to_array(p_item, ':');
-  pal_k text[] := array['sky','midnight','ocean','mint','sage','olive','sand','mocha','coral','rose','plum','lavender','classic','ember','acid','craft','candy','techno','blueprint','note','comic','pixel'];
+  pal_k text[] := array['sky','midnight','ocean','mint','sage','olive','sand','mocha','coral','rose','plum','lavender','classic','ember','acid','craft','candy','techno','blueprint','note','comic','pixel','chrome','skyday','skyset','skynight','skydusk'];
   pal_s text[] := array['ember','acid','craft','candy','techno','blueprint'];   -- тематические темы по образцам
-  pal_u text[] := array['note','comic','pixel'];                     -- необычные темы
+  pal_u text[] := array['note','comic','pixel','chrome','skyday','skyset','skynight','skydusk'];   -- необычные темы и «Жидкое стекло» (22 ноября 2026)
   cv_k text[] := array['boreal','neon','gold','cosmos','seaset','berry'];
   fm_k text[] := array['gold','fire','ice','neon','sakura','emerald','rainbow'];
   fm_v int[] := array[200,200,200,200,200,200,300];

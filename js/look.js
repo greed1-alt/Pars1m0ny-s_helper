@@ -66,6 +66,17 @@ const PAL = {
     l:{ bg:'#ffd84d', pg:'#ffd84d', bg2:'#fff3b8', sf:'#ffffff', line:'#000000', grid:'#d9d9d9', tx:'#000000', tx2:'#222222', mut:'#444444', acc:'#b00b26', accfg:'#ffffff', wm:'#000000' } },
   pixel:{ n:'Пиксели', p:500, skin:'pixel', fix:'l', hc:'#33582f',
     l:{ bg:'#7f9354', pg:'#7f9354', bg2:'#7d9152', sf:'#8ea262', line:'#33582f', grid:'#6a7e44', tx:'#0a1f0e', tx2:'#0a1f0e', mut:'#0c2410', acc:'#0a1f0e', accfg:'#cbdb92', wm:'#0e2a12' } },
+  // «Жидкое стекло» (22 ноября 2026, по образцу Glisse): обои и стекло — css/glass.css (собирает tools/glass-build.mjs), set — набор в магазине
+  chrome:{ n:'Хром', p:500, skin:'gl-chrome', fix:'l', glass:1, hc:'#8a9099',
+    l:{ bg:'#eceef2', bg2:'#e4e7ec', sf:'#f7f8fa', line:'#d2d6dd', tx:'#101215', tx2:'#383d46', mut:'#565c67', acc:'#1b1e23', accfg:'#ffffff', wm:'#2a2e35' } },
+  skyday:{ n:'День', p:500, skin:'gl-day', fix:'l', glass:1, set:'Небосвод', hc:'#5aa9ff',
+    l:{ bg:'#d6ebff', bg2:'#cfe6ff', sf:'#eef6ff', line:'#b9d6f2', tx:'#06182f', tx2:'#264162', mut:'#425d7c', acc:'#0a5cbd', accfg:'#ffffff', wm:'#0a5cbd' } },
+  skyset:{ n:'Закат', p:500, skin:'gl-set', fix:'l', glass:1, set:'Небосвод', hc:'#ff8a6b',
+    l:{ bg:'#ffe6da', bg2:'#ffe0d2', sf:'#fff4ee', line:'#f0c8b6', tx:'#2a1108', tx2:'#5a2f20', mut:'#77493a', acc:'#b5360a', accfg:'#ffffff', wm:'#c8400f' } },
+  skynight:{ n:'Ночь', p:500, skin:'gl-night', fix:'d', glass:1, set:'Небосвод', hc:'#ffd98a',
+    d:{ bg:'#060b1f', bg2:'#0e1734', sf:'#152043', line:'#26355f', tx:'#f2f5ff', tx2:'#c5cde6', mut:'#95a0c2', acc:'#ffd98a', accfg:'#2a1a00', wm:'#ffe3a6' } },
+  skydusk:{ n:'Сумерки', p:500, skin:'gl-dusk', fix:'d', glass:1, set:'Небосвод', hc:'#ffb0d6',
+    d:{ bg:'#120e38', bg2:'#1b1650', sf:'#231d5e', line:'#352d78', tx:'#f6f3ff', tx2:'#d3cbf2', mut:'#a79ed0', acc:'#ffb0d6', accfg:'#3a0a22', wm:'#ffc2df' } },
 };
 const PAL_ORDER = ['classic', ...Object.keys(PAL).filter(k => k !== 'classic')];   // Графит — первым: палитра по умолчанию с 6 ноября 2026
 // Чёрная тема: фон чисто чёрный, акцент — из палитры (у «Графита» — светло-серый, как раньше)
@@ -151,7 +162,7 @@ function themePrev(t) {
 const lookSeg = k => `<div class="seg2 lk-seg" role="group">${LOOK_OPT[k].map(([v, n]) => `<button class="${S.settings[k] === v ? 'on' : ''}" data-act="look" data-k="${k}" data-v="${v}" aria-pressed="${S.settings[k] === v}">${n}</button>`).join('')}</div>`;
 const lookRow = (k, label) => `<div class="lk-row"><div class="lk-h">${label}${hintK(k)}</div>${lookSeg(k)}</div>`;
 // Плитка палитры: маленький макет «страница — карточка — кнопка» в её цветах для текущей темы
-const palPv = k => { const st = S.settings, c = palColors(k, darkNow(), st.theme === 'black'); return `<span class="pal-pv" style="--p:${c.pg};--s:${c.sf};--a:${c.acc};--l:${c.line};--t:${c.tx2}"><i></i><b></b><em></em></span>`; };
+const palPv = k => { const st = S.settings, c = palColors(k, darkNow(), st.theme === 'black'); return `<span class="pal-pv"${PAL[k].glass ? ` data-skin="${PAL[k].skin}"` : ''} style="--p:${c.pg};--s:${c.sf};--a:${c.acc};--l:${c.line};--t:${c.tx2}"><i></i><b></b><em></em></span>`; };
 // Не своя палитра (магазин, shop.js) — со значком цены, нажатие открывает её в магазине
 const palSw = k => `<button class="pal${S.settings.pal === k ? ' on' : ''}" data-act="look" data-k="pal" data-v="${k}" aria-pressed="${S.settings.pal === k}">${palPv(k)}${PAL[k].n}${palLock(k)}</button>`;
 // Кусочек настоящего экрана — в «Как это выглядит» и в окне палитры в магазине
