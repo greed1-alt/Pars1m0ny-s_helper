@@ -426,7 +426,7 @@ function askmSync() {
   m.classList.add('show');
   const no = askmNo(); if (no) no.focus({ preventScroll: true });
 }
-const askmNo = () => { const m = $('#askm'); return m && [...m.querySelectorAll('[data-act]')].find(b => /no$/.test(b.dataset.act)); };
+const askmNo = () => { const m = $('#askm'); return m && [...m.querySelectorAll('[data-act]')].find(b => /(no|cancel)$/.test(b.dataset.act)); };
 function askmHide() { const m = $('#askm'); if (m) { m.classList.remove('show'); m.innerHTML = ''; } }
 document.addEventListener('click', e => { const m = $('#askm'); if (m && e.target === m) { e.stopPropagation(); const no = askmNo(); if (no) no.click(); else askmHide(); } }, true);
 document.addEventListener('keydown', e => { const m = $('#askm'); if (e.key === 'Escape' && m && m.classList.contains('show')) { e.stopPropagation(); e.preventDefault(); const no = askmNo(); if (no) no.click(); else askmHide(); } }, true);

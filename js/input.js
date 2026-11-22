@@ -65,12 +65,12 @@ document.addEventListener('click', async ev => {
   }
   else if (a === 'del') {
     const src = S.events.find(x => x.id === window._fe.id); if (!src) return;
-    if (isRec(src)) { $('#f_ask').innerHTML = `<div class="ask"><b>Это повторяющееся событие. Что удалить?</b><div class="row"><button class="btn dng" data-act="delone">Только ${esc(fmtLong(window._fe.inst))}</button><button class="btn dngf" data-act="delall">Все повторения</button><button class="btn" data-act="delcancel">Отмена</button></div></div>`; $('#f_ask').scrollIntoView({ block:'nearest', behavior: smoothB() }); return; }
+    if (isRec(src)) { $('#f_ask').innerHTML = `<div class="ask"><b>Это повторяющееся событие. Что удалить?</b><div class="row"><button class="btn dng" data-act="delone">Только ${esc(fmtLong(window._fe.inst))}</button><button class="btn dngf" data-act="delall">Все повторения</button><button class="btn" data-act="delcancel">Отмена</button></div></div>`; askmSync(); return; }   // окошком по центру (calendar.js)
     snap(); S.events = S.events.filter(x => x.id !== src.id); save(); closeSheet(); render(); toast('Событие удалено', true);
   }
   else if (a === 'delone') { const src = S.events.find(x => x.id === window._fe.id); if (!src) return; snap(); src.skip = [...(src.skip||[]), window._fe.inst]; save(); closeSheet(); render(); toast('Удалено только это повторение', true); }
   else if (a === 'delall') { snap(); S.events = S.events.filter(x => x.id !== window._fe.id); save(); closeSheet(); render(); toast('Удалены все повторения', true); }
-  else if (a === 'delcancel') $('#f_ask').innerHTML = '';
+  else if (a === 'delcancel') { $('#f_ask').innerHTML = ''; askmHide(); }
   else if (a === 'theme') { S.settings.theme = el.dataset.v; save(); render(); openSettings(true); }
   else if (a === 'density') { S.settings.density = el.dataset.v; save(); lastGridView = null; render(); openSettings(true); }
   else if (a === 'addcat') {
