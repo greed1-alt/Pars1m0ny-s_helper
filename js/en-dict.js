@@ -1066,7 +1066,6 @@ const EN_DICT = {"* Открыть в Яндекс Картах":"* Open in Yand
 "шаги добавите в карточке цели":"add steps in the goal card",
 "в журнал заметок · сегодня":"to the notes journal · today",
 "Подробнее…":"More…",
-"Подробно":"Details",
 "Подробная форма: время, место, напоминание, повтор, заметка":"Full form: time, place, reminder, repeat, note",
 "Подробно: время, место, напоминание":"Details: time, place, reminder",
 "Напишите и нажмите Enter":"Type and press Enter",

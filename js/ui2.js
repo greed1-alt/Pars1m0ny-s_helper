@@ -144,7 +144,7 @@ const omCalm = (id, ctx) => id !== 'oms' && (ctx === 'cal' || ctx === 'tasks');
 // «Подробно» в строке Календаря и Задач (22 ноября 2026, просьба пользователя: «на телефоне в календаре сразу вписывать
 // расширенные настройки, с местом, временем и т. д.»): одно нажатие — полная форма на выбранный день; написанное в строке
 // («встреча завтра в 15») переходит в форму — название, дата, время, календарь
-const omForm = (id, ctx) => omCalm(id, ctx) ? `<button class="om-form om-keep" data-act="omform" data-om="${id}" title="Подробная форма: время, место, напоминание, повтор, заметка" aria-label="Подробно: время, место, напоминание">${I(IC.tune, 17)}<span>Подробно</span></button>` : '';
+const omForm = (id, ctx) => omCalm(id, ctx) ? `<button class="om-form om-keep" data-act="omform" data-om="${id}" title="Подробная форма: время, место, напоминание, повтор, заметка" aria-label="Подробно: время, место, напоминание">${I(IC.tune, 19)}</button>` : '';   // только значок (выбор пользователя 22 ноября 2026: «без надписи, две иконки — плюсик и настройки»)
 function omniHTML(id, ctx) {
   const st = omSt(id); st.ctx = ctx;
   return `<div class="om${omCalm(id, ctx) ? ' calm' : ''}${omCalm(id, ctx) && (st.v || st.force) ? ' open' : ''}" data-om="${id}">
@@ -216,10 +216,13 @@ ACT.omcat = el => { const id = el.dataset.om, st = omSt(id), i = $('#' + id), p 
 ACT.omprio = el => { const id = el.dataset.om, st = omSt(id), i = $('#' + id), p = i && omniParse(i.value, st.ctx, st.force, st); if (!p) return;
   st.prio = PRIO_ORDER[(PRIO_ORDER.indexOf(p.prio) + 1) % PRIO_ORDER.length]; omUpdate(id); omRefocus(id); };
 ACT.omex = el => { const id = el.dataset.om, i = $('#' + id); if (!i) return; i.value = el.dataset.v; omUpdate(id); i.focus(); };
+// Запись ушла в полную форму: строку очистить и (если «спокойная») свернуть — иначе после «Закрыть» под ней оставались прежний разбор
+// и кнопки вида (окно делает фон inert, и уход фокуса из строки не замечается)
+const omCalmDone = (i, st) => { omReset(st); i.value = ''; omUpdate(i.id); i.blur(); const o = i.closest('.om.calm'); if (o) o.classList.remove('open'); };
 // «Подробнее…» — та же запись, но в полной форме (повтор, напоминание, место, заметка)
 ACT.omfull = el => {
   const id = el.dataset.om, st = omSt(id), i = $('#' + id), p = i && omniParse(i.value, st.ctx, st.force, st); if (!p) return;
-  omReset(st); i.value = '';
+  omCalmDone(i, st);
   if (sheetOpen()) closeSheet();
   if (p.type === 'task' || p.type === 'event') openEvent(null, { title:p.title, date:p.date, time:p.time, time2:p.time2, cat:p.cat, task: p.type === 'task', prio:p.prio });
   else if (p.type === 'money') openOp(null, { cat:p.fcat, amt:p.amt, note:p.note, date:p.date });
@@ -232,7 +235,7 @@ ACT.omform = el => {
   const id = el.dataset.om, st = omSt(id), i = $('#' + id); if (!i) return;
   if (i.value.trim()) return ACT.omfull(el);
   const task = st.ctx === 'tasks' || st.force === 'task';
-  omReset(st); if (sheetOpen()) closeSheet();
+  omCalmDone(i, st); if (sheetOpen()) closeSheet();
   if (st.ctx === 'tasks') return newTask(st.base || undefined);
   openEvent(null, { date: st.base || todayK(), task });
 };

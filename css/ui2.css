@@ -95,18 +95,12 @@ button.om-c::after{content:'⟳';font-size:12px;opacity:.55;margin-left:1px}
 .om.calm:not(.open) .om-box{height:50px}
 .h2-omni:has(.om.calm:not(.open)){padding:10px 12px!important}
 /* «Подробно» — полная форма события (Календарь, Задачи; 22 ноября 2026). На узком экране — без значка-звёздочки слева, чтобы строке хватило места */
-.om-form{display:inline-flex;align-items:center;gap:5px;height:38px;padding:0 10px;margin-right:-4px;border-radius:11px;background:color-mix(in srgb,var(--acc) 12%,transparent);color:var(--acc);font-size:13.5px;font-weight:650;flex:none;white-space:nowrap;transition:background .12s,transform .1s}
-.om-form:active{transform:scale(.95)}
-@media(hover:hover){.om-form:hover{background:color-mix(in srgb,var(--acc) 20%,transparent)}}
-/* Пустая строка в покое — «+» не нужен (он лишь просит написать текст), видна «Подробно»; пишут — «+» на месте, «Подробно» — одним значком.
+/* Два значка справа — «Подробно» (ползунки) и «+» (выбор пользователя 22 ноября 2026, без надписи).
    Только телефон: на ПК есть «+ Создать событие», а строка в панели дня узкая */
-@media(max-width:899px){
-  .om.calm:not(.open) .om-box:has(.om-form) .om-go{display:none}
-  .om.calm:not(.open) .om-form{margin-right:0}
-  .om.open .om-form{width:40px;padding:0;justify-content:center}
-  .om.open .om-form span{display:none}
-  .om:has(.om-form) .om-more{display:none}   /* то же, что кнопка — не повторяем */
-}
+.om-form{width:44px;height:44px;margin-right:-2px;border-radius:12px;background:color-mix(in srgb,var(--acc) 13%,transparent);color:var(--acc);display:grid;place-items:center;flex:none;transition:background .12s,transform .1s}
+.om-form:active{transform:scale(.94)}
+@media(hover:hover){.om-form:hover{background:color-mix(in srgb,var(--acc) 22%,transparent)}}
+@media(max-width:899px){.om:has(.om-form) .om-more{display:none}}   /* то же, что кнопка — не повторяем */
 @media(min-width:900px){.om-form{display:none}}
 @media(max-width:420px){.om-box:has(.om-form){gap:8px;padding-left:14px}.om-box:has(.om-form)>svg{display:none}}
 /* «Вы пропустили» тонкой строкой (План, Задачи) — видно, но не кричит */
