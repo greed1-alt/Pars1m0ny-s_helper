@@ -642,7 +642,7 @@ function onbFinish(demo, thenTour) {
   if (onbAreas && onbAreas.size) S.settings.secs.forEach(x => { if (AREAS.some(a => a[0] === x.k)) x.on = onbAreas.has(x.k); });
   S.settings.onboarded = 1;
   if (demo) { if (!S.events.some(e => e.demo && !e.goal)) SEC.tasks.demo(true); if (!S.goals.some(g => g.demo)) SEC.goals.demo(true); if (!S.habits.some(h => h.demo)) SEC.habits.demo(true); if (!S.fin.ops.some(o => o.demo)) SEC.fin.demo(true); }
-  save(); onbClose();
+  guestDo(save); onbClose();   // пример для пробы можно и без входа (core.js)
   if (sec !== 'home') setSec('home'); else render();
   if (thenTour) return setTimeout(() => tourStart('all'), 350);
   toast(demo ? 'Добавлен пример — в каждом разделе его можно убрать одной кнопкой' : 'Готово! Напишите первую запись в строке на Главной');

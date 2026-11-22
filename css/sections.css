@@ -35,7 +35,7 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .qc.menu{width:auto;min-width:230px;padding:6px}
 .pmenu{display:flex;flex-direction:column}
 /* Меню профиля (шапка → имя и аватар) */
-.qc.acc{width:310px;padding:8px}
+.qc.acc{width:310px;padding:8px;overflow-y:auto;overscroll-behavior:contain}
 .accm{display:flex;flex-direction:column;gap:8px}
 .accm button{font:inherit;color:var(--tx)}
 .accm-me{display:flex;align-items:center;gap:12px;padding:8px;border-radius:12px;text-align:left}
@@ -218,7 +218,8 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .pf-friends,.pf-plans{display:flex;flex-direction:column}
 .pf-friends .card-h,.pf-plans .card-h{margin-bottom:12px}
 .fr-ghost{display:flex;margin:0 0 12px 6px}
-.fr-ghost span{width:40px;height:40px;border-radius:50%;margin-left:-8px;border:3px solid var(--bg);background:color-mix(in srgb,var(--c-blue) calc(10% + var(--i) * 6%),var(--hov))}
+.fr-ghost{gap:8px}
+.fr-ghost span{width:36px;height:36px;border-radius:50%;flex:none;background:color-mix(in srgb,var(--c-blue) calc(10% + var(--i) * 6%),var(--hov))}
 /* ---- Друзья (friends.js) ---- */
 .hdr-ava{position:relative}
 .fr-dot{position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 2px var(--bg)}
@@ -352,7 +353,7 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .fr-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .fr-acts .btn{flex:1 1 auto;height:38px;padding:0 12px;font-size:13.5px}
 .fr-emptyb{display:flex;flex-direction:column;align-items:center;text-align:center;padding:4px 8px 2px}
-.fr-emptyb .fr-ghost{margin:0 0 10px 8px}
+.fr-emptyb .fr-ghost{margin:0 0 12px}
 .fr-emptyb b{font-size:15px;font-weight:700}
 .fr-emptyb p{margin:4px 0 0;font-size:13px;color:var(--tx2);line-height:1.45;max-width:420px}
 .fr-inbox{border:1px solid color-mix(in srgb,var(--acc) 30%,var(--line));background:color-mix(in srgb,var(--acc) 7%,transparent);border-radius:var(--r3);padding:4px 12px 6px;margin-bottom:6px}

@@ -11,12 +11,14 @@ SEC.cal = { name:'Календарь', icon:IC.cal, newLabel:'Создать' };
 
 function setSec(s) {
   if (!SEC[s] || s === sec) return;
+  // Куда въезжает страница: на вкладку правее — справа, левее — слева, не вкладка (профиль, настройки) — проявляется (22 ноября 2026: всегда справа дёргало)
+  const tl = navSecs(), ia = tl.indexOf(sec), ib = tl.indexOf(s), dir = ia < 0 || ib < 0 ? 'f' : ib < ia ? -1 : 1;
   if (s === 'settings') { stOpen = null; stQ = ''; }   // Настройки всегда открываются со списка разделов и без поиска (pages.js)
   sec = s; S.settings.sec = s; save();
   if (s === 'habits' || s === 'fin') miniAnchor = pd(secYM + '-01'); else syncMini();
   closeQuick(); if (sheetOpen()) closeSheet();
   window.scrollTo(0, 0);
-  render(2);
+  render(dir);
 }
 ACT.sec = el => setSec(el.dataset.s);
 
@@ -103,6 +105,13 @@ function tabbarRender() {
   const all = navSecs(), plan = planOn(), P = s => plan && (s === 'cal' || s === 'tasks');
   if (P(sec)) planLast = sec;
   const L = plan ? all.filter(s => s !== (all.indexOf('cal') < all.indexOf('tasks') ? 'tasks' : 'cal')) : all; tb.dataset.n = L.length;
+  // Те же вкладки — меняем только отметку текущей, кнопки не пересоздаём: нажатая кнопка не «прыгает» посреди анимации нажатия (22 ноября 2026)
+  const key = L.join(',') + '|' + plan;
+  if (tb.dataset.key === key && tb.children.length === L.length) {
+    L.forEach((s, i) => { const b = tb.children[i], p = P(s), on = p ? P(sec) : s === sec; b.classList.toggle('on', on); b.dataset.s = p ? planLast : s; if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    return;
+  }
+  tb.dataset.key = key;
   tb.innerHTML = L.map(s => { const p = P(s), on = p ? P(sec) : s === sec, go = p ? planLast : s, nm = p ? 'План' : SEC[s].name;
     return `<button class="tb-b${on ? ' on' : ''}" data-act="sec" data-s="${go}" aria-label="${nm}"${on ? ' aria-current="page"' : ''}>${I(p ? IC.cal : SEC[s].icon, 22)}<span>${nm}</span></button>`; }).join('');
 }
@@ -155,8 +164,8 @@ const demoBar = (key, on) => on
   ? `<div class="demobar">${I(IC.spark, 16)}<span>Это <b>пример</b> — не ваши записи</span><button class="btn" data-act="demooff" data-s="${key}">Убрать</button></div>`   // одной строкой (было ~90 px на каждой странице)
   : '';
 const emptyCard = (key, title, text) => `<div class="card empty-card"><b>${title}</b><p>${text}</p><div class="row"><button class="btn pri" data-act="add">${I(IC.plus, 16)} ${SEC[key].newLabel}</button><button class="btn" data-act="demoon" data-s="${key}">${I(IC.spark, 16)} Показать на примере</button></div></div>`;
-ACT.demoon = el => { const s = SEC[el.dataset.s]; if (!s || !s.demo) return; s.demo(true); save(); render(); toast('Добавлен пример — посмотрите, как всё выглядит'); };
-ACT.demooff = el => { const s = SEC[el.dataset.s]; if (!s || !s.demo) return; s.demo(false); save(); render(); toast('Пример убран'); };
+ACT.demoon = el => { const s = SEC[el.dataset.s]; if (!s || !s.demo) return; s.demo(true); guestDo(save); render(); toast('Добавлен пример — посмотрите, как всё выглядит'); };
+ACT.demooff = el => { const s = SEC[el.dataset.s]; if (!s || !s.demo) return; s.demo(false); guestDo(save); render(); toast('Пример убран'); };
 
 // Горизонтальная прокрутка таблиц сохраняется между перерисовками; при первом показе — к сегодняшнему дню
 const hsKeep = {};

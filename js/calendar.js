@@ -411,9 +411,25 @@ ACT.shdrop = () => { shAskHide(); closeSheet(); };
 document.addEventListener('pointerdown', e => { if (shAskOpen() && !(e.target.closest && e.target.closest('#shask'))) shAskHide(); }, true);   // продолжили писать — вопрос убирается
 const sheet = (h, keep) => { tinvHide(); if (!keep) shDirty = false; shAskHide(); const sh = $('#sh'), top = sh.scrollTop, was = sheetOpen(), fk = was ? focSave() : null;   // плашка «Впервые здесь?» (tour.js) не висит поверх окна
  sh.innerHTML = '<span class="grab" aria-hidden="true"></span>' + h; $('#ov').classList.remove('ov-light'); $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; shHistOpen();
- a11ySheet(was, fk); };   // js/a11y.js: заголовок для диктора, фон «заморожен», фокус внутрь окна
+ document.documentElement.classList.add('sh-lock');   // страница под окном не листается (22 ноября 2026)
+ a11ySheet(was, fk); askmSync(); };   // js/a11y.js: заголовок для диктора, фон «заморожен», фокус внутрь окна
 // fromBack — окно закрыто кнопкой «Назад»: шаг в истории уже сделан
-const closeSheet = fromBack => { aiVoiceAbort(); shAskHide(); $('#ov').classList.remove('show', 'ov-light'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; shHistClose(fromBack === true); a11yClose(); };
+const closeSheet = fromBack => { aiVoiceAbort(); shAskHide(); askmHide(); $('#ov').classList.remove('show', 'ov-light'); document.documentElement.classList.remove('sh-lock'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; shHistClose(fromBack === true); a11yClose(); };
+// «Удалить …?» внутри окна (блок .ask внизу: цель, привычка, категория финансов…) — показываем окошком по центру экрана, а не внизу,
+// куда надо долистывать (22 ноября 2026, просьба пользователя). Кнопки те же (data-act), блок в окне прячется. Мимо окошка или Esc — «Отмена»
+function askmSync() {
+  const ask = $('#sh .ask'); if (!ask) return askmHide();
+  let m = $('#askm');
+  if (!m) { m = document.createElement('div'); m.id = 'askm'; m.setAttribute('role', 'alertdialog'); m.setAttribute('aria-modal', 'true'); document.body.appendChild(m); }
+  m.innerHTML = `<div class="askm-box">${ask.innerHTML}</div>`; ask.hidden = true;
+  const t = m.querySelector('b'); m.setAttribute('aria-label', t ? t.textContent : 'Подтверждение');
+  m.classList.add('show');
+  const no = askmNo(); if (no) no.focus({ preventScroll: true });
+}
+const askmNo = () => { const m = $('#askm'); return m && [...m.querySelectorAll('[data-act]')].find(b => /no$/.test(b.dataset.act)); };
+function askmHide() { const m = $('#askm'); if (m) { m.classList.remove('show'); m.innerHTML = ''; } }
+document.addEventListener('click', e => { const m = $('#askm'); if (m && e.target === m) { e.stopPropagation(); const no = askmNo(); if (no) no.click(); else askmHide(); } }, true);
+document.addEventListener('keydown', e => { const m = $('#askm'); if (e.key === 'Escape' && m && m.classList.contains('show')) { e.stopPropagation(); e.preventDefault(); const no = askmNo(); if (no) no.click(); else askmHide(); } }, true);
 // «Назад» закрывает открытое окно (18 октября 2026: на Android «Назад» выходил из приложения, пока окно было открыто).
 // Открылось окно — в истории шаг вперёд (один на все окна подряд); закрыли крестиком или «Сохранить» — сами делаем шаг назад
 // и пропускаем его popstate (shBack). Пока этот шаг не дошёл, новое окно добавляет свой шаг — его закроет следующее «Назад».
@@ -474,7 +490,7 @@ function openQuick(date, time, x, y, time2) {
   }
   setTimeout(() => $('#q_t') && $('#q_t').focus(), 30);
 }
-const closeQuick = () => { const q = $('#qc'), h = $('.hdr-ava'); if (q) q.classList.remove('show', 'menu', 'acc'); if (h) h.setAttribute('aria-expanded', 'false'); $$('.wg-ghost').forEach(g => g.remove()); };
+const closeQuick = () => { const q = $('#qc'), h = $('.hdr-ava'); if (q) { q.classList.remove('show', 'menu', 'acc'); q.style.maxHeight = ''; } if (h) h.setAttribute('aria-expanded', 'false'); $$('.wg-ghost').forEach(g => g.remove()); };
 const quickOpen = () => $('#qc').classList.contains('show');
 
 function nlHint(p, id) {

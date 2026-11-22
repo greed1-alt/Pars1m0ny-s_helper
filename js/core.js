@@ -70,7 +70,27 @@ migrate();
 const evCache = new Map();
 // После каждого сохранения — подписчики (синхронизация с аккаунтом, js/cloud.js)
 const SAVE_HOOKS = [];
-const save = () => { evCache.clear(); try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} SAVE_HOOKS.forEach(f => f()); };
+// Без входа (22 ноября 2026, просьба пользователя «регистрация обязательна, чтобы вносить изменения; просмотр открыт»): гость смотрит всё
+// и меняет оформление и настройки, а записи (всё, кроме S.settings) — нет: изменение откатывается к последнему сохранённому, и открывается вход
+// (guestAsk в cloud.js). Пример для пробы и знакомство можно — guestDo(save)
+let guestBase = null, guestOK = false;
+const guestData = () => JSON.stringify(Object.keys(S).filter(k => k !== 'settings').sort().map(k => [k, S[k]]));
+const guestDo = f => { guestOK = true; try { f(); } finally { guestOK = false; } };
+function guestUndo() {
+  const was = new Map(JSON.parse(guestBase));
+  Object.keys(S).forEach(k => { if (k !== 'settings' && !was.has(k)) delete S[k]; });
+  was.forEach((v, k) => { S[k] = v; });
+  evCache.clear();
+}
+const save = () => {
+  evCache.clear();
+  if (typeof signedIn === 'function' && !signedIn()) {
+    const now = guestData();
+    if (guestBase !== null && now !== guestBase && !guestOK) { guestUndo(); setTimeout(() => { render(); guestAsk(); }, 0); }
+    else guestBase = now;
+  }
+  try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} SAVE_HOOKS.forEach(f => f());
+};
 // Метка этого устройства: по ней узнаём свои же ссылки и обновляем присланное, а не дублируем
 if (!S.settings.dev) { S.settings.dev = uid(); save(); }
 let hiddenCats = new Set();

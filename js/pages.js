@@ -294,6 +294,7 @@ ACT.accmenu = el => {
   qc.classList.add('show', 'menu', 'acc');
   const r = el.getBoundingClientRect(), w = qc.offsetWidth;
   qc.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px'; qc.style.top = (r.bottom + 8) + 'px';
+  qc.style.maxHeight = Math.max(200, innerHeight - r.bottom - 16) + 'px';   // телефон боком — меню не обрезается, а листается (22 ноября 2026)
   el.setAttribute('aria-expanded', 'true');
   if (a11yKbd) { const b = qc.querySelector('button'); if (b) b.focus(); }   // с клавиатуры — фокус в меню
 };

@@ -324,10 +324,17 @@ function cloudErrText(e) {
   if (e.status === 401 || e.status === 403) return 'Вход закончился — войдите снова.';
   return 'Не получилось: ' + m;
 }
+// Гость попробовал изменить записи (save в core.js откатил изменение) — объясняем и открываем вход. Окно входа уже открыто — только подсказка
+let lgWhy = false;
+function guestAsk() {
+  if ($('#lg_email, #lg_code, #lg_cap')) return toast('Чтобы вносить записи, войдите в аккаунт');
+  lgWhy = true; openLogin(); lgWhy = false;
+}
 function openLogin(keep) {
   if (!lg) lg = { step:'email', email:'', sentAt:0, err:'' };
   const wait = Math.max(0, 60 - Math.round((Date.now() - lg.sentAt) / 1000));
   sheet(`<div class="sh-head"><h3>${lg.step === 'new' ? 'Новый аккаунт' : 'Вход'}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
+  ${lgWhy ? `<p class="lg-why">${I(IC.lock, 16)}<span>Смотреть ${APP_NAME} можно и так, а чтобы добавлять и менять записи — войдите в аккаунт: так они сохранятся и будут на всех устройствах.</span></p>` : ''}
   ${lg.step === 'new' ? `<p class="set-note" style="margin:0 0 12px">Аккаунта с почтой <b style="color:var(--tx)">${esc(lg.email)}</b> ещё нет. Создадим его и пришлём код для входа.</p>
     <div id="lg_cap" class="lg-cap"></div>
     <div id="lg_err" class="lg-err" role="alert">${esc(lg.err)}</div>
