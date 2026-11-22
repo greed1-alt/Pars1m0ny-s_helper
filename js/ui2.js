@@ -141,10 +141,14 @@ const omHint = st => `<span class="om-hint">${withHint(st.force ? 'Напиши�
 // (аудит 18 октября 2026: строка с подсказкой занимала ~190 px на четырёх экранах, сетка «Дня» уходила ниже экрана).
 // На Главной строка прежняя — пользователь 12 октября 2026 вернул её после пробы такой же «спокойной» строки
 const omCalm = (id, ctx) => id !== 'oms' && (ctx === 'cal' || ctx === 'tasks');
+// «Подробно» в строке Календаря и Задач (22 ноября 2026, просьба пользователя: «на телефоне в календаре сразу вписывать
+// расширенные настройки, с местом, временем и т. д.»): одно нажатие — полная форма на выбранный день; написанное в строке
+// («встреча завтра в 15») переходит в форму — название, дата, время, календарь
+const omForm = (id, ctx) => omCalm(id, ctx) ? `<button class="om-form om-keep" data-act="omform" data-om="${id}" title="Подробная форма: время, место, напоминание, повтор, заметка" aria-label="Подробно: время, место, напоминание">${I(IC.tune, 17)}<span>Подробно</span></button>` : '';
 function omniHTML(id, ctx) {
   const st = omSt(id); st.ctx = ctx;
   return `<div class="om${omCalm(id, ctx) ? ' calm' : ''}${omCalm(id, ctx) && (st.v || st.force) ? ' open' : ''}" data-om="${id}">
-    <div class="om-box">${I(IC.spark, 19)}<input id="${id}" class="om-in" type="text" value="${esc(st.v)}" placeholder="${esc(st.force ? OM_T[st.force].ph : st.ph || OM_PH[ctx] || OM_PH.home)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" aria-label="Быстрое добавление"><button class="om-go om-keep" data-act="omgo" data-om="${id}" aria-label="Добавить">${I(IC.plus, 20)}</button></div>
+    <div class="om-box">${I(IC.spark, 19)}<input id="${id}" class="om-in" type="text" value="${esc(st.v)}" placeholder="${esc(st.force ? OM_T[st.force].ph : st.ph || OM_PH[ctx] || OM_PH.home)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" aria-label="Быстрое добавление">${omForm(id, ctx)}<button class="om-go om-keep" data-act="omgo" data-om="${id}" aria-label="Добавить">${I(IC.plus, 20)}</button></div>
     <div class="om-types" role="group" aria-label="Что добавить"><button class="om-t om-ai om-keep" data-act="aiopen" data-om="${id}" title="Помощник: разложит сообщение по разделам">${I(IC.spark, 15)}Помощник</button>${(OM_PRIO[ctx] ? [OM_PRIO[ctx], ...OM_ORDER.filter(t => t !== OM_PRIO[ctx])] : OM_ORDER).filter(t => (ctx === 'home' || OM_PRIO[ctx] || t === 'task' || t === 'event') && omOn(t)).map(t => `<button class="om-t om-keep" data-act="omtype" data-om="${id}" data-t="${t}" aria-pressed="false">${I(OM_T[t].ic, 15)}${OM_T[t].n}</button>`).join('')}</div>
     <div class="om-prev" id="${id}_prev" aria-live="polite"></div>
   </div>`;
@@ -222,6 +226,15 @@ ACT.omfull = el => {
   else if (p.type === 'habit') { openHabit(); hbForm.name = p.title; hbForm.emoji = HB_EMOJI.includes(p.emoji) ? p.emoji : hbForm.emoji; drawHabit(true); }
   else if (p.type === 'goal') openGoal(null, { title:p.title, due:p.due });
   else { openQuickNote(); const t = $('#qn_text'); if (t) t.value = p.title; }
+};
+// «Подробно»: есть текст — как «Подробнее…»; пусто — новое событие (в Задачах — задача) на выбранный день
+ACT.omform = el => {
+  const id = el.dataset.om, st = omSt(id), i = $('#' + id); if (!i) return;
+  if (i.value.trim()) return ACT.omfull(el);
+  const task = st.ctx === 'tasks' || st.force === 'task';
+  omReset(st); if (sheetOpen()) closeSheet();
+  if (st.ctx === 'tasks') return newTask(st.base || undefined);
+  openEvent(null, { date: st.base || todayK(), task });
 };
 document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('om-in')) omUpdate(e.target.id); });
 // «Спокойная» строка раскрывается при нажатии и сворачивается, если ушли с пустым полем (пауза — чтобы успело сработать нажатие на кнопку вида)
