@@ -1088,6 +1088,8 @@ html.nav-swiping body{overflow-x:clip}
 .f-mapbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
 .f-mapbar[hidden]{display:none}
 .f-mapbar a.pill{display:inline-flex;align-items:center;text-decoration:none;color:var(--tx)}
+.f-mapbar a.f-ya{gap:6px;font-weight:600;background:color-mix(in srgb,var(--acc) 14%,var(--hov));border-color:color-mix(in srgb,var(--acc) 35%,var(--line))}
+.f-mapbar a.f-ya svg{color:var(--acc)}
 .f-geo,.f-maptip{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:var(--tx2)}
 .f-geo svg{color:var(--acc)}
 .map-pin{background:none;border:0}

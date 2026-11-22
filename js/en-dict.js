@@ -1,5 +1,7 @@
 // Словарь английского: ключ — русская фраза из кода, «*» — подстановка. Новые фразы показывает node tools/i18n-extract.mjs
-const EN_DICT = {"Чтобы вносить записи, войдите в аккаунт":"Sign in to add and change records",
+const EN_DICT = {"* Открыть в Яндекс Картах":"* Open in Yandex Maps",
+"Открыть в Яндекс Картах":"Open in Yandex Maps",
+"Чтобы вносить записи, войдите в аккаунт":"Sign in to add and change records",
 "Смотреть * можно и так, а чтобы добавлять и менять записи — войдите в аккаунт: так они сохранятся и будут на всех устройствах.":"You can look around * without an account. To add and change records, sign in: they will be saved and available on all your devices.",
 "Подтверждение":"Confirmation",
 "Работа":"Work",

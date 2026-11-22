@@ -21,13 +21,16 @@ function loadLeaflet() {
 // Новая карточка события — старая карта больше не нужна
 const mapDrop = () => { if (mapObj) { try { mapObj.remove(); } catch (e) {} } mapObj = mapPin = null; };
 const mapOpen = () => { const b = $('#f_map'); return !!(mapObj && b && !b.hidden); };
-// Строка под «Местом»: кнопки карты и ссылки на приложения карт
+// Строка под «Местом»: кнопки карты и ссылки на приложения карт. «Открыть в Яндекс Картах» — всегда, когда место есть: точкой
+// или просто адресом (поиск по тексту); у ссылки на созвон (zoom, meet…) — нет (22 ноября 2026, просьба пользователя: нынешняя карта + кнопка Яндекса)
+const yaLink = l => /^[a-z]+:[/][/]/i.test(l) || /^www[.]/i.test(l) || /[.](ru|com|net|org|io|me|us)[/]/i.test(l);   // ссылка (созвон и т. п.), а не адрес
+const yaMapUrl = (g, loc) => g ? 'https://yandex.ru/maps/?pt=' + g[1] + ',' + g[0] + '&z=17&l=map' : loc && !yaLink(loc) ? 'https://yandex.ru/maps/?text=' + encodeURIComponent(loc) : '';
 function mapBar() {
   const fe = window._fe, bar = $('#f_mapbar'); if (!bar || !fe) return;
-  const g = fe.geo, open = mapOpen();
-  bar.innerHTML = (open ? `<button type="button" class="pill sm" data-act="mapfind">${I(IC.search, 14)} Найти адрес</button><button type="button" class="pill sm" data-act="mapme">${I(IC.pin, 14)} Где я</button>` : '')
+  const g = fe.geo, open = mapOpen(), li = $('#f_loc'), ya = yaMapUrl(g, li ? li.value.trim().slice(0, 200) : '');
+  bar.innerHTML = (ya ? `<a class="pill sm f-ya" href="${esc(ya)}" target="_blank" rel="noopener">${I(IC.pin, 14)} Открыть в Яндекс Картах</a>` : '') + (open ? `<button type="button" class="pill sm" data-act="mapfind">${I(IC.search, 14)} Найти адрес</button><button type="button" class="pill sm" data-act="mapme">${I(IC.pin, 14)} Где я</button>` : '')
     + (g ? (open ? `<button type="button" class="pill sm" data-act="mapclr">Убрать точку</button>` : `<span class="f-geo">${I(IC.pin, 14)} Точка на карте</span>`)
-      + `<a class="pill sm" href="https://yandex.ru/maps/?pt=${g[1]},${g[0]}&z=17&l=map" target="_blank" rel="noopener">Яндекс Карты</a><a class="pill sm" href="https://www.google.com/maps/search/?api=1&query=${g[0]},${g[1]}" target="_blank" rel="noopener">Google</a>` : '')
+      + `<a class="pill sm" href="https://www.google.com/maps/search/?api=1&query=${g[0]},${g[1]}" target="_blank" rel="noopener">Google</a>` : '')
     + (open && !g ? `<span class="f-maptip">Нажмите на карту — там будет точка</span>` : '');
   bar.hidden = !bar.innerHTML;
   const b = $('#f_mapb'); if (b) { b.classList.toggle('on', !!g || open); b.setAttribute('aria-expanded', String(open)); }
@@ -92,3 +95,4 @@ ACT.mapme = () => {
     () => toast('Нет доступа к местоположению — разрешите его в настройках телефона или браузера'), { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
 };
 ACT.mapclr = () => { const fe = window._fe; if (!fe) return; fe.geo = null; mapPinSet(); mapBar(); };
+document.addEventListener('input', e => { if (e.target.id === 'f_loc') mapBar(); });   // написали адрес — появилась кнопка «Открыть в Яндекс Картах»
