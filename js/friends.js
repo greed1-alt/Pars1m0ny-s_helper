@@ -223,14 +223,13 @@ function frRank(key, scope) {
   return all.map(p => Object.assign({ v: b[2](p) }, p)).sort((a, c) => c.v - a.v || (a.me ? -1 : c.me ? 1 : 0));
 }
 const frWho = r => r.me ? (S.settings.name || '').trim() || 'Вы' : frName(r);
-const FR_MEDALS = ['🥇', '🥈', '🥉'];
 // Список: место (у первых трёх с очками — медаль), аватар, имя и @ник, полоска от лидера, значение. Друг — открыть страницу; чужой — позвать в друзья
-function frRowsHTML(rows, unit, scope, max) {
-  return `<ol class="frl-list">${rows.map((r, n) => {
-    const medal = r.v > 0 && n < 3, place = medal ? `<span class="frl-n m" role="img" aria-label="${n + 1}-е место">${FR_MEDALS[n]}</span>` : `<span class="frl-n">${n + 1}</span>`;
+function frRowsHTML(rows, unit, scope, max, from = 0) {   // from — место первой строки (своя строка ниже пятого места)
+  return `<ol class="frl-list"${from ? ` start="${from + 1}"` : ''}>${rows.map((r, i) => { const n = i + from;
+    const medal = r.v > 0 && n < 3, place = medal ? `<span class="frl-n m" role="img" aria-label="${n + 1}-е место">${medalI(n, 26)}</span>` : `<span class="frl-n">${n + 1}</span>`;
     const body = `${place}${frAva(r, 38)}<span class="frl-who"><span class="frl-nm"><b>${esc(frWho(r))}</b>${r.me ? '<em>вы</em>' : r.nick ? `<small>@${esc(r.nick)}</small>` : ''}</span><span class="frl-bar" aria-hidden="true"><i style="width:${Math.round(r.v / max * 100)}%"></i></span></span><span class="frl-v">${plural(r.v, unit)}</span>`;
     const act = r.me ? '' : r.uid && (scope === 'friends' || r.rel === 'ok') ? `data-act="fropen" data-u="${r.uid}"` : r.nick ? `data-act="frpeek" data-n="${r.nick}"` : '';
-    return `<li class="${r.me ? 'me' : ''}${medal ? ' top' : ''}">${act ? `<button class="frl-row" ${act}>${body}</button>` : `<div class="frl-row">${body}</div>`}</li>`;
+    return `<li class="${r.me ? 'me' : ''}${medal ? ' top p' + (n + 1) : ''}">${act ? `<button class="frl-row" ${act}>${body}</button>` : `<div class="frl-row">${body}</div>`}</li>`;
   }).join('')}</ol>`;
 }
 function frLeadersHTML() {
@@ -269,21 +268,14 @@ ACT.frleaveall = async () => { S.settings.frRank = 0; save(); await frPublish();
 
 const frWhoHTML = f => `${frAva(f, 36)}<span class="fr-who-t"><b>${esc(frName(f))}</b>${f.nick ? `<small>@${esc(f.nick)}</small>` : ''}</span>`;
 // Карточка «Друзья» в профиле (24 ноября 2026, «сделай плашку друзей более привлекательной»): сверху — друзья кружками, как «истории»
-// (ободок — был сегодня; первые кружки — «Добавить» и «Пригласить»), дальше пьедестал недели (тройка лидеров), ваше место и сколько до
-// следующего, «Все лидеры». Без входа, без карточки и без друзей — значки и три причины позвать друзей. Было: длинный список (~700 px)
+// (ободок — был сегодня; первые кружки — «Добавить» и «Пригласить»), дальше лидеры недели полосами (пять первых и ваша строка, если вы ниже;
+// у тройки — медали-монеты на ленте, medalI в shop.js; пьедестал пробовали — пользователь попросил полосы), сколько до следующего места, «Все лидеры». Без входа, без карточки и без друзей — значки и три причины позвать друзей. Было: длинный список (~700 px)
 const FR_WHY = [['🏆', 'Соревнуйтесь каждую неделю'], ['🗓️', 'Смотрите, когда друзья свободны'], ['💬', 'Переписывайтесь и подбадривайте']];
 const FR_FACES = [['🦊', 'var(--c-orange)'], ['🐻', 'var(--c-green)'], ['🌸', 'var(--c-magenta)'], ['🚀', 'var(--c-blue)'], ['🐱', 'var(--c-yellow)']];
 const frHero = (title, text) => `<div class="fr-hero"><div class="fr-faces" aria-hidden="true">${FR_FACES.map(([e, c]) => `<span style="--fc:${c}">${e}</span>`).join('')}</div><b>${title}</b>${text ? `<p>${text}</p>` : ''}
   <ul class="fr-why">${FR_WHY.map(([e, t]) => `<li><span aria-hidden="true">${e}</span>${t}</li>`).join('')}</ul></div>`;
 const frToday = f => (f.st ? f.st.at : f.feed && f.feed.at) === todayK();   // данные друга обновлялись сегодня — значит, заходил
 const frStory = f => `<button class="frs-i" data-act="fropen" data-u="${f.uid}" aria-label="${esc(frName(f))}${frToday(f) ? ' — сегодня в ' + APP_NAME : ''}" title="${esc(frName(f))}${frToday(f) ? ' — сегодня в ' + APP_NAME : ''}"><span class="frs-ring${frToday(f) ? ' on' : ''}">${frAva(f, 52)}</span><span class="frs-n">${esc(frFirst(f))}</span></button>`;
-function frPodium(rows) {
-  const top = rows.slice(0, 3); if (top.length < 2) return '';
-  return `<div class="frp">${[1, 0, 2].filter(i => top[i]).map(i => { const r = top[i], nm = r.me ? 'Вы' : frFirst(r);
-    const body = `<span class="frp-a">${frAva(r, i ? 46 : 58)}${r.v > 0 ? `<i class="frp-m" aria-hidden="true">${FR_MEDALS[i]}</i>` : ''}</span><b>${esc(nm)}</b><small>${plural(r.v, FR_PTS)}</small><span class="frp-s" aria-hidden="true">${i + 1}</span>`;
-    const lbl = `${i + 1}-е место — ${esc(r.me ? 'вы' : frName(r))}, ${plural(r.v, FR_PTS)}`;
-    return r.me ? `<div class="frp-p p${i + 1} me" role="img" aria-label="${lbl}">${body}</div>` : `<button class="frp-p p${i + 1}" data-act="fropen" data-u="${r.uid}" aria-label="${lbl}">${body}</button>`; }).join('')}</div>`;
-}
 function frCardHTML() {
   const head = r => `<div class="card-h"><b>${I(IC.users, 17)} Друзья</b>${r || ''}</div>`;
   if (!signedIn()) return `<div class="card pf-friends">${head()}${frHero('Вместе — интереснее', 'Для этого нужно войти в аккаунт.')}
@@ -302,11 +294,13 @@ function frCardHTML() {
   const rows = frRank('week', 'friends'), mi = rows.findIndex(r => r.me), left = 6 - dowIdx(todayK());
   const order = rows.filter(r => !r.me).map(r => ok.find(f => f.uid === r.uid)).filter(Boolean);   // кружки — по очкам недели
   const add = `<button class="frs-i frs-add" data-act="fradd"><span class="frs-ring">${I(IC.plus, 22)}</span><span class="frs-n">Добавить</span></button><button class="frs-i frs-add" data-act="invite"><span class="frs-ring">${I(IC.link, 20)}</span><span class="frs-n">Пригласить</span></button>`;
-  const me = mi < 0 ? '' : mi === 0 ? (rows[0].v ? 'Вы лидер недели — так держать!' : 'Пока у всех 0 очков — сделайте первый шаг') : `Вы на ${mi + 1}-м месте · до ${mi}-го — ${plural(rows[mi - 1].v - rows[mi].v + 1, FR_PTS)}`;
+  const goal = mi < 0 ? '' : mi === 0 ? (rows[0].v ? 'Вы лидер недели — так держать!' : 'Пока у всех 0 очков — сделайте первый шаг') : `До ${mi}-го места — ${plural(rows[mi - 1].v - rows[mi].v + 1, FR_PTS)}`;
+  const max = Math.max(1, ...rows.map(r => r.v)), FR_TOP = 5;
   return `<div class="card pf-friends">${hd}${note ? `<p class="set-note fr-note">${esc(note)}</p>` : ''}${inbox}
     <div class="frs">${add}${order.map(frStory).join('')}</div>
     <div class="fr-sec">Лидеры недели ${hint('Очки с понедельника: выполненные задачи и отметки привычек. Друзья видят только эти числа — не сами задачи и привычки.', 'Как считаются очки')}<span class="fr-sec-r">${left ? 'ещё ' + plural(left, NDAY) : 'последний день'}</span></div>
-    <div class="fr-lb">${frPodium(rows)}<div class="fr-lb-side">${me ? `<p class="frp-me${mi === 0 && rows[0].v ? ' win' : ''}">${me}</p>` : ''}<button class="btn frl-all" data-act="frleaders">${I(IC.trophy, 15)} Все лидеры</button></div></div>
+    ${frRowsHTML(rows.slice(0, FR_TOP), FR_PTS, 'friends', max)}${mi >= FR_TOP ? `<div class="frl-gap" aria-hidden="true">···</div>${frRowsHTML([rows[mi]], FR_PTS, 'friends', max, mi)}` : ''}
+    ${goal ? `<p class="frl-goal${mi === 0 && rows[0].v ? ' win' : ''}">${goal}</p>` : ''}<button class="btn frl-all" data-act="frleaders">${I(IC.trophy, 15)} Все лидеры</button>
     ${wait}</div>`;
 }
 

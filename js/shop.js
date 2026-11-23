@@ -21,13 +21,23 @@ const COIN_PX = {
   13: ['....KKKKK....', '..KKYYYYYKK..', '.KYYGABASYYK.', '.KYAABDBBDYK.', 'KYAABBDBBDDGK', 'KYABDBBBDDDRK', 'KYDBeBBeBDDRK',
     'KYSDDeeeDDSRK', 'KYGSSeefSSGRK', '.KYGeeeffGRK.', '.KYYGeGfGRRK.', '..KKGRRRRKK..', '....KKKKK....'],
 };
-const pxPaths = g => { const runs = {};
+const pxPaths = (g, col = PX_COL) => { const runs = {};
   g.forEach((r, y) => { for (let x = 0; x < r.length;) { const c = r[x]; let w = 1; while (r[x + w] === c) w++; if (c !== '.') (runs[c] = runs[c] || []).push(`M${x} ${y}h${w}v1h-${w}z`); x += w; } });
-  return Object.keys(runs).map(c => `<path fill="${PX_COL[c]}" d="${runs[c].join('')}"/>`).join(''); };
+  return Object.keys(runs).map(c => `<path fill="${col[c]}" d="${runs[c].join('')}"/>`).join(''); };
 const PX_IN = { 17: pxPaths(COIN_PX[17]), 13: pxPaths(COIN_PX[13]) };
 function coinI(s = 18) { const r = window.devicePixelRatio || 1, fit = n => [n, Math.max(1, Math.round(s * r / n - .01)) * n / r], a = fit(17), b = fit(13),
     off = ([, px]) => Math.abs(px - s), [n, px] = off(a) <= s * .25 || off(a) <= off(b) ? a : b;
   return `<svg class="coin" width="${+px.toFixed(2)}" height="${+px.toFixed(2)}" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" aria-hidden="true">${PX_IN[n]}</svg>`; }
+// Медали лидеров (24 ноября 2026, пользователь: «красивые медали… парсикоины с ленточкой (золото/серебро/бронза)»): та же монета-древо
+// в золоте, серебре и бронзе на пиксельной ленте (1-е место — красная, 2-е — синяя, 3-е — зелёная); рисунок 17×22, клетка — целое число точек экрана
+const MEDAL_RIB = ['.pPQPp.....pPQPp.', '..pPQPp...pPQPp..', '...pPQPp.pPQPp...', '....pPQPpPQPp....', '.....pPpPQPp.....'];
+const MEDAL_COL = [
+  { P: '#e5484d', Q: '#ff9ea1', p: '#a8262c' },
+  { P: '#3b82f6', Q: '#a3c6ff', p: '#1d4ed8', Y: '#f5f7f9', G: '#c3cad3', R: '#7b8592', e: '#8e98a5', f: '#6b7480', A: '#ffffff', B: '#e0e5eb', D: '#a3acb8', S: '#99a2ad' },
+  { P: '#22a06b', Q: '#86dfb6', p: '#13724a', Y: '#f6c9a0', G: '#cd8550', R: '#8a4a24', e: '#9a5a2c', f: '#7a421c', A: '#ffe3c8', B: '#e3a473', D: '#b06a35', S: '#a8653a' }];
+const MEDAL_IN = MEDAL_COL.map(c => pxPaths([...MEDAL_RIB, ...COIN_PX[17]], Object.assign({}, PX_COL, c)));
+function medalI(place, s = 22) { const r = window.devicePixelRatio || 1, u = Math.max(1, Math.round(s * r / 17)) / r;
+  return `<svg class="medal" width="${+(17 * u).toFixed(2)}" height="${+(22 * u).toFixed(2)}" viewBox="0 0 17 22" shape-rendering="crispEdges" aria-hidden="true">${MEDAL_IN[place] || ''}</svg>`; }
 onMigrate(() => { delete S.settings.coinLook; });   // переключатель пробы значков
 // Полёт монет из кнопки «Забрать» в баланс наверху страницы; число обновляется, когда монеты долетят
 function coinFly(from, n) {

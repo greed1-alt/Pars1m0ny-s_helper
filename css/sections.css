@@ -394,24 +394,7 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .frs-add .frs-ring{background:none;border:1.5px dashed color-mix(in srgb,var(--tx) 32%,transparent);color:var(--tx2)}
 .frs-n{max-width:100%;font-size:12px;font-weight:500;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fr-sec-r{margin-left:auto;font-weight:600;text-transform:none;letter-spacing:0;font-size:12px}
-.frp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:8px;margin:8px 0 0}
-.frp-p{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;padding:0;color:inherit;border-radius:12px 12px 0 0}
-.frp-a{position:relative;margin-bottom:5px}
-.frp-m{position:absolute;right:-7px;bottom:-5px;font-size:21px;font-style:normal;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
-.frp-p b{max-width:100%;font-size:14px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.frp-p.me b{color:var(--acc)}
-.frp-p small{font-size:12px;color:var(--mut)}
-.frp-s{width:100%;margin-top:7px;padding-top:7px;border-radius:12px 12px 4px 4px;display:grid;justify-items:center;align-content:start;font-size:17px;font-weight:800;color:color-mix(in srgb,var(--pc) 60%,var(--tx));background:linear-gradient(180deg,color-mix(in srgb,var(--pc) 38%,var(--sf)),color-mix(in srgb,var(--pc) 10%,var(--sf)))}
-.frp-p.p1{--pc:#f5b301}.frp-p.p1 .frp-s{height:66px}
-.frp-p.p2{--pc:#94a3b8}.frp-p.p2 .frp-s{height:48px}
-.frp-p.p3{--pc:#cd7f32}.frp-p.p3 .frp-s{height:36px}
-.frp-me{margin:12px 0 0;padding:10px 12px;border-radius:12px;background:var(--hov);font-size:13.5px;font-weight:550;text-align:center}
-.frp-me.win{background:color-mix(in srgb,#f5b301 16%,transparent)}
-@media(hover:hover){.frs-i:hover,button.frp-p:hover .frp-s{filter:brightness(1.04)}.frs-i:hover{background:var(--hov)}}
-@media(min-width:900px){
-  .fr-lb{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:24px;align-items:end}
-  .fr-lb-side{padding-bottom:2px}.fr-lb-side .frp-me{margin-top:0;text-align:left}
-}
+@media(hover:hover){.frs-i:hover{background:var(--hov)}}
 .frl-tabs{display:flex;gap:6px;overflow-x:auto;margin:14px 0 12px;padding-bottom:2px;scrollbar-width:none}
 .frl-tabs::-webkit-scrollbar{display:none}
 .frl-tabs button{flex:none;height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--tx2)}
@@ -431,17 +414,22 @@ body[data-nonew="1"] .btn-new{display:none!important}
 .frl-nm b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .frl-nm small{flex:none;font-size:12px;color:var(--mut)}
 .frl-nm em{flex:none;font-style:normal;font-size:11.5px;font-weight:700;color:var(--acc)}
-.frl-n.m{font-size:20px}
+.frl-n.m{display:grid;place-items:center;margin:-4px 0}
+.frl-n .medal{display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.22))}
 li.top .frl-v{color:var(--tx)}
 @media(hover:hover){button.frl-row:hover{background:var(--hov)}}
 .frl-goal{margin:12px 0 0;text-align:center;font-size:13.5px;font-weight:600;color:var(--tx2)}
+.frl-goal.win{color:#b07d00}
+li.p1 .frl-bar i{background:linear-gradient(90deg,#f6dc68,#ecac40)}li.p2 .frl-bar i{background:linear-gradient(90deg,#e0e5eb,#a3acb8)}li.p3 .frl-bar i{background:linear-gradient(90deg,#f0b98a,#cd8550)}
+.frl-gap{text-align:center;font-weight:700;letter-spacing:.2em;color:var(--mut);line-height:1;padding:4px 0}
+.frl-gap+.frl-list{margin-top:0;border-top:0}
 .frl-list{list-style:none;margin:14px 0 0;padding:0;border-top:1px solid var(--line)}
 .frl-list li{border-bottom:1px solid var(--line)}
 .frl-list li:last-child{border-bottom:0}
 .frl-row{display:flex;align-items:center;gap:10px;width:100%;padding:9px 6px;border-radius:10px;text-align:left}
 li.me .frl-row{background:color-mix(in srgb,var(--acc) 9%,transparent)}
-.frl-n{flex:none;width:24px;text-align:center;font-weight:700;color:var(--tx2);font-variant-numeric:tabular-nums}
-.frl-bar{height:6px;border-radius:999px;background:var(--hov2);overflow:hidden}
+.frl-n{flex:none;width:28px;text-align:center;font-weight:700;color:var(--tx2);font-variant-numeric:tabular-nums}
+.frl-bar{height:8px;border-radius:999px;background:var(--hov2);overflow:hidden}
 .frl-bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--acc) 60%,transparent),var(--acc))}
 .frl-v{flex:none;font-size:13px;font-weight:600;color:var(--tx2);white-space:nowrap}
 .frl-empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 8px 4px}
