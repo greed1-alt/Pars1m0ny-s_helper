@@ -2577,4 +2577,13 @@ const EN_DICT = {"* Открыть в Яндекс Картах":"* Open in Yand
 "Действия: *":"Actions: *",
 "Перенесено на *":"Moved to *",
 "Отметить за *":"Tick for *",
-"Снять отметку за *":"Untick for *"};
+"Снять отметку за *":"Untick for *",
+"Рассказать о себе":"Tell about yourself",
+"Ближе всего:":"Closest:",
+"задач выполнено":"tasks done",
+"серия привычек":"habit streak",
+"отложено":"saved",
+"записей о деньгах":"money records",
+"Ещё три числа":"Three more numbers",
+"* — получено":"* — earned",
+"Лучшая — *":"Best — *"};

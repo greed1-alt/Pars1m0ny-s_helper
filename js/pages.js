@@ -149,7 +149,29 @@ const ACH = [
 // Достижения: получено ли и насколько близко к цели
 const achState = s => ACH.map(([e, n, dsc, f, goal, id]) => { const v = f(s); return { e, n, dsc, v, goal, id, ok: v >= goal, p: Math.min(1, v / goal) }; });
 const achSorted = l => [...l.filter(a => a.ok), ...l.filter(a => !a.ok).sort((a, b) => b.p - a.p)];   // сначала полученные, потом самые близкие
-const achHTML = a => `<div class="ach-i${a.ok ? '' : ' lock'}"><span class="ach-e" aria-hidden="true">${a.e}</span><span class="ach-t"><b>${esc(a.n)}</b><small>${esc(a.dsc)}</small>${a.ok ? '<em>Получено</em>' : `<span class="ach-p"><span class="ds-bar"><i style="width:${Math.round(a.p * 100)}%"></i></span><small>${a.goal >= 1000 ? rub0(a.v) + ' / ' + rub0(a.goal) : NF0.format(Math.min(a.v, a.goal)) + ' / ' + NF0.format(a.goal)}</small></span>`}</span></div>`;
+const achProg = a => a.goal >= 1000 ? rub0(Math.min(a.v, a.goal)) + ' / ' + rub0(a.goal) : NF0.format(Math.min(a.v, a.goal)) + ' / ' + NF0.format(a.goal);
+const achHTML = a => `<div class="ach-i${a.ok ? '' : ' lock'}"><span class="ach-e" aria-hidden="true">${a.e}</span><span class="ach-t"><b>${esc(a.n)}</b><small>${esc(a.dsc)}</small>${a.ok ? '<em>Получено</em>' : `<span class="ach-p"><span class="ds-bar"><i style="width:${Math.round(a.p * 100)}%"></i></span><small>${achProg(a)}</small></span>`}</span></div>`;
+// Профиль (24 ноября 2026, пункт 14 списка удобства): достижения — значками; полученные — цветные, остальные — серые с кольцом прогресса.
+// Подпись под значком — только на ПК; нажатие — окошко с условием и прогрессом (ACT.achi)
+const achBadges = l => `<div class="achb">${l.map(a => `<button class="achb-i${a.ok ? ' ok' : ''}" data-act="achi" data-id="${a.id}" style="--p:${Math.round(a.p * 100)}%" aria-label="${esc(a.n)} — ${a.ok ? 'получено' : achProg(a)}"><span class="achb-e" aria-hidden="true"><span>${a.e}</span></span><span class="achb-n">${esc(a.n)}</span></button>`).join('')}</div>`;
+ACT.achi = el => {
+  const a = achState(profileStats()).find(x => x.id === el.dataset.id), qc = $('#qc'); if (!a) return;
+  qc.innerHTML = `<div class="qhead"><b>${a.e} ${esc(a.n)}</b><button class="qx" data-act="qclose" aria-label="Закрыть">${I(IC.x, 15)}</button></div><p class="achq-d">${esc(a.dsc)}</p>${a.ok ? `<p class="achq-ok">${I(IC.check, 15)} Получено</p>` : `<div class="ach-p achq-p"><span class="ds-bar"><i style="width:${Math.round(a.p * 100)}%"></i></span><small>${achProg(a)}</small></div>`}`;
+  qc.classList.remove('menu', 'acc'); qc.classList.add('show');
+  const r = el.getBoundingClientRect(), w = qc.offsetWidth || 300, h = qc.offsetHeight || 120;
+  qc.style.left = (innerWidth < 900 ? 8 : Math.max(8, Math.min(r.left - w / 2 + r.width / 2, innerWidth - w - 8))) + 'px';
+  qc.style.top = (r.bottom + h + 12 < innerHeight ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + 'px';
+};
+// Числа профиля: на ПК — все шесть строкой, на телефоне — три главных и «ещё» (pfMore)
+let pfMore = false;
+ACT.pfmore = () => { pfMore = !pfMore; render(); };
+function pfNumsHTML(s) {
+  const n = [['задач выполнено', NF0.format(s.tasksDone)], ['серия привычек', plural(s.cur, NDAY), s.best ? 'Лучшая — ' + plural(s.best, NDAY) : ''], ['отметок привычек', NF0.format(s.marks)],
+    ['отложено', rub0(s.saved)], ['записей о деньгах', NF0.format(s.ops)], ['заметок', NF0.format(s.notes)]];
+  const cell = ([l, v, t]) => `<div class="pf-n"${t ? ` title="${esc(t)}"` : ''}><b>${v}</b><span>${l}</span></div>`;
+  if (isWide()) return `<div class="card pf-nums">${n.map(cell).join('')}</div>`;
+  return `<div class="card pf-nums ph"><div class="pf-nrow">${n.slice(0, 3).map(cell).join('')}<button class="pf-nmore" data-act="pfmore" aria-expanded="${pfMore}" aria-label="${pfMore ? 'Свернуть' : 'Ещё три числа'}" title="${pfMore ? 'Свернуть' : 'Ещё три числа'}">${I(IC.right, 16)}</button></div>${pfMore ? `<div class="pf-nrow">${n.slice(3).map(cell).join('')}</div>` : ''}</div>`;
+}
 function openAchievements() {
   const l = achState(profileStats());
   sheet(`<div class="sh-head"><h3>Достижения · ${l.filter(a => a.ok).length} из ${ACH.length}</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
@@ -190,7 +212,7 @@ function bdayInfo(b) {
 function profileHTML() {
   const st = S.settings, s = profileStats(), ach = achState(s), got = ach.filter(a => a.ok).length, name = (st.name || '').trim(), sd = pd(st.since || todayK()), bd = bdayInfo(st.birthday);
   const place = [st.city, st.country].filter(Boolean).join(', '), soc = (st.socials || []).filter(x => x && safeUrl(x.url));
-  const tile = (label, val, sub) => `<div class="ft-t"><span>${label}</span><b>${val}</b><small>${sub}</small></div>`;
+  const nx = achSorted(ach).find(a => !a.ok && a.p > 0);   // ближе всего к получению
   const det = [
     bd ? `<li>${I(IC.gift, 16)}<span>День рождения — ${bd.d.getDate()} ${MONG[bd.d.getMonth()]}${bd.days === 0 ? ' · сегодня! 🎉' : bd.days <= 30 ? ' · через ' + plural(bd.days, NDAY) : ''}</span></li>` : '',
     place ? `<li>${I(IC.globe, 16)}<span>${esc(place)}</span></li>` : '',
@@ -207,23 +229,16 @@ function profileHTML() {
       <div class="pf-acts"><button class="btn pri" data-act="pe" data-tab="main">${I(IC.edit, 15)} Редактировать профиль</button><button class="btn pf-more" data-act="pfmenu" aria-label="Ещё" title="Ещё">${I(IC.more, 18)}</button></div>
     </div>
   </div>
+  ${pfNumsHTML(s)}
   <div class="pf-cols">
-    <div class="card pf-about"><div class="card-h"><b>Обо мне</b><button class="pill sm" data-act="pe" data-tab="main">${I(IC.edit, 13)} Изменить</button></div>
-      ${st.about ? `<p class="pf-about-t">${esc(st.about)}</p>` : '<p class="hm-empty">Расскажите о себе: чем занимаетесь, что для вас важно, к чему стремитесь.</p>'}
+    <div class="card pf-about"><div class="card-h"><b>Обо мне</b>${st.about ? `<button class="pill sm" data-act="pe" data-tab="main">${I(IC.edit, 13)} Изменить</button>` : ''}</div>
+      ${st.about ? `<p class="pf-about-t">${esc(st.about)}</p>` : `<button class="pf-about-add" data-act="pe" data-tab="main">${I(IC.plus, 15)} Рассказать о себе</button>`}
       <ul class="pf-det">${det}</ul>
       ${soc.length ? `<div class="pf-soc">${soc.map(x => `<a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener noreferrer">${I(IC.link, 14)} ${esc((x.title || '').trim() || hostOf(x.url))}</a>`).join('')}</div>` : ''}
     </div>
-    <div class="pf-stats">
-      ${tile('Задач выполнено', NF0.format(s.tasksDone), 'за всё время')}
-      ${tile('Серия привычек', plural(s.cur, NDAY), 'лучшая — ' + plural(s.best, NDAY))}
-      ${tile('Отметок привычек', NF0.format(s.marks), 'за всё время')}
-      ${tile('Отложено', rub0(s.saved), 'раздел «Накопления»')}
-      ${tile('Записей о деньгах', NF0.format(s.ops), 'доходы и траты')}
-      ${tile('Заметок', NF0.format(s.notes), 'в архиве')}
-    </div>
+    <div class="card pf-ach"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения</b><span class="card-h-r"><small>${got} из ${ACH.length}</small><button class="pill sm" data-act="achall">Все →</button></span></div>
+      ${achBadges(achSorted(ach))}${nx ? `<p class="achb-next">Ближе всего: <b>${esc(nx.n)}</b> · ${achProg(nx)}</p>` : ''}</div>
   </div>
-  <div class="card"><div class="card-h"><b>${I(IC.trophy, 17)} Достижения</b><span class="card-h-r"><small>${got} из ${ACH.length}</small><button class="pill sm" data-act="achall">Все достижения →</button></span></div>
-    <div class="ach ach4">${achSorted(ach).slice(0, 4).map(achHTML).join('')}</div></div>
   ${frCardHTML()}
   ${coinsOn() && coins ? `<div class="card pf-coins"><div class="card-h"><b>${coinI(17)} ${COIN}</b><button class="pill sm" data-act="shopopen" data-tab="shop">Магазин →</button></div>
     <div class="pf-cn"><b>${NF0.format(coins.bal)}</b><span>${coinsReady().length ? 'Можно забрать наград: ' + coinsReady().length : 'Задания дня и недели, награды за достижения и серию'}</span>
