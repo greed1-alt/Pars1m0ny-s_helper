@@ -443,6 +443,9 @@ addEventListener('popstate', () => {
   if (shHist && sheetOpen()) { shHist = false; if (shUnsaved()) { shHistOpen(); return shAsk(); } return closeSheet(true); }   // вписано — окно остаётся, шаг в истории возвращаем
   if (!location.hash) navPop();   // окна нет — «Назад» (Android) возвращает на прошлую страницу (sections.js); ссылки с # разбирают свои обработчики
 });
+// Затемнение за окном не листает страницу (тянут за него — ничего не едет). Раньше это делал touch-action:none у #ov, но на iPhone
+// он мешал полям ввода в окне — клавиатура не открывалась (23 ноября 2026)
+$('#ov').addEventListener('touchmove', e => { if (e.target === e.currentTarget) e.preventDefault(); }, { passive: false });
 // Свайп вниз закрывает окно на телефоне (полоска сверху — за неё и тянут; можно и за любое место, пока окно прокручено к началу).
 // Не мешает: полям ввода, карте, ленте чата и рядам, которые листаются вбок
 { const sh = $('#sh'); let d = null;
@@ -488,7 +491,7 @@ function openQuick(date, time, x, y, time2) {
     qc.style.left = Math.max(8, Math.min(x + 12, innerWidth - w - 12)) + 'px';
     qc.style.top = Math.max(8, Math.min(y - 20, innerHeight - h - 12)) + 'px';
   }
-  setTimeout(() => $('#q_t') && $('#q_t').focus(), 30);
+  setTimeout(() => fieldFocus($('#q_t')), 30);
 }
 const closeQuick = () => { const q = $('#qc'), h = $('.hdr-ava'); if (q) { q.classList.remove('show', 'menu', 'acc'); q.style.maxHeight = ''; } if (h) h.setAttribute('aria-expanded', 'false'); $$('.wg-ghost').forEach(g => g.remove()); };
 const quickOpen = () => $('#qc').classList.contains('show');
@@ -533,7 +536,7 @@ function openEvent(id, preset, instDate) {
   <div class="sh-foot"><button class="btn pri grow" data-act="save">Сохранить</button><button class="btn" data-act="savetpl" title="Сохранить как шаблон">${I(IC.tpl,16)} В шаблоны</button></div>
   <div id="f_ask"></div>`);
   mapBar();
-  if (!id) setTimeout(() => $('#f_t') && $('#f_t').focus(), 60);
+  if (!id) setTimeout(() => fieldFocus($('#f_t')), 60);
 }
 
 // ---- Память событий (правка бета-тестеров 17 октября 2026): в новом событии под названием — прошлые события с тем же началом

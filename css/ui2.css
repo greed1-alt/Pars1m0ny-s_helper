@@ -114,7 +114,7 @@ body.ui2 .missbar.thin b{font-size:14px;font-weight:600}
 #shask .btn{height:40px;flex:none}
 /* Окна (22 ноября 2026): листаются только по вертикали и не тянут за собой страницу; язычок всегда наверху окна */
 #sh{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
-#ov{touch-action:none;overscroll-behavior:contain}
+#ov{overscroll-behavior:contain}
 @media(pointer:coarse){html.sh-lock,html.sh-lock body{overflow:hidden}}
 @media(max-width:899px){
   #sh>.grab{position:sticky;top:-8px;z-index:7;width:auto;height:22px;margin:-8px -18px 0;border-radius:18px 18px 0 0;background:var(--sf)}

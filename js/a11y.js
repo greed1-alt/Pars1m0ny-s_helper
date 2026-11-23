@@ -26,6 +26,9 @@ function focTo(k) {
   if (!el || (isText(el) && !a11yKbd && innerWidth < 900)) return false;
   el.focus({ preventScroll: true }); return document.activeElement === el;
 }
+// Курсор в поле окна ставится сам только там, где есть клавиатура (ПК или клавиатурой пользуются). На iPhone такой курсор появляется
+// без клавиатуры, и нажатие на поле её уже не открывает (23 ноября 2026: «не получается открыть строку ввода» во входе на бету)
+const fieldFocus = el => { if (el && el.isConnected && (a11yKbd || !matchMedia('(pointer:coarse)').matches)) el.focus(); };
 // После перерисовки: фокус потерялся (элемент заменён новым) — вернуть на такой же
 function focBack(k) { const a = document.activeElement; if (k && (!a || a === document.body || !a.isConnected)) focTo(k); }
 

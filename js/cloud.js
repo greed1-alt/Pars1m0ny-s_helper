@@ -358,7 +358,7 @@ function openLogin(keep) {
     <div class="lg-row"><button class="lnk" data-act="lgback">Другая почта</button><button class="lnk" data-act="lgresend" id="lg_resend"${wait ? ' disabled' : ''}>${wait ? `Новый код — через ${wait} с` : 'Отправить код ещё раз'}</button></div>`}
   ${signupOn() ? '' : `<p class="set-note lg-beta">${I(IC.alert, 14)} Бета-версия: войти могут только приглашённые. Записи хранятся на нашем сервере в России.</p>`}`, keep);
   if (lg.step === 'new') capMount();
-  const i = $(lg.step === 'email' ? '#lg_email' : '#lg_code'); if (i) setTimeout(() => i.focus(), 60);
+  const i = $(lg.step === 'email' ? '#lg_email' : '#lg_code'); if (i) setTimeout(() => fieldFocus(i), 60);
   clearInterval(openLogin.t);
   if (lg.step === 'code' && wait) openLogin.t = setInterval(() => { const b = $('#lg_resend'); if (!b) return clearInterval(openLogin.t); const w = Math.max(0, 60 - Math.round((Date.now() - lg.sentAt) / 1000)); b.disabled = !!w; b.textContent = w ? `Новый код — через ${w} с` : 'Отправить код ещё раз'; if (!w) clearInterval(openLogin.t); }, 1000);
 }
@@ -468,7 +468,7 @@ function openFeedback(keep) {
   <textarea id="fb_text" class="fin fb-text" maxlength="4000" placeholder="Например: «не понял, где поменять порядок вкладок» или «хочу видеть траты по неделям»">${esc(fb.text)}</textarea>
   <p class="set-note fb-meta">${I(IC.alert, 13)} Вместе с отзывом отправится экран «${esc(fb.screen)}», размер экрана и версия приложения.</p>
   <button class="btn pri lg-go" data-act="fbsend">Отправить</button>`, keep);
-  setTimeout(() => { const t = $('#fb_text'); if (t) t.focus(); }, 60);
+  setTimeout(() => fieldFocus($('#fb_text')), 60);
 }
 async function fbSend() {
   const t = $('#fb_text'); if (t) fb.text = t.value;
