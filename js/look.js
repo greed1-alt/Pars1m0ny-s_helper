@@ -67,8 +67,10 @@ const PAL = {
   pixel:{ n:'Пиксели', p:500, skin:'pixel', fix:'l', hc:'#33582f',
     l:{ bg:'#7f9354', pg:'#7f9354', bg2:'#7d9152', sf:'#8ea262', line:'#33582f', grid:'#6a7e44', tx:'#0a1f0e', tx2:'#0a1f0e', mut:'#0c2410', acc:'#0a1f0e', accfg:'#cbdb92', wm:'#0e2a12' } },
   // «Жидкое стекло» (22 ноября 2026, по образцу Glisse): обои и стекло — css/glass.css (собирает tools/glass-build.mjs), set — набор в магазине
-  chrome:{ n:'Хром', p:500, skin:'gl-chrome', fix:'l', glass:1, hc:'#8a9099',
-    l:{ bg:'#eceef2', bg2:'#e4e7ec', sf:'#f7f8fa', line:'#d2d6dd', tx:'#101215', tx2:'#383d46', mut:'#565c67', acc:'#1b1e23', accfg:'#ffffff', wm:'#2a2e35' } },
+  // Хром — светлый и тёмный (тёмно-синий, 23 ноября 2026): вид — по теме (Авто / Светлая / Тёмная), skinD — оформление тёмного
+  chrome:{ n:'Хром', p:500, skin:'gl-chrome', skinD:'gl-chrome-d', glass:1, hc:'#8a9099',
+    l:{ bg:'#eceef2', bg2:'#e4e7ec', sf:'#f7f8fa', line:'#d2d6dd', tx:'#101215', tx2:'#383d46', mut:'#565c67', acc:'#1b1e23', accfg:'#ffffff', wm:'#2a2e35' },
+    d:{ bg:'#081129', bg2:'#0e1a3d', sf:'#14224b', line:'#24366a', tx:'#eef3ff', tx2:'#c4d0ea', mut:'#93a3c8', acc:'#cfe0ff', accfg:'#0a1636', wm:'#dbe7ff' } },
   skyday:{ n:'День', p:500, skin:'gl-day', fix:'l', glass:1, set:'Небосвод', hc:'#5aa9ff',
     l:{ bg:'#d6ebff', bg2:'#cfe6ff', sf:'#eef6ff', line:'#b9d6f2', tx:'#06182f', tx2:'#264162', mut:'#425d7c', acc:'#0a5cbd', accfg:'#ffffff', wm:'#0a5cbd' } },
   skyset:{ n:'Закат', p:500, skin:'gl-set', fix:'l', glass:1, set:'Небосвод', hc:'#ff8a6b',
@@ -146,7 +148,8 @@ function applyLook() {
   if (key === lookKey) return; lookKey = key;
   const root = document.documentElement, v = lookVars(st.pal, dark, black);
   root.dataset.theme = fix ? (dark ? 'dark' : 'light') : st.theme; root.dataset.card = st.card;
-  if (PAL[st.pal].skin) root.dataset.skin = PAL[st.pal].skin; else delete root.dataset.skin;
+  const sk = (dark && PAL[st.pal].skinD) || PAL[st.pal].skin;   // у темы с двумя видами (Хром) тёмный — своё оформление
+  if (sk) root.dataset.skin = sk; else delete root.dataset.skin;
   for (const k in v) root.style.setProperty(k, v[k]);
 }
 darkMQ.addEventListener('change', () => { if (S.settings.theme === 'auto') render(); });
@@ -162,7 +165,7 @@ function themePrev(t) {
 const lookSeg = k => `<div class="seg2 lk-seg" role="group">${LOOK_OPT[k].map(([v, n]) => `<button class="${S.settings[k] === v ? 'on' : ''}" data-act="look" data-k="${k}" data-v="${v}" aria-pressed="${S.settings[k] === v}">${n}</button>`).join('')}</div>`;
 const lookRow = (k, label) => `<div class="lk-row"><div class="lk-h">${label}${hintK(k)}</div>${lookSeg(k)}</div>`;
 // Плитка палитры: маленький макет «страница — карточка — кнопка» в её цветах для текущей темы
-const palPv = k => { const st = S.settings, c = palColors(k, darkNow(), st.theme === 'black'); return `<span class="pal-pv"${PAL[k].glass ? ` data-skin="${PAL[k].skin}"` : ''} style="--p:${c.pg};--s:${c.sf};--a:${c.acc};--l:${c.line};--t:${c.tx2}"><i></i><b></b><em></em></span>`; };
+const palPv = k => { const st = S.settings, dk = darkNow(), c = palColors(k, dk, st.theme === 'black'); return `<span class="pal-pv"${PAL[k].glass ? ` data-skin="${(dk && PAL[k].skinD) || PAL[k].skin}"` : ''} style="--p:${c.pg};--s:${c.sf};--a:${c.acc};--l:${c.line};--t:${c.tx2}"><i></i><b></b><em></em></span>`; };
 // Не своя палитра (магазин, shop.js) — со значком цены, нажатие открывает её в магазине
 const palSw = k => `<button class="pal${S.settings.pal === k ? ' on' : ''}" data-act="look" data-k="pal" data-v="${k}" aria-pressed="${S.settings.pal === k}">${palPv(k)}${PAL[k].n}${palLock(k)}</button>`;
 // Кусочек настоящего экрана — в «Как это выглядит» и в окне палитры в магазине

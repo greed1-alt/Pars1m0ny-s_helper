@@ -2522,7 +2522,7 @@ const EN_DICT = {"* Открыть в Яндекс Картах":"* Open in Yand
 "Комикс":"Comic",
 "Пиксели":"Pixels",
 "У темы «*» один вид: светлая и тёмная на неё не действуют.":"The “*” theme has a single look: light and dark do not apply to it.",
-"Тематические темы":"Themed looks",
+"Особые темы":"Special themes",
 "своя атмосфера":"a mood of their own",
 "Тема «*»":"Theme “*”",
 "Своя атмосфера: фон, заливки, заголовки, форма кнопок и карточек. Только за монеты.":"A mood of its own: background, fills, headings, button and card shapes. Coins only.",

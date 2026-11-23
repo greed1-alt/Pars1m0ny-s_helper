@@ -331,7 +331,7 @@ const PV_MODE = [['l', 'Светлая'], ['d', 'Тёмная'], ['b', 'Чёрн
 const palCSS = (k, m) => { const v = lookVars(k, m !== 'l', m === 'b'); return Object.keys(v).map(x => `${x}:${v[x]}`).join(';'); };
 const CSS_ALL = ['fonts', 'app', 'sections', 'ui2', 'skins', 'glass'].map(f => `<link rel="stylesheet" href="css/${f}.css">`).join('');
 function palPvShow(el, k, m) {
-  const r = el.shadowRoot || el.attachShadow({ mode: 'open' }), sk = PAL[k].skin;
+  const r = el.shadowRoot || el.attachShadow({ mode: 'open' }), sk = (m !== 'l' && PAL[k].skinD) || PAL[k].skin;
   r.innerHTML = `${CSS_ALL}<div class="lk-prev"${sk ? ` data-skin="${sk}"` : ''} style="${palCSS(k, m)};color:var(--tx);font:14px/1.4 var(--font)">${lookDemo()}</div>`;
   if (window.enWalk) enWalk(r.querySelector('.lk-prev'));
 }
@@ -401,7 +401,7 @@ function shopItemsHTML() {
   const tile = (it, pv, name) => { const own = coinOwn(it), on = it.startsWith('pal:') ? S.settings.pal === it.slice(4) : it.startsWith('fm:') ? S.settings.frame === it.slice(3) : it.startsWith('cv:') && (S.settings.cover || {}).p === it.slice(3) && !okImg((S.settings.cover || {}).img);
     return `<button class="cn-it${on ? ' on' : ''}" data-act="cnitem" data-it="${it}">${pv}<b>${esc(name)}</b><small>${on ? 'Включена' : own ? 'Ваша' : it.startsWith('pal:') && !palItem(it).p && coins.free < PAL_FREE ? 'Бесплатно' : `${coinI(13)} ${coinPrice(it)}`}</small></button>`; };
   const free = PAL_FREE - coins.free, frz = coins.items.frz || 0;
-  return `<div class="card"><div class="card-h"><b>Тематические темы</b><small>своя атмосфера</small></div>
+  return `<div class="card"><div class="card-h"><b>Особые темы</b><small>своя атмосфера</small></div>
       <div class="cn-grid">${PAL_THEME.map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div></div>
     <div class="card"><div class="card-h"><b>Жидкое стекло</b><small>как в iOS 26</small></div>
       <div class="cn-grid">${PAL_GLASS.filter(k => !PAL[k].set).map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div>
