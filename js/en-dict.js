@@ -2549,4 +2549,8 @@ const EN_DICT = {"* Открыть в Яндекс Картах":"* Open in Yand
 "Сумерки":"Dusk",
 "Небосвод":"Skyline",
 "Жидкое стекло":"Liquid glass",
-"как в iOS 26":"like iOS 26"};
+"как в iOS 26":"like iOS 26",
+"Подробно":"Details",
+"Дела":"To-dos",
+"Сверх лимита":"Over limit",
+"Что добавить: задача, событие, деньги…":"What to add: task, event, money…"};

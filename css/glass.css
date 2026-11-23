@@ -10,12 +10,12 @@
 .pal-pv[data-skin^=gl-]{background:var(--sk-bg)}
 .pal-pv[data-skin^=gl-] i{background:var(--gl);box-shadow:inset 1px 1px 0 -.2px var(--glr1),0 2px 6px rgba(0,0,0,.12)}
 /* Карточки и плашки: матовое стекло — фон размыт и насыщен, сверху блик, по краю свет. Внутри стекла «страница» прозрачная */
-[data-skin^=gl-] :is(.card,.fold.fc,.gl-card,.lk-card,.missbar,.demobar,#tinv,.wkside,.ts-hero){--bg:transparent;--bg2:var(--gl2);--card:transparent;--line:var(--gle);
+[data-skin^=gl-] :is(.card,.fold.fc,.gl-card,.lk-card,.missbar,.demobar,#tinv,.wkside,.ts-hero,.h2-tile){--bg:transparent;--bg2:var(--gl2);--card:transparent;--line:var(--gle);
   background:linear-gradient(180deg,var(--glhi),transparent 46%),var(--gl)!important;border:0!important;
   -webkit-backdrop-filter:blur(var(--glb)) saturate(var(--gls));backdrop-filter:var(--glf,) blur(var(--glb)) saturate(var(--gls));
   box-shadow:inset 1.1px 1.3px 0 -.1px var(--glr1),inset -1px -1px 0 -.1px var(--glr2),inset 0 0 0 .5px var(--gle),var(--glsh)!important}
 [data-skin^=gl-] .missbar{background:linear-gradient(180deg,var(--glhi),transparent 46%),linear-gradient(90deg,color-mix(in srgb,var(--c-orange) 22%,transparent),transparent 70%),var(--gl)!important}
-[data-skin^=gl-] :is(.om-box,.h2-hab,.h2-hc,.seg2,.pill,.om-t,.btn:not(.pri),.cd-row,.t3-row,input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea){background:var(--gl2);border-color:transparent;box-shadow:inset 1px 1px 0 -.2px var(--glr2),inset 0 0 0 .5px var(--gle)}
+[data-skin^=gl-] :is(.om-kinds:not(.on):not([aria-expanded=true]),.om-box,.h2-hab,.h2-hc,.seg2,.pill,.om-t,.btn:not(.pri),.cd-row,.t3-row,input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea){background:var(--gl2);border-color:transparent;box-shadow:inset 1px 1px 0 -.2px var(--glr2),inset 0 0 0 .5px var(--gle)}
 [data-skin^=gl-] :is(.om-box,.sr-box) :is(input,textarea){background:none!important;box-shadow:none!important}
 /* Липкие столбцы и шапки таблиц внутри стекла — непрозрачные, иначе под ними видно прокрученное */
 [data-skin^=gl-] :is(.hg .sticky-col,.hg .hg-w th.sticky-col,.hg .hg-w th.hg-pc,.hg-pc,.tk-head,.wg-stickytop){background:var(--sf)}
@@ -48,5 +48,5 @@
 }
 /* «Уменьшить прозрачность» в настройках устройства — стекло почти непрозрачное */
 @media(prefers-reduced-transparency:reduce){
-[data-skin^=gl-] :is(.card,.fold.fc,.gl-card,.lk-card,.missbar,.demobar,#tinv,.wkside,.ts-hero,#sh,header,#tabbar,#side){-webkit-backdrop-filter:none!important;backdrop-filter:none!important;background:var(--sf)!important}
+[data-skin^=gl-] :is(.card,.fold.fc,.gl-card,.lk-card,.missbar,.demobar,#tinv,.wkside,.ts-hero,.h2-tile,#sh,header,#tabbar,#side){-webkit-backdrop-filter:none!important;backdrop-filter:none!important;background:var(--sf)!important}
 }

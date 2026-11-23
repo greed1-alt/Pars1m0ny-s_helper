@@ -93,8 +93,8 @@ const T = {
 };
 
 const G = '[data-skin^=gl-]';
-const CARD = '.card,.fold.fc,.gl-card,.lk-card,.missbar,.demobar,#tinv,.wkside,.ts-hero';
-const INNER = '.om-box,.h2-hab,.h2-hc,.seg2,.pill,.om-t,.btn:not(.pri),.cd-row,.t3-row,input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea';
+const CARD = '.card,.fold.fc,.gl-card,.lk-card,.missbar,.demobar,#tinv,.wkside,.ts-hero,.h2-tile';
+const INNER = '.om-kinds:not(.on):not([aria-expanded=true]),.om-box,.h2-hab,.h2-hc,.seg2,.pill,.om-t,.btn:not(.pri),.cd-row,.t3-row,input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea';
 const RIM = 'inset 1.1px 1.3px 0 -.1px var(--glr1),inset -1px -1px 0 -.1px var(--glr2)';
 const css = `/* Темы «Жидкое стекло» — Хром (светлый gl-chrome и тёмный gl-chrome-d) и набор «Небосвод» (День, Закат, Ночь, Сумерки). Файл собирает tools/glass-build.mjs — правьте там.
    Обои — --sk-bg (их рисует body::before из skins.css), стекло — переменные --gl* у каждой темы. Преломление края в Chrome — js/glass.js (--glf). */

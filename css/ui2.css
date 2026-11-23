@@ -484,6 +484,30 @@ body.ui2 main.sec .card-h{margin-bottom:10px}
 body.ui2 main.sec .h2-tight .h2-blk.card{padding-top:12px;padding-bottom:12px}
 .h2-tight .fold.h2-blk > :first-child{min-height:46px;padding-top:5px;padding-bottom:5px}   /* свёрнутые строки ниже, но не меньше пальца */
 .h2-tight .f2-bar{margin-top:10px}
+/* Главная на телефоне — вариант 3 «Сводка сверху» (23 ноября 2026): сводка вместо кольца, кнопка видов у «+», «Сделано: N», точка календаря, плитки */
+.h2-sum{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:4px!important;gap:0}
+.h2-sum button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;padding:10px 12px;border-radius:12px;text-align:left}
+.h2-sum b{margin-top:auto}
+.h2-sum button+button{border-left:1px solid var(--line);border-radius:0}
+.h2-sum small{font-size:12px;font-weight:600;line-height:1.25;color:var(--mut)}
+.h2-sum b{font-size:18px;font-weight:700;white-space:nowrap}
+.h2-sum b.neg{color:var(--c-orange)}
+@media(hover:hover){.h2-sum button:hover{background:var(--hov)}}
+.om-kinds{width:40px;height:40px;flex:none;display:grid;place-items:center;border-radius:12px;background:var(--hov);color:var(--tx2)}
+.om-kinds[aria-expanded=true],.om-kinds.on{background:var(--acc);color:var(--accfg)}
+.om.kinds .om-types{display:none}
+.om.kinds.kopen .om-types{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 0;padding:0;overflow:visible;-webkit-mask-image:none;mask-image:none}
+.om.kinds.kopen .om-t{display:flex;flex-direction:column;justify-content:center;gap:6px;height:auto;min-height:64px;padding:10px 4px 9px;border-radius:14px;background:var(--bg2);font-size:12.5px;white-space:normal;text-align:center;line-height:1.15}
+.om.kinds.kopen .om-t svg{width:20px;height:20px;opacity:.85}
+.om.kinds.kopen .om-t.on{background:var(--acc);color:var(--accfg);border-color:transparent}
+.h2-tight .h2-omni{padding:10px!important}
+.pl-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:8px;vertical-align:1px}
+.hm-done{display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:4px;padding:10px 0 2px;border-top:1px solid var(--line);font-size:14px;font-weight:600;color:var(--mut)}
+.hm-done>span{display:inline-flex;align-items:center;gap:6px}.hm-done i{font-style:normal}
+.h2-tiles{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px}
+.h2-tile{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;min-height:88px;padding:12px;border-radius:var(--rc);background:var(--card);border:1px solid var(--cardbd);box-shadow:var(--cardsh);text-align:left;color:var(--tx)}
+.h2-tile svg{color:var(--mut)}.h2-tile b{font-size:14px;font-weight:650}
+.h2-tile small{font-size:12px;line-height:1.3;color:var(--mut);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .h2-cust{display:flex;justify-content:center;margin-top:4px}
 .h2-cust .lnk{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;font-size:13.5px;color:var(--mut);text-decoration:none;border-radius:10px}
 .h2-cust .lnk:hover{color:var(--tx);background:var(--hov)}
