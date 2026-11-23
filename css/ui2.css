@@ -505,6 +505,9 @@ body.ui2 main.sec .h2-tight .h2-blk.card{padding-top:12px;padding-bottom:12px}
 .om-kinds{width:40px;height:40px;flex:none;display:grid;place-items:center;border-radius:12px;background:var(--hov);color:var(--tx2)}
 .om-kinds[aria-expanded=true],.om-kinds.on{background:var(--acc);color:var(--accfg)}
 .om.kinds .om-types{display:none}
+.om.kinds .om-prev:has(> .om-hint){display:none}   /* подсказка под пустой строкой — не нужна, виды и «Подробно» за кнопкой */
+.cf-gd{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit}
+.cf-gd svg{margin-left:auto;align-self:center;color:var(--mut)}
 .om.kinds.kopen .om-types{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 0;padding:0;overflow:visible;-webkit-mask-image:none;mask-image:none}
 .om.kinds.kopen .om-t{display:flex;flex-direction:column;justify-content:center;gap:6px;height:auto;min-height:64px;padding:10px 4px 9px;border-radius:14px;background:var(--bg2);font-size:12.5px;white-space:normal;text-align:center;line-height:1.15}
 .om.kinds.kopen .om-t svg{width:20px;height:20px;opacity:.85}

@@ -35,7 +35,7 @@ function monthHTML() {
   }).join('');
   h += '</div>';
   if (side) return `<div class="wkview"><div class="wkgrid">${h}</div><aside class="wkside">${calDayHTML(sel, true)}</aside></div>`;
-  return pc ? h : `<div class="cd-wrap">${missedBar(false, true)}${h}${calDayHTML(sel)}</div>`;
+  return pc ? h : `<div class="cd-wrap">${h}${calDayHTML(sel)}</div>`;   // «Пропущено» — на Главной и в «Задачах» (24 ноября 2026: было на каждой вкладке «Плана»)
 }
 
 // ---- Календарь, вариант А (12 октября 2026): выбранный день списком — на телефоне под месяцем или полоской недели,
@@ -107,7 +107,7 @@ function feedDay(k, all, nx, nm) {
   } else list.forEach(e => rows.push(cdRow(e, k, nx, nm)));
   untimed.forEach(e => rows.push(cdRow(e, k, nx, nm)));
   if (!all.length) rows.push('<p class="t3-empty">На сегодня пусто — добавьте дело в строке выше.</p>');
-  return `<div class="t3-gh cf-gh${k === t ? ' today' : ''}"><b>${feedLbl(k)}</b>${all.length ? `<small>${dn} из ${all.length}</small>` : ''}<button class="t3-gbtn" data-act="goday" data-d="${k}" title="Почасовая сетка этого дня" aria-label="По часам: ${esc(fmtLong(k))}">по часам</button></div>${rows.join('')}`;
+  return `<div class="t3-gh cf-gh${k === t ? ' today' : ''}"><button class="cf-gd" data-act="goday" data-d="${k}" title="Почасовая сетка этого дня" aria-label="${esc(fmtLong(k))} — по часам"><b>${feedLbl(k)}</b>${all.length ? `<small>${dn} из ${all.length}</small>` : ''}${I(IC.right, 14)}</button></div>${rows.join('')}`;   // весь заголовок дня — переход к дню по часам (24 ноября 2026)
 }
 function feedHTML() {
   const t = todayK(), nm = nowMin(), nx = nextUp(t), out = []; let free = [];
@@ -118,7 +118,7 @@ function feedHTML() {
     flush(); out.push(feedDay(k, all, nx, nm)); }
   flush();
   const st = omSt('omc'); st.base = sel !== t ? sel : null; st.ph = st.base ? `Добавить на ${relDay(sel)}…` : null;
-  return `<div class="cd-wrap">${missedBar(false, true)}${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>
+  return `<div class="cd-wrap">${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>
     <div class="card t3-list cd-feed">${out.join('')}<button class="t3-more" data-act="cdmore">Следующие 2 недели →</button></div></div>`;
 }
 
@@ -230,7 +230,7 @@ function phoneDayHTML() {
   const plan = planOn(), tl = plan ? daySort(dayTasks(sel).filter(e => !e.time)) : [], dn = tl.filter(e => e.done).length, show = cdTasksAll ? tl : tl.slice(0, 6);
   const tasks = tl.length ? `<div class="card t3-list cd-tasks">${t3Head(withHint('Задачи', 'taskRing'), `${dn} из ${tl.length}`, '', aiDayBtn(sel))}${show.map(e => t3Row(e, sel, '')).join('')}
     ${tl.length > 6 ? `<button class="t3-more" data-act="cdtasks">${cdTasksAll ? 'Свернуть' : `Ещё ${tl.length - 6}`}</button>` : ''}</div>` : '';
-  return `<div class="cd-wrap">${missedBar(false, true)}${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>${tasks}<div class="card cd-grid">${gridHTML([sel], { noTasks: plan })}</div></div>`;
+  return `<div class="cd-wrap">${calWeekStrip()}<div class="card h2-omni cd-omni">${omniHTML('omc', 'cal')}</div>${tasks}<div class="card cd-grid">${gridHTML([sel], { noTasks: plan })}</div></div>`;
 }
 let cdTasksAll = false;
 ACT.cdtasks = () => { cdTasksAll = !cdTasksAll; render(); };

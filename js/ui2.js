@@ -147,7 +147,7 @@ const omCalm = (id, ctx) => id !== 'oms' && (ctx === 'cal' || ctx === 'tasks');
 const omForm = (id, ctx) => omCalm(id, ctx) ? `<button class="om-form om-keep" data-act="omform" data-om="${id}" title="Подробная форма: время, место, напоминание, повтор, заметка" aria-label="Подробно: время, место, напоминание">${I(IC.tune, 19)}</button>` : '';   // только значок (выбор пользователя 22 ноября 2026: «без надписи, две иконки — плюсик и настройки»)
 // Главная на телефоне (вариант 3 «Сводка сверху», выбор пользователя 23 ноября 2026): ряд видов записи спрятан за кнопкой у «+» —
 // по нажатию плашка плитками: Помощник, виды записи и «Подробно» (полная форма). Выбранный вид — значком на этой кнопке
-const omKinds = (id, ctx) => id === 'om' && ctx === 'home' && homeTight;
+const omKinds = (id, ctx) => innerWidth < 900 && (id === 'om' && ctx === 'home' || id === 'omf' && ctx === 'fin');   // Главная и «Финансы» (24 ноября 2026) на телефоне
 let omKOpen = false;
 const omKindsBtn = (id, st) => `<button class="om-kinds om-keep${st.force ? ' on' : ''}" data-act="omkinds" data-om="${id}" data-f="${st.force || ''}" aria-expanded="${omKOpen}" aria-label="Что добавить: задача, событие, деньги…" title="Что добавить">${I(st.force ? OM_T[st.force].ic : IC.grid, 19)}</button>`;
 function omniHTML(id, ctx) {
@@ -247,7 +247,7 @@ ACT.omform = el => {
   omCalmDone(i, st); if (sheetOpen()) closeSheet();
   if (omKOpen) { omKOpen = false; const o = el.closest('.om'); if (o) o.classList.remove('kopen'); }
   if (st.ctx === 'tasks') return newTask(st.base || undefined);
-  if (f === 'money') return openOp(null, {});
+  if (f === 'money' || st.ctx === 'fin' && !f) return openOp(null, {});
   if (f === 'habit') return openHabit();
   if (f === 'goal') return openGoal(null, {});
   if (f === 'note') return openQuickNote();
@@ -597,7 +597,7 @@ function financeHTML() {
   omSt('omf').ph = FIN_PH[finKind];   // подсказка в строке — по выбранному виду
   const input = `<div class="card fq-card f2-in">
     <div class="f2-kh"><div class="seg2 fq-kind" role="group" aria-label="Что записать">${OP_KINDS.map(([k, n]) => `<button class="${finKind === k ? 'on' : ''}" data-act="fqkind" data-k="${k}" aria-pressed="${finKind === k}">${n}</button>`).join('')}</div>${hintK('finKind')}</div>
-    ${omniHTML('omf', 'fin')}<button class="f2-more" data-act="opnew">Подробная форма…</button></div>`;
+    ${omniHTML('omf', 'fin')}${innerWidth < 900 ? '' : '<button class="f2-more" data-act="opnew">Подробная форма…</button>'}</div>`;   // на телефоне «Подробно» — в плашке видов
   const ops = [...st.ops].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   const recent = `<div class="card"><div class="h2-h"><b>Последние записи</b><small>${ops.length ? plural(ops.length, ['запись', 'записи', 'записей']) + ' за месяц' : ''}</small></div>
     ${ops.slice(0, 6).map(f2Row).join('') || `<p class="h2-empty">Записей за ${mon} нет. Напишите трату в строке выше — например, «продукты 1200».</p>`}
