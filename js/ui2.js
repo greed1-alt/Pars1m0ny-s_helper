@@ -305,7 +305,7 @@ function homePlan(t) {
       ${uV.length && tV.length ? '<div class="pl-sub">Без времени</div>' : ''}${uV.map(row).join('')}${rest > 0 ? `<button class="hm-more" data-act="pick" data-d="${t}">Ещё ${plural(rest, NEV)} →</button>` : ''}
       ${dn ? `<button class="hm-done" data-act="hmdone" aria-expanded="${!hideDone}"><span>${I(IC.check, 15)}<span><span>Сделано</span>: ${dn}</span></span><i>${hideDone ? '▾' : '▴'}</i></button>` : ''}`
       : '<p class="h2-empty">На сегодня пусто. Напишите в строке выше — например, «позвонить маме в 18» или «купить продукты».</p>'}
-    ${aiDayBtn(t, 'hm-aid')}<div class="hm-foot"><span>${tm ? 'Завтра: ' + plural(tm, NEV) : 'На завтра пока пусто'}</span>${homeTight ? '' : `<span>${secLink('tasks', 'Задачи')}${secLink('cal', 'Календарь')}</span>`}</div>`;
+    ${aiDayBtn(t, 'hm-aid')}<div class="hm-foot"><span>${tm ? 'Завтра: ' + plural(tm, NEV) : 'На завтра пока пусто'}</span><span>${secLink('tasks', 'Задачи')}${secLink('cal', 'Календарь')}</span></div>`;
 }
 function homeHabits(t) {
   const habs = todayHabs(t), sk = habitStreaks(), show = habs.slice(0, homeTight ? 4 : 12);   // «Плотнее» — две строки «таблеток» и «ещё N»
