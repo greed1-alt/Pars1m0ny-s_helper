@@ -443,9 +443,15 @@ addEventListener('popstate', () => {
   if (shHist && sheetOpen()) { shHist = false; if (shUnsaved()) { shHistOpen(); return shAsk(); } return closeSheet(true); }   // вписано — окно остаётся, шаг в истории возвращаем
   if (!location.hash) navPop();   // окна нет — «Назад» (Android) возвращает на прошлую страницу (sections.js); ссылки с # разбирают свои обработчики
 });
-// Затемнение за окном не листает страницу (тянут за него — ничего не едет). Раньше это делал touch-action:none у #ov, но на iPhone
-// он мешал полям ввода в окне — клавиатура не открывалась (23 ноября 2026)
-$('#ov').addEventListener('touchmove', e => { if (e.target === e.currentTarget) e.preventDefault(); }, { passive: false });
+// Страница под окном не листается (22 ноября 2026) — как в библиотеках «body scroll lock»: касание затемнения гасится, касание в окне —
+// только если там нечего листать (поля, карта, ряды вбок и прокручиваемые блоки — свободны). Раньше — touch-action:none у #ov
+// и overflow:hidden у html/body, но на iPhone с ними в полях окна не открывалась клавиатура и ничего не вводилось (23 ноября 2026)
+let ovFree = true;
+const ovScrolls = (t, top) => { for (let el = t; el && el !== top.parentElement; el = el.parentElement) { const cs = getComputedStyle(el);
+  if ((el.scrollHeight > el.clientHeight + 1 && /auto|scroll/.test(cs.overflowY)) || (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(cs.overflowX))) return true; } return false; };
+$('#ov').addEventListener('touchstart', e => { const sh = $('#sh'), t = e.target;
+  ovFree = sh.contains(t) && !!(t.closest && t.closest('input, textarea, select, [contenteditable=true], .leaflet-container, .f-map') || ovScrolls(t, sh)); }, { passive: true });
+$('#ov').addEventListener('touchmove', e => { if (!ovFree && e.cancelable) e.preventDefault(); }, { passive: false });
 // Свайп вниз закрывает окно на телефоне (полоска сверху — за неё и тянут; можно и за любое место, пока окно прокручено к началу).
 // Не мешает: полям ввода, карте, ленте чата и рядам, которые листаются вбок
 { const sh = $('#sh'); let d = null;

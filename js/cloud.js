@@ -207,7 +207,8 @@ function betaGate() {
     : ['Здесь проверяют новое до выпуска. Войти могут только тестировщики.', '<button class="btn pri" data-act="login">Войти</button>' + app];
   g.innerHTML = `<div class="bg-card"><div class="bg-logo"><span class="wordmark">${APP_NAME}</span>${BETA_PILL}</div>
     <span class="bg-lock" aria-hidden="true">${I(IC.lock, 26)}</span><h1 id="bg_t">Закрытая бета</h1>
-    <p role="status">${text}</p>${acts ? `<div class="bg-acts">${acts}</div>` : ''}</div>`;
+    <p role="status">${text}</p>${acts ? `<div class="bg-acts">${acts}</div>` : ''}<small class="bg-ver" id="bg_ver"></small></div>`;
+  appVerLoad().then(v => { const e = $('#bg_ver'); if (e && v) e.textContent = 'Версия ' + v; });   // видно, обновилось ли приложение (23 ноября 2026)
 }
 ACT.betaretry = () => betaStart();
 
