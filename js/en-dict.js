@@ -2553,4 +2553,9 @@ const EN_DICT = {"* Открыть в Яндекс Картах":"* Open in Yand
 "Подробно":"Details",
 "Дела":"To-dos",
 "Сверх лимита":"Over limit",
-"Что добавить: задача, событие, деньги…":"What to add: task, event, money…"};
+"Что добавить: задача, событие, деньги…":"What to add: task, event, money…",
+"· было *":"· last week *",
+"Серии нет":"No streak",
+"Вчера":"Yesterday",
+"— нажмите, чтобы снять":"— tap to clear",
+"за неделю":"this week"};

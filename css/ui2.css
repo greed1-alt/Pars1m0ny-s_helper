@@ -220,6 +220,15 @@ body.ui2 .fh-t b{font-size:15px}
 .t2-flt{display:flex;flex-direction:column;gap:10px;margin:10px 0 6px}
 .t2-flt .seg2{align-self:flex-start}
 .t2-prios{display:flex;gap:6px;flex-wrap:wrap}
+/* «Задачи» на телефоне (23 ноября 2026): фильтр и «Важность» в одну строку, серия — одной строкой, задачи по дням */
+.t2-frow{display:flex;align-items:center;gap:8px}.t2-frow .seg2{flex:1;min-width:0}.t2-frow .seg2 button{flex:1 1 auto;min-width:0;padding-left:7px;padding-right:7px}
+.t2-pbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;min-width:38px;padding:0 10px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--tx2)}
+.t2-pbtn[aria-expanded=true]{background:var(--hov2)}
+.t2-pbtn.on{border-color:var(--c);color:var(--tx)}.t2-pbtn.on i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.ts-hero.mini{min-height:0;flex-direction:row;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px}
+.ts-hero.mini .ts-hp{position:static;flex:none}
+.ts-mn{font-size:13px;line-height:1.3;color:inherit;opacity:.92}.ts-mn b{font-size:18px;font-weight:800;margin-right:2px}
+.t3-gh.late b{color:var(--c-orange)}
 .t2-prios .tk-pr{height:32px;border-radius:999px;padding:0 12px}
 
 /* ---- Неделя: свёрнутые пустые часы ---- */

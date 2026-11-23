@@ -13,7 +13,7 @@ onMigrate(() => {
   if (!S.settings.tasksMig) { S.events.forEach(e => { if (e.task == null && !e.time && !isRec(e)) { e.task = true; e.prio = 'mid'; } }); S.settings.tasksMig = 1; }
 });
 
-let tFilter = 'active', tPrio = '';
+let tFilter = 'active', tPrio = '', tPrioOpen = false;   // tPrioOpen — на телефоне открыт ряд «Важность»
 const tasksAll = () => S.events.filter(e => e.task && !hiddenCats.has(e.cat));
 const dayTasks = k => evOn(k).filter(e => e.task);
 const taskWeek = () => { const s = weekStartOf(sel); return [...Array(7)].map((_, i) => addDays(s, i)); };
@@ -91,6 +91,7 @@ function taskHero() {
   const cmp = n > p ? ` · на ${n - p} больше прошлой` : !p ? '' : n < p ? ` · на прошлой — ${p}` : ' · столько же, сколько на прошлой';
   // Цвета — от палитры пользователя, белый текст на них читается в любой из них (не меньше 4,5:1)
   const acc = getComputedStyle(document.documentElement).getPropertyValue('--acc').trim(), dk = '#14122e', c1 = readableC(mixC(/^#[0-9a-f]{6}$/i.test(acc) ? acc : '#4b4fd1', dk, .38), dk, ['#ffffff'], 4.7), hc = PAL[S.settings.pal].hc, c2 = readableC(mixC(c1, hc || '#a24bd6', .28), dk, ['#ffffff'], 4.6), c3 = mixC(c1, hc || '#e0609f', .55);
+  if (innerWidth < 900) return `<div class="ts-hero mini" style="--c1:${c1};--c2:${c2};--c3:${c3}"><span class="ts-mn"><b>${n}</b> ${plWord(n, ['задача', 'задачи', 'задач'])} за неделю${p ? ` · было ${p}` : ''}</span><div class="ts-hp">${L.cur ? `${flameI(16)}<b>${plural(L.cur, NDAY)}</b>` : '<b>Серии нет</b>'}${hintK('taskStreak')}</div></div>`;   // телефон: одной строкой (23 ноября 2026)
   return `<div class="ts-hero" style="--c1:${c1};--c2:${c2};--c3:${c3}"><div class="ts-hp">${L.cur ? `${flameI(18)}<b>${plural(L.cur, NDAY)}</b>` : '<b>Серия не начата</b>'}${hintK('taskStreak')}</div>
     <div class="ts-big">${n}</div><p>${plWord(n, ['задача', 'задачи', 'задач'])} на этой неделе${cmp}</p>
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${d} L${W} ${H} L0 ${H}Z" fill="rgba(255,255,255,.16)"/><path d="${d}" fill="none" stroke="#fff" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg></div>`;
@@ -164,4 +165,5 @@ document.addEventListener('keydown', e => {
   const i = $(`.tw-add[data-d="${d}"]`); if (i) i.focus();
 });
 ACT.tfilter = el => { tFilter = el.dataset.f; render(); };
-ACT.tprio = el => { tPrio = tPrio === el.dataset.p ? '' : el.dataset.p; if (tPrio && tFilter === 'done') tFilter = 'active'; render(); };
+ACT.tprio = el => { tPrio = tPrio === el.dataset.p ? '' : el.dataset.p; tPrioOpen = false; if (tPrio && tFilter === 'done') tFilter = 'active'; render(); };
+ACT.tprios = () => { if (tPrio) { tPrio = ''; tPrioOpen = false; } else tPrioOpen = !tPrioOpen; render(); };   // выбрана важность — нажатие снимает фильтр

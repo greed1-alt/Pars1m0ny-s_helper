@@ -436,6 +436,17 @@ function t3Row(e, k, meta, metaCls) {
     <button class="t3-main" data-act="edit" data-id="${e.id}" data-d="${k}"><i class="t3-dot" style="background:${c.color}" title="${esc(c.name)}"></i><span class="t3-t">${esc(e.title)}</span>${isRec(e) ? '<i class="t3-rep" title="Повторяется">↻</i>' : ''}${goalTag(e)}</button>
     ${meta ? `<span class="t3-meta${metaCls ? ' ' + metaCls : ''}">${meta}</span>` : ''}</div>`;
 }
+// Телефон, «Все»: задачи по дням — «Просрочено» (с датой у каждой), «Сегодня», «Завтра», «Ср, 25 ноября»… (23 ноября 2026, вместо даты у каждой строки)
+const t3DayName = k => { const t = todayK(), d = pd(k); return k === t ? 'Сегодня' : k === addDays(t, 1) ? 'Завтра' : k === addDays(t, -1) ? 'Вчера' : DOW[dowIdx(k)] + ', ' + d.getDate() + ' ' + MONG[d.getMonth()] + (k.slice(0, 4) !== t.slice(0, 4) ? ' ' + k.slice(0, 4) : ''); };
+function t3ByDay(rows) {
+  const t = todayK(), out = []; let cur = null;
+  rows.forEach(({ e, k, done }) => {
+    const g = !done && k < t ? 'late' : k;
+    if (g !== cur) { cur = g; const n = g === 'late' ? rows.filter(x => !x.done && x.k < t).length : 0; out.push(t3Head(g === 'late' ? 'Просрочено' : t3DayName(k), g === 'late' ? String(n) : '', g === 'late' ? 'late' : '')); }
+    out.push(t3Row(e, k, g === 'late' ? esc(shortDate(k)) : e.time ? esc(e.time) : '', g === 'late' ? 'late' : ''));
+  });
+  return out.join('');
+}
 const daySort = l => [...l].sort((a, b) => a.done - b.done || prioRank(a) - prioRank(b) || (a.time || '99').localeCompare(b.time || '99'));
 const t3Head = (n, sum, cls, btn) => `<div class="t3-gh${cls ? ' ' + cls : ''}"><b>${n}</b>${sum ? `<small>${sum}</small>` : ''}${btn || ''}</div>`;
 
@@ -527,9 +538,12 @@ function tasksHTML() {
   let list;
   if (tView === 'all') {
     const rows = taskRows(), fl = [['active', 'Активные'], ['done', 'Выполненные'], ['all', 'Все']];
-    list = `${omni}<div class="card t3-list"><div class="t2-flt"><div class="seg2">${fl.map(([v, n]) => `<button class="${tFilter === v ? 'on' : ''}" data-act="tfilter" data-f="${v}">${n}</button>`).join('')}</div>
-      <div class="t2-prios">${PRIO_ORDER.map(p => `<button class="tk-pr${tPrio === p ? ' on' : ''}" data-act="tprio" data-p="${p}" style="--c:${PRIO[p].c}" aria-pressed="${tPrio === p}"><i></i>${PRIO[p].n}</button>`).join('')}${hintK('taskRing')}</div></div>
-      ${rows.slice(0, 80).map(({ e, k, done }) => { const [lt, lc] = leftTxt(k, done); return t3Row(e, k, esc(shortDate(k)) + (lt && !done && lc ? ' · ' + lt : ''), lc); }).join('') || `<p class="t3-empty">${tFilter === 'done' ? 'Выполненных задач пока нет.' : 'Задач нет — напишите первую в строке выше.'}</p>`}
+    // Телефон: важность — за кнопкой «Важность» (открывается ряд фильтров), задачи — по дням с заголовками вместо даты у каждой
+    const prios = `<div class="t2-prios">${PRIO_ORDER.map(p => `<button class="tk-pr${tPrio === p ? ' on' : ''}" data-act="tprio" data-p="${p}" style="--c:${PRIO[p].c}" aria-pressed="${tPrio === p}"><i></i>${PRIO[p].n}</button>`).join('')}${hintK('taskRing')}</div>`;
+    const pBtn = `<button class="t2-pbtn${tPrio ? ' on' : ''}" data-act="tprios" aria-expanded="${tPrioOpen}" aria-label="Важность${tPrio ? ': ' + PRIO[tPrio].n + ' — нажмите, чтобы снять' : ''}" title="Важность"${tPrio ? ` style="--c:${PRIO[tPrio].c}"` : ''}>${tPrio ? `<i></i>${PRIO[tPrio].n}` : I(IC.tune, 17)}</button>`;
+    const body = wide ? rows.slice(0, 80).map(({ e, k, done }) => { const [lt, lc] = leftTxt(k, done); return t3Row(e, k, esc(shortDate(k)) + (lt && !done && lc ? ' · ' + lt : ''), lc); }).join('') : t3ByDay(rows.slice(0, 80));
+    list = `${omni}<div class="card t3-list"><div class="t2-flt${wide ? '' : ' ph'}">${wide ? '' : '<div class="t2-frow">'}<div class="seg2">${fl.map(([v, n]) => `<button class="${tFilter === v ? 'on' : ''}" data-act="tfilter" data-f="${v}">${n}</button>`).join('')}</div>${wide ? prios : pBtn + '</div>' + (tPrioOpen ? prios : '')}</div>
+      ${body || `<p class="t3-empty">${tFilter === 'done' ? 'Выполненных задач пока нет.' : 'Задач нет — напишите первую в строке выше.'}</p>`}
       ${rows.length > 80 ? `<p class="t3-empty">Показаны первые 80 из ${rows.length}</p>` : ''}</div>`;
   } else list = wide ? '' : `${tasksWeekStrip()}${omni}<div class="card t3-list">${tasksDayList(sel)}</div>`;
   const act = tasksAll().map(e => ({ e, k: isRec(e) ? nextOcc(e) : e.date })).filter(x => !isDone(x.e, x.k)), urg = act.filter(x => prioOf(x.e) === 'urgent').length;
