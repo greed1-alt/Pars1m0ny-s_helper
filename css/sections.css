@@ -693,6 +693,13 @@ thead th.hg-name{font-size:12px;color:var(--mut);font-weight:600;padding-left:6p
 .hg.wk tfoot td,.hg.wk tfoot th{font-size:11.5px;color:var(--mut);font-weight:600;padding-top:6px}
 /* Таблица месяца: карточка обрезает закреплённые столбцы по скруглению (на темах с градиентом и стеклом они торчали углами) */
 .card:has(> .hscroll){overflow:hidden}
+/* Ясная граница между закреплёнными столбцами и днями (24 ноября 2026, просьба пользователя «добавь ясную разграничительную линию») */
+.hg{--hg-div:color-mix(in srgb,var(--tx) 26%,transparent)}
+.hg .sticky-col{box-shadow:inset -1.5px 0 0 var(--hg-div)!important}
+.hg .hg-pc{box-shadow:inset 1.5px 0 0 var(--hg-div)!important}
+.hg.wk .hg-name{box-shadow:inset -1.5px 0 0 var(--hg-div)}
+.hg.wk .hg-addrow .hg-name{box-shadow:none}
+.hg.wk tbody td:nth-child(2),.hg.wk tfoot td:nth-child(2),.hg.wk thead th:nth-child(2){padding-left:3px}
 .hg td.is-today,.hg-d th.is-today{background:color-mix(in srgb,var(--red) 6%,transparent)}
 .hg td.wknd:not(.is-today){background:var(--wk)}
 .hc{width:22px;height:22px;border-radius:6px;border:1.5px solid color-mix(in srgb,var(--w,var(--c-blue)) 50%,var(--line));display:inline-grid;place-items:center;color:#fff;vertical-align:middle;transition:background .12s,border-color .12s,transform .1s}
