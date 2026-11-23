@@ -2586,4 +2586,16 @@ const EN_DICT = {"* Открыть в Яндекс Картах":"* Open in Yand
 "записей о деньгах":"money records",
 "Ещё три числа":"Three more numbers",
 "* — получено":"* — earned",
-"Лучшая — *":"Best — *"};
+"Лучшая — *":"Best — *",
+"Соревнуйтесь за неделю — очки за задачи и привычки":"Compete every week — points for tasks and habits",
+"Смотрите, когда друзья свободны, и зовите встретиться":"See when friends are free and invite them to meet",
+"Переписывайтесь и подбадривайте друг друга":"Chat and cheer each other on",
+"Для этого нужно войти в аккаунт.":"You need to sign in for this.",
+"Вы лидер недели — так держать!":"You lead this week — keep it up!",
+"Пока у всех 0 очков — сделайте первый шаг":"Everyone has 0 points so far — take the first step",
+"Вы на *-м месте · до *-го — *":"You are #* · to #*: *",
+"* — сегодня в *":"* — in * today",
+"*-е место — *, *":"#* — *, *",
+"Соревнуйтесь каждую неделю":"Compete every week",
+"Смотрите, когда друзья свободны":"See when friends are free",
+"Переписывайтесь и подбадривайте":"Chat and cheer each other on"};
