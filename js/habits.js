@@ -99,30 +99,32 @@ function habitGrid(ym) {
 
 // Телефон (24 ноября 2026, пункт 12 списка удобства): таблица по неделе — 7 крупных клеток на привычку, стрелки — соседняя неделя;
 // весь месяц — переключателем «Месяц» (прежняя таблица листается вбок). Неделя всегда касается открытого месяца (secYM)
-let hgView = 'week', hgWk = null;
+// Неделя — одна строка на привычку: название слева (до двух строк, слова не рвутся), рядом 7 клеток; % за неделю — в шапке.
+// Первый вариант (название строкой над клетками) вышел «слишком широким и неудобным» — 24 ноября 2026. Выбор «Неделя / Месяц» запоминается
+let hgWk = null;
+const hgView = () => S.settings.hgv === 'month' ? 'month' : 'week';
 function habitWeek(ym) {
   const t = todayK(), def = weekStartOf(ym === ymOf(t) ? t : ym + '-01');
   if (!hgWk || ymOf(addDays(hgWk, 6)) < ym || ymOf(hgWk) > ym) hgWk = def;
   const days = [...Array(7)].map((_, i) => addDays(hgWk, i)), hs = hByKind('daily');
   const td = k => (k === t ? ' is-today' : '') + (isWknd(k) ? ' wknd' : '');
   const a = pd(days[0]), b = pd(days[6]), rng = a.getMonth() === b.getMonth() ? `${a.getDate()}–${b.getDate()} ${MONG[b.getMonth()]}` : `${a.getDate()} ${MONS[a.getMonth()]} – ${b.getDate()} ${MONS[b.getMonth()]}`;
-  const nav = `<div class="hgw-nav"><button class="ic" data-act="hgwk" data-n="-7" aria-label="Предыдущая неделя">${I(IC.left, 18)}</button><b>${rng}</b><button class="ic" data-act="hgwk" data-n="7" aria-label="Следующая неделя">${I(IC.right, 18)}</button></div>`;
-  // Название — своей строкой над клетками (в узкой колонке рядом с семью клетками оно рвалось посередине слова); цвет клеток — один на неделю
-  let h = `${nav}<table class="hg wk" style="--w:var(--good,#22c55e)"><thead><tr class="hg-d">${days.map(k => `<th class="${td(k)}"><small>${dowName(k)}</small><b>${+k.slice(8)}</b></th>`).join('')}<th class="hg-pc" title="Процент за неделю">%</th></tr></thead><tbody>`;
+  const wk = hs.reduce((o, h) => { const x = hStat(h, days); o.d += x.done; o.p += x.plan; return o; }, { d: 0, p: 0 });
+  const nav = `<div class="hgw-nav"><button class="ic" data-act="hgwk" data-n="-7" aria-label="Предыдущая неделя">${I(IC.left, 18)}</button><span><b>${rng}</b>${wk.p ? `<small>${pctTxt(wk.d / wk.p)} за неделю</small>` : ''}</span><button class="ic" data-act="hgwk" data-n="7" aria-label="Следующая неделя">${I(IC.right, 18)}</button></div>`;
+  let h = `${nav}<table class="hg wk" style="--w:var(--good,#22c55e)"><thead><tr class="hg-d"><th class="hg-name"></th>${days.map(k => `<th class="${td(k)}"><small>${dowName(k)}</small><b>${+k.slice(8)}</b></th>`).join('')}</tr></thead><tbody>`;
   hs.forEach(hb => {
-    const st = hStart(hb), sw = hStat(hb, days);
-    h += `<tr class="hgw-nm"><th colspan="8"><button data-act="hedit" data-id="${hb.id}" title="Изменить привычку"><span class="em">${esc(hb.emoji || '•')}</span><span class="nm">${esc(hb.name)}</span></button></th></tr><tr class="hgw-row">`;
+    const st = hStart(hb);
+    h += `<tr><th class="hg-name"><button data-act="hedit" data-id="${hb.id}" title="${esc(hb.name)} — изменить"><span class="em">${esc(hb.emoji || '•')}</span><span class="nm">${esc(hb.name)}</span></button></th>`;
     h += days.map(k => { const on = !!hb.log[k], fut = k > t, cls = 'hc' + (on ? ' on' : '') + (!hDow(hb, k) ? ' off' : '') + (k < st && !on ? ' pre' : '') + (!canMark(k) ? ' lock' : '');
-      return `<td class="${td(k)}"><button class="${cls}" data-act="hmark" data-id="${hb.id}" data-k="${k}" aria-pressed="${on}" aria-label="${esc(hb.name)}, ${+k.slice(8)} ${MONG[pd(k).getMonth()]}"${fut ? ' disabled' : ''}>${on ? I(IC.check, 14) : ''}</button></td>`; }).join('');
-    h += `<td class="hg-pc"><b>${pctTxt(sw.pct)}</b></td></tr>`;
+      return `<td class="${td(k)}"><button class="${cls}" data-act="hmark" data-id="${hb.id}" data-k="${k}" aria-pressed="${on}" aria-label="${esc(hb.name)}, ${+k.slice(8)} ${MONG[pd(k).getMonth()]}"${fut ? ' disabled' : ''}>${on ? I(IC.check, 13) : ''}</button></td>`; }).join('') + '</tr>';
   });
-  h += `<tr class="hg-addrow"><th colspan="8" class="hg-name"><button class="hg-add" data-act="hnew" data-k="daily">${I(IC.plus, 15)} Привычка</button></th></tr></tbody>`;
+  h += `<tr class="hg-addrow"><th class="hg-name" colspan="8"><button class="hg-add" data-act="hnew" data-k="daily">${I(IC.plus, 15)} Привычка</button></th></tr></tbody>`;
   if (hs.length) { const ds = days.map(k => ({ k, ...dayStat(k) }));
-    h += `<tfoot><tr class="hgw-cap"><th colspan="8">Выполнено за день</th></tr><tr>${ds.map(d => `<td class="${td(d.k)}">${d.plan && d.k <= t ? d.done + '/' + d.plan : ''}</td>`).join('')}<td class="hg-pc"></td></tr></tfoot>`; }
+    h += `<tfoot><tr><th class="hg-name">Выполнено</th>${ds.map(d => `<td class="${td(d.k)}">${d.plan && d.k <= t ? d.done + '/' + d.plan : ''}</td>`).join('')}</tr></tfoot>`; }
   return h + '</table>';
 }
-const habitTable = ym => isWide() ? habitGrid(ym) : `<div class="seg2 hg-vseg" role="group" aria-label="Что показать">${[['week', 'Неделя'], ['month', 'Месяц']].map(([v, n]) => `<button class="${hgView === v ? 'on' : ''}" data-act="hgview" data-v="${v}" aria-pressed="${hgView === v}">${n}</button>`).join('')}</div>${hgView === 'week' ? habitWeek(ym) : habitGrid(ym)}`;
-ACT.hgview = el => { hgView = el.dataset.v === 'month' ? 'month' : 'week'; render(); };
+const habitTable = ym => isWide() ? habitGrid(ym) : `<div class="seg2 hg-vseg" role="group" aria-label="Что показать">${[['week', 'Неделя'], ['month', 'Месяц']].map(([v, n]) => `<button class="${hgView() === v ? 'on' : ''}" data-act="hgview" data-v="${v}" aria-pressed="${hgView() === v}">${n}</button>`).join('')}</div>${hgView() === 'week' ? habitWeek(ym) : habitGrid(ym)}`;
+ACT.hgview = el => { S.settings.hgv = el.dataset.v === 'month' ? 'month' : 'week'; save(); render(); };
 ACT.hgwk = el => { const n = Number(el.dataset.n) || 0, nx = addDays(hgWk || weekStartOf(todayK()), n);
   if (ymOf(addDays(nx, 6)) < secYM || ymOf(nx) > secYM) { secYM = ymOf(n > 0 ? nx : addDays(nx, 6)); miniAnchor = pd(secYM + '-01'); }   // ушли за край месяца — открыть соседний
   hgWk = nx; render(); };

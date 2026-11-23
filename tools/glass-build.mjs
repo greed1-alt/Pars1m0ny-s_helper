@@ -111,7 +111,7 @@ ${G} .missbar{background:linear-gradient(180deg,var(--glhi),transparent 46%),lin
 ${G} :is(${INNER}){background:var(--gl2);border-color:transparent;box-shadow:inset 1px 1px 0 -.2px var(--glr2),inset 0 0 0 .5px var(--gle)}
 ${G} :is(.om-box,.sr-box) :is(input,textarea){background:none!important;box-shadow:none!important}
 /* Липкие столбцы и шапки таблиц внутри стекла — непрозрачные, иначе под ними видно прокрученное */
-${G} :is(.hg .sticky-col,.hg .hg-w th.sticky-col,.hg .hg-w th.hg-pc,.hg-pc,.tk-head,.wg-stickytop){background:var(--sf)}
+${G} :is(.hg .sticky-col,.hg .hg-w th.sticky-col,.hg .hg-w th.hg-pc,.hg-pc,.tk-head,.wg-stickytop){background:var(--sf);box-shadow:none}
 ${G} .h2-hc.on{background:color-mix(in srgb,var(--c-green,#34c759) 26%,transparent)}
 ${G} .om-box:focus-within{box-shadow:inset 1px 1px 0 -.2px var(--glr1),0 0 0 3px color-mix(in srgb,var(--acc) 30%,transparent)}
 ${G} .seg2 button.on{background:var(--gl);box-shadow:${RIM},0 2px 8px rgba(0,0,0,.12)}
