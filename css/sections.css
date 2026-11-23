@@ -674,6 +674,22 @@ thead th.hg-name{font-size:12px;color:var(--mut);font-weight:600;padding-left:6p
 .hg-d th b{display:inline-block;font-size:12px;font-weight:600;min-width:20px;border-radius:6px;padding:1px 2px}
 .hg-d th.is-today b{background:var(--red);color:#fff}
 .hg td{height:30px}
+/* «Привычки» на телефоне: таблица по неделе (24 ноября 2026) */
+.hg-vseg{margin-bottom:10px}
+.hgw-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px}
+.hgw-nav b{font-size:15px;font-weight:650}
+.hg.wk{min-width:0;width:100%;table-layout:fixed;border-collapse:collapse}
+.hg.wk th,.hg.wk td{padding:0;text-align:center}
+.hg.wk .hgw-nm th{text-align:left;padding:10px 0 2px}
+.hgw-nm button{display:flex;align-items:center;gap:6px;max-width:100%;text-align:left;font-size:14px;font-weight:600}
+.hgw-nm .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hg.wk .hg-pc{width:14%;font-size:12.5px}
+.hgw-row td{height:40px}
+.hg.wk .hg-addrow th{text-align:left;padding-top:10px}
+.hg.wk .hgw-cap th{text-align:left;padding:12px 0 2px;font-size:12px;color:var(--mut);font-weight:600}
+.hg.wk .hc{width:30px;height:30px;border-radius:8px}
+.hg.wk thead th{font-size:12px}.hg.wk thead th b{display:block;font-size:15px}
+.hg.wk tfoot td,.hg.wk tfoot th{font-size:12px;color:var(--mut);font-weight:600}
 .hg td.is-today,.hg-d th.is-today{background:color-mix(in srgb,var(--red) 6%,transparent)}
 .hg td.wknd:not(.is-today){background:var(--wk)}
 .hc{width:22px;height:22px;border-radius:6px;border:1.5px solid color-mix(in srgb,var(--w,var(--c-blue)) 50%,var(--line));display:inline-grid;place-items:center;color:#fff;vertical-align:middle;transition:background .12s,border-color .12s,transform .1s}
