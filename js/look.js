@@ -70,7 +70,7 @@ const PAL = {
   // Хром — светлый и тёмный (тёмно-синий, 23 ноября 2026): вид — по теме (Авто / Светлая / Тёмная), skinD — оформление тёмного
   chrome:{ n:'Хром', p:500, skin:'gl-chrome', skinD:'gl-chrome-d', glass:1, hc:'#8a9099',
     l:{ bg:'#eceef2', bg2:'#e4e7ec', sf:'#f7f8fa', line:'#d2d6dd', tx:'#101215', tx2:'#383d46', mut:'#565c67', acc:'#1b1e23', accfg:'#ffffff', wm:'#2a2e35' },
-    d:{ bg:'#081129', bg2:'#0e1a3d', sf:'#14224b', line:'#24366a', tx:'#eef3ff', tx2:'#c4d0ea', mut:'#93a3c8', acc:'#cfe0ff', accfg:'#0a1636', wm:'#dbe7ff' } },
+    d:{ bg:'#060d22', bg2:'#0b1533', sf:'#101c40', line:'#1f2f5c', tx:'#eef3ff', tx2:'#c4d0ea', mut:'#93a3c8', acc:'#cfe0ff', accfg:'#0a1636', wm:'#dbe7ff' } },
   skyday:{ n:'День', p:500, skin:'gl-day', fix:'l', glass:1, set:'Небосвод', hc:'#5aa9ff',
     l:{ bg:'#d6ebff', bg2:'#cfe6ff', sf:'#eef6ff', line:'#b9d6f2', tx:'#06182f', tx2:'#264162', mut:'#425d7c', acc:'#0a5cbd', accfg:'#ffffff', wm:'#0a5cbd' } },
   skyset:{ n:'Закат', p:500, skin:'gl-set', fix:'l', glass:1, set:'Небосвод', hc:'#ff8a6b',

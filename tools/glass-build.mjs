@@ -32,19 +32,19 @@ const chrome = W(`
 <linearGradient id='m2' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#fafbfc'/><stop offset='.3' stop-color='#9aa0ab'/><stop offset='.55' stop-color='#5e6470'/><stop offset='.8' stop-color='#c8ccd4'/><stop offset='1' stop-color='#ffffff'/></linearGradient>
 <filter id='b2' x='-5%' y='-50%' width='110%' height='200%'><feGaussianBlur stdDeviation='2'/></filter>`);
 
-// Хром, тёмный вид (23 ноября 2026, «красивый тёмно-синий»): тот же жидкий металл, но тёмно-синий, с серебристо-голубыми бликами
+// Хром, тёмный вид (23 ноября 2026, «красивый тёмно-синий»; «ещё чуть темнее» — тот же день): тот же жидкий металл, но тёмно-синий, с серебристо-голубыми бликами
 const chromeDark = W(`
 <rect width='1200' height='1200' fill='url(#n0)'/>
 <circle cx='900' cy='140' r='420' fill='url(#ng)'/>
 <path d='M-100 300 C 200 120 480 420 760 260 S 1160 80 1320 200 L1320 520 C 1100 380 880 600 620 560 S 160 420 -100 600 Z' fill='url(#n1)'/>
 <path d='M-100 640 C 220 500 520 780 820 640 S 1180 520 1320 600 L1320 900 C 1060 800 860 1000 560 960 S 120 820 -100 960 Z' fill='url(#n2)'/>
 <path d='M-100 1000 C 240 900 560 1100 880 1000 S 1200 940 1320 980 L1320 1300 L-100 1300 Z' fill='url(#n1)'/>
-<path d='M-100 300 C 200 120 480 420 760 260 S 1160 80 1320 200' fill='none' stroke='#c9dbff' stroke-width='4' opacity='.7' filter='url(#b2)'/>
-<path d='M-100 640 C 220 500 520 780 820 640 S 1180 520 1320 600' fill='none' stroke='#c9dbff' stroke-width='4' opacity='.6' filter='url(#b2)'/>`,
-`<linearGradient id='n0' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#081330'/><stop offset='.5' stop-color='#060d24'/><stop offset='1' stop-color='#0b1838'/></linearGradient>
-<radialGradient id='ng'><stop offset='0' stop-color='#3d63b8' stop-opacity='.45'/><stop offset='1' stop-color='#3d63b8' stop-opacity='0'/></radialGradient>
-<linearGradient id='n1' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#6f92da'/><stop offset='.3' stop-color='#25427f'/><stop offset='.6' stop-color='#0a1532'/><stop offset='.85' stop-color='#2a4888'/><stop offset='1' stop-color='#5f83cc'/></linearGradient>
-<linearGradient id='n2' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#8eabea'/><stop offset='.28' stop-color='#2f4f92'/><stop offset='.55' stop-color='#081128'/><stop offset='.8' stop-color='#34559a'/><stop offset='1' stop-color='#8aa6e4'/></linearGradient>
+<path d='M-100 300 C 200 120 480 420 760 260 S 1160 80 1320 200' fill='none' stroke='#c9dbff' stroke-width='4' opacity='.5' filter='url(#b2)'/>
+<path d='M-100 640 C 220 500 520 780 820 640 S 1180 520 1320 600' fill='none' stroke='#c9dbff' stroke-width='4' opacity='.42' filter='url(#b2)'/>`,
+`<linearGradient id='n0' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#050c22'/><stop offset='.5' stop-color='#040919'/><stop offset='1' stop-color='#07112b'/></linearGradient>
+<radialGradient id='ng'><stop offset='0' stop-color='#3d63b8' stop-opacity='.28'/><stop offset='1' stop-color='#3d63b8' stop-opacity='0'/></radialGradient>
+<linearGradient id='n1' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#4d6cb0'/><stop offset='.3' stop-color='#1a3064'/><stop offset='.6' stop-color='#060e25'/><stop offset='.85' stop-color='#1c346c'/><stop offset='1' stop-color='#4163a6'/></linearGradient>
+<linearGradient id='n2' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#6886cb'/><stop offset='.28' stop-color='#203a74'/><stop offset='.55' stop-color='#040a1c'/><stop offset='.8' stop-color='#233d79'/><stop offset='1' stop-color='#6280c2'/></linearGradient>
 <filter id='b2' x='-5%' y='-50%' width='110%' height='200%'><feGaussianBlur stdDeviation='2'/></filter>`);
 
 // Небосвод · День: голубое небо, солнце, пушистые облака
@@ -85,7 +85,7 @@ const LIGHT = { gl:'rgba(255,255,255,.48)', gl2:'rgba(255,255,255,.48)', hi:'rgb
 const DARK = { gl2:'rgba(255,255,255,.08)', hi:'rgba(255,255,255,.08)', e:'rgba(255,255,255,.07)', sh:'0 14px 34px -14px rgba(0,0,0,.7)', blur:'16px', sat:'1.6' };
 const T = {
   'gl-chrome': { wp:chrome, ...LIGHT, gl:'rgba(255,255,255,.42)', sat:'1.3', e:'rgba(20,25,35,.10)', sh:'0 12px 30px -14px rgba(20,25,35,.4)' },
-  'gl-chrome-d': { wp:chromeDark, ...DARK, gl:'rgba(12,22,54,.46)', hi:'rgba(200,220,255,.08)', r1:'rgba(205,222,255,.45)', r2:'rgba(205,222,255,.16)', e:'rgba(200,220,255,.08)', bar:'rgba(8,16,40,.44)', sheet:'rgba(10,18,44,.84)', sat:'1.4' },
+  'gl-chrome-d': { wp:chromeDark, ...DARK, gl:'rgba(8,15,40,.5)', hi:'rgba(200,220,255,.08)', r1:'rgba(205,222,255,.45)', r2:'rgba(205,222,255,.16)', e:'rgba(200,220,255,.08)', bar:'rgba(5,11,30,.48)', sheet:'rgba(7,13,34,.86)', sat:'1.4' },
   'gl-day': { wp:day, ...LIGHT, e:'rgba(10,50,110,.10)', sh:'0 10px 30px -14px rgba(20,70,150,.4)' },
   'gl-set': { wp:sunset, ...LIGHT, gl:'rgba(255,247,241,.5)', gl2:'rgba(255,255,255,.45)', hi:'rgba(255,255,255,.4)', r2:'rgba(255,255,255,.5)', e:'rgba(120,40,20,.10)', sh:'0 10px 30px -14px rgba(140,40,60,.35)', bar:'rgba(255,244,236,.42)', sheet:'rgba(255,248,243,.76)' },
   'gl-night': { wp:night, ...DARK, gl:'rgba(14,22,50,.44)', r1:'rgba(255,248,225,.4)', r2:'rgba(255,248,225,.15)', bar:'rgba(10,16,40,.42)', sheet:'rgba(12,18,42,.82)' },
