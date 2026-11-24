@@ -118,7 +118,7 @@ document.addEventListener('change', e => { if (e.target.id === 's_feednotes') { 
 
 // ---- Подписки на чужие календари ----
 ACT.subadd = async () => {
-  const i = $('#sub_url'), url = i ? i.value.trim() : '';
+  const i = $('#sub_url'), raw = i ? i.value.trim() : '', url = ((raw.match(/(?:webcals?|https?):\/\/[^\s"'<>«»]+/i) || [raw])[0]).replace(/[.,;)]+$/, '');
   if (!signedIn()) return ACT.login();
   if (!url) { toast('Вставьте ссылку на календарь'); return i && i.focus(); }
   if (!/^(https|webcal):\/\//i.test(url)) return toast('Нужна ссылка, которая начинается с https:// или webcal://');
@@ -139,37 +139,80 @@ ACT.subdel = el => {
 };
 document.addEventListener('change', e => { if (e.target.classList && e.target.classList.contains('sub-name')) { const s = subList().find(x => x.id === e.target.dataset.id); if (s) { s.name = e.target.value.trim().slice(0, 40) || s.name; s.named = true; save(); render(); } } });
 
-// Раздел настроек «Другие календари»
+// Раздел настроек «Другие календари» (переделано 25 ноября 2026: «мне всё ещё не понятно, как импортировать, с айфона так уж точно»):
+// сверху — «Показать здесь» / «Отправить туда», дальше — где календарь (iPhone / Google / Яндекс / Outlook) и шаги для телефона или ПК
+const SYNC_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let syncTab = 'in', syncSrc = SYNC_IOS ? 'ios' : 'google';
+const SYNC_SRC = [['ios', 'iPhone'], ['google', 'Google'], ['yandex', 'Яндекс'], ['outlook', 'Outlook']];
+ACT.syntab = el => { syncTab = el.dataset.k; render(); };
+ACT.synsrc = el => { syncSrc = el.dataset.k; render(); };
+ACT.subpaste = async () => {
+  const i = $('#sub_url'); if (!i) return;
+  try { const t = ((navigator.clipboard && await navigator.clipboard.readText()) || '').trim(); if (!t) return toast('В буфере пусто — сначала скопируйте ссылку'); i.value = t; toast('Ссылка вставлена — нажмите «Добавить»'); }
+  catch (e) { i.focus(); toast('Не получилось — нажмите на поле и выберите «Вставить»'); }
+};
+// Шаги: in — откуда взять ссылку, out — куда вставить свою. ph — телефон (там Google, Яндекс и Outlook — только через «версию для ПК» в браузере)
+function syncSteps(k, dir, ph) {
+  const pcv = ph ? ['В адресной строке нажмите «аА» → «Запросить настольный веб-сайт» (на Android — «⋮» → «Версия для ПК»).'] : [];
+  const back = ph ? 'Вернитесь в Parsimony → «Вставить» → «Добавить».' : 'Вставьте ссылку в поле ниже → «Добавить».';
+  const open = (site, app) => ph ? `Откройте ${site} в Safari или Chrome${app ? ' (в приложении ' + app + ' этой настройки нет)' : ''} и войдите.` : `Откройте ${site}.`;
+  if (dir === 'in') return {
+    ios: { li: [ph ? 'Откройте приложение «Календарь» и внизу нажмите «Календари».' : 'На iPhone откройте приложение «Календарь» и внизу нажмите «Календари».',
+        'Нажмите ⓘ справа от нужного календаря (в списке iCloud).', 'Пролистайте вниз и включите «Публичный календарь».', 'Нажмите «Поделиться ссылкой…» → «Скопировать».',
+        ph ? back : 'Перешлите ссылку себе на компьютер или откройте Parsimony на iPhone → «Вставить» → «Добавить».'],
+      note: 'Нет «Публичного календаря»? Значит, календарь не из iCloud: если он из Google — нажмите «Google» выше; календари «На iPhone» поделиться не дают. Ссылку никто не угадает, но тот, у кого она есть, видит события.' },
+    google: { li: [open('calendar.google.com', 'Google Календарь'), ...pcv,
+        ph ? 'Шестерёнка ⚙ вверху → «Настройки» → слева, в «Настройки моих календарей», выберите календарь.' : 'Слева, в «Мои календари», наведите на календарь → «⋮» → «Настройки и общий доступ».',
+        'Внизу, в «Интеграция календаря», скопируйте «Секретный адрес в формате iCal».', back],
+      note: 'Нужен именно «Секретный адрес» — «Общедоступный» работает, только если календарь открыт всем.' },
+    yandex: { li: [open('calendar.yandex.ru', 'Яндекс Календарь'), ...pcv,
+        'Слева наведите на нужный календарь (на телефоне — нажмите на него) → шестерёнка «Настроить».', 'Найдите «Экспорт», выберите формат iCal → «Скопировать».', back] },
+    outlook: { li: [open('outlook.live.com', 'Outlook'), ...pcv, 'Шестерёнка ⚙ → «Календарь» → «Общие календари».',
+        'В «Опубликовать календарь» выберите календарь и «Может просматривать все сведения» → «Опубликовать».', 'Скопируйте ссылку ICS.', back] } }[k];
+  const copy = 'Нажмите «Скопировать» выше.';
+  return {
+    ios: { li: [ph ? 'Нажмите кнопку «Календарь iPhone» выше.' : 'Откройте эту страницу на iPhone и нажмите «Календарь iPhone» выше.', 'iPhone спросит «Подписаться на календарь?» → «Подписаться» → «Готово».', 'События появятся в Календаре iPhone отдельным календарём.'],
+      note: 'Кнопка не сработала? Скопируйте ссылку → Настройки iPhone → «Календарь» → «Учётные записи» → «Новая учётная запись» → «Другое» → «Подписной календарь» → вставьте ссылку.' },
+    google: { li: [copy, open('calendar.google.com', 'Google Календарь'), ...pcv, 'Слева у «Другие календари» нажмите «+» → «Добавить по URL».', 'Вставьте ссылку → «Добавить календарь».'],
+      note: 'Календарь появится и в приложении Google на телефоне. Google обновляет его сам раз в несколько часов.' },
+    yandex: { li: [copy, open('calendar.yandex.ru', 'Яндекс Календарь'), ...pcv, 'Слева нажмите «Новая подписка».', 'Вставьте ссылку, выберите цвет → «Создать».'] },
+    outlook: { li: [copy, open('outlook.live.com', 'Outlook'), ...pcv, 'В календаре нажмите «Добавить календарь» → «Подписаться из Интернета».', 'Вставьте ссылку, придумайте название → «Импорт».'] } }[k];
+}
+function syncHowHTML(dir) {
+  const ph = SYNC_IOS || innerWidth < 900, st = syncSteps(syncSrc, dir, ph);
+  return `<div class="set-sec sm">${dir === 'in' ? 'Где сейчас ваш календарь?' : 'Куда отправить?'}</div>
+    <div class="seg2 sync-src" role="group" aria-label="Календарь">${SYNC_SRC.map(([k, n]) => `<button class="${syncSrc === k ? 'on' : ''}" data-act="synsrc" data-k="${k}" aria-pressed="${syncSrc === k}">${n}</button>`).join('')}</div>
+    <ol class="sync-steps">${st.li.map(x => `<li>${esc(x)}</li>`).join('')}</ol>${st.note ? `<p class="set-note">${esc(st.note)}</p>` : ''}`;
+}
 function syncSetHTML() {
   if (!signedIn()) return `<div class="set-sec">Другие календари</div><p class="set-note">Связь с Google, Яндексом и iPhone работает с аккаунтом — войдите по почте.</p><button class="btn pri" style="width:100%" data-act="login">${I(IC.user, 16)} Войти</button>`;
   if (feedTok === undefined) feedLoad();
+  const tabs = `<div class="set-sec">Другие календари</div>
+    <div class="seg2 sync-tab" role="group" aria-label="Что сделать">${[['in', 'Показать здесь'], ['out', 'Отправить туда']].map(([k, n]) => `<button class="${syncTab === k ? 'on' : ''}" data-act="syntab" data-k="${k}" aria-pressed="${syncTab === k}">${n}</button>`).join('')}</div>`;
+  if (syncTab === 'in') {
+    const subs = subList(), ago = at => { const m = Math.round((Date.now() - at) / 60000); return m < 1 ? 'только что' : m < 60 ? plural(m, ['минуту', 'минуты', 'минут']) + ' назад' : m < 1440 ? plural(Math.round(m / 60), ['час', 'часа', 'часов']) + ' назад' : 'давно'; };
+    const rows = subs.map(s => { const c = subCache[s.id] || {};
+      return `<div class="sub-row" style="--c:${safeColor(s.color)}"><i class="ext-dot"></i><div class="sub-t"><input class="sub-name" data-id="${esc(s.id)}" value="${esc(s.name || '')}" maxlength="40" aria-label="Название календаря">
+        <small>${c.err ? '⚠ ' + esc(c.err) : c.at ? plural(c.n || 0, ['событие', 'события', 'событий']) + ' · ' + ago(c.at) : 'ещё не загружен'}</small></div>
+        <input class="sw" type="checkbox" data-act="subtog" data-id="${esc(s.id)}"${s.off ? '' : ' checked'} aria-label="Показывать «${esc(s.name || '')}»">
+        <button class="ic" data-act="subupd" data-id="${esc(s.id)}" title="Обновить" aria-label="Обновить «${esc(s.name || '')}»">${I(IC.undo, 16)}</button>
+        <button class="ic dng" data-act="subdel" data-id="${esc(s.id)}" title="Убрать" aria-label="Убрать «${esc(s.name || '')}»">${I(IC.trash, 16)}</button></div>`; }).join('');
+    return tabs + `<p class="set-note">Встречи из календаря iPhone, Google, Яндекса или Outlook появятся в Parsimony отдельным цветом — только посмотреть, обновляются сами раз в полчаса.</p>
+      ${rows}
+      ${subs.length < SUB_MAX ? syncHowHTML('in') + `<div class="sub-add"><input id="sub_url" class="fin" type="url" inputmode="url" placeholder="Ссылка на календарь" aria-label="Ссылка на календарь" autocomplete="off"><button class="btn" data-act="subpaste">${I(IC.copy, 15)} Вставить</button></div>
+        <button class="btn pri sub-go" data-act="subadd">Добавить</button>` : '<p class="set-note">Добавлено ' + SUB_MAX + ' календарей — больше нельзя.</p>'}`;
+  }
   const f = S.settings.feed || {}, inFeed = id => !(f.cats && f.cats.length) || f.cats.includes(id);
   const feed = feedTok === 'nosql' ? '<p class="set-note">Ссылки ещё не включены на сервере — скоро заработают.</p>'
     : feedTok === undefined ? '<p class="set-note">Проверяю…</p>'
-    : !feedTok ? `<button class="btn pri" style="width:100%" data-act="feednew">${I(IC.link, 16)} Создать ссылку</button>`
+    : !feedTok ? `<p class="set-note">Сначала создайте ссылку на ваш календарь — её вы добавите в другой календарь.</p><button class="btn pri" style="width:100%" data-act="feednew">${I(IC.link, 16)} Создать ссылку</button>`
     : `<div class="feed-link"><input class="fin" readonly value="${esc(feedLink(feedTok))}" aria-label="Ссылка на ваш календарь" id="feed_url"></div>
       <div class="feed-btns"><button class="btn pri" data-act="feedcopy">${I(IC.copy, 15)} Скопировать</button><a class="btn" href="${esc(feedLink(feedTok, true))}">${I(IC.cal, 15)} Календарь iPhone</a></div>
-      <p class="set-note">Скопируйте ссылку и добавьте её в свой календарь — по шагам:</p>
-      <details class="sync-how"><summary>Google Календарь</summary><ol><li>На компьютере откройте calendar.google.com (в приложении на телефоне такой настройки нет).</li><li>Слева у «Другие календари» нажмите «+» → «Добавить по URL».</li><li>Вставьте ссылку → «Добавить календарь». Google обновляет его раз в несколько часов.</li></ol></details><details class="sync-how"><summary>Яндекс Календарь</summary><ol><li>Откройте calendar.yandex.ru.</li><li>Слева нажмите «Новая подписка».</li><li>Вставьте ссылку, выберите цвет → «Создать».</li></ol></details><details class="sync-how"><summary>Календарь iPhone</summary><ol><li>Нажмите кнопку «Календарь iPhone» выше → «Подписаться».</li><li>Или вручную: Настройки → Календарь → Учётные записи → Новая → Другое → «Подписной календарь» → вставьте ссылку.</li></ol></details>
+      ${syncHowHTML('out')}
       <p class="set-note">Ссылка секретная: у кого она есть, тот видит ваши события. Утекла — «Новая ссылка».</p>
       <div class="set-sec sm">Какие календари попадают</div>
       <div class="chips">${S.cats.map(c => `<button type="button" class="chip${inFeed(c.id) ? ' on' : ''}" data-act="feedcat" data-id="${esc(c.id)}" aria-pressed="${inFeed(c.id)}" style="--c:${safeColor(c.color)}"><i class="ext-dot"></i>${esc(c.name)}</button>`).join('')}</div>
       <div class="set-row"><span>С заметками<small>видят все, у кого есть ссылка</small></span><input id="s_feednotes" class="sw" type="checkbox"${f.notes ? ' checked' : ''}></div>
       <div class="feed-btns"><button class="btn" data-act="feednew">Новая ссылка</button><button class="btn dng" data-act="feedoff">Выключить</button></div>`;
-  const subs = subList(), ago = at => { const m = Math.round((Date.now() - at) / 60000); return m < 1 ? 'только что' : m < 60 ? plural(m, ['минуту', 'минуты', 'минут']) + ' назад' : m < 1440 ? plural(Math.round(m / 60), ['час', 'часа', 'часов']) + ' назад' : 'давно'; };
-  const rows = subs.map(s => { const c = subCache[s.id] || {};
-    return `<div class="sub-row" style="--c:${safeColor(s.color)}"><i class="ext-dot"></i><div class="sub-t"><input class="sub-name" data-id="${esc(s.id)}" value="${esc(s.name || '')}" maxlength="40" aria-label="Название календаря">
-      <small>${c.err ? '⚠ ' + esc(c.err) : c.at ? plural(c.n || 0, ['событие', 'события', 'событий']) + ' · ' + ago(c.at) : 'ещё не загружен'}</small></div>
-      <input class="sw" type="checkbox" data-act="subtog" data-id="${esc(s.id)}"${s.off ? '' : ' checked'} aria-label="Показывать «${esc(s.name || '')}»">
-      <button class="ic" data-act="subupd" data-id="${esc(s.id)}" title="Обновить" aria-label="Обновить «${esc(s.name || '')}»">${I(IC.undo, 16)}</button>
-      <button class="ic dng" data-act="subdel" data-id="${esc(s.id)}" title="Убрать" aria-label="Убрать «${esc(s.name || '')}»">${I(IC.trash, 16)}</button></div>`; }).join('');
-  return `<div class="set-sec">Ваши события → в Google, Яндекс, iPhone</div>
-    <p class="set-note">Ваши события будут видны в Google Календаре, Яндекс Календаре и Календаре iPhone. Меняйте их здесь — там они обновятся сами.</p>
-    ${feed}
-    <div class="set-sec">Календари из Google, Яндекса, iCloud → сюда</div>
-    <p class="set-note">Встречи из Google, Яндекса или iCloud появятся отдельным календарём — только для просмотра, обновляются раз в полчаса.</p>
-    ${rows}
-    ${subs.length < SUB_MAX ? `<div class="sub-add"><input id="sub_url" class="fin" type="url" inputmode="url" placeholder="Ссылка на календарь (.ics)" aria-label="Ссылка на календарь" autocomplete="off"><button class="btn pri" data-act="subadd">Добавить</button></div>` : ''}
-    <p class="set-note">${subs.length ? "Где взять ссылку на ещё один календарь:" : "Как добавить: возьмите ссылку на календарь в Google, Яндексе или iCloud, вставьте её в поле выше и нажмите «Добавить». Где её взять:"}</p>
-    <details class="sync-how"><summary>Из Google Календаря</summary><ol><li>На компьютере откройте calendar.google.com (в приложении на телефоне такой настройки нет).</li><li>Слева наведите на нужный календарь → «⋮» → «Настройки и общий доступ».</li><li>Внизу, в «Интеграция календаря», скопируйте «Секретный адрес в формате iCal».</li></ol></details><details class="sync-how"><summary>Из Яндекс Календаря</summary><ol><li>Откройте calendar.yandex.ru.</li><li>Слева наведите на нужный календарь → шестерёнка (настройки).</li><li>Вкладка «Экспорт» → формат iCal → скопируйте ссылку.</li></ol></details><details class="sync-how"><summary>Из iCloud (Календарь iPhone)</summary><ol><li>В Календаре iPhone внизу нажмите «Календари».</li><li>Нажмите «i» у нужного календаря → включите «Публичный календарь».</li><li>«Поделиться ссылкой» → «Скопировать».</li></ol></details>`;
+  return tabs + `<p class="set-note">Ваши события из Parsimony будут видны в календаре iPhone, Google, Яндекса или Outlook. Меняйте их здесь — там они обновятся сами.</p>${feed}`;
 }

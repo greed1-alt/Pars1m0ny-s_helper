@@ -1501,3 +1501,8 @@ html.bgated .app,html.bgated #tabbar,html.bgated #tinv{visibility:hidden}
 .sub-row .ic.dng{color:var(--dng)}
 .sub-add{display:flex;gap:8px;margin-top:10px}.sub-add .fin{flex:1;min-width:0}
 .ext-ev .set-row b{font-weight:600;text-align:right}
+/* «Другие календари»: вкладки «Показать здесь / Отправить туда», откуда календарь и шаги (25 ноября 2026) */
+.sync-tab,.sync-src{width:100%;margin:6px 0 4px}.sync-tab button,.sync-src button{flex:1;min-width:0;padding:0 4px}
+.sync-steps{margin:10px 0 6px;padding-left:22px;display:flex;flex-direction:column;gap:7px;font-size:14px;line-height:1.45;color:var(--tx)}
+.sync-steps li::marker{color:var(--acc);font-weight:700}
+.sub-go{width:100%;margin-top:8px}
