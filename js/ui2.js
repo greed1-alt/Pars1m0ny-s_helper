@@ -289,7 +289,7 @@ function planRow(e, t, nx, nm) {
   const past = e.time && evEndMin(e) <= nm, pr = e.task ? prioOf(e) : '', next = nx && nx.k === t && nx.e.id === e.id;
   return `<div class="pl-row${e.time ? '' : ' nt'}${e.done ? ' done' : ''}${past && !e.done ? ' past' : ''}${next ? ' next' : ''}" style="--c:${cat(e.cat).color}">
       <span class="pl-tm">${e.time ? `<b>${esc(e.time)}</b>${e.time2 ? `<small>${esc(e.time2)}</small>` : ''}` : ''}</span>
-      <button class="chk" data-act="toggle" data-id="${e.id}" data-d="${t}" aria-label="Выполнено">${e.done ? I(IC.check, 14) : ''}</button>
+      ${e.ro ? `<span class="chk ro" title="${esc(cat(e.cat).name)} — другой календарь" aria-hidden="true"></span>` : `<button class="chk" data-act="toggle" data-id="${e.id}" data-d="${t}" aria-label="Выполнено">${e.done ? I(IC.check, 14) : ''}</button>`}
       <button class="pl-main" data-act="edit" data-id="${e.id}" data-d="${t}"><span class="pl-t">${homeTight ? `<i class="pl-dot" title="${esc(cat(e.cat).name)}"></i>` : ''}${esc(e.title)}</span>${(m => m ? `<span class="pl-m">${m}</span>` : '')(`${next ? `<em class="pl-next">${esc(nx.label)}</em>` : ''}${homeTight ? '' : catTag(e.cat)}${goalTag(e)}${pr === 'urgent' || pr === 'high' ? pbadge(pr) : ''}${e.rec ? '<span class="pl-rep" title="Повторяется">↻</span>' : ''}${e.loc ? `<span class="pl-loc">${esc(e.loc)}</span>` : ''}`)}</button></div>`;
 }
 function homePlan(t) {
@@ -336,7 +336,7 @@ const homeNotes = () => { const last = notesOf('')[0]; return `<textarea id="hm_
 
 // Блок Главной: сводка для заголовка и содержимое. def — открыт ли свёрнутый блок по умолчанию (цели — когда они есть)
 function homeBlockDef(k, t) {
-  if (k === 'plan') { const all = evOn(t), dn = all.filter(e => e.done).length; return { sum: all.length ? dn + ' из ' + all.length : 'пусто', body: () => homePlan(t) }; }
+  if (k === 'plan') { const all = evOn(t).filter(e => !e.ro), dn = all.filter(e => e.done).length; return { sum: all.length ? dn + ' из ' + all.length : 'пусто', body: () => homePlan(t) }; }
   if (k === 'habits') { const h = todayHabs(t); return { sum: h.length ? h.filter(x => x.log[t]).length + ' из ' + h.length : 'нет привычек', body: () => homeHabits(t) }; }
   if (k === 'money') { const ym = ymOf(t), st = finStat(ym), lim = dailyLimit(st, ym); return { sum: lim ? 'можно ' + rub0(Math.max(0, lim.left)) : 'за месяц ' + rub0(st.spent), body: () => homeMoney(t) }; }
   if (k === 'bio') { const M = S.bio.metrics, f = M.filter(m => bioVal(t, m.id) != null).length; return { sum: f ? `сегодня ${f} из ${M.length}` : 'как вы сегодня?', body: () => homeBio(t) }; }
@@ -381,7 +381,7 @@ function homeHeroHTML(t) {
 // и блока «Деньги». Нажатие — в раздел. Выключенный раздел — без своего числа
 function homeSumHTML(t) {
   const c = [];
-  if (secOn('tasks') || secOn('cal')) { const a = evOn(t); c.push([secOn('tasks') ? 'tasks' : 'cal', 'Дела', a.length ? a.filter(e => e.done).length + ' из ' + a.length : 'пусто']); }
+  if (secOn('tasks') || secOn('cal')) { const a = evOn(t).filter(e => !e.ro); c.push([secOn('tasks') ? 'tasks' : 'cal', 'Дела', a.length ? a.filter(e => e.done).length + ' из ' + a.length : 'пусто']); }
   if (secOn('habits')) { const h = todayHabs(t); c.push(['habits', 'Привычки', h.length ? h.filter(x => x.log[t]).length + ' из ' + h.length : 'нет']); }
   if (secOn('fin')) { const ym = ymOf(t), st = finStat(ym), lim = dailyLimit(st, ym), sp = st.ops.filter(o => o.date === t && FG_OUT.includes(fcat(o.cat).g)).reduce((a, o) => a + o.amt, 0);
     c.push(['fin', lim ? (lim.left < 0 ? 'Сверх лимита' : 'Можно потратить') : 'Потрачено сегодня', lim ? rub0(Math.abs(lim.left)) : rub0(sp), lim && lim.left < 0]); }

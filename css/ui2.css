@@ -1485,3 +1485,19 @@ html.bgated .app,html.bgated #tabbar,html.bgated #tinv{visibility:hidden}
 @keyframes hmFade{from{opacity:0}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){#hm,#hmb{animation:none}}
 @media (min-width:900px){.hm-i{min-height:36px;font-size:14px}#hm{min-width:210px}}
+
+/* Другие календари (25 ноября 2026, js/sync.js): ссылка-подписка и календари по ссылке; события из них — без галочки (.ro) */
+.ext-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);flex:none;vertical-align:middle;margin-right:6px}
+.t3-ck.ro,.chk.ro{background:color-mix(in srgb,var(--pc,var(--c)) 22%,transparent);border-style:dashed;border-color:color-mix(in srgb,var(--pc,var(--c)) 70%,transparent);cursor:default}
+.feed-link .fin{width:100%;font-size:13px;color:var(--tx2)}
+.feed-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.feed-btns>*{flex:1 1 auto;justify-content:center}
+.sync-how{margin:10px 0 4px;font-size:13.5px;color:var(--tx2)}.sync-how summary{cursor:pointer;font-weight:600;color:var(--tx)}
+.sync-how ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px;line-height:1.45}
+.set-sec.sm{font-size:12px;margin-top:12px}
+.sub-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.sub-t{flex:1;min-width:0;display:flex;flex-direction:column}
+.sub-name{border:0;background:none;font:inherit;font-weight:600;font-size:15px;color:var(--tx);padding:2px 0;min-width:0}
+.sub-t small{font-size:12px;color:var(--mut)}
+.sub-row .ic.dng{color:var(--dng)}
+.sub-add{display:flex;gap:8px;margin-top:10px}.sub-add .fin{flex:1;min-width:0}
+.ext-ev .set-row b{font-weight:600;text-align:right}

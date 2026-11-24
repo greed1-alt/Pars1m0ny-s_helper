@@ -171,7 +171,8 @@ const relDay = s => { const n = dayDiff(todayK(), s); return n === 0 ? 'сего
 const timeMin = t => { if (!t) return null; const [h,m] = t.split(':').map(Number); return isNaN(h) ? null : h*60 + (m||0); };
 const fmtMin = m => m >= 1440 ? '23:59' : String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
 const durText = n => n < 60 ? n + ' мин' : Math.floor(n/60) + ' ч' + (n % 60 ? ' ' + n % 60 + ' мин' : '');
-const cat = id => S.cats.find(c => c.id === id) || {name:'Без категории', color:'#94a3b8'};
+// «sub:<id>» — календарь по ссылке из Google / Яндекса / iCloud (js/sync.js, только для просмотра)
+const cat = id => S.cats.find(c => c.id === id) || (typeof id === 'string' && id.startsWith('sub:') && typeof subCat === 'function' && subCat(id.slice(4))) || {name:'Без категории', color:'#94a3b8'};
 const validCat = id => S.cats.some(c => c.id === id) ? id : (S.cats[0] && S.cats[0].id);
 const timeRange = e => e.time ? (e.time2 ? esc(e.time) + '–' + esc(e.time2) : esc(e.time)) : '';
 const startH = () => Math.max(0, Math.min(12, Number(S.settings.dayStart) || 0));
@@ -202,8 +203,9 @@ const repText = e => { if (!isRec(e)) return ''; const r = e.repeat;
 const isDone = (e, k) => isRec(e) ? (e.doneDates||[]).includes(k) : !!e.done;
 function evOn(k) {
   if (evCache.has(k)) return evCache.get(k);
-  const list = S.events.filter(e => !hiddenCats.has(e.cat) && occurs(e, k))
-    .map(e => Object.assign({}, e, { date:k, done:isDone(e, k), rec:isRec(e) }))
+  const ext = typeof extOn === 'function' ? extOn(k) : [];   // события других календарей (js/sync.js): только посмотреть, e.ro
+  const list = [...S.events.filter(e => !hiddenCats.has(e.cat) && occurs(e, k)), ...ext]
+    .map(e => Object.assign({}, e, { date:k, done:!e.ro && isDone(e, k), rec:isRec(e) }))
     .sort((a,b) => (a.time||'').localeCompare(b.time||'') || a.title.localeCompare(b.title));
   evCache.set(k, list);
   return list;

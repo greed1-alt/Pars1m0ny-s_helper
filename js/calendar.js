@@ -48,7 +48,7 @@ function cdRow(e, k, nx, nm) {
   const meta = next ? `<span class="t3-meta now" title="${esc(nx.label)}">${cdSoon(e, nm)}</span>` : e.loc ? `<span class="t3-meta cd-loc">${esc(e.loc)}</span>` : '';
   return `<div class="t3-row cd-row${e.done ? ' done' : ''}${next ? ' next' : ''}${past && !e.done ? ' past' : ''}${pr === 'urgent' || pr === 'high' ? ' p-' + pr : ''}" style="--c:${c.color}">
     ${e.time ? `<span class="cd-tm" title="${esc(c.name)}"><b>${esc(e.time)}</b>${e.time2 ? `<small>${esc(e.time2)}</small>` : ''}</span>` : ''}
-    <button class="t3-ck" data-act="toggle" data-id="${e.id}" data-d="${k}" style="--pc:${pr ? t3Ring(pr) : 'var(--mut)'}" aria-label="${e.done ? 'Снять отметку' : 'Выполнено'}">${e.done ? I(IC.check, 12) : ''}</button>
+    ${e.ro ? `<span class="t3-ck ro" style="--pc:${c.color}" title="${esc(c.name)} — другой календарь" aria-hidden="true"></span>` : `<button class="t3-ck" data-act="toggle" data-id="${e.id}" data-d="${k}" style="--pc:${pr ? t3Ring(pr) : 'var(--mut)'}" aria-label="${e.done ? 'Снять отметку' : 'Выполнено'}">${e.done ? I(IC.check, 12) : ''}</button>`}
     <button class="t3-main" data-act="edit" data-id="${e.id}" data-d="${k}">${e.time ? '' : `<i class="t3-dot" style="background:${c.color}" title="${esc(c.name)}"></i>`}<span class="t3-t">${esc(e.title)}</span>${e.rec ? '<i class="t3-rep" title="Повторяется">↻</i>' : ''}${goalTag(e)}</button>
     ${meta}</div>`;
 }
@@ -508,6 +508,7 @@ function nlHint(p, id) {
 }
 
 function openEvent(id, preset, instDate) {
+  if (typeof id === 'string' && id.startsWith('x:')) return openExt(id, instDate);   // из другого календаря — только посмотреть (sync.js)
   closeQuick(); mapDrop();
   const p = preset || {};
   const src = id ? S.events.find(x => x.id === id) : null;
