@@ -176,6 +176,12 @@ document.addEventListener('input', e => {
     if (p.cat) { q.cat = p.cat; $$('#q_cats .ccat').forEach(b => b.classList.toggle('on', b.dataset.id === p.cat)); }
     nlHint(p, '#q_hint');
   }
+  // Время в быстром окошке поменяли руками — запомнить: иначе следующая буква в названии возвращала время к начальному (24 ноября 2026: «записываю 9:15–18:15, а делается на час»)
+  else if ((t.id === 'q_tm' || t.id === 'q_tm2') && window._qc) {
+    const q = window._qc, a = timeMin($('#q_tm').value), b = timeMin($('#q_tm2').value);
+    if (t.id === 'q_tm' && a != null && (b == null || b <= a)) $('#q_tm2').value = fmtMin(Math.min(1439, a + 60));   // конец раньше начала — час после начала, как в карточке
+    q.t1 = $('#q_tm').value; q.t2 = $('#q_tm2').value;
+  }
   else if (t.id === 'f_t' && !window._fe.nlOff) {
     const p = parseNL(t.value, window._fe.base || sel); window._fe.nl = p;   // от даты, на которую открыли событие
     if (p.date) { $('#f_d').value = p.date; syncRepDays(); }
