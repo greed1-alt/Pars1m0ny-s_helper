@@ -1492,7 +1492,7 @@ html.bgated .app,html.bgated #tabbar,html.bgated #tinv{visibility:hidden}
 .feed-link .fin{width:100%;font-size:13px;color:var(--tx2)}
 .feed-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.feed-btns>*{flex:1 1 auto;justify-content:center}
 .sync-how{margin:10px 0 4px;font-size:13.5px;color:var(--tx2)}.sync-how summary{cursor:pointer;font-weight:600;color:var(--tx)}
-.sync-how ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px;line-height:1.45}
+.sync-how :is(ul,ol){margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;line-height:1.45}
 .set-sec.sm{font-size:12px;margin-top:12px}
 .sub-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
 .sub-t{flex:1;min-width:0;display:flex;flex-direction:column}

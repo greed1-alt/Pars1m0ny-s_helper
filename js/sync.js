@@ -149,10 +149,9 @@ function syncSetHTML() {
     : !feedTok ? `<button class="btn pri" style="width:100%" data-act="feednew">${I(IC.link, 16)} Создать ссылку</button>`
     : `<div class="feed-link"><input class="fin" readonly value="${esc(feedLink(feedTok))}" aria-label="Ссылка на ваш календарь" id="feed_url"></div>
       <div class="feed-btns"><button class="btn pri" data-act="feedcopy">${I(IC.copy, 15)} Скопировать</button><a class="btn" href="${esc(feedLink(feedTok, true))}">${I(IC.cal, 15)} Календарь iPhone</a></div>
-      <details class="sync-how"><summary>Как добавить</summary><ul>
-        <li><b>Google Календарь</b> (на компьютере): слева «Другие календари» → «+» → «Добавить по URL» → вставьте ссылку. Google обновляет раз в несколько часов.</li>
-        <li><b>Яндекс Календарь</b>: слева «Подписаться на календарь» (или «+» → «Подписка») → вставьте ссылку.</li>
-        <li><b>iPhone</b>: кнопка «Календарь iPhone» выше — или Настройки → Календарь → Учётные записи → Новая → Другое → «Подписной календарь».</li></ul></details>
+      <p class="set-note">Скопируйте ссылку и добавьте её в свой календарь — по шагам:</p>
+      <details class="sync-how"><summary>Google Календарь</summary><ol><li>На компьютере откройте calendar.google.com (в приложении на телефоне такой настройки нет).</li><li>Слева у «Другие календари» нажмите «+» → «Добавить по URL».</li><li>Вставьте ссылку → «Добавить календарь». Google обновляет его раз в несколько часов.</li></ol></details><details class="sync-how"><summary>Яндекс Календарь</summary><ol><li>Откройте calendar.yandex.ru.</li><li>Слева нажмите «Новая подписка».</li><li>Вставьте ссылку, выберите цвет → «Создать».</li></ol></details><details class="sync-how"><summary>Календарь iPhone</summary><ol><li>Нажмите кнопку «Календарь iPhone» выше → «Подписаться».</li><li>Или вручную: Настройки → Календарь → Учётные записи → Новая → Другое → «Подписной календарь» → вставьте ссылку.</li></ol></details>
+      <p class="set-note">Ссылка секретная: у кого она есть, тот видит ваши события. Утекла — «Новая ссылка».</p>
       <div class="set-sec sm">Какие календари попадают</div>
       <div class="chips">${S.cats.map(c => `<button type="button" class="chip${inFeed(c.id) ? ' on' : ''}" data-act="feedcat" data-id="${esc(c.id)}" aria-pressed="${inFeed(c.id)}" style="--c:${safeColor(c.color)}"><i class="ext-dot"></i>${esc(c.name)}</button>`).join('')}</div>
       <div class="set-row"><span>С заметками<small>видят все, у кого есть ссылка</small></span><input id="s_feednotes" class="sw" type="checkbox"${f.notes ? ' checked' : ''}></div>
@@ -164,15 +163,13 @@ function syncSetHTML() {
       <input class="sw" type="checkbox" data-act="subtog" data-id="${esc(s.id)}"${s.off ? '' : ' checked'} aria-label="Показывать «${esc(s.name || '')}»">
       <button class="ic" data-act="subupd" data-id="${esc(s.id)}" title="Обновить" aria-label="Обновить «${esc(s.name || '')}»">${I(IC.undo, 16)}</button>
       <button class="ic dng" data-act="subdel" data-id="${esc(s.id)}" title="Убрать" aria-label="Убрать «${esc(s.name || '')}»">${I(IC.trash, 16)}</button></div>`; }).join('');
-  return `<div class="set-sec">Parsimony в других календарях</div>
+  return `<div class="set-sec">Ваши события → в Google, Яндекс, iPhone</div>
     <p class="set-note">Ваши события будут видны в Google Календаре, Яндекс Календаре и Календаре iPhone. Меняйте их здесь — там они обновятся сами.</p>
     ${feed}
-    <div class="set-sec">Другие календари в Parsimony</div>
+    <div class="set-sec">Календари из Google, Яндекса, iCloud → сюда</div>
     <p class="set-note">Встречи из Google, Яндекса или iCloud появятся отдельным календарём — только для просмотра, обновляются раз в полчаса.</p>
     ${rows}
     ${subs.length < SUB_MAX ? `<div class="sub-add"><input id="sub_url" class="fin" type="url" inputmode="url" placeholder="Ссылка на календарь (.ics)" aria-label="Ссылка на календарь" autocomplete="off"><button class="btn pri" data-act="subadd">Добавить</button></div>` : ''}
-    <details class="sync-how"><summary>Где взять ссылку</summary><ul>
-      <li><b>Google</b>: настройки календаря → «Интеграция календаря» → «Секретный адрес в формате iCal».</li>
-      <li><b>Яндекс</b>: настройки календаря (шестерёнка у его названия) → «Экспорт» → ссылка в формате ICS.</li>
-      <li><b>iCloud</b>: в Календаре iPhone — значок «i» у календаря → «Публичный календарь» → «Поделиться ссылкой».</li></ul></details>`;
+    <p class="set-note">${subs.length ? "Где взять ссылку на ещё один календарь:" : "Как добавить: возьмите ссылку на календарь в Google, Яндексе или iCloud, вставьте её в поле выше и нажмите «Добавить». Где её взять:"}</p>
+    <details class="sync-how"><summary>Из Google Календаря</summary><ol><li>На компьютере откройте calendar.google.com (в приложении на телефоне такой настройки нет).</li><li>Слева наведите на нужный календарь → «⋮» → «Настройки и общий доступ».</li><li>Внизу, в «Интеграция календаря», скопируйте «Секретный адрес в формате iCal».</li></ol></details><details class="sync-how"><summary>Из Яндекс Календаря</summary><ol><li>Откройте calendar.yandex.ru.</li><li>Слева наведите на нужный календарь → шестерёнка (настройки).</li><li>Вкладка «Экспорт» → формат iCal → скопируйте ссылку.</li></ol></details><details class="sync-how"><summary>Из iCloud (Календарь iPhone)</summary><ol><li>В Календаре iPhone внизу нажмите «Календари».</li><li>Нажмите «i» у нужного календаря → включите «Публичный календарь».</li><li>«Поделиться ссылкой» → «Скопировать».</li></ol></details>`;
 }
