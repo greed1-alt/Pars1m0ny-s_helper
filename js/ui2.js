@@ -298,8 +298,8 @@ function homePlan(t) {
   const MAX = 8, tShow = timed.slice(0, MAX), uShow = untimed.slice(0, Math.max(3, MAX - tShow.length)), rest = all.length - tShow.length - uShow.length;
   const row = e => planRow(e, t, nx, nm);
   const tm = evOn(addDays(t, 1)).length;
-  // Телефон: сделанное — одной строкой «Сделано: N ▾» (вариант 3, 23 ноября 2026), раскрывается до перезапуска
-  const dn = homeTight ? all.filter(e => e.done).length : 0, hideDone = dn && !hmDoneOpen, vis = l => hideDone ? l.filter(e => !e.done) : l;
+  // Сделанное — одной строкой «Сделано: N ▾» (телефон — вариант 3, 23 ноября 2026; ПК — с 24 ноября 2026, пункт 17 списка удобства), раскрывается до перезапуска
+  const dn = all.filter(e => e.done).length, hideDone = dn && !hmDoneOpen, vis = l => hideDone ? l.filter(e => !e.done) : l;
   const tV = vis(tShow), uV = vis(uShow);
   return `${all.length ? `${tV.length && uV.length ? '<div class="pl-sub">По времени</div>' : ''}${tV.map(row).join('')}
       ${uV.length && tV.length ? '<div class="pl-sub">Без времени</div>' : ''}${uV.map(row).join('')}${rest > 0 ? `<button class="hm-more" data-act="pick" data-d="${t}">Ещё ${plural(rest, NEV)} →</button>` : ''}
