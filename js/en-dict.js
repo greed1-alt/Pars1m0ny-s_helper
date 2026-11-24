@@ -2598,4 +2598,5 @@ const EN_DICT = {"* Открыть в Яндекс Картах":"* Open in Yand
 "*-е место — *, *":"#* — *, *",
 "Соревнуйтесь каждую неделю":"Compete every week",
 "Смотрите, когда друзья свободны":"See when friends are free",
-"Переписывайтесь и подбадривайте":"Chat and cheer each other on"};
+"Переписывайтесь и подбадривайте":"Chat and cheer each other on",
+"Вернуть «*»":"Restore “*”"};

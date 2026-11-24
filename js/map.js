@@ -31,7 +31,8 @@ function mapBar() {
   bar.innerHTML = (ya ? `<a class="pill sm f-ya" href="${esc(ya)}" target="_blank" rel="noopener">${I(IC.pin, 14)} Открыть в Яндекс Картах</a>` : '') + (open ? `<button type="button" class="pill sm" data-act="mapfind">${I(IC.search, 14)} Найти адрес</button><button type="button" class="pill sm" data-act="mapme">${I(IC.pin, 14)} Где я</button>` : '')
     + (g ? (open ? `<button type="button" class="pill sm" data-act="mapclr">Убрать точку</button>` : `<span class="f-geo">${I(IC.pin, 14)} Точка на карте</span>`)
       + `<a class="pill sm" href="https://www.google.com/maps/search/?api=1&query=${g[0]},${g[1]}" target="_blank" rel="noopener">Google</a>` : '')
-    + (open && !g ? `<span class="f-maptip">Нажмите на карту — там будет точка</span>` : '');
+    + (open && !g ? `<span class="f-maptip">Нажмите на карту — там будет точка</span>` : '')
+    + (fe.locPrev ? `<button type="button" class="pill sm" data-act="maplocback">${I(IC.undo, 14)} Вернуть «${esc(fe.locPrev.length > 24 ? fe.locPrev.slice(0, 23) + '…' : fe.locPrev)}»</button>` : '');
   bar.hidden = !bar.innerHTML;
   const b = $('#f_mapb'); if (b) { b.classList.toggle('on', !!g || open); b.setAttribute('aria-expanded', String(open)); }
 }
@@ -46,17 +47,22 @@ function mapPinSet() {
 function mapPut(g, addr) {
   const fe = window._fe; if (!fe || !geoOk(g)) return;
   fe.geo = [geoR(g[0]), geoR(g[1])]; mapPinSet(); mapBar();
-  const loc = $('#f_loc'); if (addr && loc && !loc.value.trim()) mapAddr(fe.geo);   // «Место» пустое — подписать адресом точки
+  // Точку выбрали сами (нажатие, перетаскивание, «Где я») — «Место» подписывается её адресом, даже если там уже что-то было (24 ноября 2026:
+  // «когда пытаюсь перевыбрать местоположение, занятое поле не даёт» — раньше подписывалось только пустое); свой текст можно вернуть кнопкой
+  const loc = $('#f_loc'); if (addr && loc) mapAddr(fe.geo, loc.value.trim(), fe.addrN = (fe.addrN || 0) + 1);
 }
-// Адрес точки: «улица, дом, город» (или название места)
-async function mapAddr(g) {
+// Адрес точки: «улица, дом, город» (или название места); was — что было в «Месте»: пока ищется адрес, его могли поменять руками — тогда не трогаем
+async function mapAddr(g, was = '', n = 0) {   // n — номер запроса: ответ на прежнюю точку (быстро нажали ещё раз) не пишем
   const fe = window._fe;   // пока ищется адрес, карточку могли закрыть и открыть другую — в неё чужой адрес не пишем
   try {
     const r = await fetch(`${NOMI}reverse?format=jsonv2&accept-language=ru&zoom=18&lat=${g[0]}&lon=${g[1]}`); if (!r.ok) return;
     const j = await r.json(), a = j.address || {}, road = a.road || a.pedestrian || a.footway || '';
     const s = [j.name && j.name !== road ? j.name : '', [road, a.house_number].filter(Boolean).join(', '), a.city || a.town || a.village || ''].filter(Boolean).join(', ')
       || String(j.display_name || '').split(', ').slice(0, 3).join(', ');
-    const loc = $('#f_loc'); if (window._fe === fe && loc && !loc.value.trim() && s) loc.value = s.slice(0, 120);
+    const loc = $('#f_loc'), nw = s.slice(0, 120), cur = loc ? loc.value.trim() : '';
+    if (window._fe !== fe || !loc || !nw || (n && n !== fe.addrN) || (cur !== was && cur !== fe.locAuto) || nw === cur) return;
+    if (cur && cur !== fe.locAuto) fe.locPrev = cur;   // свой текст — «Вернуть «…»» под картой
+    loc.value = fe.locAuto = nw; mapBar();
   } catch (e) {}
 }
 async function mapFind(quiet) {
@@ -94,5 +100,6 @@ ACT.mapme = () => {
   navigator.geolocation.getCurrentPosition(p => { mapPut([p.coords.latitude, p.coords.longitude], true); if (mapObj && window._fe.geo) mapObj.setView(window._fe.geo, 16); },
     () => toast('Нет доступа к местоположению — разрешите его в настройках телефона или браузера'), { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
 };
+ACT.maplocback = () => { const fe = window._fe, loc = $('#f_loc'); if (!fe || !loc || !fe.locPrev) return; loc.value = fe.locPrev; fe.locPrev = ''; fe.locAuto = ''; mapBar(); };
 ACT.mapclr = () => { const fe = window._fe; if (!fe) return; fe.geo = null; mapPinSet(); mapBar(); };
-document.addEventListener('input', e => { if (e.target.id === 'f_loc') mapBar(); });   // написали адрес — появилась кнопка «Открыть в Яндекс Картах»
+document.addEventListener('input', e => { if (e.target.id === 'f_loc') { if (window._fe) window._fe.locPrev = ''; mapBar(); } });   // написали адрес — появилась кнопка «Открыть в Яндекс Картах»
