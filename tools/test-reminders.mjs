@@ -196,9 +196,16 @@ const day = (k, o) => Object.assign({ id: 'd' + Math.random(), title: 'Дело'
   assert.equal(srv.nudgeCands(d1, at(k, '09:50')).filter(x => x.kind === 'late').length, 0, 'о просроченном — с 10:00');
   d1.settings.nudge = false; assert.equal(srv.nudgeCands(d1, at(k, '10:05')).length, 0, 'выключено в настройках — ничего');
   delete d1.settings.nudge; assert.equal(srv.nudgeCands(d1, at(k, '10:05')).length, 0, 'старая версия приложения (нет выключателя) — тихо'); d1.settings.nudge = true;
-  // цель отстаёт (с 14:00): прошло больше половины срока, шаг не сделан и просрочен
+  // цель отстаёт (с 14:00): шаг со своей датой просрочен
   const c2 = srv.nudgeCands(d1, at(k, '14:10')).find(x => x.kind === 'goal');
-  assert.ok(c2 && c2.id === 'g1' && /отстаёт: сделано 0 из 1/.test(c2.text), 'цель отстаёт: ' + (c2 && c2.text));
+  assert.ok(c2 && c2.id === 'g1' && /отстаёт: просрочен шаг «Грамматика»/.test(c2.text), 'цель отстаёт: ' + (c2 && c2.text));
+  // темп по отрезкам (24 ноября 2026): срок делится между шагами поровну
+  const dp = base(); dp.goals.push({ id: 'g5', title: 'Одна цель', due: '2026-11-01', created: '2026-01-01', done: false, steps: [{ t: 'Единственный шаг', done: false }] });
+  assert.equal(srv.nudgeCands(dp, at(k, '14:10')).filter(x => x.kind === 'goal').length, 0, 'один шаг без даты, срок не прошёл — не отстаёт, хоть прошло 90 % срока');
+  const dq = base(); dq.goals.push({ id: 'g6', title: 'Немецкий', due: '2026-12-02', created: '2026-09-13', done: false, steps: [1, 2, 3, 4].map(i => ({ t: 'Шаг ' + i, done: false })) });
+  const c6 = srv.nudgeCands(dq, at(k, '14:10')).find(x => x.kind === 'goal');
+  assert.ok(c6 && /по графику к сегодня — 1 из 4 шагов, а сделано 0/.test(c6.text), 'четыре шага, прошло половина срока — по графику один: ' + (c6 && c6.text));
+  dq.goals[0].steps[0].done = true; assert.equal(srv.nudgeCands(dq, at(k, '14:10')).filter(x => x.kind === 'goal').length, 0, 'сделан один из четырёх на половине срока — в графике');
   // план заканчивается (с 12:00), без подначки
   const d3 = base(); d3.goals.push({ id: 'g2', title: 'Физика', due: '2027-01-30', created: '2026-10-20', done: false, steps: [], plan: { min: 60, n: 10, need: 30, last: '2026-10-25', ev: [] } });
   const c3 = srv.nudgeCands(d3, at(k, '12:30')).find(x => x.kind === 'plan');
@@ -207,7 +214,7 @@ const day = (k, o) => Object.assign({ id: 'd' + Math.random(), title: 'Дело'
   assert.ok(p3.body === c3.text && p3.ai === p3.body && p3.url === './#ai' && p3.title === 'Помощник Parsimony', 'о плане — без подначки');
   d3.goals[0].plan.n = 30; assert.equal(srv.nudgeCands(d3, at(k, '12:30')).filter(x => x.kind === 'plan').length, 0, 'всё нужное уже поставлено — не просим продлить');
   // свободное окно для отстающей цели с планом: будни 18–22, встреча 18:00–19:00 → свободно с 19:00, напоминаем с 18:30
-  const d4 = base(); d4.goals.push({ id: 'g3', title: 'Гитара', due: '2026-11-10', created: '2026-10-01', done: false, steps: [{ id: 's', t: 'Аккорды', done: false }], plan: { min: 45, n: 6, need: 30, last: '2026-12-01', ev: ['s1'] } });
+  const d4 = base(); d4.goals.push({ id: 'g3', title: 'Гитара', due: '2026-11-10', created: '2026-10-01', done: false, steps: [{ id: 's', t: 'Аккорды', done: false }, { id: 's2', t: 'Бой', done: false }, { id: 's3', t: 'Первая песня', done: false }], plan: { min: 45, n: 6, need: 30, last: '2026-12-01', ev: ['s1'] } });   // 3 шага, прошло 55 % срока — по графику 1, сделано 0: отстаёт
   d4.events.push(ev({ id: 'm', title: 'Встреча', time: '18:00', time2: '19:00' }), ev({ id: 's1', title: 'Гитара', time: '19:00', time2: '19:45', date: '2026-10-24' }));
   assert.deepEqual(srv.freeGaps(d4, d4.events, k), [[1140, 1320]], 'свободно с 19:00 до 22:00');
   assert.equal(srv.nudgeCands(d4, at(k, '18:20')).filter(x => x.kind === 'free').length, 0, 'рано — ещё не пора');

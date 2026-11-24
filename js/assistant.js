@@ -10,7 +10,7 @@
 // когда человек спрашивает — ещё короткая сводка записей (aiData): без заметок, мест и самочувствия (решение пользователя).
 // История чата — только на этом устройстве (remapp_chat), при выходе из аккаунта стирается (cloud.js → wipeDevice) ----
 let ai = null;   // { msgs:[{ r:'u'|'a', t, day, imgs, items, added, nav, ask, hi }], hello, draft, busy, err, left, imgs }
-const AI_MAX = 2000, AI_LS = 'remapp_chat', AI_KEEP = 40, AI_HIST = 8;
+const AI_MAX = 2000, AI_LS = 'remapp_chat', AI_KEEP = 40, AI_HIST = 14;   // реплик разговора нейросети (24 ноября 2026: было 8 — «средненькая память»)
 // Картинок в одном сообщении и новых записей с одной картинки (22 октября 2026; функция assistant проверяет так же — IMG_MAX, IMG_ITEMS)
 const AI_IMGS = 3, AI_IMG_ITEMS = 5;
 const AI_CUT = `С одной картинки беру не больше ${AI_IMG_ITEMS} записей — остальное пришлите отдельно (например, обрезанным скриншотом) или допишите сами.`;
@@ -32,11 +32,13 @@ const aiCtx = (data, R, find) => { const P = S.settings.phr || {};
   return { today: todayK(), now: fmtMin(nowMin()), tz: S.settings.tz || '', cats: S.cats.map(c => c.name),
     fin: S.fin.cats.map(c => ({ n: c.name, g: c.g })), habits: S.habits.map(h => h.name), goals: activeGoals().map(g => g.title),
     taunts: !!P.taunts, praise: !!P.praise, style: (P.custom || []).slice(0, 8).map(p => ({ k: p.kind, t: p.t })), ...(data ? { data: aiData(R, find) } : {}) }; };
-// Ссылки на записи для нейросети: [e3] — дело или событие, [m2] — трата / доход; R.map — какая ссылка на какой id (живёт в ответе, m.refs)
-const aiRefs = () => ({ map: {}, by: {}, n: { e: 0, m: 0 } });
+// Ссылки на записи для нейросети: [e3] — дело или событие, [m2] — трата / доход, [g1] — цель (24 ноября 2026); R.map — какая ссылка на какой id (живёт в ответе, m.refs)
+const aiRefs = () => ({ map: {}, by: {}, n: { e: 0, m: 0, g: 0 } });
 const aiRef = (R, kind, id) => { if (!R) return ''; const k = R.by[id] || (R.by[id] = kind + (++R.n[kind])); R.map[k] = id; return '[' + k + '] '; };
 // Просят перенести, переименовать, отметить или удалить — нужна сводка со ссылками и записи, подходящие по словам сообщения
 const AI_EDIT = /(?:^|[\s,.!?])(?:перенес\S*|перенос\S*|передвин\S*|сдвин\S*|перемест\S*|измени\S*|поменя\S*|исправ\S*|переимен\S*|удали\S*|удалить|убери\S*|убрать|отмени\S*|отмет\S*|сделал\S*|выполнил\S*|сними|снять|вычеркн\S*|не был\S*|не ходил\S*|move|reschedule|postpone|change|edit|rename|delete|remove|cancel|mark|uncheck)(?=$|[\s,.!?])/i;
+// Продолжение разговора: прошлый ответ что-то создал, а сообщение — о нём («дату поставь на 25 декабря», «срок — конец года», «перенеси её»)
+const AI_FOLLOW = /(?:^|[\s,.!?])(?:дат[уаеы]|срок\S*|время|времени|назван\S*|её|ее|его|их|ей|ему|эт[уиоа]|этот|этих|этим|туда|поставь|поменяй|сделай)(?=$|[\s,.!?])/i;
 const AI_SKIP = /^(?:перен|перед|сдвин|перем|измен|поменя|исправ|переим|удали|убер|убра|отмен|отмет|сдела|выпол|сними|снять|вычер|завтр|сегод|вчер|послез|понед|вторн|сред|четве|пятни|суббо|воскр|недел|утра|утром|вечер|часов|минут|этот|этой|этого|всех|какой|пожал|потом|сейча|пусть|нужно|надо|чтобы)/;
 function aiFind(text) {
   const ws = (String(text).toLowerCase().replace(/ё/g, 'е').match(/[а-яa-z0-9]{4,}/g) || []).filter(w => !AI_SKIP.test(w)).map(w => w.slice(0, Math.max(4, Math.min(6, w.length - 1))));
@@ -76,7 +78,7 @@ function aiData(R, find) {
   }
   const gl = activeGoals().slice(0, 8);
   if (gl.length) L.push('Цели:', ...gl.map(g => { const s = goalStat(g);
-    return `• ${g.title} — срок ${aiD(g.due)} (${s.left >= 0 ? 'осталось ' + plural(s.left, NDAY) : 'срок прошёл'}); шагов сделано ${s.d} из ${s.n}${s.pace ? '; темп: ' + PACE[s.pace] : ''}`
+    return `• ${aiRef(R, 'g', g.id)}${g.title} — срок ${aiD(g.due)} (${s.left >= 0 ? 'осталось ' + plural(s.left, NDAY) : 'срок прошёл'}); шагов сделано ${s.d} из ${s.n}${s.pace ? '; темп: ' + PACE[s.pace] : ''}`
       + (s.late.length ? '; просрочены шаги: ' + s.late.slice(0, 3).map(x => `«${x.t}» (${aiD(x.date)})`).join(', ') : '') + (s.next ? `; следующий шаг: «${s.next.t}»` : ''); }));
   if (S.habits.length) { const md = ymDays(ym), wk = ym + ':w' + (wkOf(t) + 1);
     L.push('Привычки (процент — за этот месяц):', ...S.habits.slice(0, 20).map(h => {
@@ -106,8 +108,13 @@ const aiBrief = it => it.type === 'schedule' ? `Расписание «${it.titl
   : AI_ACT.includes(it.type) ? (AI_T[it.type] || [0, ''])[1] + ' «' + (it.lbl || it.habit || '') + '»' + (it.chg ? ' ' + it.chg : '') : (AI_T[it.type] || [0, 'Запись'])[1] + ' «' + (it.title || it.habit || it.text || it.note || '') + '»' + (it.date ? ' ' + it.date : '') + (it.time ? ' ' + it.time : '') + (it.amount ? ' ' + it.amount + ' ₽' : '');
 const AI_ACT = ['edit', 'done', 'delete', 'uncheck'];   // действия с тем, что уже есть
 const aiSt = x => x.st === 'ok' ? 'сделано' : x.st === 'undone' ? 'пользователь отменил' : x.st === 'ask' ? 'ждёт подтверждения' : x.st === 'no' ? 'пользователь не подтвердил' : 'не получилось' + (x.why ? ' — ' + x.why : '');
-const aiHist = () => ai.msgs.slice(-AI_HIST).map(m => ({ r: m.r, t: ((m.t || '') + (!m.items || !m.items.length ? '' : m.auto ? ` [${m.items.map(x => aiBrief(x) + ' — ' + aiSt(x)).join('; ')}]`
-  : ` [предложено: ${m.items.map(aiBrief).join('; ')} — ${m.added != null ? 'добавлено' : 'пока не добавлено'}]`)).slice(0, 700) }));
+// У того, что помощник создал в разговоре и что ещё есть, — ссылка ([g1], [e3], [m2]): «поставь ей дату», «перенеси это» — правка именно этого (24 ноября 2026)
+const aiHRef = (R, x) => { const r = x && x.st === 'ok' && x.res; if (!R || !r) return '';
+  if (r.goal) return S.goals.some(g => g.id === r.goal) ? aiRef(R, 'g', r.goal) : '';
+  if (r.op) return S.fin.ops.some(o => o.id === r.op) ? aiRef(R, 'm', r.op) : '';
+  return r.ev && r.ev.length === 1 && S.events.some(e => e.id === r.ev[0]) ? aiRef(R, 'e', r.ev[0]) : ''; };
+const aiHist = R => ai.msgs.slice(-AI_HIST).map(m => ({ r: m.r, t: ((m.t || '') + (!m.items || !m.items.length ? '' : m.auto ? ` [${m.items.map(x => aiHRef(R, x) + aiBrief(x) + ' — ' + aiSt(x)).join('; ')}]`
+  : ` [предложено: ${m.items.map(aiBrief).join('; ')} — ${m.added != null ? 'добавлено' : 'пока не добавлено'}]`)).slice(0, 1000) }));
 
 // ---- Куда помощник может отправить кнопкой (ключи — те же, что в функции assistant → NAV) ----
 const aiSec = s => () => { if (!secOn(s)) { toast('Этот раздел выключен — его можно включить здесь'); return aiSet('secs')(); } if (s === 'tasks' && tView === 'goals') tView = 'main'; setSec(s); };
@@ -438,7 +445,7 @@ function aiErr(st, j) {
 async function aiCall(body) {
   try {
     const r = await fetch(SUPABASE_URL + '/functions/v1/assistant', { method:'POST', cache:'no-store',
-      headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body: JSON.stringify(LANG === 'en' ? { ...body, lang: LANG } : body) });
+      headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body: JSON.stringify({ ...body, ...(LANG === 'en' ? { lang: LANG } : {}), ...(IS_BETA ? { beta: true } : {}) }) });   // beta — на бете функция может взять пробную модель (AI_MODEL_BETA)
     const j = await r.json().catch(() => ({}));
     if (Number.isFinite(j.left)) ai.left = j.left;
     return r.ok ? j : { err: aiErr(r.status, j) };
@@ -459,10 +466,11 @@ async function aiSend(text) {
   // Изменить уже созданное — только по просьбе: «перенеси», «удали», «отметь»… или поправка к прошлому изменению («нет, на 11»).
   // Флаг edit уходит и на сервер: там такие записи без просьбы тоже отбрасываются (аудит 18 октября 2026)
   const prev = [...ai.msgs].reverse().find(m => m.r === 'a'), prevAct = !!(prev && prev.auto && (prev.items || []).some(x => AI_ACT.includes(x.type) && x.st === 'ok'));
-  const edit = AI_EDIT.test(text) || (prevAct && text.length < 80 && /^\s*(?:нет|не\s|лучше|точнее|давай|а\s)/i.test(text));
+  const prevMade = !!(prev && (prev.items || []).some(x => aiHRef(aiRefs(), x)));   // прошлый ответ что-то создал, и оно ещё есть
+  const edit = AI_EDIT.test(text) || (prevAct && text.length < 80 && /^\s*(?:нет|не\s|лучше|точнее|давай|а\s)/i.test(text)) || (prevMade && text.length < 160 && AI_FOLLOW.test(text));
   const ask = !edit && !imgs.length && (aiAsks(text) || !!(prev && prev.ask && !prev.hi && text.length < 60 && /^\s*(?:а|и|ещё|еще)(?=[\s,])/i.test(text)));
   const vt = aiVt && aiVt.t === text ? aiVt : null; aiVt = null;   // текст — только что распознанный голос: такой запрос второй раз не считается
-  const history = aiHist(), R = aiRefs();
+  const R = aiRefs(), history = aiHist(R);
   ai.msgs.push({ r:'u', t:text, day: todayK(), ...(imgs.length ? { imgs: imgs.map(x => x.thumb) } : {}), ...(vt ? { v: vt.secs } : {}) }); ai.draft = ''; ai.err = ''; ai.errT = null; ai.errV = null; ai.busy = true; ai.imgs = []; aiClearAsk = 0; aiStore();
   if (ta && text === ta.value.trim()) { ta.value = ''; aiGrow(); }
   aiRefresh();
@@ -540,7 +548,7 @@ function aiDo(it, refs) {
     const o = { id: 'o' + uid(), amt: it.amount, cat: aiFin(it.category, AI_KIND[t], it.note, it.amount).id, note: it.note || '', date: it.date && it.date <= todayK() ? it.date : todayK() };
     S.fin.ops.push(o); it.res = { op: o.id };
   } else if (t === 'goal') {
-    const g = { id: 'g' + uid(), title: it.title, emoji: aiEmoji(it.emoji, it.title), due: it.due && it.due >= todayK() ? it.due : todayK().slice(0, 4) + '-12-31', created: todayK(), why: '', done: false, steps: [] }, ev = [];
+    const g = { id: 'g' + uid(), title: it.title, emoji: aiEmoji(it.emoji, it.title), due: it.due && it.due > todayK() ? it.due : todayK().slice(0, 4) + '-12-31',   /* срок «сегодня» — ошибка нейросети (24 ноября 2026) */ created: todayK(), why: '', done: false, steps: [] }, ev = [];
     it.steps.forEach(s => { if (s.date) { const e = aiEvent({ type: 'task', title: s.title, date: s.date, prio: 'mid' }, { goal: g.id }); S.events.push(e); ev.push(e.id); } else g.steps.push({ id: 's' + uid(), t: s.title, done: false }); });
     S.goals.push(g); it.res = { goal: g.id, ev };
   } else if (t === 'note') { const n = { id: 'n' + uid(), date: todayK(), text: it.text }; S.notes.push(n); it.res = { note: n.id }; }
@@ -566,7 +574,7 @@ function aiFixPrev(items) {
 }
 // ---- Изменить то, что уже есть (по ссылке [e3] / [m2] из сводки). В it.res — прежний вид записи, чтобы «Отменить» вернул как было ----
 const aiByRef = (it, refs) => { const id = refs && refs[it.ref], k = String(it.ref || '')[0];
-  return !id ? null : k === 'e' ? S.events.find(e => e.id === id) || null : k === 'm' ? S.fin.ops.find(o => o.id === id) || null : null; };
+  return !id ? null : k === 'e' ? S.events.find(e => e.id === id) || null : k === 'm' ? S.fin.ops.find(o => o.id === id) || null : k === 'g' ? S.goals.find(g => g.id === id) || null : null; };
 const aiWhen = (k, tm) => shortDate(k) + (tm ? ', ' + tm : '');
 function aiSkip(it, why) { it.st = 'skip'; it.why = why; }
 // Ждёт подтверждения: только описание — что и с какой записью будет; сама запись пока не меняется
@@ -575,6 +583,7 @@ function aiPeek(it, refs) {
   if (it.type === 'uncheck') { const h = aiHab(it.habit); it.lbl = h ? (h.emoji ? h.emoji + ' ' : '') + h.name : it.habit; return; }
   const x = aiByRef(it, refs); if (!x) return aiSkip(it, 'не нашёл эту запись');
   if (String(it.ref)[0] === 'm') { it.lbl = x.note || fcat(x.cat).name; it.chg = rub(x.amt) + ' · ' + shortDate(x.date); return; }
+  if (String(it.ref)[0] === 'g') { it.lbl = (x.emoji ? x.emoji + ' ' : '') + x.title; it.chg = '→ ' + [it.title && '«' + it.title + '»', (it.due || it.date) && 'срок ' + shortDate(it.due || it.date)].filter(Boolean).join(', '); return; }
   it.lbl = x.title;
   if (it.type === 'delete') it.chg = it.only_date ? 'только ' + shortDate(it.only_date) : isRec(x) ? 'весь повтор' : aiWhen(x.date, x.time);
   else if (it.type === 'done') it.chg = it.done === false ? 'снять отметку' : 'отметить сделанным';
@@ -604,6 +613,14 @@ function aiChange(it, refs) {
     if (!ch.length) return aiSkip(it, 'нечего менять');
     const old = {}; ['amt', 'note', 'cat', 'date'].forEach(k => { if (prev[k] !== x[k]) old[k] = prev[k]; });
     it.res = { opFields: [x.id, old] }; it.chg = ch.join(', '); it.st = 'ok'; return;
+  }
+  if (String(it.ref)[0] === 'g') {   // цель: название и срок (24 ноября 2026); отменить — прежние название и срок (r.gprev)
+    const g = x, old = { title: g.title, due: g.due }, ch = [], due = it.due || it.date; it.lbl = (g.emoji ? g.emoji + ' ' : '') + g.title;
+    if (t !== 'edit') return aiSkip(it, 'не умею такое');
+    if (it.title && it.title !== g.title) { ch.push('«' + it.title + '»'); g.title = it.title; }
+    if (due && due > today && due !== g.due) { ch.push('срок ' + shortDate(g.due) + ' → ' + shortDate(due)); g.due = due; }
+    if (!ch.length) return aiSkip(it, due && due <= today ? 'срок должен быть позже сегодня' : 'нечего менять');
+    it.res = { gprev: [g.id, old] }; it.chg = ch.join(', '); it.st = 'ok'; return;
   }
   const e = x, prev = structuredClone(e), rec = isRec(e); it.lbl = e.title;
   if (t === 'done') {
@@ -1016,7 +1033,7 @@ ACT.aiapply = el => {
       const d = it.date && it.date <= todayK() ? it.date : todayK();
       S.fin.ops.push({ id: 'o' + uid(), amt: it.amount, cat: aiFin(it.category, AI_KIND[it.type], it.note, it.amount).id, note: it.note || '', date: d }); n++;
     } else if (it.type === 'goal') {
-      const g = { id: 'g' + uid(), title: it.title, emoji: aiEmoji(it.emoji, it.title), due: it.due && it.due >= todayK() ? it.due : todayK().slice(0, 4) + '-12-31', created: todayK(), why: '', done: false, steps: [] };
+      const g = { id: 'g' + uid(), title: it.title, emoji: aiEmoji(it.emoji, it.title), due: it.due && it.due > todayK() ? it.due : todayK().slice(0, 4) + '-12-31',   /* срок «сегодня» — ошибка нейросети (24 ноября 2026) */ created: todayK(), why: '', done: false, steps: [] };
       it.steps.forEach(s => { if (s.date) S.events.push(aiEvent({ type: 'task', title: s.title, date: s.date, prio: 'mid' }, { goal: g.id })); else g.steps.push({ id: 's' + uid(), t: s.title, done: false }); });
       S.goals.push(g); n++;
     } else if (it.type === 'note') { S.notes.push({ id: 'n' + uid(), date: todayK(), text: it.text }); n++; }

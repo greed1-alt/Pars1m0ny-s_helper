@@ -38,8 +38,11 @@ const PROVIDER = env('AI_PROVIDER') || 'deepseek';
 const MODEL = env('AI_MODEL') || ({ deepseek: 'deepseek-chat', gigachat: 'GigaChat-2-Pro' })[PROVIDER] || '';
 const DAILY = Math.max(1, Number(env('AI_DAILY_LIMIT')) || 30);   // запросов на человека в сутки
 // Вопросы и приветствие — моделью Lite (бесплатный запас 250 млн токенов в год), записи — основной (Pro, 40 млн)
+// Проба модели на бете (24 ноября 2026): приложение беты присылает beta: true — тогда основная модель AI_MODEL_BETA (например GigaChat-3-Ultra),
+// не ответила — прежняя MODEL и GigaChat-2. Рабочее приложение друзей не меняется
+const MODEL_BETA = env('AI_MODEL_BETA') || '';
 const LITE = env('AI_MODEL_LITE') || (PROVIDER === 'gigachat' ? 'GigaChat-2' : MODEL);
-const MAX_TEXT = 2000, MAX_ITEMS = 40, MAX_DATA = 6000, MAX_HIST = 8;
+const MAX_TEXT = 2000, MAX_ITEMS = 40, MAX_DATA = 6000, MAX_HIST = 14;   // реплик разговора (24 ноября 2026: было 8)
 const IMG_MAX = 3, IMG_ITEMS = 5, SCHED_MAX = 40;   // картинок в одном сообщении; новых записей с одной картинки
 // Куда помощник может отправить кнопкой (ключи знает приложение, js/assistant.js → AI_NAV)
 const NAV = ['home', 'cal', 'day', 'tasks', 'goals', 'habits', 'fin', 'budget', 'missed', 'profile', 'settings', 'set_look', 'set_cal', 'set_cats', 'set_layout', 'sections', 'set_notif', 'set_data', 'tour', 'feedback'];
@@ -67,7 +70,7 @@ const str = (v, n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g
 const date = v => { if (typeof v !== 'string' || !DATE_RE.test(v)) return null; const d = new Date(v + 'T00:00:00Z'); return isNaN(d) || d.toISOString().slice(0, 10) !== v ? null : v; };
 const time = v => typeof v === 'string' && TIME_RE.test(v) ? v : null;
 const block = (v, n) => typeof v === 'string' ? v.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, n) : '';   // как str, но строки сохраняются
-const REF_RE = /^[em]\d{1,3}$/;
+const REF_RE = /^[emg]\d{1,3}$/;   // e — дело или событие, m — трата / доход, g — цель (24 ноября 2026)
 const remindOf = v => Array.isArray(v) ? [...new Set(v.map(Number).filter(m => Number.isInteger(m) && m >= 0 && m <= 10080))].sort((a, b) => b - a).slice(0, 5) : [];
 // day — конкретный день в календаре (5 ноября 2026: «не даёт ссылку на сами дни»), только с правильной датой
 const cleanNav = v => Array.isArray(v) ? v.filter(x => x && NAV.includes(x.to) && (x.to !== 'day' || date(x.date))).slice(0, 3)
@@ -115,11 +118,14 @@ function cleanItem(it) {
   const ref = typeof it.ref === 'string' && REF_RE.test(it.ref.trim()) ? it.ref.trim() : null;
   if (t === 'uncheck') { const habit = str(it.habit || it.title, 120); return habit ? { type: t, habit, date: date(it.date) } : null; }
   if (t === 'done') return ref && ref[0] === 'e' ? { type: t, ref, date: date(it.date), done: it.done !== false } : null;
-  if (t === 'delete') return ref ? { type: t, ref, only_date: date(it.only_date) } : null;
+  if (t === 'delete') return ref && ref[0] !== 'g' ? { type: t, ref, only_date: date(it.only_date) } : null;   // цель удаляет только человек
   if (t === 'edit') {
     if (!ref) return null;
     const o = { type: t, ref };
-    if (ref[0] === 'e') {
+    if (ref[0] === 'g') {   // цель: название и срок
+      const s = str(it.title, 200); if (s) o.title = s;
+      const d = date(it.due) || date(it.date); if (d) o.due = d;
+    } else if (ref[0] === 'e') {
       const s = str(it.title, 200); if (s) o.title = s;
       for (const k of ['date', 'only_date']) { const d = date(it[k]); if (d) o[k] = d; }
       for (const k of ['time', 'time2']) { const v = time(it[k]); if (v) o[k] = v; }
@@ -210,16 +216,17 @@ nav — до 2 кнопок перехода в нужное место прил
 - «Напомни за час» → remind [60]; «за день и за 15 минут» → [1440, 15].
 - Суммы: «1,5к» = 1500, «2 тыщи» = 2000, «350 рублей» = 350.
 - Цели нужно время на занятия (выучить, подготовиться, научиться, большой проект) — "plan", а не "goal"; "goal" — когда человек просто записывает цель.
-- Цель «до лета» — due 1 июня, «до конца года» — 31 декабря. Шаги цели — те, что назвал пользователь.
+- Цель «до лета» — due 1 июня, «до конца года» — 31 декабря. Срок не назван — due null (приложение поставит конец года); сегодняшнюю дату сроком цели не ставь. Шаги цели — те, что назвал пользователь.
 - Просят разбить большое дело на шаги или этапы («разбей ремонт на шаги», «помоги разбить переезд на этапы», «как по шагам подготовиться к свадьбе») — "goal" с 3–8 конкретными шагами по порядку, у каждого шага — реальный срок между сегодня и сроком цели. Срок не назван — подбери реальный (ремонт комнаты — 1–2 месяца, переезд — 3–4 недели) и скажи в reply, что срок и шаги можно поменять.
 - Если такая привычка уже есть в списке привычек — не добавляй её повторно; если пользователь говорит, что выполнил её, — это "check". Привычки, которой нет в списке, не отмечай: предложи создать её ("habit").
 - Не выдумывай того, чего нет в сообщении. Одно дело — одна запись. Названия короткие, с большой буквы, без даты и времени внутри.
 - Что было сделано в разговоре и что пользователь отменил, видно в «Недавнем разговоре» в квадратных скобках. Отменённое не добавляй снова, если об этом не просят.
 - Изображение: если к сообщению приложено изображение (скриншот или фото), разбери, что на нём, и добавь в приложение. Расписание на неделю (уроки, пары, лекции, смены, тренировки) — одна запись "schedule" со всеми занятиями, а не отдельные "event"; ограничение на число записей с картинки к ней не относится. Чек или список покупок — траты; список дел — задачи; афиша или приглашение — событие. Что не разобрать (мелкий текст) — добавь понятное и спроси про остальное. С одной картинки — не больше ${IMG_ITEMS} записей: если на ней больше, возьми ближайшие и самые важные, а в reply скажи, что остальное можно прислать отдельно. Несколько картинок («Картинка 1 из N» и т. д.) разбирай вместе: у каждой записи с картинки укажи "img": номер картинки; одно и то же на разных картинках (скриншоты внахлёст) записывай один раз.
 
-Изменить, отметить или удалить то, что уже есть. В «Сводке записей» у дел, событий и денег стоят ссылки [e3], [m2] — используй только их:
+Изменить, отметить или удалить то, что уже есть. В «Сводке записей» у дел, событий, денег и целей стоят ссылки [e3], [m2], [g1]; у того, что ты создал в этом разговоре, такие же ссылки стоят в «Недавнем разговоре» — используй только их. Просьба сразу после твоего ответа («дату поставь на 25 декабря», «перенеси её на завтра», «назови по-другому») относится к тому, что ты только что создал:
 8. "edit" — изменить дело или событие: {"type":"edit","ref":"e3","only_date":"ГГГГ-ММ-ДД" или null,"date":…,"time":…,"time2":…,"all_day":true,"title":…,"loc":…,"cat":…,"prio":…,"remind":[…]} — пиши только то, что меняется. Перенести — новые date и/или time. У повторяющегося (↻) only_date — какой именно день меняется (тогда date — новый день для него); без only_date меняется весь повтор, и date не пиши. «Без времени» — all_day true.
    Изменить трату или доход: {"type":"edit","ref":"m2","amount":…,"category":…,"note":…,"date":…}.
+   Изменить цель: {"type":"edit","ref":"g1","due":"ГГГГ-ММ-ДД","title":…} — срок и название; удалить цель нельзя (это делает сам человек).
 9. "done" — отметить дело сделанным: {"type":"done","ref":"e3","date":"ГГГГ-ММ-ДД" или null,"done":true}; снять отметку — "done":false. date — для повторяющегося: какой день.
 10. "delete" — удалить: {"type":"delete","ref":"e3" или "m2","only_date":"ГГГГ-ММ-ДД" или null}. У повторяющегося only_date — удалить только этот день; без only_date удаляется весь повтор.
 11. "uncheck" — снять отметку привычки: {"type":"uncheck","habit":"название из списка привычек","date":…}.
@@ -267,7 +274,7 @@ const DOWF = ['понедельник', 'вторник', 'среда', 'чет�
 const dowOf = k => (new Date(k + 'T00:00:00Z').getUTCDay() + 6) % 7;
 const plusDays = (k, n) => new Date(Date.parse(k + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
 // Последние реплики разговора — чтобы понимать «а послезавтра?», «нет, в 11»
-const histOf = v => Array.isArray(v) ? v.slice(-MAX_HIST).filter(m => m && (m.r === 'u' || m.r === 'a')).map(m => ({ r: m.r, t: str(m.t, 700) })).filter(m => m.t) : [];
+const histOf = v => Array.isArray(v) ? v.slice(-MAX_HIST).filter(m => m && (m.r === 'u' || m.r === 'a')).map(m => ({ r: m.r, t: str(m.t, 1000) })).filter(m => m.t) : [];
 function userMessage(text, c, extra) {
   const today = date(c.today) || new Date().toISOString().slice(0, 10), dow = DOWF[dowOf(today)];
   const fin = Array.isArray(c.fin) ? c.fin.slice(0, 60) : [], f = g => fin.filter(x => x && x.g === g).map(x => str(x.n, 40)).filter(Boolean).join(', ') || '—';
@@ -499,8 +506,8 @@ async function vtSign(uid, day, text) {
 // по одной картинке за запрос, ответы складываются, у записей — номер картинки (img). Ответ — как у askModel ({ text } или { error }) или { out }
 const outOf = t => { const j0 = jsonOf(t), plain = String(t || '').trim();   // модель иногда отвечает просто текстом — тогда это ответ в чате без записей
   return j0 && typeof j0 === 'object' && !Array.isArray(j0) ? j0 : plain && !/[{}]/.test(plain) ? { reply: plain } : null; };
-async function askImages(text, ctx, history, ids, sys) {
-  const o = { model: MODEL, temp: 0.2, max: 2500 };
+async function askImages(text, ctx, history, ids, sys, mo) {
+  const o = { ...(mo || { model: MODEL }), temp: 0.2, max: 2500 };
   const m = await askModel(sys, userMessage(text, ctx, { history, images: ids.length }), { ...o, attach: ids });
   if (ids.length < 2 || !(m.error === 'model' && (m.code === 400 || m.code === 422))) return m;
   console.error('gigachat: несколько картинок в одном запросе не приняты (' + m.code + ') — по одной');
@@ -579,10 +586,10 @@ Deno.serve(async req => {
       if (up.error) { await drop(); await refund(); return json({ error: up.error, code: up.code || 0, p: PROVIDER }, up.error === 'off' ? 503 : 502); } ids.push(up.id); }
     let m;
     try {
-      const en = body.lang === 'en' ? EN_NOTE : '';
+      const en = body.lang === 'en' ? EN_NOTE : '', mo = body.beta === true && MODEL_BETA && MODEL_BETA !== MODEL ? { model: MODEL_BETA, more: [MODEL, 'GigaChat-2'] } : { model: MODEL };
       m = hello ? await askModel(HELLO + en, userMessage('', ctx), { model: LITE, temp: 0.8, max: 300 })
-        : ids.length ? await askImages(text, ctx, body.history, ids, SYSTEM + en)
-        : await askModel(SYSTEM + en, userMessage(text, ctx, { history: body.history }), { model: MODEL, temp: 0.2, max: 2500 });
+        : ids.length ? await askImages(text, ctx, body.history, ids, SYSTEM + en, mo)
+        : await askModel(SYSTEM + en, userMessage(text, ctx, { history: body.history }), { ...mo, temp: 0.2, max: 2500 });
     } finally { await drop(); }   // после разбора картинки в хранилище Сбера не нужны
     if (m.error) { await refund(); return json({ error: m.error, code: m.code || 0, p: PROVIDER }, m.error === 'off' ? 503 : 502); }   // p — какая нейросеть ответила (видно в окне помощника)
     const out = m.out || outOf(m.text);

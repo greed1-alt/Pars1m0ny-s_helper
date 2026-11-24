@@ -28,7 +28,7 @@ const ok = (c, msg, x) => { if (!c) { console.log('FAIL', msg, x === undefined ?
   ok(m.cleanNav('x').length === 0 && m.cleanNav(null).length === 0, 'nav junk');
   ok(m.block('a\r\n\r\n\r\n\u0007b  c\n• d', 100) === 'a\n\n b c\n• d', 'block', m.block('a\r\n\r\n\r\n\u0007b  c\n• d', 100));
   ok(m.block(5, 10) === '' && m.block('x'.repeat(50), 10).length === 10, 'block len');
-  ok(m.histOf(Array(20).fill({ r: 'u', t: 'x' })).length === 8 && m.histOf('x').length === 0, 'hist cap');
+  ok(m.histOf(Array(20).fill({ r: 'u', t: 'x' })).length === 14 && m.histOf('x').length === 0, 'hist cap');
   ok(JSON.stringify(m.cleanItem({ type: 'check', habit: '  Вода\u0000 ', date: '2026-10-15', x: 1 })) === JSON.stringify({ type: 'check', habit: 'Вода', date: '2026-10-15' }), 'check item');
   ok(m.cleanItem({ type: 'check', title: 'Зарядка' }).habit === 'Зарядка' && m.cleanItem({ type: 'check', habit: '' }) === null && m.cleanItem({ type: 'check', habit: 'x', date: '2026-02-30' }).date === null, 'check junk');
   ok(m.SYSTEM.includes('"check"') && m.SYSTEM.startsWith('Ты — Parsimony') && m.HELLO.startsWith('Ты — Parsimony'), 'persona');
@@ -108,6 +108,11 @@ x = await run('GigaChat-2', { 'GigaChat-2': 402 }); ok(x.r.code === 402 && x.cal
   const e = cleanItem({ type: 'edit', ref: 'e3', time: '11:00', date: '2026-10-20', only_date: 'плохо', title: ' Стоматолог ', remind: [60, 'x'], all_day: 'да', junk: 1 });
   ok(JSON.stringify(e) === JSON.stringify({ type: 'edit', ref: 'e3', title: 'Стоматолог', date: '2026-10-20', time: '11:00', remind: [60] }), 'edit event', e);
   ok(cleanItem({ type: 'edit', ref: 'e3' }) === null && cleanItem({ type: 'edit', ref: 'x9', time: '10:00' }) === null && cleanItem({ type: 'edit', ref: 'e3; drop', time: '10:00' }) === null, 'edit needs ref and a change');
+  // цель (24 ноября 2026): срок и название по ссылке [g1]; удалить цель нейросеть не может
+  const gE = cleanItem({ type: 'edit', ref: 'g1', due: '2026-12-25', title: ' Выучить немецкий ', amount: 5 });
+  ok(gE && gE.ref === 'g1' && gE.due === '2026-12-25' && gE.title === 'Выучить немецкий' && gE.amount === undefined, 'goal edit: due and title only');
+  ok(cleanItem({ type: 'edit', ref: 'g1', date: '2026-12-25' }).due === '2026-12-25' && cleanItem({ type: 'edit', ref: 'g1' }) === null, 'goal edit: date as due, nothing to change');
+  ok(cleanItem({ type: 'delete', ref: 'g1' }) === null && cleanItem({ type: 'done', ref: 'g1' }) === null, 'goal: no delete, no done');
   const m = cleanItem({ type: 'edit', ref: 'm2', amount: '450', category: 'Кафе', date: '2026-10-15', time: '10:00' });
   ok(JSON.stringify(m) === JSON.stringify({ type: 'edit', ref: 'm2', amount: 450, category: 'Кафе', date: '2026-10-15' }), 'edit money', m);
   ok(JSON.stringify(cleanItem({ type: 'done', ref: 'e1', done: false, date: '2026-10-17' })) === JSON.stringify({ type: 'done', ref: 'e1', date: '2026-10-17', done: false }) && cleanItem({ type: 'done', ref: 'm1' }) === null, 'done');

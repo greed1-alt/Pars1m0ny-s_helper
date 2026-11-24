@@ -43,9 +43,12 @@ function goalStat(g) {
   const late = st.filter(x => !x.done && x.date && x.date < t), next = st.find(x => !x.done) || null, left = dayDiff(t, g.due);
   const span = Math.max(1, dayDiff(g.created, g.due)), passed = Math.min(1, Math.max(0, dayDiff(g.created, t) / span));
   const pct = n ? d / n : g.done ? 1 : 0;
-  // Темп: сколько шагов сделано относительно того, сколько прошло времени до срока
-  const pace = g.done || !n ? '' : left < 0 ? 'late' : late.length || pct + .15 < passed ? 'behind' : pct > passed + .1 ? 'ahead' : 'ok';
-  return { st, n, d, pct, late, next, left, pace, overdue: !g.done && left < 0 };
+  // Темп (24 ноября 2026, пользователь: «всего 1 пункт, а пишет, что отстаёт… надо распределить дни и по ним делать вывод»): срок делится
+  // между шагами поровну; к сегодня должно быть сделано столько шагов, сколько их отрезков уже закончилось (сегодняшний день — ещё свой).
+  // Отстаёте — сделано меньше или просрочен шаг со своей датой; с опережением — сделано хотя бы на шаг больше графика. Копия — goalPace в reminders
+  const need = n ? Math.max(0, Math.floor(passed * n - 1e-9)) : 0;
+  const pace = g.done || !n ? '' : left < 0 ? 'late' : late.length || d < need ? 'behind' : d > passed * n + 1 ? 'ahead' : 'ok';
+  return { st, n, d, pct, late, next, left, need, pace, overdue: !g.done && left < 0 };
 }
 const PACE = { ahead: 'с опережением', ok: 'в графике', behind: 'отстаёте', late: 'срок прошёл' };
 const dueTxt = g => { const n = dayDiff(todayK(), g.due); return n < 0 ? `срок прошёл ${plural(-n, NDAY)} назад` : n === 0 ? 'срок — сегодня' : `до ${shortDate(g.due)} · ${plural(n, NDAY)}`; };

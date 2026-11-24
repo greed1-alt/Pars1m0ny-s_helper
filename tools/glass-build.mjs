@@ -135,6 +135,7 @@ ${G} #sh{background:linear-gradient(180deg,var(--glhi),transparent 30%),var(--gl
 ${G} #sh :is(.card,.fold.fc){-webkit-backdrop-filter:none;backdrop-filter:none}
 ${G} .sh-foot{background:var(--glsheet);border-top:.5px solid var(--gle)}
 ${G} #sh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea){border-radius:12px}
+${G} .f-title{padding:6px 14px 8px}   /* крупное поле названия на стекле — с фоном, нужен отступ (24 ноября 2026: текст прилипал к краю) */
 /* ПК: боковая панель — стекло */
 @media(min-width:900px){
 ${G} #side{background:linear-gradient(180deg,var(--glhi),transparent 40%),var(--glbar)!important;-webkit-backdrop-filter:blur(24px) saturate(var(--gls));backdrop-filter:blur(24px) saturate(var(--gls));border-right:0!important;box-shadow:inset -.5px 0 0 var(--gle)}

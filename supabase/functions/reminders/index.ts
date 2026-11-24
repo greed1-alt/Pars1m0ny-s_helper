@@ -212,14 +212,15 @@ function freeGaps(data, evs, k) {
   if (cur < to) gaps.push([cur, to]);
   return gaps.filter(([a, b]) => b > a);
 }
-// Темп цели — как goalStat (js/goals.js): шаги — задачи с полем goal и шаги без срока; отстаёт — есть просроченный шаг или сделано заметно меньше, чем прошло времени
+// Темп цели — как goalStat (js/goals.js): шаги — задачи с полем goal и шаги без срока; срок делится между шагами поровну (24 ноября 2026);
+// отстаёт — есть просроченный шаг или сделано меньше, чем шагов, чьи отрезки уже закончились (need)
 function goalPace(evs, g, k) {
   const st = [...evs.filter(e => e.goal === g.id && !isRec(e)).map(e => ({ t: e.title, date: e.date, done: !!e.done })),
     ...(Array.isArray(g.steps) ? g.steps : []).filter(s => s && typeof s === 'object').map(s => ({ t: String(s.t || ''), date: '', done: !!s.done }))];
   const n = st.length, d = st.filter(x => x.done).length, late = st.filter(x => !x.done && x.date && x.date < k);
   const next = st.filter(x => !x.done).sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'))[0] || null;
-  const passed = Math.min(1, Math.max(0, dd(g.created, k) / Math.max(1, dd(g.created, g.due)))), pct = n ? d / n : 0;
-  return { n, d, next, passed, pace: !n ? '' : dd(k, g.due) < 0 ? 'late' : late.length || pct + .15 < passed ? 'behind' : 'ok' };
+  const passed = Math.min(1, Math.max(0, dd(g.created, k) / Math.max(1, dd(g.created, g.due)))), need = n ? Math.max(0, Math.floor(passed * n - 1e-9)) : 0;
+  return { n, d, next, passed, need, late, pace: !n ? '' : dd(k, g.due) < 0 ? 'late' : late.length || d < need ? 'behind' : 'ok' };
 }
 function nudgeCands(data, now) {
   const out = []; if (!data || typeof data !== 'object' || !data.settings || data.settings.nudge !== true) return out;
@@ -248,8 +249,8 @@ function nudgeCands(data, now) {
       .sort((a, b) => (b.s.pace === 'late') - (a.s.pace === 'late') || a.g.due.localeCompare(b.g.due));
     if (bad.length) { const { g, s } = bad[0];
       out.push({ kind: 'goal', id: g.id, goal: g.title, step: s.next ? s.next.t : g.title,
-        text: en ? (s.pace === 'late' ? `The deadline for the goal ${qE(g.title)} has passed, with ${s.d} of ${s.n} steps done.` : `The goal ${qE(g.title)} is behind: ${s.d} of ${s.n} steps done with ${Math.round(s.passed * 100)}% of the time gone.`)
-          : s.pace === 'late' ? `Срок цели ${qS(g.title)} прошёл, а сделано шагов: ${s.d} из ${s.n}.` : `Цель ${qS(g.title)} отстаёт: сделано ${s.d} из ${s.n} шагов, а прошло ${Math.round(s.passed * 100)}% срока.` }); }
+        text: en ? (s.pace === 'late' ? `The deadline for the goal ${qE(g.title)} has passed, with ${s.d} of ${s.n} steps done.` : s.d < s.need ? `The goal ${qE(g.title)} is behind: by today ${s.need} of ${s.n} steps should be done, and ${s.d} are.` : `The goal ${qE(g.title)} is behind: the step ${qE(s.late[0].t)} is overdue.`)
+          : s.pace === 'late' ? `Срок цели ${qS(g.title)} прошёл, а сделано шагов: ${s.d} из ${s.n}.` : s.d < s.need ? `Цель ${qS(g.title)} отстаёт: по графику к сегодня — ${s.need} из ${s.n} шагов, а сделано ${s.d}.` : `Цель ${qS(g.title)} отстаёт: просрочен шаг ${qS(s.late[0].t)}.` }); }
   }
   for (const g of goals) {   // свободное окно сегодня для отстающей цели с планом — за 30 минут до начала, если занятия сегодня нет
     const pl = g.plan; if (!pl || typeof pl !== 'object' || !(+pl.min > 0)) continue;
