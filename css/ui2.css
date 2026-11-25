@@ -1558,3 +1558,35 @@ html.bgated .app,html.bgated #tabbar,html.bgated #tinv{visibility:hidden}
   select.fin{cursor:pointer}
 }
 @media(prefers-reduced-motion:reduce){.pk,.pk.out,.pk-g.fr,.pk-g.fl,.pk-d.on{animation:none}}
+
+/* Колёсики времени на телефоне (25 ноября 2026, js/pick.js): панель снизу как в iPhone, большие строки, «Начало | Конец», длительность */
+.pk-bg{position:fixed;inset:0;z-index:79;background:rgba(0,0,0,.28);animation:fadeIn .3s var(--ios);touch-action:none}
+.pk-bg.out{animation:fadeOut .24s ease-in forwards;pointer-events:none}
+.pk.pk-sh{left:0;right:0;bottom:0;top:auto!important;width:auto;max-width:560px;margin:0 auto;border-radius:22px 22px 0 0;border-bottom:0;padding:4px 16px calc(18px + env(safe-area-inset-bottom));background:var(--sf);box-shadow:0 -10px 40px rgba(0,0,0,.2);animation:pkUp .44s var(--ios)}
+.pk.pk-sh.out{animation:pkDown .24s cubic-bezier(.4,0,1,1) forwards}
+@keyframes pkUp{from{transform:translateY(100%)}}
+@keyframes pkDown{to{transform:translateY(100%)}}
+.pk-grab{display:block;width:38px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 0}
+.pk-hd{display:flex;align-items:center;justify-content:space-between;min-height:48px}
+.pk-hd b{font-size:16px;font-weight:650}
+.pk-hb{min-height:44px;padding:0 4px;font-size:16px;color:var(--tx2)}
+.pk-hb.pri{color:var(--acc);font-weight:650}
+.pk-hb:active{opacity:.5}
+.pk-seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:2px 0 8px}
+.pk-seg button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:7px 8px;border-radius:14px;background:var(--hov);border:2px solid transparent;transition:background .2s,border-color .2s,transform .2s var(--ios)}
+.pk-seg button:active{transform:scale(.97)}
+.pk-seg small{font-size:12px;font-weight:600;color:var(--mut)}
+.pk-seg b{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums;color:var(--tx2)}
+.pk-seg button.on{background:color-mix(in srgb,var(--acc) 12%,transparent);border-color:var(--acc)}
+.pk-seg button.on b{color:var(--tx)}
+.pk-sh .pk-whs{perspective:640px;margin:2px 0 4px}
+.pk-sh .pk-wh{width:104px;height:220px}
+.pk-sh .pk-pad{height:88px}
+.pk-sh .pk-it{height:44px;line-height:44px;font-size:25px}
+.pk-sh .pk-band{height:44px;margin-top:-22px;border-radius:12px;left:12px;right:12px}
+.pk-sh .pk-colon{font-size:25px}
+.pk-chips{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;min-height:36px;margin-top:6px}
+.pk-chip{height:36px;padding:0 14px;border-radius:18px;font-size:14px;font-weight:600;color:var(--tx2);background:var(--hov);transition:background .2s,color .2s,transform .2s var(--ios)}
+.pk-chip:active{transform:scale(.94)}
+.pk-chip.on{background:var(--acc);color:var(--accfg)}
+@media(prefers-reduced-motion:reduce){.pk-bg,.pk-bg.out,.pk.pk-sh,.pk.pk-sh.out{animation:none}}

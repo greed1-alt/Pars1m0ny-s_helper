@@ -1,17 +1,23 @@
 // ---- Свои окошки выбора (25 ноября 2026, пользователь: «сделай функции календаря удобнее и красивее… всё подобное как в файле
 //      (стандартное окошко времени браузера) тоже красивым, и всё плавнее, как на айфонах») ----
-// Только на ПК с мышью (pointer:fine): на iPhone остаются системные колёсики — они и есть «как на айфоне», на Android — системные окна.
+// ПК с мышью (pointer:fine) — время, дата и списки окошком у поля. Телефон (pointer:coarse) — только время: панель снизу с большими колёсиками
+// (пользователь, 25 ноября 2026: «давай сделаем колёсики и на телефоне, но только удобные и красивые»): «Отмена» / «Готово»,
+// у пары «начало – конец» (событие) — переключатель «Начало | Конец» и длительность одним нажатием. Дата и списки на телефоне — системные.
 // Поле остаётся настоящим <input type="time|date"> / <select>: окошко пишет в него value и шлёт input + change, весь прежний код работает как был.
 // С клавиатуры (Tab, стрелки, ввод цифр) поле работает по-прежнему; Alt+↓ или F4 — открыть окошко.
 // Время — два колёсика (часы и минуты по 5, своё значение тоже есть), дата — календарик месяца, список — свой выпадающий список.
 const PK_ON = () => matchMedia('(pointer:fine)').matches;
-const PK_ROW = 34;   // высота строки колёсика, px
+const PK_ROW = 34;   // высота строки колёсика на ПК, px (на телефоне — 44, берётся из самой строки)
+const PK_TOUCH = () => matchMedia('(pointer:coarse)').matches;
+const pkRow = w => { const it = w && w.querySelector('.pk-it'); return (it && it.offsetHeight) || PK_ROW; };
 let pk = null;       // { el, box, kind, ... } — открытое окошко
 
 function pkClose(back) {
   if (!pk) return;
-  const { box, el } = pk; pk = null;
-  box.classList.add('out'); setTimeout(() => box.remove(), 160);
+  const { box, el, bg, sheet } = pk; pk = null;
+  box.classList.add('out'); setTimeout(() => box.remove(), sheet ? 260 : 160);
+  if (bg) { bg.classList.add('out'); setTimeout(() => bg.remove(), 260); }
+  if (sheet) return;   // на телефоне фокус в поле не возвращаем — иначе откроется системное окошко
   if (back && el && document.contains(el)) { try { el.focus({ preventScroll: true }); } catch (e) {} }
 }
 function pkSet(el, v) {
@@ -24,20 +30,29 @@ function pkSet(el, v) {
 function pkPlace() {
   if (!pk) return;
   if (!document.contains(pk.el)) return pkClose();
+  if (pk.sheet) return;   // панель снизу — на своём месте
   const r = pk.el.getBoundingClientRect(), b = pk.box, w = b.offsetWidth, h = b.offsetHeight, gap = 6;
   const below = innerHeight - r.bottom - gap, up = below < h + 8 && r.top - gap > below;
   b.style.left = Math.round(Math.max(8, Math.min(r.left, innerWidth - w - 8))) + 'px';
   b.style.top = Math.round(up ? Math.max(8, r.top - gap - h) : Math.min(r.bottom + gap, innerHeight - h - 8)) + 'px';
   b.classList.toggle('up', up);
 }
-function pkOpen(el, kind, html) {
+function pkOpen(el, kind, html, sheet) {
   pkClose();
+  let bg = null;
+  if (sheet) {   // телефон: затемнение (нажатие — «Готово») и панель снизу
+    bg = document.createElement('div'); bg.className = 'pk-bg';
+    bg.addEventListener('click', () => pkClose());
+    bg.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+    document.body.appendChild(bg);
+  }
   const box = document.createElement('div');
-  box.className = 'pk pk-' + kind; box.setAttribute('role', 'dialog');
+  box.className = 'pk pk-' + kind + (sheet ? ' pk-sh' : ''); box.setAttribute('role', 'dialog');
   box.setAttribute('aria-label', el.getAttribute('aria-label') || (kind === 'time' ? 'Выбор времени' : kind === 'date' ? 'Выбор даты' : 'Выбор'));
   box.innerHTML = html;
   document.body.appendChild(box);
-  pk = { el, box, kind };
+  pk = { el, box, kind, bg, sheet: !!sheet };
+  if (sheet) box.addEventListener('touchmove', e => { if (!e.target.closest('.pk-wh')) e.preventDefault(); }, { passive: false });   // страница под панелью не листается
   pkPlace();
   return box;
 }
@@ -48,18 +63,31 @@ function pkWheel(list, cur, name) {
   return `<div class="pk-wh" data-w="${name}" tabindex="0" role="listbox" aria-label="${name === 'h' ? 'Часы' : 'Минуты'}">
     <div class="pk-pad"></div>${list.map(v => `<div class="pk-it${v === cur ? ' on' : ''}" data-v="${v}" role="option" aria-selected="${v === cur}">${pk2(v)}</div>`).join('')}<div class="pk-pad"></div></div>`;
 }
-function pkTime(el) {
+const PK_DUR = [[30, '30 мин'], [60, '1 ч'], [90, '1,5 ч'], [120, '2 ч']];
+const pkMin = v => { const m = /^(\d{2}):(\d{2})/.exec(v || ''); return m ? +m[1] * 60 + +m[2] : null; };
+function pkTime(el, phone) {
   const m = /^(\d{2}):(\d{2})/.exec(el.value || ''), now = new Date();
   let h = m ? +m[1] : now.getHours(), mi = m ? +m[2] : Math.round(now.getMinutes() / 5) * 5 % 60;
-  const mins = [...Array(12)].map((_, i) => i * 5); if (!mins.includes(mi)) { mins.push(mi); mins.sort((a, b) => a - b); }
-  const box = pkOpen(el, 'time', `<div class="pk-whs"><div class="pk-band" aria-hidden="true"></div>${pkWheel([...Array(24).keys()], h, 'h')}<span class="pk-colon" aria-hidden="true">:</span>${pkWheel(mins, mi, 'm')}</div>
+  const row = phone && el.closest('.ftime, .qrow'), pair = row ? [...row.querySelectorAll('input[type="time"]')] : [];
+  const two = pair.length === 2 ? pair : null;
+  const mins = [...Array(12)].map((_, i) => i * 5); for (const x of [mi, ...(two || []).map(i => pkMin(i.value) % 60)]) if (x != null && !isNaN(x) && !mins.includes(x)) mins.push(x); mins.sort((a, b) => a - b);
+  const whs = `<div class="pk-whs"><div class="pk-band" aria-hidden="true"></div>${pkWheel([...Array(24).keys()], h, 'h')}<span class="pk-colon" aria-hidden="true">:</span>${pkWheel(mins, mi, 'm')}</div>`;
+  const title = two ? 'Время' : (el.getAttribute('aria-label') || 'Время');
+  const box = phone
+    ? pkOpen(el, 'time', `<span class="pk-grab" aria-hidden="true"></span><div class="pk-hd"><button type="button" class="pk-hb" data-pk="cancel">Отмена</button><b>${esc(title)}</b><button type="button" class="pk-hb pri" data-pk="ok">Готово</button></div>
+        ${two ? `<div class="pk-seg" role="group" aria-label="Что меняем">${two.map((x, i) => `<button type="button" data-pk="seg" data-i="${i}"><small>${i ? 'Конец' : 'Начало'}</small><b></b></button>`).join('')}</div>` : ''}
+        ${whs}<div class="pk-chips"></div>`, true)
+    : pkOpen(el, 'time', `${whs}
     <div class="pk-foot"><button type="button" class="pk-b" data-pk="now">Сейчас</button><button type="button" class="pk-b pri" data-pk="ok">Готово</button></div>`);
-  pk.h = h; pk.m = mi;
+  pk.h = h; pk.m = mi; pk.two = two; pk.orig = (two || [el]).map(x => [x, x.value]);
+  if (phone) pkSegSync();
   box.querySelectorAll('.pk-wh').forEach(w => {
-    const on = w.querySelector('.pk-it.on'); if (on) w.scrollTop = on.offsetTop - PK_ROW * 2;
+    const on = w.querySelector('.pk-it.on'); if (on) w.scrollTop = on.offsetTop - pkRow(w) * 2;
     pkTilt(w);
     let t = 0;
-    w.addEventListener('scroll', () => { pkTilt(w); clearTimeout(t); t = setTimeout(() => pkSettle(w), 110); }, { passive: true });
+    let last = -1;
+    w.addEventListener('scroll', () => { pkTilt(w); clearTimeout(t); t = setTimeout(() => pkSettle(w), 110);
+      const i = Math.round(w.scrollTop / pkRow(w)); if (i !== last) { if (last >= 0 && pk && pk.sheet && navigator.vibrate) try { navigator.vibrate(3); } catch (e) {} last = i; } }, { passive: true });
     let acc = 0, at = 0;
     w.addEventListener('wheel', e => {   // колесо мыши: щелчок — одна строка; тачпад (мелкие шаги) копится до строки
       e.preventDefault(); if (Date.now() - at > 250) acc = 0; at = Date.now(); acc += e.deltaMode === 1 ? e.deltaY * 34 : e.deltaY;
@@ -70,26 +98,48 @@ function pkTime(el) {
   });
   if (!m) pkTimeWrite();   // пустое поле — сразу ставим время колёсиков (как системное окошко)
 }
+// Телефон: «Начало | Конец» с текущими значениями, внизу — «Сейчас» у начала и длительность у конца
+function pkSegSync() {
+  if (!pk || !pk.sheet) return;
+  const cur = pk.two ? pk.two.indexOf(pk.el) : 0;
+  pk.box.querySelectorAll('.pk-seg button').forEach((b, i) => { b.classList.toggle('on', i === cur); b.setAttribute('aria-pressed', i === cur); b.querySelector('b').textContent = pk.two[i].value || '—'; });
+  const c = pk.box.querySelector('.pk-chips'); if (!c) return;
+  const a = pk.two && pkMin(pk.two[0].value), b = pk.two && pkMin(pk.two[1].value), d = a != null && b != null ? b - a : null;
+  const html = cur === 1 && pk.two ? PK_DUR.map(([m, t]) => `<button type="button" class="pk-chip${d === m ? ' on' : ''}" data-pk="dur" data-m="${m}">${t}</button>`).join('')
+    : '<button type="button" class="pk-chip" data-pk="now">Сейчас</button>';
+  if (c.dataset.h !== html) { c.innerHTML = html; c.dataset.h = html; }
+}
+// Переключиться на начало или конец: колёсики едут к его времени
+function pkSeg(i) {
+  if (!pk || !pk.two || pk.two[i] === pk.el) return;
+  pk.el = pk.two[i]; pk.switching = true;
+  const v = pkMin(pk.el.value) ?? pkMin(pk.two[0].value) ?? 540, h = Math.floor(v / 60), m = v % 60;
+  pk.h = h; pk.m = m;
+  pk.box.querySelectorAll('.pk-wh').forEach(w => pkWheelTo(w, w.dataset.w === 'h' ? h : m, true));
+  setTimeout(() => { if (pk) pk.switching = false; }, 450);
+  pkSegSync();
+}
 // Колёсико «как барабан»: строки дальше от середины мельче, бледнее и наклонены
 function pkTilt(w) {
   const mid = w.scrollTop + w.clientHeight / 2;
   for (const it of w.children) {
     if (!it.classList.contains('pk-it')) continue;
-    const d = (it.offsetTop + PK_ROW / 2 - mid) / PK_ROW, a = Math.max(-1, Math.min(1, d / 2.6));
+    const r = it.offsetHeight || PK_ROW, d = (it.offsetTop + r / 2 - mid) / r, a = Math.max(-1, Math.min(1, d / 2.6));
     it.style.transform = `rotateX(${(-a * 62).toFixed(1)}deg) scale(${(1 - Math.abs(a) * .12).toFixed(3)})`;
     it.style.opacity = (1 - Math.min(1, Math.abs(d) / 3) * .75).toFixed(2);
   }
 }
 function pkSettle(w) {
   if (!pk || pk.kind !== 'time') return;
-  const its = [...w.querySelectorAll('.pk-it')], i = Math.max(0, Math.min(its.length - 1, Math.round(w.scrollTop / PK_ROW))), it = its[i];
+  const its = [...w.querySelectorAll('.pk-it')], i = Math.max(0, Math.min(its.length - 1, Math.round(w.scrollTop / pkRow(w)))), it = its[i];
+  if (pk.switching && +it.dataset.v !== pk[w.dataset.w]) return;   // колёсико ещё едет к началу / концу — промежуточное не пишем
   its.forEach(x => { x.classList.toggle('on', x === it); x.setAttribute('aria-selected', x === it); });
   pk[w.dataset.w] = +it.dataset.v; pkTimeWrite();
 }
-const pkTimeWrite = () => { if (pk && pk.kind === 'time') pkSet(pk.el, pk2(pk.h) + ':' + pk2(pk.m)); };
+const pkTimeWrite = () => { if (pk && pk.kind === 'time') { pkSet(pk.el, pk2(pk.h) + ':' + pk2(pk.m)); pkSegSync(); } };
 function pkWheelTo(w, v, smooth) {
   const it = w.querySelector(`.pk-it[data-v="${v}"]`); if (!it) return;
-  w.scrollTo({ top: it.offsetTop - PK_ROW * 2, behavior: smooth && !matchMedia('(prefers-reduced-motion:reduce)').matches ? 'smooth' : 'auto' });
+  w.scrollTo({ top: it.offsetTop - pkRow(w) * 2, behavior: smooth && !matchMedia('(prefers-reduced-motion:reduce)').matches ? 'smooth' : 'auto' });
   if (!smooth) { pkTilt(w); pkSettle(w); }
 }
 
@@ -128,7 +178,19 @@ function pkSelect(el) {
 
 // ---- Открыть: нажатие мышью по полю (и по значку часов / календаря в нём) ----
 const PK_SEL = 'input[type="time"], input[type="date"], select';
-function pkFor(el) { if (el.disabled || el.readOnly || el.dataset.native != null || (el.tagName === 'SELECT' && el.multiple)) return; return el.tagName === 'SELECT' ? pkSelect(el) : el.type === 'time' ? pkTime(el) : pkDate(el); }
+function pkFor(el, phone) { if (el.disabled || el.readOnly || el.dataset.native != null || (el.tagName === 'SELECT' && el.multiple)) return; if (phone) return el.type === 'time' ? pkTime(el, true) : undefined; return el.tagName === 'SELECT' ? pkSelect(el) : el.type === 'time' ? pkTime(el) : pkDate(el); }
+// Телефон: нажатие (не прокрутка) по полю времени — своя панель вместо системного окошка
+let pkTap = null;
+document.addEventListener('touchstart', e => { const el = e.touches.length === 1 && PK_TOUCH() && e.target.closest && e.target.closest('input[type="time"]'); pkTap = el ? { el, x: e.touches[0].clientX, y: e.touches[0].clientY } : null; }, { capture: true, passive: true });
+document.addEventListener('touchmove', e => { if (pkTap && Math.hypot(e.touches[0].clientX - pkTap.x, e.touches[0].clientY - pkTap.y) > 10) pkTap = null; }, { capture: true, passive: true });
+document.addEventListener('touchend', e => {
+  const t = pkTap; pkTap = null; if (!t || pk) return;
+  const el = e.target.closest && e.target.closest('input[type="time"]'); if (el !== t.el || el.disabled || el.readOnly || el.dataset.native != null) return;
+  e.preventDefault();   // без системного окошка и клавиатуры
+  if (document.activeElement === el) el.blur();
+  el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));   // как обычное нажатие (в событии — снимает «Весь день», timeOn)
+  pkFor(el, true);
+}, { capture: true, passive: false });
 document.addEventListener('mousedown', e => {
   if (e.button !== 0 || !PK_ON()) return;
   if (pk && pk.box.contains(e.target)) return;
@@ -147,7 +209,10 @@ document.addEventListener('click', e => {
   if (b.classList.contains('pk-o')) { const el = pk.el; el.selectedIndex = +b.dataset.i; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); return pkClose(true); }
   const a = b.dataset.pk;
   if (a === 'ok') return pkClose(true);
-  if (a === 'now') { const n = new Date(); pk.box.querySelectorAll('.pk-wh').forEach(w => pkWheelTo(w, w.dataset.w === 'h' ? n.getHours() : Math.round(n.getMinutes() / 5) * 5 % 60, true)); return; }
+  if (a === 'cancel') { const o = pk.orig || []; pkClose(); o.forEach(([x, v]) => { if (document.contains(x)) pkSet(x, v); }); return; }   // всё как было (сначала начало — потом конец)
+  if (a === 'seg') return pkSeg(+b.dataset.i);
+  if (a === 'dur') { const st = pkMin(pk.two[0].value); if (st == null) return; const v = Math.min(23 * 60 + 55, st + +b.dataset.m), h = Math.floor(v / 60), m = v % 60; pk.h = h; pk.m = m; pk.switching = true; pkSet(pk.two[1], pk2(h) + ':' + pk2(m)); pk.box.querySelectorAll('.pk-wh').forEach(w => pkWheelTo(w, w.dataset.w === 'h' ? h : m, true)); setTimeout(() => { if (pk) pk.switching = false; }, 450); return pkSegSync(); }
+  if (a === 'now') { const n = new Date(); pk.h = n.getHours(); pk.m = Math.round(n.getMinutes() / 5) * 5 % 60; pk.box.querySelectorAll('.pk-wh').forEach(w => pkWheelTo(w, w.dataset.w === 'h' ? n.getHours() : Math.round(n.getMinutes() / 5) * 5 % 60, true)); return; }
   if (a === 'prev') return pkMonth(-1);
   if (a === 'next') return pkMonth(1);
   if (a === 'today') { const t = todayK(); pkSet(pk.el, t); return pkClose(true); }
@@ -184,5 +249,5 @@ addEventListener('keydown', e => {
   }
   if (e.key === 'Enter' && t.classList.contains('pk-wh')) { e.preventDefault(); e.stopImmediatePropagation(); pkClose(true); }
 }, true);
-addEventListener('resize', () => pkClose());
+addEventListener('resize', () => { if (pk && !pk.sheet) pkClose(); });   // на телефоне размер меняется сам (панель Safari) — панель не закрываем
 addEventListener('scroll', e => { if (pk && !pk.box.contains(e.target)) pkPlace(); }, true);   // окно с полем листается — окошко едет за полем
