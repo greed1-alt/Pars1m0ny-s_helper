@@ -9,7 +9,6 @@
 // Parsimony → Настройки → «Виджет iPhone» → «Новый ключ»: старый перестанет работать.
 const KEY = '__KEY__';
 const API = 'https://api.parsimony.ru/functions/v1/calendar';
-const APP = 'https://app.parsimony.ru/';
 const LIST = 'Parsimony';   // список в «Напоминаниях»
 const C = {
   bg: Color.dynamic(new Color('#ffffff'), new Color('#1c1c1e')),
@@ -193,31 +192,178 @@ async function syncReminders() {
 
 // ---- Голос: сказать → помощник Parsimony разберёт и добавит ----
 const RES_T = { task: 'Задача', event: 'Событие', expense: 'Трата', income: 'Доход', saving: 'Накопление', note: 'Заметка', check: 'Привычка' };
-function resLine(x) {
+const RU_M = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+const remTxt = rem => rem.map(m => m >= 1440 ? Math.round(m / 1440) + ' д' : m >= 60 ? Math.round(m / 60) + ' ч' : m + ' мин').join(' и ');
+function whenTxt(d) {
+  const t = new Date(), t1 = new Date(Date.now() + 864e5);
+  if (d === ymd(t)) return 'сегодня'; if (d === ymd(t1)) return 'завтра';
+  const [y, m, dd] = d.split('-'); return Number(dd) + ' ' + RU_M[Number(m) - 1];
+}
+function resLine(x) {   // для уведомления команды
   if (!x.ok) return '— ' + (x.t || RES_T[x.type] || 'Запись') + ': ' + (x.why || 'не получилось');
   let s = '✓ ' + (RES_T[x.type] || 'Запись') + ': ' + x.t;
-  if (x.d) { const [y, m, d] = x.d.split('-'); s += ' — ' + Number(d) + '.' + m; }
+  if (x.d) s += ' — ' + whenTxt(x.d);
   if (x.tm) s += ', ' + x.tm;
   if (x.amt) s += ' — ' + x.amt + ' ₽';
-  if (x.rem && x.rem.length) s += ', напомню за ' + x.rem.map(m => m >= 1440 ? Math.round(m / 1440) + ' д' : m >= 60 ? Math.round(m / 60) + ' ч' : m + ' мин').join(' и ');
+  if (x.rem && x.rem.length) s += ', напомню за ' + remTxt(x.rem);
   return s;
 }
-async function say() {
-  let text = '';
-  try { text = (await Dictation.start('ru-RU') || '').trim(); } catch (e) { text = ''; }
-  if (!text) {   // диктовка не сработала — можно напечатать
-    const a = new Alert(); a.title = 'Что добавить?'; a.message = 'Например: «завтра в 10 стоматолог, напомни за час»'; a.addTextField('Скажите или напишите'); a.addAction('Добавить'); a.addCancelAction('Отмена');
-    if (await a.presentAlert() === -1) return false; text = a.textFieldValue(0).trim(); if (!text) return false;
+function resItem(x) {   // для экрана: заголовок и строка подробностей
+  if (!x.ok) return { ok: false, k: x.type, t: x.t || RES_T[x.type] || 'Запись', m: x.why || 'не получилось' };
+  const m = [RES_T[x.type] || 'Запись'];
+  if (x.d) m.push(whenTxt(x.d)); if (x.tm) m.push(x.tm); if (x.amt) m.push(x.amt + ' ₽');
+  if (x.rem && x.rem.length) m.push('напомню за ' + remTxt(x.rem));
+  return { ok: true, k: x.type, t: x.t, m: m.join(' · ') };
+}
+
+// ---- Экран в Scriptable (нажали на виджет или открыли скрипт): вместо серого экрана и окошек — своя страница
+//      (25 ноября 2026, пользователь: «можно ли сделать визуал Scriptable более красивым… там виден только серый экран»).
+//      Страница → скрипт: setWait(completion) ждёт нажатия (act); скрипт → страница: show / setToday / syncMsg.
+//      Ключ на страницу не попадает: на сервер ходит только скрипт. Весь текст на странице — через textContent.
+const PAGE = `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>
+:root{--bg:#f2f2f7;--card:#fff;--tx:#1c1c1e;--mut:#8e8e93;--line:rgba(60,60,67,.12);--acc:#5b5bd6;--acc2:#8b8bff;--soft:rgba(91,91,214,.12);--ok:#34c759;--warn:#ff9f0a}
+@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--tx:#f2f2f7;--mut:#98989d;--line:rgba(84,84,88,.6);--acc:#8b8bff;--acc2:#b4b4ff;--soft:rgba(139,139,255,.18);--ok:#30d158}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,system-ui,sans-serif;padding:max(18px,env(safe-area-inset-top)) 18px max(28px,env(safe-area-inset-bottom))}
+.top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:22px}
+.brand{font-weight:700;font-size:15px;color:var(--acc);letter-spacing:.2px}
+#date{font-size:13px;color:var(--mut);font-weight:500}
+.hero{display:flex;flex-direction:column;align-items:center;text-align:center}
+.orb{position:relative;width:118px;height:118px;border-radius:50%;border:0;background:radial-gradient(circle at 35% 30%,var(--acc2),var(--acc) 70%);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px var(--soft);transition:transform .35s cubic-bezier(.32,.72,0,1),background .3s}
+.orb:active{transform:scale(.94)}
+.orb svg{width:44px;height:44px}
+.orb::before,.orb::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--acc);opacity:0}
+.listen .orb::before{animation:ring 1.6s ease-out infinite}.listen .orb::after{animation:ring 1.6s ease-out .8s infinite}
+@keyframes ring{0%{transform:scale(1);opacity:.6}100%{transform:scale(1.7);opacity:0}}
+.work .orb{animation:breathe 1.2s ease-in-out infinite}
+@keyframes breathe{50%{transform:scale(.92)}}
+.done .orb{background:radial-gradient(circle at 35% 30%,#6ee7a0,var(--ok) 70%)}
+.err .orb{background:radial-gradient(circle at 35% 30%,#ffc46b,var(--warn) 70%)}
+.st{font-size:24px;font-weight:700;margin-top:18px;letter-spacing:-.3px}
+.hint{font-size:14px;color:var(--mut);margin-top:6px}
+.said{margin-top:14px;font-size:16px;color:var(--tx);background:var(--card);border-radius:14px;padding:10px 14px;max-width:100%}
+.said:empty,.reply:empty,.res:empty{display:none}
+.res{width:100%;margin-top:16px;display:flex;flex-direction:column;gap:8px;text-align:left}
+.it{display:flex;gap:12px;align-items:center;background:var(--card);border-radius:16px;padding:12px 14px;animation:up .45s cubic-bezier(.32,.72,0,1) both}
+.it:nth-child(2){animation-delay:.06s}.it:nth-child(3){animation-delay:.12s}.it:nth-child(4){animation-delay:.18s}
+@keyframes up{from{opacity:0;transform:translateY(10px)}}
+.ic{flex:none;width:38px;height:38px;border-radius:12px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:20px}
+.it>div:last-child{min-width:0;flex:1}.it.no{opacity:.55}.it b{display:block;font-size:16px;font-weight:600}.it span{font-size:13px;color:var(--mut)}
+.reply{margin-top:12px;font-size:14px;color:var(--mut);font-style:italic;text-align:left;width:100%}
+.btns{display:flex;gap:10px;margin-top:22px;width:100%}
+button.b{flex:1;height:48px;border-radius:14px;border:0;font:600 16px -apple-system,system-ui,sans-serif;background:var(--card);color:var(--acc);display:flex;align-items:center;justify-content:center;gap:8px}
+button.b.pri{background:var(--acc);color:#fff}button.b:active{opacity:.7}
+.tw{width:100%;margin-top:12px;display:flex;flex-direction:column;gap:8px}.tw[hidden]{display:none}
+textarea{width:100%;border:0;border-radius:14px;background:var(--card);color:var(--tx);padding:12px 14px;font:16px/1.4 -apple-system,system-ui,sans-serif;resize:none;outline:none}
+h3{font-size:13px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;margin:30px 4px 8px}
+.today{background:var(--card);border-radius:16px;overflow:hidden}
+.row{display:flex;gap:10px;align-items:center;padding:11px 14px;border-top:.5px solid var(--line)}.row:first-child{border-top:0}
+.row .tm{width:42px;font-size:13px;color:var(--mut);font-variant-numeric:tabular-nums}.row .dot{width:9px;height:9px;border-radius:50%;flex:none}
+.row .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row.dn .t{color:var(--mut);text-decoration:line-through}.row.nx{background:var(--soft)}.row.nx .tm{color:var(--acc);font-weight:700}.row.nx .t{font-weight:600}
+.empty{padding:14px;color:var(--mut);font-size:14px}
+.link{display:block;margin:18px auto 0;background:none;border:0;color:var(--acc);font:500 15px -apple-system,system-ui,sans-serif}
+#sync{text-align:center;font-size:13px;color:var(--mut);margin-top:6px}
+</style></head><body>
+<div class="top"><span class="brand">Parsimony</span><span id="date"></span></div>
+<div class="hero" id="hero">
+ <button class="orb" id="orb" aria-label="Сказать, что добавить" onclick="act({a:'listen'})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="oi"></svg></button>
+ <div class="st" id="st">Что добавить?</div>
+ <div class="hint" id="hint">Например: «завтра в 10 стоматолог, напомни за час»</div>
+ <div class="said" id="said"></div>
+ <div class="res" id="res"></div>
+ <div class="reply" id="reply"></div>
+ <div class="btns"><button class="b pri" onclick="act({a:'listen'})" id="bl">Сказать</button><button class="b" onclick="typeOpen()">Напечатать</button></div>
+ <div class="tw" id="tw" hidden><textarea id="ta" rows="2" placeholder="Напишите или нажмите микрофон на клавиатуре"></textarea><button class="b pri" onclick="sendT()">Добавить</button></div>
+</div>
+<h3 id="th">Сегодня</h3><div class="today" id="today"><div class="empty">Загружаю…</div></div>
+<button class="link" onclick="act({a:'sync'})">Синхронизировать «Напоминания»</button><div id="sync"></div>
+<script>
+var wait=null,q=[];
+function setWait(c){wait=c;flush()}
+function act(o){q.push(o);flush()}
+function flush(){if(wait&&q.length){var w=wait;wait=null;w(JSON.stringify(q.shift()))}}
+var $=function(i){return document.getElementById(i)};
+var IC={mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',ok:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',wait:'<circle cx="12" cy="12" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>',err:'<path d="M12 7v6M12 17h.01"/>'};
+var EM={event:'📅',task:'☑️',expense:'💸',income:'💰',saving:'🐷',note:'📝',check:'✅'};
+function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
+function typeOpen(){$('tw').hidden=false;$('ta').focus()}
+function sendT(){var t=$('ta').value.trim();if(!t)return;$('ta').value='';$('tw').hidden=true;act({a:'send',t:t})}
+function show(s){
+ var h=$('hero');h.className='hero '+s.st;
+ var T={idle:'Что добавить?',listen:'Слушаю…',work:'Записываю…',done:(s.res||[]).some(function(x){return x.ok})?'Готово':'Ничего не добавлено',err:'Не получилось',type:'Напишите, что добавить'};
+ $('st').textContent=T[s.st]||'';
+ $('oi').innerHTML=s.st==='done'?IC.ok:s.st==='work'?IC.wait:s.st==='err'?IC.err:IC.mic;
+ $('hint').textContent=s.st==='listen'?'Говорите — пауза закончит запись':s.st==='err'?(s.err||''):s.st==='done'&&s.left!=null?'Помощнику осталось на сегодня: '+s.left:s.st==='idle'?'Например: «завтра в 10 стоматолог, напомни за час»':'';
+ $('said').textContent=s.text?'«'+s.text+'»':'';
+ var r=$('res');r.textContent='';
+ (s.res||[]).forEach(function(x){var it=el('div','it'+(x.ok?'':' no'));it.appendChild(el('div','ic',EM[x.k]||'•'));var b=el('div');b.appendChild(el('b',null,x.t));b.appendChild(el('span',null,x.m));it.appendChild(b);r.appendChild(it)});
+ $('reply').textContent=s.reply||'';
+ $('bl').textContent=s.st==='done'||s.st==='err'?'Сказать ещё':'Сказать';
+ if(s.st==='type')typeOpen();
+}
+function setToday(s,err){
+ var b=$('today');b.textContent='';
+ if(!s){b.appendChild(el('div','empty',err||'Нет связи'));return}
+ $('th').textContent='Сегодня'+(s.n?' · дела '+s.done+'/'+s.n:'')+(s.hn?' · привычки '+s.hdone+'/'+s.hn:'');
+ if(!s.items.length){b.appendChild(el('div','empty','На сегодня пусто'));return}
+ var d=new Date(),now=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2),nx=null;
+ s.items.forEach(function(x){if(!nx&&!x.done&&x.tm&&x.tm>=now)nx=x});
+ if(!nx)s.items.forEach(function(x){if(!nx&&!x.done)nx=x});
+ s.items.forEach(function(x){var rw=el('div','row'+(x.done?' dn':'')+(x===nx?' nx':''));rw.appendChild(el('span','tm',x.tm||'—'));var dt=el('span','dot');dt.style.background=/^#[0-9a-f]{6}$/i.test(x.c||'')?x.c:'var(--acc)';rw.appendChild(dt);rw.appendChild(el('span','t',x.t));b.appendChild(rw)});
+ if(s.n>s.items.length)b.appendChild(el('div','empty','и ещё '+(s.n-s.items.length)));
+}
+function syncMsg(t){$('sync').textContent=t}
+$('date').textContent=new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+show({st:'idle'});
+</script></body></html>`;
+async function screen(auto) {
+  const wv = new WebView();
+  await wv.loadHTML(PAGE);
+  let closed = false, busy = false, sending = false;
+  const shown = wv.present(true).then(() => { closed = true; }, () => { closed = true; });
+  const js = s => closed ? Promise.resolve() : wv.evaluateJavaScript(s, false).catch(() => {});
+  const ui = s => js('show(' + JSON.stringify(s) + ')');
+  const today = async () => { try { const s = await call({ op: 'sum' }); await js('setToday(' + JSON.stringify(s) + ')'); } catch (e) { await js('setToday(null,' + JSON.stringify(e.message) + ')'); } };
+  async function send(text) {
+    if (sending) return; sending = true;
+    await ui({ st: 'work', text });
+    try { const j = await call({ op: 'say', text }); await ui({ st: 'done', text, reply: j.reply || '', res: (j.res || []).map(resItem), left: j.left }); today(); syncReminders().catch(() => {}); }
+    catch (e) { await ui({ st: 'err', text, err: e.message }); }
+    sending = false;
   }
-  let j; try { j = await call({ op: 'say', text }); }
-  catch (e) { const a = new Alert(); a.title = 'Не получилось'; a.message = e.message; a.addAction('Ещё раз'); a.addCancelAction('Закрыть'); if (await a.presentAlert() === 0) return say(); return false; }
-  const a = new Alert(); a.title = (j.res || []).some(x => x.ok) ? 'Готово' : 'Ничего не добавлено';
-  a.message = [j.reply, ...(j.res || []).map(resLine)].filter(Boolean).join('\n\n');
-  a.addAction('Сказать ещё'); a.addAction('Открыть Parsimony'); a.addCancelAction('Закрыть');
-  const b = await a.presentAlert();
-  if (b === 0) return say();
-  if (b === 1) Safari.open(APP);
-  return true;
+  async function listen() {
+    if (busy || sending) return; busy = true;
+    await ui({ st: 'listen' });
+    let text = '';
+    // Диктовка поверх страницы; не появилась за 90 с — предлагаем напечатать (микрофон есть и на клавиатуре iPhone)
+    try { text = await Promise.race([Dictation.start('ru-RU'), new Promise(r => Timer.schedule(90000, false, () => r('')))]); } catch (e) { text = ''; }
+    text = String(text || '').trim();
+    busy = false;
+    if (text) await send(text.slice(0, 1000)); else await ui({ st: 'type' });
+  }
+  async function handle(a) {
+    if (!a) return;
+    if (a.a === 'listen') { listen(); return; }
+    if (a.a === 'send' && a.t) { send(String(a.t).trim().slice(0, 1000)); return; }
+    if (a.a === 'sync') {
+      await js('syncMsg("Синхронизирую…")');
+      try { const x = await syncReminders(); await js('syncMsg(' + JSON.stringify(`Готово: в Parsimony — ${x.up}, новых в «Напоминаниях» — ${x.made}, обновлено — ${x.changed}`) + ')'); }
+      catch (e) { await js('syncMsg(' + JSON.stringify('Не получилось: ' + String(e.message || e)) + ')'); }
+    }
+  }
+  (async () => {
+    while (!closed) {
+      let raw; try { raw = await wv.evaluateJavaScript('setWait(completion)', true); } catch (e) { break; }
+      if (closed) break;
+      let a = null; try { a = JSON.parse(raw); } catch (e) {}
+      await handle(a);
+    }
+  })();
+  today();
+  if (auto) Timer.schedule(450, false, () => { listen(); });
+  await shown;
 }
 
 // ---- Запуск ----
@@ -241,20 +387,8 @@ async function main() {
     Script.setWidget(buildWidget(sum, err)); return;
   }
   const act = (args.queryParameters || {}).act;
-  if (act === 'say') { await say(); try { await syncReminders(); } catch (e) {} return; }
-  // Запуск из самого Scriptable — меню
-  const a = new Alert(); a.title = 'Parsimony'; a.message = 'Виджет готов. Нажмите на него на экране «Домой» — и скажите, что добавить.';
-  a.addAction('Сказать, что добавить'); a.addAction('Синхронизировать «Напоминания»'); a.addAction('Показать виджет'); a.addAction('Открыть Parsimony'); a.addCancelAction('Закрыть');
-  const b = await a.presentAlert();
-  if (b === 0) { await say(); try { await syncReminders(); } catch (e) {} }
-  else if (b === 1) {
-    const r = new Alert();
-    try { const x = await syncReminders(); r.title = 'Синхронизировано'; r.message = `Список «${LIST}» в «Напоминаниях».\nНовых в Parsimony и отметок: ${x.up}\nНовых в «Напоминаниях»: ${x.made}\nОбновлено: ${x.changed}`; }
-    catch (e) { r.title = 'Не получилось'; r.message = String(e.message || e); }
-    r.addAction('OK'); await r.presentAlert();
-  }
-  else if (b === 2) { let sum = null, err = ''; try { sum = await call({ op: 'sum' }); } catch (e) { err = e.message; } await buildWidget(sum, err).presentMedium(); }
-  else if (b === 3) Safari.open(APP);
+  if (act === 'say') { await screen(true); return; }   // нажали на виджет — экран и сразу диктовка
+  await screen(false);   // открыли скрипт в самом Scriptable — тот же экран, без диктовки сразу
 }
 await main();
 Script.complete();
