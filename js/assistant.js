@@ -10,7 +10,7 @@
 // когда человек спрашивает — ещё короткая сводка записей (aiData): без заметок, мест и самочувствия (решение пользователя).
 // История чата — только на этом устройстве (remapp_chat), при выходе из аккаунта стирается (cloud.js → wipeDevice) ----
 let ai = null;   // { msgs:[{ r:'u'|'a', t, day, imgs, items, added, nav, ask, hi }], hello, draft, busy, err, left, imgs }
-const AI_MAX = 2000, AI_LS = 'remapp_chat', AI_KEEP = 40, AI_HIST = 14;   // реплик разговора нейросети (24 ноября 2026: было 8 — «средненькая память»)
+const AI_MAX = 2000, AI_LS = 'remapp_chat', AI_KEEP = 40, AI_HIST = 24;   // реплик разговора нейросети (24 ноября 2026: было 8 — «средненькая память»; 25 ноября — 14 → 24: «через несколько сообщений теряет нить»)
 // Картинок в одном сообщении и новых записей с одной картинки (22 октября 2026; функция assistant проверяет так же — IMG_MAX, IMG_ITEMS)
 const AI_IMGS = 3, AI_IMG_ITEMS = 5;
 const AI_CUT = `С одной картинки беру не больше ${AI_IMG_ITEMS} записей — остальное пришлите отдельно (например, обрезанным скриншотом) или допишите сами.`;
@@ -105,6 +105,7 @@ const aiStore = () => { if (!ai) return; ai.msgs = ai.msgs.slice(-AI_KEEP); try 
 const aiBrief = it => it.type === 'schedule' ? `Расписание «${it.title}»: ${it.lessons.length} занятий${it.got ? ', поставлено в календарь: ' + it.got.n : ''}`
   : it.type === 'day' ? `Разложить дела на ${it.wk ? 'неделю' : 'сегодня'} (${it.list.length})${it.got ? ': поставлено по времени — ' + it.got.n + (it.got.mv ? ', на завтра — ' + it.got.mv : '') : ''}`
   : it.type === 'plan' ? `План «${it.title}»: ${it.hours} ч, по ${it.min} мин, ${it.per_week} раз в неделю${AI_WHEN[it.when] ? ', ' + AI_WHEN[it.when] : ''}${it.due ? ', до ' + it.due : ''}${it.got ? ', поставлено занятий: ' + it.got.n : ''}`
+  : it.type === 'goal' ? `Цель «${it.title}», срок ${it.due || 'не назван'}${(it.steps || []).length ? ', шаги: ' + it.steps.map(x => x.title + (x.date ? ' (' + x.date + ')' : '')).join('; ') : ''}`
   : AI_ACT.includes(it.type) ? (AI_T[it.type] || [0, ''])[1] + ' «' + (it.lbl || it.habit || '') + '»' + (it.chg ? ' ' + it.chg : '') : (AI_T[it.type] || [0, 'Запись'])[1] + ' «' + (it.title || it.habit || it.text || it.note || '') + '»' + (it.date ? ' ' + it.date : '') + (it.time ? ' ' + it.time : '') + (it.amount ? ' ' + it.amount + ' ₽' : '');
 const AI_ACT = ['edit', 'done', 'delete', 'uncheck'];   // действия с тем, что уже есть
 const aiSt = x => x.st === 'ok' ? 'сделано' : x.st === 'undone' ? 'пользователь отменил' : x.st === 'ask' ? 'ждёт подтверждения' : x.st === 'no' ? 'пользователь не подтвердил' : 'не получилось' + (x.why ? ' — ' + x.why : '');
@@ -186,8 +187,9 @@ function aiRow(it, key, mode) {
     const st = it.st || 'skip', ico = st === 'ok' ? IC.check : st === 'undone' ? IC.undo : st === 'no' ? IC.x : IC.alert;
     if (it.why) bits.push(esc(it.why));
     const btn = st === 'ok' || st === 'undone' ? `<button class="ai-undo" data-act="aiundo" data-i="${key}">${st === 'ok' ? 'Отменить' : 'Вернуть'}</button>` : '';
+    const steps = it.type === 'goal' && st === 'ok' && (it.steps || []).length ? `<ol class="ai-steps">${it.steps.slice(0, 8).map(x => `<li><span>${esc(x.title)}</span>${x.date ? `<small>${esc(shortDate(x.date))}</small>` : ''}</li>`).join('')}</ol>` : '';   // шаги цели — сразу видно, что запланировано (25 ноября 2026)
     return `<div class="ai-row ai-auto st-${st}"><span class="ai-chk">${I(ico, 14)}</span><span class="ai-k">${I(ic, 15)}${kind}</span>
-      <span class="ai-b"><b>${esc(title)}</b>${bits.length ? `<small>${bits.join(' · ')}</small>` : ''}</span>${btn}</div>`;
+      <span class="ai-b"><b>${esc(title)}</b>${bits.length ? `<small>${bits.join(' · ')}</small>` : ''}${steps}</span>${btn}</div>`;
   }
   const tag = locked ? 'div' : 'label', box = locked ? `<span class="ai-chk">${I(IC.check, 14)}</span>` : `<input type="checkbox" data-aion="${key}"${it.on ? ' checked' : ''}>`;
   return `<${tag} class="ai-row${it.on || locked ? '' : ' off'}">${box}<span class="ai-k">${I(ic, 15)}${kind}</span>
@@ -466,7 +468,7 @@ async function aiSend(text) {
   // Изменить уже созданное — только по просьбе: «перенеси», «удали», «отметь»… или поправка к прошлому изменению («нет, на 11»).
   // Флаг edit уходит и на сервер: там такие записи без просьбы тоже отбрасываются (аудит 18 октября 2026)
   const prev = [...ai.msgs].reverse().find(m => m.r === 'a'), prevAct = !!(prev && prev.auto && (prev.items || []).some(x => AI_ACT.includes(x.type) && x.st === 'ok'));
-  const prevMade = !!(prev && (prev.items || []).some(x => aiHRef(aiRefs(), x)));   // прошлый ответ что-то создал, и оно ещё есть
+  const R0 = aiRefs(), prevMade = ai.msgs.filter(m => m.r === 'a').slice(-4).some(m => (m.items || []).some(x => aiHRef(R0, x)));   // в последних 4 ответах что-то создано, и оно ещё есть (25 ноября 2026: было — только в последнем)
   const edit = AI_EDIT.test(text) || (prevAct && text.length < 80 && /^\s*(?:нет|не\s|лучше|точнее|давай|а\s)/i.test(text)) || (prevMade && text.length < 160 && AI_FOLLOW.test(text));
   const ask = !edit && !imgs.length && (aiAsks(text) || !!(prev && prev.ask && !prev.hi && text.length < 60 && /^\s*(?:а|и|ещё|еще)(?=[\s,])/i.test(text)));
   const vt = aiVt && aiVt.t === text ? aiVt : null; aiVt = null;   // текст — только что распознанный голос: такой запрос второй раз не считается
@@ -474,7 +476,7 @@ async function aiSend(text) {
   ai.msgs.push({ r:'u', t:text, day: todayK(), ...(imgs.length ? { imgs: imgs.map(x => x.thumb) } : {}), ...(vt ? { v: vt.secs } : {}) }); ai.draft = ''; ai.err = ''; ai.errT = null; ai.errV = null; ai.busy = true; ai.imgs = []; aiClearAsk = 0; aiStore();
   if (ta && text === ta.value.trim()) { ta.value = ''; aiGrow(); }
   aiRefresh();
-  const j = await aiCall({ mode:'chat', caps: ['schedule'], text: text || (imgs.length > 1 ? 'Разбери картинки и добавь в приложение, что на них' : 'Разбери картинку и добавь в приложение, что на ней'), ask, edit, history, ctx: aiCtx(ask || edit, R, edit ? text : ''), ...(vt ? { vt: vt.vt } : {}),
+  const j = await aiCall({ mode:'chat', caps: ['schedule'], tone: (S.settings.phr || {}).taunts === false ? 'soft' : 'sharp', text: text || (imgs.length > 1 ? 'Разбери картинки и добавь в приложение, что на них' : 'Разбери картинку и добавь в приложение, что на ней'), ask, edit, history, ctx: aiCtx(ask || edit, R, edit ? text : ''), ...(vt ? { vt: vt.vt } : {}),
     // картинки — списком images; одна — ещё и в image: так её поймёт и прежняя версия функции assistant
     ...(imgs.length ? { images: imgs.map(x => x.data), ...(imgs.length === 1 ? { image: imgs[0].data } : {}) } : {}) });
   ai.busy = false;

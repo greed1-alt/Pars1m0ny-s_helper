@@ -13,8 +13,8 @@ const cut = (a, b) => src.slice(src.indexOf(a), src.indexOf(b));
 const ok = (c, msg, x) => { if (!c) { console.log('FAIL', msg, x === undefined ? '' : JSON.stringify(x).slice(0, 400)); process.exitCode = 1; } };
 // 1) сообщение, проверки
 {
-  const mod = `const Deno = { env: { get: k => ({ AI_PROVIDER: 'gigachat' })[k] } };\n` + cut('const env =', 'const sb =') + cut('// ---- Проверка', '// ---- Нейросеть:') +
-    `\nexport { userMessage, cleanNav, block, histOf, SYSTEM, HELLO, LITE, MODEL, cleanItem, DAYP, dayList, dayMsg, cleanEst, fillCats, capImg, SCHED_MAX, schedEvents };`;
+  const mod = `const Deno = { env: { get: k => ({ AI_PROVIDER: 'gigachat' })[k] } };\n` + cut('const env =', 'const sb =') + cut('// ---- Проверка', '// ---- Нейросеть:') + cut('// Все объекты верхнего уровня', '// GigaChat: ключ авторизации') +
+    `\nexport { userMessage, cleanNav, block, histOf, jsonOf, SYSTEM, HELLO, LITE, MODEL, cleanItem, DAYP, dayList, dayMsg, cleanEst, fillCats, capImg, SCHED_MAX, schedEvents };`;
   const f = join(TMP, 'c.mjs'); writeFileSync(f, mod); const m = await import(pathToFileURL(f).href);
   ok(m.LITE === 'GigaChat-2' && m.MODEL === 'GigaChat-2-Pro', 'models', [m.LITE, m.MODEL]);
   const u = m.userMessage('кофе 350', { today: '2026-10-16', now: '14:05', tz: 'Europe/Moscow', cats: ['Работа'], fin: [{ n: 'Кафе', g: 'exp' }], habits: ['Вода'], goals: ['Английский'], taunts: true, praise: false, style: [{ k: 'taunt', t: 'Ну и?' }], data: 'Дела:\nсб 17.10: Врач' }, { history: [{ r: 'u', t: 'привет' }, { r: 'a', t: 'Здравствуйте' }, { r: 'x', t: 'лишнее' }] });
@@ -28,7 +28,11 @@ const ok = (c, msg, x) => { if (!c) { console.log('FAIL', msg, x === undefined ?
   ok(m.cleanNav('x').length === 0 && m.cleanNav(null).length === 0, 'nav junk');
   ok(m.block('a\r\n\r\n\r\n\u0007b  c\n• d', 100) === 'a\n\n b c\n• d', 'block', m.block('a\r\n\r\n\r\n\u0007b  c\n• d', 100));
   ok(m.block(5, 10) === '' && m.block('x'.repeat(50), 10).length === 10, 'block len');
-  ok(m.histOf(Array(20).fill({ r: 'u', t: 'x' })).length === 14 && m.histOf('x').length === 0, 'hist cap');
+  // ответ кусками: {reply, items:[]} + отдельный {type:'edit'} — собирается в один (25 ноября 2026)
+  const j2 = m.jsonOf('{"reply":"Сдвинул { срок }.","items":[],"fix":true}\n\n{"type":"edit","ref":"g1","due":"2026-12-25"}');
+  ok(j2 && j2.reply === 'Сдвинул { срок }.' && j2.items.length === 1 && j2.items[0].ref === 'g1', 'json pieces', j2);
+  ok(JSON.stringify(m.jsonOf('```json\n{"reply":"a"}\n```')) === '{"reply":"a"}' && m.jsonOf('просто текст') === null, 'json plain');
+  ok(m.histOf(Array(30).fill({ r: 'u', t: 'x' })).length === 24 && m.histOf('x').length === 0, 'hist cap');
   ok(JSON.stringify(m.cleanItem({ type: 'check', habit: '  Вода\u0000 ', date: '2026-10-15', x: 1 })) === JSON.stringify({ type: 'check', habit: 'Вода', date: '2026-10-15' }), 'check item');
   ok(m.cleanItem({ type: 'check', title: 'Зарядка' }).habit === 'Зарядка' && m.cleanItem({ type: 'check', habit: '' }) === null && m.cleanItem({ type: 'check', habit: 'x', date: '2026-02-30' }).date === null, 'check junk');
   ok(m.SYSTEM.includes('"check"') && m.SYSTEM.startsWith('Ты — Parsimony') && m.HELLO.startsWith('Ты — Parsimony'), 'persona');

@@ -1590,3 +1590,9 @@ html.bgated .app,html.bgated #tabbar,html.bgated #tinv{visibility:hidden}
 .pk-chip:active{transform:scale(.94)}
 .pk-chip.on{background:var(--acc);color:var(--accfg)}
 @media(prefers-reduced-motion:reduce){.pk-bg,.pk-bg.out,.pk.pk-sh,.pk.pk-sh.out{animation:none}}
+
+/* Помощник: шаги цели прямо в карточке (25 ноября 2026) */
+.ai-steps{margin:6px 0 2px;padding-left:20px;display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--tx2)}
+.ai-steps li::marker{color:var(--acc);font-weight:700}
+.ai-steps li span{color:var(--tx)}
+.ai-steps li small{margin-left:6px;font-size:12px;color:var(--mut);white-space:nowrap}
