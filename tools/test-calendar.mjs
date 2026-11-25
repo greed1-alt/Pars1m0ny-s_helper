@@ -156,11 +156,11 @@ bad.forEach(u => ok(srv.feedUrl(u) === null, 'не подходит: ' + u));
 
 // ---- 6. Виджет iPhone (Scriptable): сводка, задачи для «Напоминаний», запись сказанного, отметки ----
 {
-  const W = () => ({ cats: [{ id: 'c1', name: 'Работа' }, { id: 'c2', name: 'Учёба' }], fin: { cats: [{ id: 'f1', g: 'exp', name: 'Кафе' }, { id: 'f2', g: 'exp', name: 'Прочее' }, { id: 'f3', g: 'inc', name: 'Прочие доходы' }], ops: [] },
+  const W = () => ({ cats: [{ id: 'c1', name: 'Работа', color: '#EF4444' }, { id: 'c2', name: 'Учёба', color: 'red;x' }], fin: { cats: [{ id: 'f1', g: 'exp', name: 'Кафе' }, { id: 'f2', g: 'exp', name: 'Прочее' }, { id: 'f3', g: 'inc', name: 'Прочие доходы' }], ops: [] },
     habits: [{ id: 'h1', name: 'Вода', kind: 'daily', days: [], from: '2026-11-01', log: { [today]: 1 } }, { id: 'h2', name: 'Зарядка', kind: 'daily', days: [], from: '2026-11-01', log: {} }, { id: 'h3', name: 'Бассейн', kind: 'weekly', days: [], from: '2026-11-01', log: {} }],
     notes: [], events: [
-      { id: 'a', title: 'Врач', date: today, time: '10:00', task: false, repeat: { type: 'none' } },
-      { id: 'b', title: 'Отчёт', date: today, time: '', task: true, done: true, repeat: { type: 'none' } },
+      { id: 'a', title: 'Врач', date: today, time: '10:00', cat: 'c1', task: false, repeat: { type: 'none' } },
+      { id: 'b', title: 'Отчёт', date: today, time: '', cat: 'c2', task: true, done: true, repeat: { type: 'none' } },
       { id: 'c', title: 'Зарядка утром', date: '2026-11-01', time: '07:00', repeat: { type: 'daily', days: [] }, doneDates: [today] },
       { id: 'd', title: 'Пример', date: today, demo: true, repeat: { type: 'none' } },
       { id: 'e', title: 'Сдать книгу', date: srv.addD(today, 3), task: true, prio: 'high', repeat: { type: 'none' } },
@@ -169,6 +169,7 @@ bad.forEach(u => ok(srv.feedUrl(u) === null, 'не подходит: ' + u));
   const d = W(), sm = srv.wSummary(d, today);
   ok(sm.n === 4 && sm.done === 2 && sm.items[0].t === 'Зарядка утром' && sm.items[1].t === 'Врач' && !sm.items.some(x => x.t === 'Пример'), 'виджет: сводка дня по времени, без примера');
   ok(sm.items.find(x => x.id === 'g').tm === '' && sm.hn === 2 && sm.hdone === 1, 'виджет: неверное время пусто, привычки на сегодня');
+  ok(sm.items.find(x => x.id === 'a').c === '#EF4444' && sm.items.find(x => x.id === 'b').c === '' && sm.items.find(x => x.id === 'c').c === '', 'виджет: цвет календаря — только настоящий #RRGGBB');
   const tk = srv.wTasks(d, today);
   ok(tk.length === 3 && tk.some(x => x.id === 'e' && x.p === 'high') && !tk.some(x => x.id === 'f' || x.id === 'c' || x.id === 'a'), 'виджет: разовые задачи в окне, без повторов и событий');
   const r = srv.wApply(d, [{ type: 'event', title: 'Стоматолог', date: srv.addD(today, 1), time: '10:00', remind: [60], cat: 'Учёба' }, { type: 'task', title: 'Позвонить', prio: 'urgent' },

@@ -302,7 +302,8 @@ const wHabs = (d, k) => (Array.isArray(d.habits) ? d.habits : []).filter(h => h 
 function wSummary(data, today) {
   const d = data && typeof data === 'object' ? data : {};
   const ev = (Array.isArray(d.events) ? d.events : []).filter(e => e && typeof e === 'object' && !e.demo && typeof e.title === 'string' && DATE_RE.test(e.date || '') && occurs(e, today));
-  const list = ev.map(e => ({ id: String(e.id), t: wStr(e.title, 80) || '—', tm: wTm(e.time), tm2: wTm(e.time2), task: !!e.task, done: wDone(e, today) }))
+  const cc = {}; (Array.isArray(d.cats) ? d.cats : []).forEach(c => { if (c && typeof c.id === 'string' && /^#[0-9a-f]{6}$/i.test(c.color || '')) cc[c.id] = c.color; });   // цвет календаря — для виджета
+  const list = ev.map(e => ({ id: String(e.id), t: wStr(e.title, 80) || '—', tm: wTm(e.time), tm2: wTm(e.time2), task: !!e.task, done: wDone(e, today), c: cc[e.cat] || '' }))
     .sort((a, b) => (a.tm || '99:99').localeCompare(b.tm || '99:99') || a.t.localeCompare(b.t));
   const hb = wHabs(d, today).map(h => ({ n: wStr(h.name, 40), e: wStr(h.emoji, 8), done: !!h.log[today] }));
   return { day: today, items: list.slice(0, 12), n: list.length, done: list.filter(x => x.done).length, habits: hb.slice(0, 12), hn: hb.length, hdone: hb.filter(x => x.done).length };
