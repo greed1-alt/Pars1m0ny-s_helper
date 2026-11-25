@@ -160,6 +160,17 @@ async function say() {
 // ---- Запуск ----
 async function main() {
   if (KEY.indexOf('_') === 0) { const a = new Alert(); a.title = 'Нет ключа'; a.message = 'Скопируйте код заново: Parsimony → Настройки → «Виджет iPhone» → «Скопировать код».'; a.addAction('OK'); await a.presentAlert(); return; }
+  // Из «Команд» iPhone (действие Scriptable «Run Script», параметр — продиктованный текст): без перехода в Scriptable,
+  // ответ — выводом скрипта (команда показывает его уведомлением). Пустой параметр — ничего не делаем.
+  const sp = args.shortcutParameter;
+  if (!config.runsInWidget && sp != null) {
+    const text = String(Array.isArray(sp) ? sp.join(' ') : typeof sp === 'object' ? (sp.text || '') : sp).trim();
+    let out = '';
+    if (!text) out = 'Ничего не услышал — попробуйте ещё раз';
+    else try { const j = await call({ op: 'say', text }); out = [j.reply, ...(j.res || []).map(resLine)].filter(Boolean).join('\n') || 'Готово'; }
+    catch (e) { out = 'Не получилось: ' + e.message; }
+    Script.setShortcutOutput(out); return;
+  }
   if (config.runsInWidget) {
     let sum = null, err = '';
     try { sum = await call({ op: 'sum' }); } catch (e) { err = e.message; }
