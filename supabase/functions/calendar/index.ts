@@ -9,6 +9,10 @@
 //    Защита: только https на 443, без IP-адресов, логинов и внутренних имён; адрес, на который указывает имя, — не внутренний (если среда
 //    умеет спрашивать DNS); переадресации проверяются заново (до 3); до 3 МБ и 12 с; не чаще 40 раз в час на человека. Ссылка нигде не
 //    хранится — только в записях человека (S.settings.subs); сам календарь — только на его устройстве.
+// 3) Виджет iPhone (Scriptable, 25 ноября 2026): ключ widget_keys (supabase/sql/widget.sql). GET ?w=<ключ> — сводка дня; POST { w, op }:
+//    say — сказанное голосом разбирает помощник (функция assistant, от имени человека, в его дневной лимит), записи встают сразу (задачи,
+//    события с напоминаниями, деньги, заметки, отметки привычек); tasks — разовые задачи для «Напоминаний»; sync — отметки и новые задачи
+//    из «Напоминаний». Записи меняются с проверкой rev, как приложение (не совпало — заново); приложение потом сольёт их (merge3).
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 // ==== CORE start ====
@@ -282,6 +286,85 @@ function feedUrl(u) {
 // Внутренний адрес (на случай, если имя указывает внутрь: 10.x, 127.x, 192.168.x…)
 const privIp = ip => /^(0|10|127)\./.test(ip) || /^169\.254\./.test(ip) || /^192\.168\./.test(ip) || /^172\.(1[6-9]|2\d|3[01])\./.test(ip) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(ip)
   || /^(::1?|::ffff:.*|f[cd][0-9a-f]{2}:.*|fe[89ab][0-9a-f]:.*)$/i.test(ip);
+// ---- 3. Виджет iPhone (Scriptable, 25 ноября 2026; пользователь: «давай scriptable… голосовой ввод при нажатии на виджет… синхронизацию
+//      для задач и напоминаний» → с «Напоминаниями» iPhone, разбор голоса — помощник). Ключ — widget_keys (supabase/sql/widget.sql).
+//      Здесь — только чистые функции над записями человека (S): сводка дня, задачи для «Напоминаний», добавить сказанное, отметки.
+const W_TYPES = ['task', 'event', 'expense', 'income', 'saving', 'note', 'check'];
+const wStr = (s, n) => typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '';
+const wUid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const wArr = (d, k) => Array.isArray(d[k]) ? d[k] : (d[k] = []);
+const wDone = (e, k) => isRec(e) ? Array.isArray(e.doneDates) && e.doneDates.includes(k) : !!e.done;
+const wTm = t => TIME_RE.test(t || '') ? t : '';
+// Привычки на сегодня — как todayHabs в приложении: ежедневные, по дням недели, с месяца начала
+const wHabs = (d, k) => (Array.isArray(d.habits) ? d.habits : []).filter(h => h && typeof h.name === 'string' && h.kind === 'daily' && h.log && typeof h.log === 'object'
+  && (!Array.isArray(h.days) || !h.days.length || h.days.includes(dowOf(k))) && String(h.from || k).slice(0, 7) <= k.slice(0, 7));
+// Сводка дня: дела и события сегодня по времени, сколько сделано, привычки
+function wSummary(data, today) {
+  const d = data && typeof data === 'object' ? data : {};
+  const ev = (Array.isArray(d.events) ? d.events : []).filter(e => e && typeof e === 'object' && !e.demo && typeof e.title === 'string' && DATE_RE.test(e.date || '') && occurs(e, today));
+  const list = ev.map(e => ({ id: String(e.id), t: wStr(e.title, 80) || '—', tm: wTm(e.time), tm2: wTm(e.time2), task: !!e.task, done: wDone(e, today) }))
+    .sort((a, b) => (a.tm || '99:99').localeCompare(b.tm || '99:99') || a.t.localeCompare(b.t));
+  const hb = wHabs(d, today).map(h => ({ n: wStr(h.name, 40), e: wStr(h.emoji, 8), done: !!h.log[today] }));
+  return { day: today, items: list.slice(0, 12), n: list.length, done: list.filter(x => x.done).length, habits: hb.slice(0, 12), hn: hb.length, hdone: hb.filter(x => x.done).length };
+}
+// Задачи для «Напоминаний» iPhone: разовые задачи с 14 дней назад до 90 вперёд (повторяющиеся — нет: у «Напоминаний» свои повторы)
+function wTasks(data, today) {
+  const d = data && typeof data === 'object' ? data : {}, lo = addD(today, -14), hi = addD(today, 90);
+  return (Array.isArray(d.events) ? d.events : []).filter(e => e && typeof e === 'object' && e.task && !e.demo && !isRec(e) && typeof e.title === 'string' && DATE_RE.test(e.date || '') && e.date >= lo && e.date <= hi)
+    .slice(0, 300).map(e => ({ id: String(e.id), t: wStr(e.title, 200) || '—', d: e.date, tm: wTm(e.time), done: !!e.done, p: ['urgent', 'high', 'mid', 'low'].includes(e.prio) ? e.prio : 'mid' }));
+}
+const wCat = (d, name) => { const cs = Array.isArray(d.cats) ? d.cats.filter(c => c && typeof c.id === 'string') : [], n = String(name || '').toLowerCase().trim();
+  return ((n && cs.find(c => String(c.name || '').toLowerCase() === n)) || cs[0] || {}).id || ''; };
+// Новая задача или событие — как aiEvent в js/assistant.js
+function wEvent(d, it, today) {
+  const date = DATE_RE.test(it.date || '') ? it.date : today, time = wTm(it.time), time2 = time && wTm(it.time2) && tmin(it.time2) > tmin(time) ? it.time2 : '';
+  const r = it.repeat && typeof it.repeat === 'object' && ['daily', 'weekdays', 'weekly', 'monthly', 'yearly'].includes(it.repeat.type) ? it.repeat : null;
+  const repeat = r ? { type: r.type, days: r.type === 'weekly' ? (Array.isArray(r.days) && r.days.length ? r.days.filter(x => Number.isInteger(x) && x >= 0 && x < 7) : [dowOf(date)]) : [],
+    ...(DATE_RE.test(r.until || '') && r.until >= date ? { until: r.until } : {}), ...(r.type === 'weekly' && r.every === 2 ? { every: 2 } : {}) } : { type: 'none' };
+  const offs = time && Array.isArray(it.remind) ? it.remind.filter(x => Number.isInteger(x) && x >= 0 && x <= 40320).slice(0, 5) : [];
+  return { id: wUid(), done: false, doneDates: [], skip: [], title: wStr(it.title, 200), date, time, time2, cat: wCat(d, it.cat), note: wStr(it.note, 1000), loc: wStr(it.loc, 200), repeat,
+    reminder: offs.length ? { enabled: true, offsets: offs, offset: Math.min(...offs), repeat: 'none', days: [] } : { enabled: false, offset: 15, repeat: 'none', days: [] },
+    task: it.type === 'task' || (it.type === 'event' && !time), prio: ['urgent', 'high', 'mid', 'low'].includes(it.prio) ? it.prio : 'mid' };
+}
+const W_FG = { expense: ['sub', 'reg', 'exp', 'debt'], income: ['inc'], saving: ['sav'] };
+function wFinCat(d, it) {
+  const cs = d.fin && Array.isArray(d.fin.cats) ? d.fin.cats.filter(c => c && typeof c.id === 'string') : [], gs = W_FG[it.type], n = String(it.category || '').toLowerCase().trim();
+  const hit = n && cs.find(c => gs.includes(c.g) && String(c.name || '').toLowerCase() === n);
+  return (hit || (it.type === 'expense' ? cs.find(c => c.g === 'exp' && c.name === 'Прочее') || cs.find(c => c.g === 'exp') : it.type === 'income' ? cs.find(c => c.g === 'inc' && c.name === 'Прочие доходы') || cs.find(c => c.g === 'inc') : cs.find(c => c.g === 'sav')) || cs[0] || {}).id || '';
+}
+// Записи помощника → в S (меняет data). Что не умеем без приложения (цели, планы, привычки, расписание, правки) — пропускаем с причиной
+function wApply(data, items, today) {
+  const d = data, out = [];
+  for (const it of (Array.isArray(items) ? items : []).slice(0, 10)) {
+    if (!it || typeof it !== 'object') continue;
+    const t = it.type;
+    if (!W_TYPES.includes(t)) { out.push({ type: t, t: wStr(it.title || it.text || '', 80), ok: false, why: 'это — в приложении' }); continue; }
+    if (t === 'task' || t === 'event') { if (!wStr(it.title, 200)) continue; const e = wEvent(d, it, today); wArr(d, 'events').push(e); out.push({ type: t, t: e.title, ok: true, d: e.date, tm: e.time, rem: e.reminder.enabled ? e.reminder.offsets : [] }); }
+    else if (W_FG[t]) { const amt = Math.round(Number(it.amount) * 100) / 100; if (!(amt > 0 && amt < 1e9)) continue;
+      if (!d.fin || typeof d.fin !== 'object') d.fin = {}; const o = { id: 'o' + wUid(), amt, cat: wFinCat(d, it), note: wStr(it.note, 200), date: DATE_RE.test(it.date || '') && it.date <= today ? it.date : today };
+      wArr(d.fin, 'ops').push(o); out.push({ type: t, t: o.note || (t === 'income' ? 'Доход' : t === 'saving' ? 'Накопление' : 'Трата'), ok: true, amt }); }
+    else if (t === 'note') { const x = wStr(it.text, 2000); if (!x) continue; wArr(d, 'notes').push({ id: 'n' + wUid(), date: today, text: x }); out.push({ type: t, t: x.slice(0, 80), ok: true }); }
+    else if (t === 'check') { const n = String(it.habit || '').toLowerCase().trim(), hs = wHabs(d, today), h = n && (hs.find(x => x.name.toLowerCase() === n) || hs.find(x => x.name.toLowerCase().startsWith(n) || n.startsWith(x.name.toLowerCase())));
+      if (!h) { out.push({ type: t, t: wStr(it.habit, 60), ok: false, why: 'такой привычки на сегодня нет' }); continue; }
+      if (h.log[today]) { out.push({ type: t, t: h.name, ok: false, why: 'уже отмечена' }); continue; }
+      h.log[today] = 1; out.push({ type: t, t: h.name, ok: true }); }
+  }
+  return out;
+}
+// Из «Напоминаний» iPhone: отметки (done: [{ id, v }]) и новые задачи (add: [{ k, t, d, tm }]) → в S; ответ — id новых по ключам k
+function wSyncApply(data, body, today) {
+  const d = data, evs = wArr(d, 'events'), res = { done: 0, add: {} };
+  for (const x of (Array.isArray(body.done) ? body.done : []).slice(0, 300)) {
+    const e = x && evs.find(e => e && String(e.id) === String(x.id) && e.task && !isRec(e)); if (!e || !!e.done === !!x.v) continue;
+    e.done = !!x.v; res.done++;
+  }
+  for (const x of (Array.isArray(body.add) ? body.add : []).slice(0, 50)) {
+    const t = x && wStr(x.t, 200), k = x && wStr(String(x.k || ''), 120); if (!t || !k) continue;
+    const e = wEvent(d, { type: 'task', title: t, date: DATE_RE.test(x.d || '') ? x.d : today, time: wTm(x.tm), prio: 'mid' }, today);
+    if (x.v) e.done = true; evs.push(e); res.add[k] = String(e.id);
+  }
+  return res;
+}
 // ==== CORE end ====
 
 const env = k => Deno.env.get(k) || '';
@@ -317,12 +400,73 @@ async function fetchFeed(url) {
   return { error: 'url' };
 }
 
+// ---- Виджет: ключ → человек; запись — с проверкой rev, не совпало — заново (до 4 раз) ----
+const W_HITS = new Map();
+async function wUser(k) { if (!/^[a-f0-9]{48}$/.test(k || '')) return null; const { data } = await sb.from('widget_keys').select('user_id').eq('token', k).maybeSingle(); return data ? data.user_id : null; }
+async function wRead(uid) { const { data } = await sb.from('user_data').select('data, rev').eq('user_id', uid).maybeSingle(); return data; }
+async function wWrite(uid, fn) {
+  for (let i = 0; i < 4; i++) {
+    const row = await wRead(uid); if (!row || !row.data || typeof row.data !== 'object') return { error: 'nodata' };
+    const data = structuredClone(row.data), r = fn(data);
+    if (!r || r.none) return r || {};
+    const { data: up, error } = await sb.from('user_data').update({ data }).eq('user_id', uid).eq('rev', row.rev).select('rev');
+    if (!error && up && up.length) return r;
+  }
+  return { error: 'busy' };
+}
+const wTz = d => { const tz = d && d.settings && d.settings.tz; return tzOk(tz) ? tz : 'Europe/Moscow'; };
+const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const b64s = s => b64u(new TextEncoder().encode(s));
+// Короткий токен входа от имени человека (2 минуты) — только чтобы функция assistant посчитала лимит и разобрала текст как обычно
+async function wJwt(uid) {
+  const n = Math.floor(Date.now() / 1000), h = b64s(JSON.stringify({ alg: 'HS256', typ: 'JWT' })), p = b64s(JSON.stringify({ sub: uid, role: 'authenticated', aud: 'authenticated', iat: n, exp: n + 120 }));
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env('JWT_SECRET')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return h + '.' + p + '.' + b64u(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(h + '.' + p)));
+}
+async function widget(req, body, json) {
+  const uid = await wUser(body.w); if (!uid) return json({ error: 'key' }, 401);
+  const now = Date.now(), hits = (W_HITS.get(uid) || []).filter(x => now - x < 3600e3);
+  if (hits.length >= 240) return json({ error: 'limit' }, 429); hits.push(now); W_HITS.set(uid, hits);
+  const row = await wRead(uid); if (!row || !row.data) return json({ error: 'nodata' }, 404);
+  const tz = wTz(row.data), today = dayIn(now, tz);
+  if (body.op === 'sum') return json(wSummary(row.data, today));
+  if (body.op === 'tasks') return json({ day: today, tasks: wTasks(row.data, today) });
+  if (body.op === 'sync') {
+    const r = await wWrite(uid, d => { const x = wSyncApply(d, body, today); return x.done || Object.keys(x.add).length ? x : { none: 1, ...x }; });
+    if (r.error) return json(r, 409);
+    const after = await wRead(uid);
+    return json({ day: today, done: r.done || 0, add: r.add || {}, tasks: wTasks(after && after.data, today) });
+  }
+  if (body.op === 'say') {
+    const text = wStr(body.text, 1000); if (!text) return json({ error: 'empty' }, 400);
+    const d = row.data, P = d.settings && d.settings.phr || {}, p = partsIn(now, tz);
+    const ctx = { today, now: fmtMin(p.h * 60 + p.mi), tz, cats: (Array.isArray(d.cats) ? d.cats : []).map(c => wStr(c && c.name, 40)).filter(Boolean).slice(0, 20),
+      fin: (d.fin && Array.isArray(d.fin.cats) ? d.fin.cats : []).map(c => ({ n: wStr(c && c.name, 40), g: c && c.g })).slice(0, 60),
+      habits: wHabs(d, today).map(h => wStr(h.name, 60)).slice(0, 40), goals: (Array.isArray(d.goals) ? d.goals : []).filter(g => g && !g.done).map(g => wStr(g.title, 80)).slice(0, 20),
+      taunts: P.taunts !== false, praise: P.praise !== false };
+    let j;
+    try {
+      const r = await fetch(env('SUPABASE_URL') + '/functions/v1/assistant', { method: 'POST', signal: AbortSignal.timeout(60000),
+        headers: { Authorization: 'Bearer ' + await wJwt(uid), apikey: env('SUPABASE_ANON_KEY'), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'chat', text: 'Сказано голосом в виджет на iPhone: ' + text, ask: false, edit: false, history: [], ctx, tone: P.taunts === false ? 'soft' : 'sharp', lang: d.settings && d.settings.lang === 'en' ? 'en' : 'ru' }) });
+      j = await r.json();
+    } catch (e) { return json({ error: 'ai' }, 502); }
+    if (!j || j.error) return json({ error: j && j.error === 'limit' ? 'ailimit' : 'ai' }, j && j.error === 'limit' ? 429 : 502);
+    const items = Array.isArray(j.items) ? j.items : [];
+    const r = items.length ? await wWrite(uid, dd => { const res = wApply(dd, items, today); return res.some(x => x.ok) ? { res } : { none: 1, res }; }) : { res: [] };
+    if (r.error) return json(r, 409);
+    return json({ reply: wStr(String(j.reply || ''), 600), res: r.res || [], left: j.left });
+  }
+  return json({ error: 'op' }, 400);
+}
+
 Deno.serve(async req => {
   const o = req.headers.get('Origin') || '', cors = ORIGINS.includes(o)
     ? { 'Access-Control-Allow-Origin': o, 'Access-Control-Allow-Headers': 'authorization, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS', Vary: 'Origin' } : { Vary: 'Origin' };
   const json = (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   // 1. Своя ссылка-подписка: ключ — 48 знаков, без входа (её открывают серверы Google и Apple)
+  if (req.method === 'GET' && new URL(req.url).searchParams.get('w')) return widget(req, { w: new URL(req.url).searchParams.get('w'), op: 'sum' }, json);
   if (req.method === 'GET' || req.method === 'HEAD') {
     const t = new URL(req.url).searchParams.get('t') || '', nf = () => new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/plain', 'X-Robots-Tag': 'noindex' } });
     if (!/^[a-f0-9]{48}$/.test(t)) return nf();
@@ -333,13 +477,14 @@ Deno.serve(async req => {
       'Content-Disposition': 'inline; filename="parsimony.ics"', 'X-Robots-Tag': 'noindex' } });
   }
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
+  let body = null; try { body = await req.json(); } catch (e) { return json({ error: 'bad' }, 400); }
+  if (body && typeof body === 'object' && typeof body.w === 'string') return widget(req, body, json);   // виджет iPhone: по ключу, без входа
   // 2. Чужой календарь — только вошедшему, не чаще 40 раз в час
   const tok = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   const { data: ud, error } = tok ? await sb.auth.getUser(tok) : { data: null, error: true };
   if (error || !ud || !ud.user) return json({ error: 'auth' }, 401);
   const uid = ud.user.id, now = Date.now(), h = (HITS.get(uid) || []).filter(x => now - x < 3600e3);
   if (h.length >= 40) return json({ error: 'limit' }, 429); h.push(now); HITS.set(uid, h);
-  let body = null; try { body = await req.json(); } catch (e) { return json({ error: 'bad' }, 400); }
   const url = feedUrl(body && body.url); if (!url) return json({ error: 'url' }, 400);
   const tz = tzOk(body.tz) ? body.tz : 'Europe/Moscow';
   let r; try { r = await fetchFeed(url); } catch (e) { return json({ error: 'net' }, 502); }

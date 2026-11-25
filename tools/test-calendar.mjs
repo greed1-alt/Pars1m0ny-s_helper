@@ -14,7 +14,7 @@ const rd = f => readFileSync(new URL(f, root), 'utf8').replace(/\r\n/g, '\n');
 const fn = rd('supabase/functions/calendar/index.ts');
 const core = fn.slice(fn.indexOf('// ==== CORE start ===='), fn.indexOf('// ==== CORE end ===='));
 assert.ok(core.length > 1000, 'нет метки CORE в функции calendar');
-const srv = new Function(core + '\nreturn { occurs, feedIcs, parseIcs, feedUrl, privIp, icsWhen, expandRule, toRepeat, rruleOf, addD, dayIn, hashS };')();
+const srv = new Function(core + '\nreturn { occurs, feedIcs, parseIcs, feedUrl, privIp, icsWhen, expandRule, toRepeat, rruleOf, addD, dayIn, hashS, wSummary, wTasks, wApply, wSyncApply };')();
 
 const app = rd('js/core.js');
 const pick = re => { const m = app.match(re); assert.ok(m, 'не нашёл в core.js: ' + re); return m[0]; };
@@ -152,5 +152,38 @@ const bad = ['http://calendar.google.com/a.ics', 'https://127.0.0.1/a.ics', 'htt
 bad.forEach(u => ok(srv.feedUrl(u) === null, 'не подходит: ' + u));
 ['10.1.2.3', '127.0.0.1', '192.168.0.1', '172.20.1.1', '169.254.169.254', '100.64.0.1', '0.0.0.0', '::1', 'fd00::1', 'fe80::1', '::ffff:10.0.0.1'].forEach(ip => ok(srv.privIp(ip), 'внутренний: ' + ip));
 ['8.8.8.8', '172.32.0.1', '194.67.125.109', '2a00:1450::1'].forEach(ip => ok(!srv.privIp(ip), 'внешний: ' + ip));
+
+
+// ---- 6. Виджет iPhone (Scriptable): сводка, задачи для «Напоминаний», запись сказанного, отметки ----
+{
+  const W = () => ({ cats: [{ id: 'c1', name: 'Работа' }, { id: 'c2', name: 'Учёба' }], fin: { cats: [{ id: 'f1', g: 'exp', name: 'Кафе' }, { id: 'f2', g: 'exp', name: 'Прочее' }, { id: 'f3', g: 'inc', name: 'Прочие доходы' }], ops: [] },
+    habits: [{ id: 'h1', name: 'Вода', kind: 'daily', days: [], from: '2026-11-01', log: { [today]: 1 } }, { id: 'h2', name: 'Зарядка', kind: 'daily', days: [], from: '2026-11-01', log: {} }, { id: 'h3', name: 'Бассейн', kind: 'weekly', days: [], from: '2026-11-01', log: {} }],
+    notes: [], events: [
+      { id: 'a', title: 'Врач', date: today, time: '10:00', task: false, repeat: { type: 'none' } },
+      { id: 'b', title: 'Отчёт', date: today, time: '', task: true, done: true, repeat: { type: 'none' } },
+      { id: 'c', title: 'Зарядка утром', date: '2026-11-01', time: '07:00', repeat: { type: 'daily', days: [] }, doneDates: [today] },
+      { id: 'd', title: 'Пример', date: today, demo: true, repeat: { type: 'none' } },
+      { id: 'e', title: 'Сдать книгу', date: srv.addD(today, 3), task: true, prio: 'high', repeat: { type: 'none' } },
+      { id: 'f', title: 'Старое', date: srv.addD(today, -40), task: true, repeat: { type: 'none' } },
+      { id: 'g', title: '<b>Злое</b> ', date: today, time: '25:99', task: true, repeat: { type: 'none' } }] });
+  const d = W(), sm = srv.wSummary(d, today);
+  ok(sm.n === 4 && sm.done === 2 && sm.items[0].t === 'Зарядка утром' && sm.items[1].t === 'Врач' && !sm.items.some(x => x.t === 'Пример'), 'виджет: сводка дня по времени, без примера');
+  ok(sm.items.find(x => x.id === 'g').tm === '' && sm.hn === 2 && sm.hdone === 1, 'виджет: неверное время пусто, привычки на сегодня');
+  const tk = srv.wTasks(d, today);
+  ok(tk.length === 3 && tk.some(x => x.id === 'e' && x.p === 'high') && !tk.some(x => x.id === 'f' || x.id === 'c' || x.id === 'a'), 'виджет: разовые задачи в окне, без повторов и событий');
+  const r = srv.wApply(d, [{ type: 'event', title: 'Стоматолог', date: srv.addD(today, 1), time: '10:00', remind: [60], cat: 'Учёба' }, { type: 'task', title: 'Позвонить', prio: 'urgent' },
+    { type: 'expense', amount: 350, category: 'Кафе', note: 'кофе' }, { type: 'expense', amount: -5 }, { type: 'income', amount: 1000 }, { type: 'note', text: 'Мысль' },
+    { type: 'check', habit: 'зарядка' }, { type: 'check', habit: 'вода' }, { type: 'goal', title: 'Цель' }, { type: 'delete', ref: 'e1' }], today);
+  const ev = d.events.find(e => e.title === 'Стоматолог'), tsk = d.events.find(e => e.title === 'Позвонить');
+  ok(ev && ev.time === '10:00' && ev.reminder.enabled && ev.reminder.offsets[0] === 60 && ev.cat === 'c2' && !ev.task, 'виджет: событие с напоминанием и календарём');
+  ok(tsk && tsk.task && tsk.date === today && tsk.prio === 'urgent' && tsk.cat === 'c1', 'виджет: задача на сегодня');
+  ok(d.fin.ops.length === 2 && d.fin.ops[0].cat === 'f1' && d.fin.ops[1].cat === 'f3' && d.notes.length === 1, 'виджет: деньги и заметка');
+  ok(d.habits[1].log[today] === 1 && r.find(x => x.type === 'check' && x.t === 'Вода').why === 'уже отмечена', 'виджет: привычка отмечена, повтор — нет');
+  ok(r.find(x => x.type === 'goal').ok === false && r.find(x => x.type === 'delete').ok === false, 'виджет: цели и правки — только в приложении');
+  const y = srv.wSyncApply(d, { done: [{ id: 'e', v: true }, { id: 'b', v: true }, { id: 'c', v: true }, { id: 'a', v: true }], add: [{ k: 'R1', t: 'Купить молоко', d: srv.addD(today, 2), tm: '18:00' }, { k: 'R2', t: '' }, { k: 'R3', t: 'Готово', v: true }] }, today);
+  ok(y.done === 1 && d.events.find(e => e.id === 'e').done === true && !d.events.find(e => e.id === 'a').done && !d.events.find(e => e.id === 'c').done, 'виджет: отметки — только у разовых задач');
+  const m = d.events.find(e => String(e.id) === y.add.R1);
+  ok(m && m.task && m.time === '18:00' && m.date === srv.addD(today, 2) && !y.add.R2 && d.events.find(e => String(e.id) === y.add.R3).done, 'виджет: новые задачи из «Напоминаний»');
+}
 
 console.log(`Календари: всё прошло (${checks} проверок; туда и обратно — ${rt} событий)`);
