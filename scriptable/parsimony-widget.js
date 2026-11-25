@@ -9,13 +9,13 @@
 // Parsimony → Настройки → «Виджет iPhone» → «Новый ключ»: старый перестанет работать.
 const KEY = '__KEY__';
 const API = 'https://api.parsimony.ru/functions/v1/calendar';
-const VER = 249;            // версия кода — видна внизу экрана, чтобы понять, что код обновлён
+const VER = 250;            // версия кода — видна внизу экрана, чтобы понять, что код обновлён
 const LIST = 'Parsimony';   // список в «Напоминаниях»
 const C = {
   bg: Color.dynamic(new Color('#ffffff'), new Color('#1c1c1e')),
   tx: Color.dynamic(new Color('#1c1c1e'), new Color('#f2f2f7')),
-  mut: Color.dynamic(new Color('#8e8e93'), new Color('#98989d')),
-  dim: Color.dynamic(new Color('#c7c7cc'), new Color('#48484a')),
+  mut: Color.dynamic(new Color('#7c7a99'), new Color('#aeaad8')),
+  dim: Color.dynamic(new Color('#c9c7e6'), new Color('#4a4580')),
   red: Color.dynamic(new Color('#ff3b30'), new Color('#ff453a')),
   acc: Color.dynamic(new Color('#5b5bd6'), new Color('#8b8bff')),
   ok: Color.dynamic(new Color('#34c759'), new Color('#30d158'))
@@ -116,7 +116,10 @@ function buildWidget(sum, err) {
     if (n) txt(w, (n.tm ? n.tm + ' ' : '') + n.t, Font.systemFont(13), Color.white(), 2);
     return w;
   }
-  w.backgroundColor = C.bg;
+  // Фон — мягкий градиент, не чёрный (пользователь: «сам виджет все еще черный»): светлый лавандовый / глубокий фиолетовый
+  const bg = new LinearGradient(); bg.locations = [0, 1];
+  bg.colors = [Color.dynamic(new Color('#ffffff'), new Color('#2a2463')), Color.dynamic(new Color('#ecebff'), new Color('#141233'))];
+  w.backgroundGradient = bg;
   if (err) { w.setPadding(14, 15, 14, 15); txt(w, 'Parsimony', Font.semiboldSystemFont(13), C.acc, 1); w.addSpacer(6); txt(w, err, Font.systemFont(12), C.mut, 4); w.addSpacer(); return w; }
   if (fam === 'small') {
     w.setPadding(13, 14, 13, 14);
@@ -227,48 +230,79 @@ async function dictate() {
   catch (e) { return { text: '', err: String(e && e.message || e) }; }
 }
 const lines = (s, n) => Math.max(1, Math.ceil(String(s || '').length / n));
-function addRow(t, h, fn) { const r = new UITableRow(); r.height = h; if (fn) fn(r); t.addRow(r); return r; }
+// Цвета экрана: фон и карточки — не чёрные (просьба пользователя): светлый лавандовый / глубокий фиолетовый
+const SC = {
+  bg: Color.dynamic(new Color('#f3f2ff'), new Color('#13112b')),
+  card: Color.dynamic(new Color('#ffffff'), new Color('#211d45')),
+  tx: Color.dynamic(new Color('#1c1b33'), new Color('#f4f3ff')),
+  mut: Color.dynamic(new Color('#76749a'), new Color('#a9a6d6')),
+  acc: Color.dynamic(new Color('#5b5bd6'), new Color('#a5a5ff'))
+};
+// Шапка экрана — картинка: градиент, светящийся шар со значком, заголовок и сказанное
+const HERO = { idle: ['#4338ca', '#7c3aed'], work: ['#4338ca', '#7c3aed'], done: ['#4f46e5', '#0ea5a4'], none: ['#475569', '#6366f1'], err: ['#c2410c', '#db2777'] };
+function mix(a, b, t) { const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); const x = p(a), y = p(b); return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join(''); }
+function heroImg(kind, icon, title, sub) {
+  const W = Math.round(Device.screenSize().width), H = sub ? 236 : 200, dc = new DrawContext();
+  dc.size = new Size(W, H); dc.opaque = true; dc.respectScreenScale = true;
+  const [a, b] = HERO[kind] || HERO.idle;
+  for (let y = 0; y < H; y += 2) { dc.setFillColor(new Color(mix(a, b, y / H))); dc.fillRect(new Rect(0, y, W, 2)); }
+  dc.setFillColor(new Color('#ffffff', 0.07)); dc.fillEllipse(new Rect(W - 120, -60, 200, 200)); dc.fillEllipse(new Rect(-70, H - 90, 160, 160));
+  const cx = W / 2, cy = 72;
+  for (let r = 66; r > 44; r -= 5) { dc.setFillColor(new Color('#ffffff', 0.05)); dc.fillEllipse(new Rect(cx - r, cy - r, r * 2, r * 2)); }
+  dc.setFillColor(new Color('#ffffff', 0.22)); dc.fillEllipse(new Rect(cx - 42, cy - 42, 84, 84));
+  dc.setTextAlignedCenter();
+  dc.setFont(Font.systemFont(40)); dc.drawTextInRect(icon, new Rect(cx - 40, cy - 26, 80, 54));
+  dc.setFont(Font.boldSystemFont(25)); dc.setTextColor(Color.white()); dc.drawTextInRect(title, new Rect(16, 128, W - 32, 34));
+  if (sub) { dc.setFont(Font.systemFont(15)); dc.setTextColor(new Color('#ffffff', 0.82)); dc.drawTextInRect(sub, new Rect(28, 166, W - 56, 60)); }
+  return dc.getImage();
+}
+function addRow(t, h, fn, bg) { const r = new UITableRow(); r.height = h; r.backgroundColor = bg || SC.bg; if (fn) fn(r); t.addRow(r); return r; }
 function drawScreen(t, st, sum, sumErr, syncTxt, on) {
   t.removeAllRows();
-  const big = { idle: '🎙️', work: '⏳', done: (st.res || []).some(x => x.ok) ? '✅' : '🤷', err: '⚠️' }[st.st] || '🎙️';
-  const title = { idle: 'Что добавить?', work: 'Записываю…', done: (st.res || []).some(x => x.ok) ? 'Готово' : 'Ничего не добавлено', err: 'Не получилось' }[st.st] || '';
-  addRow(t, 20);
-  addRow(t, 84, r => { const c = r.addText(big); c.titleFont = Font.systemFont(64); c.centerAligned(); });
-  addRow(t, 40, r => { const c = r.addText(title); c.titleFont = Font.boldSystemFont(26); c.titleColor = C.tx; c.centerAligned(); });
-  const sub = st.st === 'err' ? st.err : st.text ? '«' + st.text + '»' : st.st === 'idle' ? 'Нажмите «Сказать» — например: «завтра в 10 стоматолог, напомни за час»' : '';
-  if (sub) addRow(t, 14 + 21 * lines(sub, 34), r => { const c = r.addText(sub); c.titleFont = Font.systemFont(16); c.titleColor = st.st === 'err' ? C.tx : C.mut; c.centerAligned(); });
-  if (st.st === 'done' && st.left != null) addRow(t, 24, r => { const c = r.addText('Помощнику осталось на сегодня: ' + st.left); c.titleFont = Font.systemFont(12); c.titleColor = C.mut; c.centerAligned(); });
-  (st.res || []).forEach(x => addRow(t, 22 + 20 * Math.max(lines(x.t, 30), 1) + 18 * lines(x.m, 40), r => {
-    r.cellSpacing = 10;
-    const e = r.addText(EM[x.k] || '•'); e.titleFont = Font.systemFont(26); e.widthWeight = 14; e.centerAligned();
-    const c = r.addText(x.t, x.m); c.widthWeight = 86; c.titleFont = Font.semiboldSystemFont(17); c.titleColor = x.ok ? C.tx : C.mut; c.subtitleFont = Font.systemFont(13); c.subtitleColor = C.mut;
-  }));
-  if (st.reply) addRow(t, 16 + 19 * lines(st.reply, 42), r => { const c = r.addText(st.reply); c.titleFont = Font.italicSystemFont(14); c.titleColor = C.mut; });
-  addRow(t, 12);
-  addRow(t, 54, r => {
+  const ok = (st.res || []).some(x => x.ok);
+  const kind = st.st === 'done' ? (ok ? 'done' : 'none') : st.st;
+  const icon = { idle: '🎙️', work: '⏳', done: ok ? '✅' : '🤷', err: '⚠️' }[st.st] || '🎙️';
+  const title = { idle: 'Что добавить?', work: 'Записываю…', done: ok ? 'Готово' : 'Ничего не добавлено', err: 'Не получилось' }[st.st] || '';
+  const said = st.text ? '«' + (st.text.length > 90 ? st.text.slice(0, 88) + '…' : st.text) + '»' : st.st === 'idle' ? 'Например: «завтра в 10 стоматолог, напомни за час»' : '';
+  const img = heroImg(kind, icon, title, said);
+  addRow(t, img.size.height, r => { const c = r.addImage(img); c.centerAligned(); }, new Color(HERO[kind] ? HERO[kind][1] : '#7c3aed'));
+  addRow(t, 14);
+  if (st.st === 'err' && st.err) addRow(t, 22 + 20 * lines(st.err, 38), r => { const c = r.addText(st.err); c.titleFont = Font.systemFont(15); c.titleColor = SC.tx; }, SC.card);
+  (st.res || []).forEach((x, i) => {
+    if (i) addRow(t, 2);
+    addRow(t, 26 + 20 * lines(x.t, 30) + 17 * lines(x.m, 40), r => {
+      r.cellSpacing = 10;
+      const e = r.addText(EM[x.k] || '•'); e.titleFont = Font.systemFont(26); e.widthWeight = 14; e.centerAligned();
+      const c = r.addText(x.t, x.m); c.widthWeight = 86; c.titleFont = Font.semiboldSystemFont(17); c.titleColor = x.ok ? SC.tx : SC.mut; c.subtitleFont = Font.systemFont(13); c.subtitleColor = SC.mut;
+    }, SC.card);
+  });
+  if (st.reply) { addRow(t, 8); addRow(t, 14 + 19 * lines(st.reply, 42), r => { const c = r.addText(st.reply); c.titleFont = Font.italicSystemFont(14); c.titleColor = SC.mut; }); }
+  if (st.st === 'done' && st.left != null) addRow(t, 22, r => { const c = r.addText('Помощнику осталось на сегодня: ' + st.left); c.titleFont = Font.systemFont(12); c.titleColor = SC.mut; });
+  addRow(t, 10);
+  addRow(t, 56, r => {
     const a = r.addButton(st.st === 'idle' ? '🎙  Сказать' : '🎙  Сказать ещё'); a.onTap = () => on('listen'); a.dismissOnTap = true; a.centerAligned();
     const b = r.addButton('⌨️  Напечатать'); b.onTap = () => on('type'); b.dismissOnTap = true; b.centerAligned();
-  });
-  addRow(t, 12);
-  const head = sum ? 'СЕГОДНЯ' + (sum.n ? ' · ДЕЛА ' + sum.done + '/' + sum.n : '') + (sum.hn ? ' · ПРИВЫЧКИ ' + sum.hdone + '/' + sum.hn : '') : 'СЕГОДНЯ';
-  addRow(t, 34, r => { r.isHeader = true; const c = r.addText(head); c.titleFont = Font.semiboldSystemFont(13); c.titleColor = C.mut; });
-  if (!sum) addRow(t, 40, r => { const c = r.addText(sumErr || 'Загружаю…'); c.titleFont = Font.systemFont(14); c.titleColor = C.mut; });
-  else if (!sum.items.length) addRow(t, 40, r => { const c = r.addText('На сегодня пусто'); c.titleFont = Font.systemFont(15); c.titleColor = C.mut; });
+  }, SC.card);
+  addRow(t, 18);
+  const head = 'СЕГОДНЯ' + (sum && sum.n ? ' · ДЕЛА ' + sum.done + '/' + sum.n : '') + (sum && sum.hn ? ' · ПРИВЫЧКИ ' + sum.hdone + '/' + sum.hn : '');
+  addRow(t, 30, r => { const c = r.addText(head); c.titleFont = Font.semiboldSystemFont(12); c.titleColor = SC.mut; });
+  if (!sum) addRow(t, 44, r => { const c = r.addText(sumErr || 'Загружаю…'); c.titleFont = Font.systemFont(14); c.titleColor = SC.mut; }, SC.card);
+  else if (!sum.items.length) addRow(t, 44, r => { const c = r.addText('На сегодня пусто — самое время что-нибудь добавить'); c.titleFont = Font.systemFont(15); c.titleColor = SC.mut; }, SC.card);
   else {
     const now = hm(new Date()), p = pick(sum.items, 12, now);
-    sum.items.forEach(x => addRow(t, 44, r => {
+    sum.items.forEach(x => addRow(t, 46, r => {
       const nx = x === p.next; r.cellSpacing = 6;
-      if (nx) r.backgroundColor = Color.dynamic(new Color(hex(x.c) || '#5b5bd6', 0.14), new Color(hex(x.c) || '#8b8bff', 0.3));
-      const tm = r.addText(x.tm || '—'); tm.widthWeight = 17; tm.titleFont = nx ? Font.boldMonospacedSystemFont(14) : Font.regularMonospacedSystemFont(14); tm.titleColor = nx ? catC(x) : C.mut;
+      const tm = r.addText(x.tm || '—'); tm.widthWeight = 17; tm.titleFont = nx ? Font.boldMonospacedSystemFont(14) : Font.regularMonospacedSystemFont(14); tm.titleColor = nx ? catC(x) : SC.mut;
       const d = r.addText(x.done ? '✓' : '●'); d.widthWeight = 7; d.titleFont = Font.boldSystemFont(x.done ? 15 : 12); d.titleColor = x.done ? C.ok : catC(x); d.centerAligned();
-      const n = r.addText(x.t); n.widthWeight = 76; n.titleFont = nx ? Font.semiboldSystemFont(16) : Font.systemFont(16); n.titleColor = x.done ? C.mut : C.tx;
-    }));
-    if (sum.n > sum.items.length) addRow(t, 30, r => { const c = r.addText('и ещё ' + (sum.n - sum.items.length)); c.titleFont = Font.systemFont(13); c.titleColor = C.mut; });
+      const n = r.addText(x.t); n.widthWeight = 76; n.titleFont = nx ? Font.semiboldSystemFont(16) : Font.systemFont(16); n.titleColor = x.done ? SC.mut : SC.tx;
+    }, x === p.next ? Color.dynamic(new Color(hex(x.c) || '#5b5bd6', 0.16), new Color(hex(x.c) || '#8b8bff', 0.34)) : SC.card));
+    if (sum.n > sum.items.length) addRow(t, 34, r => { const c = r.addText('и ещё ' + (sum.n - sum.items.length)); c.titleFont = Font.systemFont(13); c.titleColor = SC.mut; }, SC.card);
   }
-  addRow(t, 16);
-  addRow(t, 46, r => { const b = r.addButton('Синхронизировать «Напоминания»'); b.onTap = () => on('sync'); b.centerAligned(); });
-  if (syncTxt) addRow(t, 16 + 18 * lines(syncTxt, 44), r => { const c = r.addText(syncTxt); c.titleFont = Font.systemFont(13); c.titleColor = C.mut; c.centerAligned(); });
-  addRow(t, 40, r => { const c = r.addText('код виджета · версия ' + VER); c.titleFont = Font.systemFont(11); c.titleColor = C.mut; c.centerAligned(); });
+  addRow(t, 18);
+  addRow(t, 48, r => { const b = r.addButton('🔄  Синхронизировать «Напоминания»'); b.onTap = () => on('sync'); b.centerAligned(); }, SC.card);
+  if (syncTxt) addRow(t, 16 + 18 * lines(syncTxt, 44), r => { const c = r.addText(syncTxt); c.titleFont = Font.systemFont(13); c.titleColor = SC.mut; c.centerAligned(); });
+  addRow(t, 40, r => { const c = r.addText('Смахните вниз, чтобы закрыть · версия ' + VER); c.titleFont = Font.systemFont(11); c.titleColor = SC.mut; c.centerAligned(); });
+  for (let i = 0; i < 6; i++) addRow(t, 60);   // фон до низа экрана
   t.reload();
 }
 async function screen(auto) {
@@ -288,7 +322,7 @@ async function screen(auto) {
     next = null;
     if (text) st = { st: 'work', text };
     draw();
-    const shown = t.present(true);
+    const shown = t.present(false);   // окно снизу — закрывается смахиванием вниз (и скрипт тогда завершается)
     const work = (async () => {
       if (text) {
         const said = text.slice(0, 1000); text = '';
