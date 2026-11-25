@@ -63,7 +63,7 @@ const ACH_COINS = { first: 10, t50: 30, t300: 80, w7: 30, w30: 100, m100: 30, bi
 const ST_MILES = [[3, 10], [7, 25], [14, 40], [30, 80], [60, 120], [100, 200]];   // серия дней подряд → монеты
 const INV_COINS = 50, INV_MAX = 5;   // до 5 друзей (решение пользователя 8 ноября 2026; было 10)
 const PAL_FREE = 3, PAL_PRICE = 200, CV_PRICE = 150, FRZ_PRICE = 50, FRZ_MAX = 2;
-const PAL_BASE = ['classic', 'indigo'];   // у всех бесплатно: Графит (по умолчанию с 6 ноября 2026) и Индиго (по умолчанию раньше)
+const PAL_BASE = ['midnight', 'classic', 'indigo'];   // Полночь — по умолчанию с 25 ноября 2026, бесплатно у всех (как Графит раньше);   // у всех бесплатно: Графит (по умолчанию с 6 ноября 2026) и Индиго (по умолчанию раньше)
 const PAL_SHOP = PAL_ORDER.filter(k => !PAL_BASE.includes(k)), PAL_THEME = PAL_SHOP.filter(k => PAL[k].skin && !PAL[k].glass), PAL_GLASS = PAL_SHOP.filter(k => PAL[k].glass), PAL_PLAIN = PAL_SHOP.filter(k => !PAL[k].skin);   // Индиго — у всех
 const COVER_SHOP = { boreal: 'Северное сияние', neon: 'Неон', gold: 'Золото', cosmos: 'Космос', seaset: 'Закат у моря', berry: 'Ягоды' };   // градиенты — COVERS (pages.js)
 const FRAMES = {
@@ -91,7 +91,7 @@ onMigrate(() => {
 // ---- Состояние (решает сервер) ----
 let coins = lsGet(CN_LS), coinsErr = '', cnBusy = false, cnTab = 'tasks', cnDirty = true, cnReady = [], cnFsAll = false;   // cnFsAll — показаны все первые шаги
 if (coins && (typeof coins !== 'object' || !coins.items)) coins = null;
-const coinOwn = it => PAL_BASE.some(k => it === 'pal:' + k) || !!coins && (coins.items[it] || 0) > 0;   // Графит и Индиго — у всех
+const coinOwn = it => PAL_BASE.some(k => it === 'pal:' + k) || !!coins && (coins.items[it] || 0) > 0;   // Полночь, Графит и Индиго — у всех
 const coinGot = k => !!coins && coins.keys.includes(k);
 const coinsOn = () => signedIn() && coinsErr !== 'off';
 const palOk = k => (PAL[k] || {}).p ? coinOwn('pal:' + k) : !coins || coinOwn('pal:' + k);   // магазина нет (не вошли) — обычные палитры как раньше, тематические темы — только купленные
@@ -416,7 +416,7 @@ function shopItemsHTML() {
     <div class="card"><div class="card-h"><b>Жидкое стекло</b><small>как в iOS 26</small></div>
       <div class="cn-grid">${PAL_GLASS.filter(k => !PAL[k].set).map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div>
       ${[...new Set(PAL_GLASS.map(k => PAL[k].set).filter(Boolean))].map(n => `<div class="cn-set">${esc(n)}</div><div class="cn-grid">${PAL_GLASS.filter(k => PAL[k].set === n).map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div>`).join('')}</div>
-    <div class="card"><div class="card-h"><b>Палитры</b><small>${free > 0 ? `бесплатно — ещё ${free} на выбор` : 'Графит, Индиго и 3 бесплатных — уже ваши'}</small></div>
+    <div class="card"><div class="card-h"><b>Палитры</b><small>${free > 0 ? `бесплатно — ещё ${free} на выбор` : 'Полночь, Графит, Индиго и 3 бесплатных — уже ваши'}</small></div>
       <div class="cn-grid">${PAL_BASE.map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}${PAL_PLAIN.map(k => tile('pal:' + k, palPv(k), PAL[k].n)).join('')}</div></div>
     <div class="card"><div class="card-h"><b>Рамки аватара</b></div><div class="cn-grid">${Object.keys(FRAMES).map(k => tile('fm:' + k, avatarHTML(48, k), FRAMES[k].n)).join('')}</div></div>
     <div class="card"><div class="card-h"><b>Обложки профиля</b></div><div class="cn-grid cn-cvs">${Object.keys(COVER_SHOP).map(k => tile('cv:' + k, `<span class="cn-cv" style="background-image:${COVER_GLOW},${COVERS[k]}"></span>`, COVER_SHOP[k])).join('')}</div></div>

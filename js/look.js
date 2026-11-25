@@ -80,7 +80,7 @@ const PAL = {
   skydusk:{ n:'Сумерки', p:500, skin:'gl-dusk', fix:'d', glass:1, set:'Небосвод', hc:'#ffb0d6',
     d:{ bg:'#120e38', bg2:'#1b1650', sf:'#231d5e', line:'#352d78', tx:'#f6f3ff', tx2:'#d3cbf2', mut:'#a79ed0', acc:'#ffb0d6', accfg:'#3a0a22', wm:'#ffc2df' } },
 };
-const PAL_ORDER = ['classic', ...Object.keys(PAL).filter(k => k !== 'classic')];   // Графит — первым: палитра по умолчанию с 6 ноября 2026
+const PAL_ORDER = ['midnight', 'classic', ...Object.keys(PAL).filter(k => k !== 'classic' && k !== 'midnight')];   // Полночь — первой: по умолчанию с 25 ноября 2026, Графит — вторым   // Графит — первым: палитра по умолчанию с 6 ноября 2026
 // Чёрная тема: фон чисто чёрный, акцент — из палитры (у «Графита» — светло-серый, как раньше)
 const BLACK = { bg:'#000000', pg:'#000000', bg2:'#0a0a0a', sf:'#141414', line:'#232323', grid:'#1b1b1b', tx:'#f2f2f2', tx2:'#b0b0b0', mut:'#767676' };
 const LOOK_OPT = {
@@ -91,7 +91,9 @@ const LOOK_OPT = {
 };
 // Палитра по умолчанию — Графит (просьба пользователя 6 ноября 2026: «сделать базовую тему при входе на сайт графит»; раньше — Индиго).
 // Касается новых людей: у остальных палитра уже записана в настройках (onMigrate ниже ставил её с первого запуска)
-const LOOK_DEF = { pal:'classic', contrast:'normal', card:'soft', round:'m', evc:'pastel' };
+// 25 ноября 2026 (пользователь: «чтобы первая тема при входе на сайт была „полночь“ тёмная версия») — новым людям Полночь и тёмная тема
+// (тема — в DEF.settings в core.js); у остальных палитра и тема уже записаны в настройках и не меняются.
+const LOOK_DEF = { pal:'midnight', contrast:'normal', card:'soft', round:'m', evc:'pastel' };
 onMigrate(() => { if (LANG === 'en' || S.settings.lang) S.settings.lang = LANG; });   // язык пушей (функция reminders): как на устройстве, которое открывали последним
 onMigrate(() => {
   const st = S.settings;
