@@ -264,10 +264,21 @@ ACT.wgcopy = () => {
   if (wgCode) return bad();
   wgGet().then(t => cb && cb.writeText ? cb.writeText(wgFill(t)).then(ok, bad) : bad(), () => toast('Не получилось загрузить код — проверьте интернет'));
 };
+// Проверка для разработки (только бета, 25 ноября 2026): показывается ли своя страница в Scriptable и работает ли на ней микрофон —
+// перед «своей записью голоса» в виджете. Скрипт scriptable/parsimony-test.js ничего не записывает и ключа не содержит.
+let wtCode = null, wtP = null;
+const wtGet = () => wtP || (wtP = fetch('scriptable/parsimony-test.js?v=' + Date.now(), { cache: 'no-store' }).then(r => { if (!r.ok) throw 0; return r.text(); }).then(t => (wtCode = t)).catch(e => { wtP = null; throw e; }));
+ACT.wgtest = () => {
+  const ok = () => toast('Проверка скопирована — в Scriptable «+», вставьте и запустите'), bad = () => toast('Не скопировалось — попробуйте ещё раз'), cb = navigator.clipboard;
+  if (wtCode && cb && cb.writeText) return cb.writeText(wtCode).then(ok, bad);
+  if (cb && cb.write && typeof ClipboardItem === 'function') { try { return cb.write([new ClipboardItem({ 'text/plain': wtGet().then(t => new Blob([t], { type: 'text/plain' })) })]).then(ok, bad); } catch (e) {} }
+  wtGet().then(t => cb && cb.writeText ? cb.writeText(t).then(ok, bad) : bad(), bad);
+};
 function widgetSetHTML() {
   if (!signedIn()) return '<div class="set-sec">Виджет iPhone</div><p class="set-note">Виджет работает с аккаунтом — войдите по почте.</p><button class="btn pri" style="width:100%" data-act="login">' + I(IC.user, 16) + ' Войти</button>';
   if (wgTok === undefined) wgLoad();
   if (wgTok && wgTok !== 'nosql' && !wgCode) wgGet().catch(() => {});
+  if (IS_BETA && !wtCode) wtGet().catch(() => {});
   const steps = ['Установите бесплатное приложение <a href="https://apps.apple.com/app/scriptable/id1405459188" target="_blank" rel="noopener">Scriptable</a> из App Store.',
     'Нажмите «Скопировать код» ниже.', 'В Scriptable нажмите «+», вставьте код, вверху нажмите на «Untitled Script» и назовите <b>Parsimony</b> → «Готово».',
     'Нажмите на скрипт Parsimony → «Синхронизировать „Напоминания“» и разрешите доступ к «Напоминаниям».',
@@ -288,6 +299,7 @@ function widgetSetHTML() {
         'Вверху назовите команду <b>Запиши в задачи</b> → «Готово».',
         'Запускать: «Привет, Siri, запиши в задачи»; виджет «Команды» на экране «Домой»; двойное касание задней крышки (Настройки → Универсальный доступ → Касание → «Касание задней панели»); кнопка действия или Пункт управления.'].map(x => '<li>' + x + '</li>').join('') + '</ol>'
       + '<p class="set-note">В коде — ваш ключ: по нему видны дела на сегодня и задачи и можно добавлять записи. Никому не пересылайте; если код попал к кому-то — «Новый ключ».</p>'
+      + (IS_BETA ? '<div class="set-sec" style="margin-top:14px">Проверка для беты</div><p class="set-note">Показывается ли своя страница в Scriptable и работает ли на ней микрофон. Скопируйте, в Scriptable нажмите «+», вставьте и запустите ▶. Ничего не записывает.</p><div class="feed-btns"><button class="btn" data-act="wgtest">' + I(IC.copy, 15) + ' Скопировать проверку</button></div>' : '')
       + '<div class="feed-btns"><button class="btn" data-act="wgnew">Новый ключ</button><button class="btn dng" data-act="wgoff">Выключить</button></div>';
   return '<div class="set-sec">Виджет iPhone</div><p class="set-note">Дела на сегодня на экране «Домой», запись голосом одним нажатием и задачи в «Напоминаниях» iPhone. Работает через бесплатное приложение Scriptable.</p>' + body;
 }
