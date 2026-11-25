@@ -1596,3 +1596,4 @@ html.bgated .app,html.bgated #tabbar,html.bgated #tinv{visibility:hidden}
 .ai-steps li::marker{color:var(--acc);font-weight:700}
 .ai-steps li span{color:var(--tx)}
 .ai-steps li small{margin-left:6px;font-size:12px;color:var(--mut);white-space:nowrap}
+.wg-code{width:100%;height:110px;margin-top:8px;font:12px/1.4 ui-monospace,Menlo,monospace!important;color:var(--tx2);resize:none;user-select:text;-webkit-user-select:text}

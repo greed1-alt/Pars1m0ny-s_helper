@@ -238,17 +238,36 @@ ACT.wgoff = async el => {
   try { await api('/rest/v1/rpc/widget_key_off', { method: 'POST', user: true, body: {} }); wgTok = null; render(); toast('Виджет выключен'); }
   catch (e) { toast('Не получилось — попробуйте ещё раз'); }
 };
-ACT.wgcopy = async () => {
+// iPhone пускает в буфер обмена только сразу по нажатию: после await fetch запись отклоняется («код не копируется», 25 ноября 2026).
+// Поэтому код качается заранее (wgGet), а если ещё не скачан — ClipboardItem с обещанием (Safari так ждёт и не теряет нажатие).
+// Не вышло и так — код в поле ниже кнопки, выделен: «Скопировать» из меню iPhone.
+let wgCode = null, wgCodeP = null, wgShow = false;
+const wgFill = t => t.replace("const KEY = '__KEY__';", "const KEY = '" + wgTok + "';");
+function wgGet() {
+  if (!wgCodeP) wgCodeP = fetch('scriptable/parsimony-widget.js?v=' + Date.now(), { cache: 'no-store' })
+    .then(r => { if (!r.ok) throw 0; return r.text(); }).then(t => (wgCode = t)).catch(e => { wgCodeP = null; throw e; });
+  return wgCodeP;
+}
+function wgField() {
+  wgShow = true; render();
+  setTimeout(() => { const f = $('#wg_code'); if (f) { f.scrollIntoView({ block: 'center' }); f.focus(); f.select(); f.setSelectionRange(0, f.value.length); } }, 60);
+  toast('Нажмите на поле → «Скопировать»');
+}
+ACT.wgcopy = () => {
   if (!wgTok || wgTok === 'nosql') return;
-  try {
-    const r = await fetch('scriptable/parsimony-widget.js?v=' + Date.now(), { cache: 'no-store' }); if (!r.ok) throw 0;
-    const code = (await r.text()).replace("const KEY = '__KEY__';", "const KEY = '" + wgTok + "';");
-    copyText(code, 'Код виджета скопирован — вставьте его в Scriptable');
-  } catch (e) { toast('Не получилось загрузить код — проверьте интернет'); }
+  const ok = () => toast('Код виджета скопирован — вставьте его в Scriptable'), bad = () => wgCode ? wgField() : wgGet().then(wgField, () => toast('Не получилось загрузить код — проверьте интернет'));
+  const cb = navigator.clipboard;
+  if (wgCode && cb && cb.writeText) return cb.writeText(wgFill(wgCode)).then(ok, bad);
+  if (cb && cb.write && typeof ClipboardItem === 'function') {
+    try { return cb.write([new ClipboardItem({ 'text/plain': wgGet().then(t => new Blob([wgFill(t)], { type: 'text/plain' })) })]).then(ok, bad); } catch (e) {}
+  }
+  if (wgCode) return bad();
+  wgGet().then(t => cb && cb.writeText ? cb.writeText(wgFill(t)).then(ok, bad) : bad(), () => toast('Не получилось загрузить код — проверьте интернет'));
 };
 function widgetSetHTML() {
   if (!signedIn()) return '<div class="set-sec">Виджет iPhone</div><p class="set-note">Виджет работает с аккаунтом — войдите по почте.</p><button class="btn pri" style="width:100%" data-act="login">' + I(IC.user, 16) + ' Войти</button>';
   if (wgTok === undefined) wgLoad();
+  if (wgTok && wgTok !== 'nosql' && !wgCode) wgGet().catch(() => {});
   const steps = ['Установите бесплатное приложение <a href="https://apps.apple.com/app/scriptable/id1405459188" target="_blank" rel="noopener">Scriptable</a> из App Store.',
     'Нажмите «Скопировать код» ниже.', 'В Scriptable нажмите «+», вставьте код, вверху нажмите на «Untitled Script» и назовите <b>Parsimony</b> → «Готово».',
     'Нажмите на скрипт Parsimony → «Синхронизировать „Напоминания“» и разрешите доступ к «Напоминаниям».',
@@ -258,6 +277,7 @@ function widgetSetHTML() {
     : wgTok === undefined ? '<p class="set-note">Проверяю…</p>'
     : !wgTok ? '<button class="btn pri" style="width:100%" data-act="wgnew">' + I(IC.link, 16) + ' Включить виджет</button>'
     : '<div class="feed-btns"><button class="btn pri" data-act="wgcopy">' + I(IC.copy, 15) + ' Скопировать код</button></div>'
+      + (wgShow && wgCode ? '<textarea id="wg_code" class="fin wg-code" readonly aria-label="Код виджета">' + esc(wgFill(wgCode)) + '</textarea>' : '')
       + '<ol class="sync-steps">' + steps.map(x => '<li>' + x + '</li>').join('') + '</ol>'
       + '<p class="set-note">Что умеет: показывает дела на сегодня и привычки; нажатие — скажите «завтра в 10 стоматолог, напомни за час», помощник добавит (в его дневной лимит). Задачи Parsimony появятся в «Напоминаниях» iPhone в списке «Parsimony»: отметили там — отмечено здесь, добавили туда — появилось здесь. Название и срок меняйте в Parsimony. Обновляется само примерно раз в 15–30 минут (так решает iPhone).</p>'
       + '<p class="set-note">В коде — ваш ключ: по нему видны дела на сегодня и задачи и можно добавлять записи. Никому не пересылайте; если код попал к кому-то — «Новый ключ».</p>'
