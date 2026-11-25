@@ -55,7 +55,7 @@ function mapPut(g, addr) {
 async function mapAddr(g, was = '', n = 0) {   // n — номер запроса: ответ на прежнюю точку (быстро нажали ещё раз) не пишем
   const fe = window._fe;   // пока ищется адрес, карточку могли закрыть и открыть другую — в неё чужой адрес не пишем
   try {
-    const r = await fetch(`${NOMI}reverse?format=jsonv2&accept-language=ru&zoom=18&lat=${g[0]}&lon=${g[1]}`); if (!r.ok) return;
+    const r = await fetchT(`${NOMI}reverse?format=jsonv2&accept-language=ru&zoom=18&lat=${g[0]}&lon=${g[1]}`, {}, 10000); if (!r.ok) return;
     const j = await r.json(), a = j.address || {}, road = a.road || a.pedestrian || a.footway || '';
     const s = [j.name && j.name !== road ? j.name : '', [road, a.house_number].filter(Boolean).join(', '), a.city || a.town || a.village || ''].filter(Boolean).join(', ')
       || String(j.display_name || '').split(', ').slice(0, 3).join(', ');
@@ -69,7 +69,7 @@ async function mapFind(quiet) {
   const loc = $('#f_loc'), q = loc ? loc.value.trim() : '';
   if (!q) { if (!quiet) { toast('Напишите адрес или название места в поле «Место»'); if (loc) loc.focus(); } return; }
   try {
-    const r = await fetch(`${NOMI}search?format=jsonv2&limit=1&accept-language=ru&q=${encodeURIComponent(q)}`), j = r.ok ? await r.json() : [];
+    const r = await fetchT(`${NOMI}search?format=jsonv2&limit=1&accept-language=ru&q=${encodeURIComponent(q)}`, {}, 10000), j = r.ok ? await r.json() : [];
     const g = j && j[0] ? [Number(j[0].lat), Number(j[0].lon)] : null;
     if (!geoOk(g)) { if (!quiet) toast('Не нашёл такой адрес — поставьте точку на карте сами'); return; }
     mapPut(g, false); if (mapObj) mapObj.setView(window._fe.geo, 16);

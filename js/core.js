@@ -271,3 +271,8 @@ function parseNL(src, base) {
   if (catId) parts.push(cat(catId).name);
   return { title, date, time, time2, cat:catId, found, desc: parts.join(' · ') };
 }
+
+// Запрос с ограничением по времени (26 ноября 2026; пользователь: «с ВПН приложение с экрана не открывается, долго грузит»):
+// не ответил за ms — ошибка, как без сети. Без этого запрос через медленный ВПН мог висеть минутами, и синхронизация («Сохраняю…»)
+// со всеми следующими сохранениями ждала его. Таймер не снимаем: после ответа отмена уже ни на что не влияет
+const fetchT = (url, o, ms) => { const c = new AbortController(); setTimeout(() => c.abort(), ms); return fetch(url, Object.assign({}, o, { signal: c.signal })); };

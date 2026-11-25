@@ -46,7 +46,7 @@ async function subFetch(s, quiet) {
   if (!signedIn() || subBusy[s.id]) return;
   subBusy[s.id] = true;
   try {
-    const j = await api('/functions/v1/calendar', { method: 'POST', user: true, body: { url: s.url, tz: S.settings.tz || Intl.DateTimeFormat().resolvedOptions().timeZone } });
+    const j = await api('/functions/v1/calendar', { method: 'POST', user: true, t: 30000, body: { url: s.url, tz: S.settings.tz || Intl.DateTimeFormat().resolvedOptions().timeZone } });
     const ev = j && Array.isArray(j.events) ? j.events : [];
     subCache[s.id] = { at: Date.now(), n: ev.length, events: ev }; subSave();
     if (j && j.name && !s.named) { s.name = String(j.name).slice(0, 40); s.named = true; save(); }

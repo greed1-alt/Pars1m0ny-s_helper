@@ -446,8 +446,8 @@ function aiErr(st, j) {
 }
 async function aiCall(body) {
   try {
-    const r = await fetch(SUPABASE_URL + '/functions/v1/assistant', { method:'POST', cache:'no-store',
-      headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body: JSON.stringify({ ...body, ...(LANG === 'en' ? { lang: LANG } : {}), ...(IS_BETA ? { beta: true } : {}) }) });   // beta — на бете функция может взять пробную модель (AI_MODEL_BETA)
+    const r = await fetchT(SUPABASE_URL + '/functions/v1/assistant', { method:'POST', cache:'no-store',
+      headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body: JSON.stringify({ ...body, ...(LANG === 'en' ? { lang: LANG } : {}), ...(IS_BETA ? { beta: true } : {}) }) }, 100000);   // ждём до 100 с (модель и запасные); beta — на бете функция может взять пробную модель (AI_MODEL_BETA)
     const j = await r.json().catch(() => ({}));
     if (Number.isFinite(j.left)) ai.left = j.left;
     return r.ok ? j : { err: aiErr(r.status, j) };

@@ -27,9 +27,11 @@ async function api(path, o) {
   // Приложение закрывают (вкладка скрыта) — keepalive: браузер доведёт запрос до конца, даже если страницу «заморозят».
   // Так событие, созданное прямо перед закрытием, успевает попасть в аккаунт, и сервер пришлёт по нему напоминание. Лимит keepalive — 64 КБ
   const keepalive = document.visibilityState === 'hidden' && (!body || body.length < 60000);
-  try { r = await fetch(SUPABASE_URL + path, { method: o.method || 'GET', headers: h, body, cache: 'no-store', keepalive }); }
+  // Ждём не дольше o.t (по умолчанию 15 с, большую запись — 45 с): не ответил — «нет связи», записи остаются на устройстве, повтор — раз в минуту
+  const ms = o.t || (body && body.length > 100000 ? 45000 : 15000);
+  try { r = await fetchT(SUPABASE_URL + path, { method: o.method || 'GET', headers: h, body, cache: 'no-store', keepalive }, ms); }
   catch (e) { throw new CloudErr('offline', 0); }
-  const txt = await r.text(); let j = null; try { j = txt ? JSON.parse(txt) : null; } catch (e) {}
+  let txt = ''; try { txt = await r.text(); } catch (e) { throw new CloudErr('offline', 0); } let j = null; try { j = txt ? JSON.parse(txt) : null; } catch (e) {}
   if (!r.ok) throw new CloudErr(String((j && (j.msg || j.message || j.error_description || j.error)) || 'HTTP ' + r.status), r.status, j && (j.error_code || j.code));
   return j;
 }
@@ -395,7 +397,7 @@ const SIGNUP_ERR = { closed: 'Регистрация сейчас закрыта
 async function lgCreate() {
   if (!lg.cap) return lgErr('Пройдите проверку «я не робот»');
   lgErr(''); lgBusy(true, 'Создаю…');
-  try { await api('/functions/v1/signup', { method:'POST', body:{ email: lg.email, token: lg.cap } }); }
+  try { await api('/functions/v1/signup', { method:'POST', body:{ email: lg.email, token: lg.cap }, t: 30000 }); }
   catch (e) { lgBusy(false, 'Создать аккаунт'); lg.cap = ''; try { window.smartCaptcha.reset(capW); } catch (x) {} return lgErr(SIGNUP_ERR[e.message] || cloudErrText(e)); }
   try { await lgCode(); } catch (e) { lgBusy(false, 'Создать аккаунт'); lgErr(cloudErrText(e)); }
 }

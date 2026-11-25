@@ -16,7 +16,7 @@ const ADM_CFG = { ann: 'объявление', maint: 'плашка «идут �
 const ADM_KIND = Object.fromEntries([...FB_KINDS, ['other', 'Другое']]);
 async function admCall(body) {
   let r;
-  try { r = await fetch(SUPABASE_URL + '/functions/v1/admin', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body: JSON.stringify(body) }); }
+  try { r = await fetchT(SUPABASE_URL + '/functions/v1/admin', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken() }, body: JSON.stringify(body) }, 30000); }
   catch (e) { throw new Error(e instanceof CloudErr ? 'Войдите в аккаунт заново' : 'Нет связи с сервером'); }
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(ADM_ERR[j.error] || (r.status === 404 ? 'Функция admin ещё не опубликована на сервере' : 'Ошибка запроса (' + r.status + ')'));
@@ -304,7 +304,7 @@ try { appCfg = JSON.parse(localStorage.getItem('remapp_cfg') || '{}') || {}; } c
 async function cfgLoad() {
   cfgAt = Date.now();
   try {
-    const r = await fetch(SUPABASE_URL + '/rest/v1/app_config?select=k,v', { cache: 'no-store', headers: { apikey: SUPABASE_KEY } });
+    const r = await fetchT(SUPABASE_URL + '/rest/v1/app_config?select=k,v', { cache: 'no-store', headers: { apikey: SUPABASE_KEY } }, 10000);
     const j = r.ok ? await r.json() : null; if (!Array.isArray(j)) return;
     const c = {}; j.forEach(x => { if (x && typeof x.k === 'string') c[x.k] = x.v; });
     const was = JSON.stringify(appCfg); appCfg = c;
