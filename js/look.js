@@ -155,6 +155,21 @@ function applyLook() {
   for (const k in v) root.style.setProperty(k, v[k]);
 }
 darkMQ.addEventListener('change', () => { if (S.settings.theme === 'auto') render(); });
+// Время суток на <html data-tod> — для живых фонов особых тем (Пиксели: день — облака, вечер — закат, ночь — звёзды и светлячки; css/skins.css)
+const todSet = () => { const h = new Date().getHours(), t = h >= 6 && h < 17 ? 'day' : h >= 17 && h < 21 ? 'eve' : 'night'; if (document.documentElement.dataset.tod !== t) document.documentElement.dataset.tod = t; };
+todSet(); setInterval(todSet, 5 * 60000); document.addEventListener('visibilitychange', () => { if (!document.hidden) todSet(); });
+// Фишка особой темы на отметку «сделано» (26 ноября 2026): у галочки — свой эффект (искры, пузырь, «БАМ!», «+1», звёздочка…; стили — css/skins.css, .skb-*)
+function skinFx(el) {
+  const sk = document.documentElement.dataset.skin;
+  if (!sk || sk.indexOf('gl-') === 0 || !el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const r = el.getBoundingClientRect(); if (!r.width) return;
+  const b = document.createElement('span'); b.className = 'skb skb-' + sk; b.setAttribute('aria-hidden', 'true');
+  b.style.left = Math.round(r.left + r.width / 2) + 'px'; b.style.top = Math.round(r.top + r.height / 2) + 'px';
+  if (sk === 'comic') { const w = LANG === 'en' ? ['POW!', 'BAM!', 'YES!'] : ['БАМ!', 'ЕСТЬ!', 'ВЖУХ!']; b.textContent = w[Math.floor(Math.random() * w.length)]; }
+  else if (sk === 'pixel') b.textContent = '+1';
+  else if (sk === 'note') b.textContent = '★';
+  document.body.appendChild(b); setTimeout(() => b.remove(), 1000);
+}
 applyLook();
 
 // ---- Блок «Оформление» в Настройках ----

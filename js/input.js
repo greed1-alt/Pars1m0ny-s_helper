@@ -115,6 +115,7 @@ document.addEventListener('touchstart', () => {}, { passive: true });
 function donePop(els, small) {
   els.forEach(el => { el.classList.add(small ? 'pop' : 'pop2'); if (small && el.parentElement) el.parentElement.classList.add('flash'); });
   try { if (els.length && navigator.vibrate) navigator.vibrate(8); } catch (x) {}
+  if (els.length) skinFx(els[0]);   // фишка особой темы (js/look.js)
 }
 function toggleDone(id, k) {
   if (String(id).startsWith('x:')) return toast('Это событие из другого календаря — отметить его можно там');
