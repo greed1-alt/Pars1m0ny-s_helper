@@ -424,6 +424,12 @@ async function wJwt(uid) {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env('JWT_SECRET')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   return h + '.' + p + '.' + b64u(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(h + '.' + p)));
 }
+// Запрос к функции assistant от имени человека (коротким токеном) — лимит и разбор как в приложении
+async function wAsk(uid, payload) {
+  const r = await fetch(env('SUPABASE_URL') + '/functions/v1/assistant', { method: 'POST', signal: AbortSignal.timeout(80000),
+    headers: { Authorization: 'Bearer ' + await wJwt(uid), apikey: env('SUPABASE_ANON_KEY'), 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  return await r.json();
+}
 async function widget(req, body, json) {
   const uid = await wUser(body.w); if (!uid) return json({ error: 'key' }, 401);
   const now = Date.now(), hits = (W_HITS.get(uid) || []).filter(x => now - x < 3600e3);
@@ -438,25 +444,34 @@ async function widget(req, body, json) {
     const after = await wRead(uid);
     return json({ day: today, done: r.done || 0, add: r.add || {}, tasks: wTasks(after && after.data, today) });
   }
-  if (body.op === 'say') {
-    const text = wStr(body.text, 1000); if (!text) return json({ error: 'empty' }, 400);
+  // Сказанное → помощник → записи. vt — подпись распознанного голоса (op hear): такое сообщение второй раз в лимит не считается
+  const say = async (text, vt) => {
     const d = row.data, P = d.settings && d.settings.phr || {}, p = partsIn(now, tz);
     const ctx = { today, now: fmtMin(p.h * 60 + p.mi), tz, cats: (Array.isArray(d.cats) ? d.cats : []).map(c => wStr(c && c.name, 40)).filter(Boolean).slice(0, 20),
       fin: (d.fin && Array.isArray(d.fin.cats) ? d.fin.cats : []).map(c => ({ n: wStr(c && c.name, 40), g: c && c.g })).slice(0, 60),
       habits: wHabs(d, today).map(h => wStr(h.name, 60)).slice(0, 40), goals: (Array.isArray(d.goals) ? d.goals : []).filter(g => g && !g.done).map(g => wStr(g.title, 80)).slice(0, 20),
       taunts: P.taunts !== false, praise: P.praise !== false };
     let j;
-    try {
-      const r = await fetch(env('SUPABASE_URL') + '/functions/v1/assistant', { method: 'POST', signal: AbortSignal.timeout(60000),
-        headers: { Authorization: 'Bearer ' + await wJwt(uid), apikey: env('SUPABASE_ANON_KEY'), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'chat', text: 'Сказано голосом в виджет на iPhone: ' + text, ask: false, edit: false, history: [], ctx, tone: P.taunts === false ? 'soft' : 'sharp', lang: d.settings && d.settings.lang === 'en' ? 'en' : 'ru' }) });
-      j = await r.json();
-    } catch (e) { return json({ error: 'ai' }, 502); }
-    if (!j || j.error) return json({ error: j && j.error === 'limit' ? 'ailimit' : 'ai' }, j && j.error === 'limit' ? 429 : 502);
+    try { j = await wAsk(uid, { mode: 'chat', text: vt ? text : 'Сказано голосом в виджет на iPhone: ' + text, ...(vt ? { vt } : {}), ask: false, edit: false, history: [], ctx, tone: P.taunts === false ? 'soft' : 'sharp', lang: d.settings && d.settings.lang === 'en' ? 'en' : 'ru' }); }
+    catch (e) { return { e: json({ error: 'ai' }, 502) }; }
+    if (!j || j.error) return { e: json({ error: j && j.error === 'limit' ? 'ailimit' : 'ai' }, j && j.error === 'limit' ? 429 : 502) };
     const items = Array.isArray(j.items) ? j.items : [];
     const r = items.length ? await wWrite(uid, dd => { const res = wApply(dd, items, today); return res.some(x => x.ok) ? { res } : { none: 1, res }; }) : { res: [] };
-    if (r.error) return json(r, 409);
-    return json({ reply: wStr(String(j.reply || ''), 600), res: r.res || [], left: j.left });
+    if (r.error) return { e: json(r, 409) };
+    return { reply: wStr(String(j.reply || ''), 600), res: r.res || [], left: j.left };
+  };
+  if (body.op === 'say') {
+    const text = wStr(body.text, 1000); if (!text) return json({ error: 'empty' }, 400);
+    const o = await say(text, ''); return o.e || json(o);
+  }
+  // Голос записан на странице виджета (своя запись вместо окна «Dictation», 25 ноября 2026): распознаёт функция assistant (mode stt) — как голос в чате
+  if (body.op === 'hear') {
+    const audio = typeof body.audio === 'string' && body.audio.length < 4.2e6 && /^data:audio\/[a-z0-9.+-]+;base64,/.test(body.audio) ? body.audio : '';
+    if (!audio) return json({ error: 'audio' }, 400);
+    let s; try { s = await wAsk(uid, { mode: 'stt', text: '', audio }); } catch (e) { return json({ error: 'ai' }, 502); }
+    if (!s || s.error) return json({ error: s && s.error === 'limit' ? 'ailimit' : s && s.error === 'audio' ? 'audio' : 'ai' }, s && s.error === 'limit' ? 429 : 502);
+    const heard = wStr(String(s.text || ''), 1000); if (!heard) return json({ heard: '', res: [], reply: '', left: s.left });
+    const o = await say(heard, typeof s.vt === 'string' ? s.vt : ''); return o.e || json({ heard, ...o });
   }
   return json({ error: 'op' }, 400);
 }
