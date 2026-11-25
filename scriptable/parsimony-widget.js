@@ -9,7 +9,7 @@
 // Parsimony → Настройки → «Виджет iPhone» → «Новый ключ»: старый перестанет работать.
 const KEY = '__KEY__';
 const API = 'https://api.parsimony.ru/functions/v1/calendar';
-const VER = 247;            // версия кода — видна внизу экрана, чтобы понять, что код обновлён
+const VER = 248;            // версия кода — видна внизу экрана, чтобы понять, что код обновлён
 const LIST = 'Parsimony';   // список в «Напоминаниях»
 const C = {
   bg: Color.dynamic(new Color('#ffffff'), new Color('#1c1c1e')),
@@ -320,6 +320,10 @@ $('date').textContent=new Date().toLocaleDateString('ru-RU',{weekday:'long',day:
 show({st:'idle'});
 </script></body></html>`;
 async function screen(auto) {
+  // Нажали на виджет — сразу диктовка, как раньше (над серым экраном Scriptable: показать свою страницу до неё он не успевает),
+  // а страница — уже с тем, что записалось. Отменили диктовку — страница с делами на сегодня.
+  let first = '';
+  if (auto) { try { first = String(await Dictation.start('ru-RU') || '').trim(); } catch (e) { first = ''; } }
   const wv = new WebView();
   console.log('экран: загружаю страницу');
   await wv.loadHTML(PAGE);
@@ -366,7 +370,7 @@ async function screen(auto) {
     }
   })();
   today();
-  if (auto) Timer.schedule(450, false, () => { listen(); });
+  if (first) send(first.slice(0, 1000));
   await shown;
 }
 
@@ -391,8 +395,7 @@ async function main() {
     Script.setWidget(buildWidget(sum, err)); return;
   }
   const act = (args.queryParameters || {}).act;
-  // Нажали на виджет: Scriptable ещё открывается — показать экран сразу он может не успеть (остаётся серый экран). Ждём чуть-чуть.
-  if (act === 'say') { await new Promise(r => Timer.schedule(800, false, r)); await screen(true); return; }   // нажали на виджет — экран и сразу диктовка
+  if (act === 'say') { await screen(true); return; }   // нажали на виджет — экран и сразу диктовка
   await screen(false);   // открыли скрипт в самом Scriptable — тот же экран, без диктовки сразу
 }
 await main();
