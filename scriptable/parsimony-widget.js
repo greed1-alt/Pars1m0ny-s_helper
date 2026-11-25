@@ -9,7 +9,7 @@
 // Parsimony → Настройки → «Виджет iPhone» → «Новый ключ»: старый перестанет работать.
 const KEY = '__KEY__';
 const API = 'https://api.parsimony.ru/functions/v1/calendar';
-const VER = 250;            // версия кода — видна внизу экрана, чтобы понять, что код обновлён
+const VER = 251;            // версия кода — видна внизу экрана, чтобы понять, что код обновлён
 const LIST = 'Parsimony';   // список в «Напоминаниях»
 const C = {
   bg: Color.dynamic(new Color('#ffffff'), new Color('#1c1c1e')),
@@ -116,10 +116,9 @@ function buildWidget(sum, err) {
     if (n) txt(w, (n.tm ? n.tm + ' ' : '') + n.t, Font.systemFont(13), Color.white(), 2);
     return w;
   }
-  // Фон — мягкий градиент, не чёрный (пользователь: «сам виджет все еще черный»): светлый лавандовый / глубокий фиолетовый
-  const bg = new LinearGradient(); bg.locations = [0, 1];
-  bg.colors = [Color.dynamic(new Color('#ffffff'), new Color('#2a2463')), Color.dynamic(new Color('#ecebff'), new Color('#141233'))];
-  w.backgroundGradient = bg;
+  // Фон — не чёрный (пользователь: «сам виджет все еще черный»): светлый лавандовый / глубокий фиолетовый. Сплошной цвет, не градиент:
+  // цвет «по теме iPhone» (Color.dynamic) Scriptable надёжно применяет к фону, а у градиента — не наверняка (в тёмной теме мог выйти белым).
+  w.backgroundColor = Color.dynamic(new Color('#f6f5ff'), new Color('#211c4e'));
   if (err) { w.setPadding(14, 15, 14, 15); txt(w, 'Parsimony', Font.semiboldSystemFont(13), C.acc, 1); w.addSpacer(6); txt(w, err, Font.systemFont(12), C.mut, 4); w.addSpacer(); return w; }
   if (fam === 'small') {
     w.setPadding(13, 14, 13, 14);
