@@ -9,6 +9,7 @@
 // Parsimony → Настройки → «Виджет iPhone» → «Новый ключ»: старый перестанет работать.
 const KEY = '__KEY__';
 const API = 'https://api.parsimony.ru/functions/v1/calendar';
+const VER = 247;            // версия кода — видна внизу экрана, чтобы понять, что код обновлён
 const LIST = 'Parsimony';   // список в «Напоминаниях»
 const C = {
   bg: Color.dynamic(new Color('#ffffff'), new Color('#1c1c1e')),
@@ -264,7 +265,7 @@ h3{font-size:13px;font-weight:600;color:var(--mut);text-transform:uppercase;lett
 .row.dn .t{color:var(--mut);text-decoration:line-through}.row.nx{background:var(--soft)}.row.nx .tm{color:var(--acc);font-weight:700}.row.nx .t{font-weight:600}
 .empty{padding:14px;color:var(--mut);font-size:14px}
 .link{display:block;margin:18px auto 0;background:none;border:0;color:var(--acc);font:500 15px -apple-system,system-ui,sans-serif}
-#sync{text-align:center;font-size:13px;color:var(--mut);margin-top:6px}
+#sync{text-align:center;font-size:13px;color:var(--mut);margin-top:6px}#ver{text-align:center;font-size:11px;color:var(--mut);opacity:.6;margin-top:18px}
 </style></head><body>
 <div class="top"><span class="brand">Parsimony</span><span id="date"></span></div>
 <div class="hero" id="hero">
@@ -278,7 +279,7 @@ h3{font-size:13px;font-weight:600;color:var(--mut);text-transform:uppercase;lett
  <div class="tw" id="tw" hidden><textarea id="ta" rows="2" placeholder="Напишите или нажмите микрофон на клавиатуре"></textarea><button class="b pri" onclick="sendT()">Добавить</button></div>
 </div>
 <h3 id="th">Сегодня</h3><div class="today" id="today"><div class="empty">Загружаю…</div></div>
-<button class="link" onclick="act({a:'sync'})">Синхронизировать «Напоминания»</button><div id="sync"></div>
+<button class="link" onclick="act({a:'sync'})">Синхронизировать «Напоминания»</button><div id="sync"></div><div id="ver"></div>
 <script>
 var wait=null,q=[];
 function setWait(c){wait=c;flush()}
@@ -320,7 +321,10 @@ show({st:'idle'});
 </script></body></html>`;
 async function screen(auto) {
   const wv = new WebView();
+  console.log('экран: загружаю страницу');
   await wv.loadHTML(PAGE);
+  await wv.evaluateJavaScript('document.getElementById("ver").textContent="код виджета · версия ' + VER + '"', false).catch(() => {});
+  console.log('экран: показываю');
   let closed = false, busy = false, sending = false;
   const shown = wv.present(true).then(() => { closed = true; }, () => { closed = true; });
   const js = s => closed ? Promise.resolve() : wv.evaluateJavaScript(s, false).catch(() => {});
@@ -387,7 +391,8 @@ async function main() {
     Script.setWidget(buildWidget(sum, err)); return;
   }
   const act = (args.queryParameters || {}).act;
-  if (act === 'say') { await screen(true); return; }   // нажали на виджет — экран и сразу диктовка
+  // Нажали на виджет: Scriptable ещё открывается — показать экран сразу он может не успеть (остаётся серый экран). Ждём чуть-чуть.
+  if (act === 'say') { await new Promise(r => Timer.schedule(800, false, r)); await screen(true); return; }   // нажали на виджет — экран и сразу диктовка
   await screen(false);   // открыли скрипт в самом Scriptable — тот же экран, без диктовки сразу
 }
 await main();
