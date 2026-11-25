@@ -123,7 +123,7 @@ body.ui2 .missbar.thin b{font-size:14px;font-weight:600}
 /* «Удалить …?» — окошком по центру экрана (askmSync в calendar.js) */
 #askm{position:fixed;inset:0;z-index:85;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.45);touch-action:none}
 #askm.show{display:flex;animation:fadeIn .12s}
-.askm-box{width:min(380px,100%);padding:20px;border-radius:18px;background:var(--sf);color:var(--tx);border:1px solid var(--line);box-shadow:0 24px 70px rgba(0,0,0,.35);font-size:14px;animation:sheetPop .16s cubic-bezier(.2,.8,.2,1)}
+.askm-box{width:min(380px,100%);padding:20px;border-radius:18px;background:var(--sf);color:var(--tx);border:1px solid var(--line);box-shadow:0 24px 70px rgba(0,0,0,.35);font-size:14px;animation:sheetPop .16s var(--ios)}
 .askm-box b{display:block;font-size:17px;font-weight:700;line-height:1.35;margin-bottom:8px}
 .askm-box .set-note{margin:0 0 6px}
 .askm-box .row{display:flex;flex-direction:column;gap:8px;margin-top:14px}
@@ -271,7 +271,7 @@ body.ui2 .fh-t b{font-size:15px}
 .onb-prev{min-height:64px;align-content:flex-start;opacity:0;transform:translateY(6px);transition:opacity .3s,transform .3s}
 .onb-prev.show{opacity:1;transform:none}
 .onb-mock{width:100%;display:flex;flex-direction:column;gap:8px;font-size:13px}
-.onb-mock>*{animation:onbIn .5s cubic-bezier(.2,.8,.2,1) both}
+.onb-mock>*{animation:onbIn .5s var(--ios) both}
 .onb-mock>:nth-child(2){animation-delay:.12s}.onb-mock>:nth-child(3){animation-delay:.24s}.onb-mock>:nth-child(4){animation-delay:.36s}
 @keyframes onbIn{from{opacity:0;transform:translateY(10px)}}
 .mk-top{display:flex;align-items:center;justify-content:space-between;padding:0 4px 4px}
@@ -765,7 +765,7 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
    ответы без «пузырей» со светящимся шаром, «Думаю…» с переливом, ответ печатается; голос — удерживать и говорить */
 #sh:has(.ai-chat){display:flex;flex-direction:column;padding:0;overflow:hidden}
 #sh:has(.ai-chat) .grab{display:none}
-@media(max-width:899px){#ov:has(.ai-chat){align-items:stretch}#sh:has(.ai-chat){max-width:none;height:100%;max-height:none;border-radius:0;animation:aiOpen .22s cubic-bezier(.2,.8,.2,1)}}
+@media(max-width:899px){#ov:has(.ai-chat){align-items:stretch}#sh:has(.ai-chat){max-width:none;height:100%;max-height:none;border-radius:0;animation:aiOpen .22s var(--ios)}}
 @media(min-width:900px){#sh:has(.ai-chat){width:640px;height:min(86vh,860px);max-height:min(86vh,860px)}}
 @keyframes aiOpen{from{transform:translateY(24px);opacity:.3}to{transform:none;opacity:1}}
 .ai-chat{flex:1;min-height:0;display:flex;flex-direction:column;background:radial-gradient(120% 55% at 50% -12%,color-mix(in srgb,var(--acc) 15%,transparent),transparent 62%)}
@@ -792,7 +792,7 @@ html.is-beta::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;b
 .ai-day{align-self:center;font-size:12px;font-weight:600;color:var(--mut);padding:2px 10px;border-radius:999px;background:var(--hov)}
 .ai-m{display:flex;gap:10px;align-items:flex-start;min-width:0}
 .ai-m.u{justify-content:flex-end}
-.ai-m.new{animation:aiIn .28s cubic-bezier(.2,.8,.2,1)}
+.ai-m.new{animation:aiIn .28s var(--ios)}
 @keyframes aiIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .ai-mb{min-width:0;font-size:15.5px;line-height:1.55;overflow-wrap:anywhere}
 .ai-m.u .ai-mb{max-width:82%;padding:10px 14px;border-radius:20px 20px 6px 20px;color:var(--accfg);background:linear-gradient(135deg,var(--acc),color-mix(in srgb,var(--acc) 70%,#a855f7));box-shadow:0 4px 14px color-mix(in srgb,var(--acc) 25%,transparent)}
@@ -1036,13 +1036,13 @@ button.adm-t:hover{border-color:color-mix(in srgb,var(--acc) 50%,var(--line))}
 .mc-evadd{margin-top:6px}
 .mc-cat{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:999px;font-style:normal;font-size:12px;font-weight:600;color:#fff;background:var(--c)}
 /* новое сообщение въезжает (своё — справа, друга — слева), у входящего — мягкая вспышка; значок в шапке качается, число подпрыгивает */
-.mc-m.new{animation:mcIn .34s cubic-bezier(.2,.8,.2,1) var(--ad,0s) both}
+.mc-m.new{animation:mcIn .34s var(--ios) var(--ad,0s) both}
 .mc-m.me.new{transform-origin:right bottom}.mc-m.them.new{transform-origin:left bottom}
 .mc-m.them.new .mc-b{animation:mcGlow 1.4s ease-out calc(var(--ad,0s) + .1s)}
 @keyframes mcIn{from{opacity:0;transform:translateY(14px) scale(.9)}to{opacity:1;transform:none}}
 @keyframes mcGlow{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc) 55%,transparent)}100%{box-shadow:0 0 0 12px transparent}}
 .hdr-msg.bump svg{animation:mcBell .7s ease-in-out}
-.hdr-msg.bump .msg-badge{animation:mcPop .45s cubic-bezier(.2,.8,.2,1)}
+.hdr-msg.bump .msg-badge{animation:mcPop .45s var(--ios)}
 @keyframes mcBell{0%,100%{transform:rotate(0)}20%{transform:rotate(-14deg)}40%{transform:rotate(11deg)}60%{transform:rotate(-7deg)}80%{transform:rotate(4deg)}}
 @keyframes mcPop{0%{transform:scale(.4)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){.mc-m.new,.mc-m.them.new .mc-b,.hdr-msg.bump svg,.hdr-msg.bump .msg-badge{animation:none}}
@@ -1506,3 +1506,55 @@ html.bgated .app,html.bgated #tabbar,html.bgated #tinv{visibility:hidden}
 .sync-steps{margin:10px 0 6px;padding-left:22px;display:flex;flex-direction:column;gap:7px;font-size:14px;line-height:1.45;color:var(--tx)}
 .sync-steps li::marker{color:var(--acc);font-weight:700}
 .sub-go{width:100%;margin-top:8px}
+
+/* Свои окошки выбора на ПК (25 ноября 2026, js/pick.js): время — колёсики, дата — календарик, список — свой; появляются и тают плавно */
+.pk{position:fixed;z-index:80;background:color-mix(in srgb,var(--sf) 92%,transparent);-webkit-backdrop-filter:blur(18px) saturate(1.6);backdrop-filter:blur(18px) saturate(1.6);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.22),0 2px 8px rgba(0,0,0,.08);padding:8px;color:var(--tx);transform-origin:top left;animation:pkIn .26s var(--ios)}
+.pk.up{transform-origin:bottom left}
+.pk.out{animation:pkOut .15s ease-in forwards;pointer-events:none}
+@keyframes pkIn{from{opacity:0;transform:translateY(-6px) scale(.94)}}
+@keyframes pkOut{to{opacity:0;transform:scale(.96)}}
+.pk-whs{position:relative;display:flex;align-items:center;justify-content:center;gap:2px;padding:0 6px;perspective:420px}
+.pk-band{position:absolute;left:6px;right:6px;top:50%;height:34px;margin-top:-17px;border-radius:9px;background:var(--hov);pointer-events:none}
+.pk-wh{position:relative;width:64px;height:170px;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain;transform-style:preserve-3d;outline:0;border-radius:9px;-webkit-mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent)}
+.pk-wh::-webkit-scrollbar{display:none}
+.pk-wh:focus-visible{box-shadow:inset 0 0 0 2px var(--acc)}
+.pk-pad{height:68px}
+.pk-it{height:34px;line-height:34px;text-align:center;font-size:20px;font-variant-numeric:tabular-nums;font-weight:500;color:var(--tx2);scroll-snap-align:center;cursor:pointer;user-select:none;will-change:transform}
+.pk-it.on{color:var(--tx);font-weight:650}
+.pk-colon{font-size:20px;font-weight:650;color:var(--tx);position:relative;top:-1px}
+.pk-foot{display:flex;gap:6px;justify-content:flex-end;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.pk-b{height:32px;padding:0 12px;border-radius:9px;font-size:13px;font-weight:600;color:var(--tx2);transition:background .15s,transform .15s var(--ios)}
+.pk-b:hover{background:var(--hov);color:var(--tx)}
+.pk-b:active{transform:scale(.95)}
+.pk-b.pri{background:var(--acc);color:var(--accfg)}
+.pk-b.pri:hover{background:color-mix(in srgb,var(--acc) 88%,#000)}
+.pk-date{width:286px}
+.pk-mh{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 6px}
+.pk-mh b{font-size:15px;font-weight:650}
+.pk-nav{width:32px;height:32px;border-radius:9px;font-size:20px;line-height:1;color:var(--tx2);transition:background .15s,transform .15s var(--ios)}
+.pk-nav:hover{background:var(--hov);color:var(--tx)}.pk-nav:active{transform:scale(.9)}
+.pk-dw,.pk-g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.pk-dw span{font-size:12px;font-weight:600;color:var(--mut);padding:4px 0}
+.pk-g.fr{animation:inR .3s var(--ios)}.pk-g.fl{animation:inL .3s var(--ios)}
+.pk-d{height:36px;border-radius:50%;font-size:14px;font-variant-numeric:tabular-nums;color:var(--tx);transition:background .15s,color .15s,transform .2s var(--ios)}
+.pk-d.we{color:var(--tx2)}
+.pk-d:hover:not([disabled]){background:var(--hov)}
+.pk-d:active:not([disabled]){transform:scale(.88)}
+.pk-d.tdy{color:var(--red);font-weight:700}
+.pk-d.on{background:var(--acc);color:var(--accfg);font-weight:700;animation:chipPop .3s var(--ios)}
+.pk-d[disabled]{opacity:.3;cursor:default}
+.pk-d:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+.pk-sel{padding:5px}
+.pk-ls{max-height:280px;overflow:auto;display:flex;flex-direction:column;gap:1px;overscroll-behavior:contain}
+.pk-o{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 30px 0 10px;border-radius:9px;font-size:14px;text-align:left;color:var(--tx);position:relative;transition:background .12s}
+.pk-o:hover,.pk-o:focus-visible{background:var(--hov);outline:0}
+.pk-o.on{font-weight:650;color:var(--acc)}
+.pk-o.on::after{content:'';position:absolute;right:11px;top:50%;width:5px;height:10px;margin-top:-7px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.pk-o[disabled]{opacity:.4}
+/* Поля времени и даты на ПК: свой значок, без системного */
+@media (pointer:fine){
+  input.fin[type="time"],input.fin[type="date"]{cursor:pointer}
+  input.fin[type="time"]::-webkit-calendar-picker-indicator,input.fin[type="date"]::-webkit-calendar-picker-indicator{opacity:.55;cursor:pointer}
+  select.fin{cursor:pointer}
+}
+@media(prefers-reduced-motion:reduce){.pk,.pk.out,.pk-g.fr,.pk-g.fl,.pk-d.on{animation:none}}

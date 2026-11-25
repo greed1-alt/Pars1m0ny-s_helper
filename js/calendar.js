@@ -410,11 +410,15 @@ ACT.shstay = () => shAskHide();
 ACT.shdrop = () => { shAskHide(); closeSheet(); };
 document.addEventListener('pointerdown', e => { if (shAskOpen() && !(e.target.closest && e.target.closest('#shask'))) shAskHide(); }, true);   // продолжили писать — вопрос убирается
 const sheet = (h, keep) => { tinvHide(); if (!keep) shDirty = false; shAskHide(); const sh = $('#sh'), top = sh.scrollTop, was = sheetOpen(), fk = was ? focSave() : null;   // плашка «Впервые здесь?» (tour.js) не висит поверх окна
- sh.innerHTML = '<span class="grab" aria-hidden="true"></span>' + h; $('#ov').classList.remove('ov-light'); $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; shHistOpen();
+ sh.innerHTML = '<span class="grab" aria-hidden="true"></span>' + h; clearTimeout(shOutT); $('#ov').classList.remove('ov-light', 'out'); $('#ov').classList.add('show'); sh.scrollTop = keep ? top : 0; shHistOpen();
  document.documentElement.classList.add('sh-lock');   // страница под окном не листается (22 ноября 2026)
  a11ySheet(was, fk); askmSync(); };   // js/a11y.js: заголовок для диктора, фон «заморожен», фокус внутрь окна
 // fromBack — окно закрыто кнопкой «Назад»: шаг в истории уже сделан
-const closeSheet = fromBack => { aiVoiceAbort(); shAskHide(); askmHide(); $('#ov').classList.remove('show', 'ov-light'); document.documentElement.classList.remove('sh-lock'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; shHistClose(fromBack === true); a11yClose(); };
+let shOutT = 0;
+const closeSheet = fromBack => { aiVoiceAbort(); shAskHide(); askmHide(); const ov = $('#ov'), swiped = /100%/.test($('#sh').style.transform);
+  if (typeof pkClose === 'function') pkClose();   // окошко выбора времени / даты (pick.js)
+  if (ov.classList.contains('show') && !swiped && !matchMedia('(prefers-reduced-motion:reduce)').matches) { ov.classList.add('out'); clearTimeout(shOutT); shOutT = setTimeout(() => ov.classList.remove('out'), 270); }   // уезжает плавно (25 ноября 2026)
+  ov.classList.remove('show', 'ov-light'); document.documentElement.classList.remove('sh-lock'); delAsk = null; palOpen = null; shareCtx = null; inbox = null; shHistClose(fromBack === true); a11yClose(); };
 // «Удалить …?» внутри окна (блок .ask внизу: цель, привычка, категория финансов…) — показываем окошком по центру экрана, а не внизу,
 // куда надо долистывать (22 ноября 2026, просьба пользователя). Кнопки те же (data-act), блок в окне прячется. Мимо окошка или Esc — «Отмена»
 function askmSync() {
@@ -468,12 +472,12 @@ $('#ov').addEventListener('touchmove', e => { if (!ovFree && e.cancelable) e.pre
   }, { passive: false });
   const end = () => {
     if (!d) return; const x = d; d = null; if (!x.on) return;
-    sh.style.transition = 'transform .2s cubic-bezier(.2,.8,.2,1)';
+    sh.style.transition = 'transform .32s cubic-bezier(.32,.72,0,1)';
     const far = x.dy > 110 || (x.dy > 50 && Date.now() - x.t < 280);   // дотянули или смахнули быстро
     if (far && shUnsaved()) { sh.style.transform = ''; setTimeout(() => { sh.style.transition = ''; }, 210); shAsk(); }   // вписано — окно возвращается и спрашивает
     else if (far) {   // закрыть
       sh.style.transform = 'translateY(100%)';
-      setTimeout(() => { closeSheet(); sh.style.transition = sh.style.transform = ''; }, 190);
+      setTimeout(() => { closeSheet(); sh.style.transition = sh.style.transform = ''; }, 260);
     } else { sh.style.transform = ''; setTimeout(() => { sh.style.transition = ''; }, 210); }
   };
   sh.addEventListener('touchend', end); sh.addEventListener('touchcancel', end); }
@@ -524,7 +528,7 @@ function openEvent(id, preset, instDate) {
   <div id="f_hint" class="nlhint" style="margin:-2px 0 8px"></div>
   ${id ? '' : '<div id="f_mem" class="f-mem" hidden></div>'}
   ${rec ? `<div class="f-rec">${I(IC.rep,14)} ${esc(repText(e))} · изменения применятся ко всем повторениям</div>` : ''}
-  <div class="frow"><span class="fl">Дата</span><input id="f_d" class="fin" type="date" value="${e.date}"></div>
+  <div class="frow"><span class="fl">Дата</span><input id="f_d" class="fin" type="date" value="${e.date}" required></div>
   <div class="frow"><span class="fl">Время</span><div><div class="ftime${e.time?'':' off'}"><input id="f_tm" class="fin" type="time" value="${e.time||''}" aria-label="Начало"><span class="dash">–</span><input id="f_tm2" class="fin" type="time" value="${e.time2||''}" aria-label="Конец"></div>
     <label class="swl"><input id="f_all" class="sw" type="checkbox"${e.time?'':' checked'}> Весь день / без времени</label></div></div>
   <div class="frow"><span class="fl">Повтор</span><div><select id="f_rep" class="fin">${Object.entries(REP).map(([k,v]) => `<option value="${k}"${rep.type===k?' selected':''}>${v}</option>`).join('')}</select>

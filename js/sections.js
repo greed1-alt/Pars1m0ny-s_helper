@@ -143,7 +143,7 @@ function openMissed(keep) {
   <div class="mslist">${l.map(e => `<div class="msrow" style="--c:${cat(e.cat).color}">
     <div class="ms-top"><i></i><div class="ms-t"><b>${esc(e.title)}</b><small>${esc(relDay(e.date))}${e.time ? ', ' + esc(e.time) : ''} · ${esc(cat(e.cat).name)}${e.goal && goalById(e.goal) ? ' · ' + esc(goalById(e.goal).emoji + ' ' + goalById(e.goal).title) : ''}</small></div></div>
     <div class="ms-btns">${missMove === e.id
-      ? `<button class="btn" data-act="missto" data-id="${e.id}" data-d="${todayK()}">Сегодня</button><button class="btn" data-act="missto" data-id="${e.id}" data-d="${addDays(todayK(), 1)}">Завтра</button><input class="fin ms-date" type="date" data-id="${e.id}" min="${todayK()}" aria-label="Другая дата">`
+      ? `<button class="btn" data-act="missto" data-id="${e.id}" data-d="${todayK()}">Сегодня</button><button class="btn" data-act="missto" data-id="${e.id}" data-d="${addDays(todayK(), 1)}">Завтра</button><input class="fin ms-date" type="date" data-id="${e.id}" min="${todayK()}" required aria-label="Другая дата">`
       : `<button class="btn" data-act="missmove" data-id="${e.id}">${I(IC.cal, 15)} Перенести</button><button class="btn" data-act="missdone" data-id="${e.id}">${I(IC.check, 15)} Выполнено</button>`}</div></div>`).join('')}</div>
   ${l.length > 1 ? `<button class="btn" style="width:100%;margin-top:12px" data-act="missalldone">Отметить все выполненными</button>` : ''}`, keep);
 }

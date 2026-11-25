@@ -363,7 +363,7 @@ function openNote(id) {
   noteForm = { id, back: sheetOpen() && !!$('.nt-m') };
   sheet(`<div class="sh-head">${noteForm.back ? `<button class="ic" data-act="ntall" aria-label="Назад">${I(IC.left, 18)}</button>` : ''}<h3>Заметка</h3><button class="ic" data-act="close" aria-label="Закрыть">${I(IC.x, 18)}</button></div>
   <textarea id="ne_text" class="fin hn-text" style="min-height:180px" aria-label="Текст заметки">${esc(n.text)}</textarea>
-  <div class="frow" style="border-top:0;margin-top:6px"><span class="fl">Дата</span><input id="ne_d" class="fin" type="date" value="${n.date}"></div>
+  <div class="frow" style="border-top:0;margin-top:6px"><span class="fl">Дата</span><input id="ne_d" class="fin" type="date" value="${n.date}" required></div>
   <div class="sh-foot"><button class="btn pri grow" data-act="ntupd">Сохранить</button><button class="btn dng" data-act="ntdel" data-id="${n.id}">${I(IC.trash, 16)} Удалить</button></div>`);
 }
 ACT.ntsave = saveNoteDraft;

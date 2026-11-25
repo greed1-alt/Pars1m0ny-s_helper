@@ -146,7 +146,7 @@ function drawOp(keep) {
   <div class="frow"><span class="fl">Категория</span><div>${groups.map(g => `${groups.length > 1 ? `<div class="op-g">${FG[g].n}</div>` : ''}<div class="ccats">${S.fin.cats.filter(c => c.g === g).map(c => `<button type="button" class="ccat${c.id === f.cat ? ' on' : ''}" data-act="opcat" data-id="${c.id}" style="--c:${FG[g].c}">${esc(c.emoji || '')} ${esc(c.name)}</button>`).join('')}</div>`).join('')}
     ${f.adding ? `<div class="op-newcat"><input id="op_ce" class="fin" type="text" value="${FG_EMOJI[groups[0]]}" maxlength="4" aria-label="Значок"><input id="op_cn" class="fin" type="text" placeholder="Название, например «Кофе»" maxlength="40" autocomplete="off" aria-label="Название категории">${groups.length > 1 ? `<select id="op_cg" class="fin" aria-label="Раздел">${groups.map(g => `<option value="${g}">${FG[g].n}</option>`).join('')}</select>` : ''}<button type="button" class="btn pri" data-act="opcatadd">Добавить</button></div>`
       : `<button type="button" class="ccat op-plus" data-act="opcatnew">${I(IC.plus, 14)} Своя категория</button>`}</div></div>
-  <div class="frow"><span class="fl">Дата</span><input id="op_d" class="fin" type="date" value="${f.date}"></div>
+  <div class="frow"><span class="fl">Дата</span><input id="op_d" class="fin" type="date" value="${f.date}" required></div>
   <div class="frow"><span class="fl">Заметка</span><input id="op_n" class="fin" type="text" value="${esc(f.note)}" placeholder="Необязательно" autocomplete="off"></div>
   <div class="sh-foot"><button class="btn pri grow" data-act="opsave">Сохранить</button></div>`, keep);
 }

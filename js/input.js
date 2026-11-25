@@ -203,7 +203,9 @@ document.addEventListener('change', e => {
   else if (t.id === 's_fold') { st.fold = t.checked; save(); render(); }
   else if (t.id === 's_keys1') { st.keys1 = t.checked; save(); toast(t.checked ? 'Клавиши одной буквой включены' : 'Клавиши одной буквой выключены — Ctrl+K работает'); }
   else if (t.id === 'f_all') { $('.ftime').classList.toggle('off', t.checked); if (!t.checked && !$('#f_tm').value) { $('#f_tm').value = '09:00'; $('#f_tm2').value = '10:00'; } }
-  else if (t.id === 'f_tm') { timeOn(); const a = timeMin(t.value), b = timeMin($('#f_tm2').value); if (a != null && (b == null || b <= a)) $('#f_tm2').value = fmtMin(Math.min(1439, a + 60)); }
+  else if (t.id === 'f_tm') { timeOn(); const a = timeMin(t.value), p = timeMin(t.dataset.pv || t.defaultValue), b = timeMin($('#f_tm2').value);   // конец едет за началом, длительность та же
+    if (a != null) { if (p != null && b != null && b > p) $('#f_tm2').value = fmtMin(Math.min(1439, a + (b - p))); else if (b == null || b <= a) $('#f_tm2').value = fmtMin(Math.min(1439, a + 60)); }
+    t.dataset.pv = t.value; }
   else if (t.id === 'f_tm2') timeOn();
   else if (t.id === 'f_d') syncRepDays();
   else if (t.id === 'f_task') $('#f_prio').style.display = t.checked ? 'flex' : 'none';
