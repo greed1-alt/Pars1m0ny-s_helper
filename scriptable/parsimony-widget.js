@@ -9,10 +9,10 @@
 // Parsimony → Настройки → «Виджет iPhone» → «Новый ключ»: старый перестанет работать.
 const KEY = '__KEY__';
 const API = 'https://api.parsimony.ru/functions/v1/calendar';
-const VER = 253;            // версия кода — видна внизу экрана, чтобы понять, что код обновлён
+const VER = 254;            // версия кода — видна внизу экрана, чтобы понять, что код обновлён
 const LIST = 'Parsimony';   // список в «Напоминаниях»
 const C = {
-  bg: Color.dynamic(new Color('#ffffff'), new Color('#1c1c1e')),
+  bg: Color.dynamic(new Color('#ffffff'), new Color('#211c4e')),   // фон виджета — не чёрный (просьба пользователя)
   tx: Color.dynamic(new Color('#1c1c1e'), new Color('#f2f2f7')),
   mut: Color.dynamic(new Color('#7c7a99'), new Color('#aeaad8')),
   dim: Color.dynamic(new Color('#c9c7e6'), new Color('#4a4580')),
@@ -37,115 +37,99 @@ async function call(body, secs) {
 const WHY = { key: 'Ключ не подходит — скопируйте код заново в Parsimony → Настройки → «Виджет iPhone»', ailimit: 'Помощник на сегодня всё — лимит сообщений закончился',
   ai: 'Помощник не ответил — попробуйте ещё раз', audio: 'Запись не подошла — скажите ещё раз или напишите', limit: 'Слишком часто — попробуйте позже', nodata: 'В Parsimony ещё нет записей — откройте приложение один раз', busy: 'Записи сейчас меняются — попробуйте ещё раз' };
 
-// ---- Виджет: «Лента дня» (выбор пользователя 25 ноября 2026 из трёх вариантов) ----
-// Слева — день недели, число, сколько дел сделано и привычки кружками; справа — дела по времени: ближайшее подсвечено цветом
-// своего календаря, сделанные — с галочкой. Нажатие — сказать, что добавить (без перехода в Scriptable — командой в «Командах»).
-const WD = ['ВОСКРЕСЕНЬЕ', 'ПОНЕДЕЛЬНИК', 'ВТОРНИК', 'СРЕДА', 'ЧЕТВЕРГ', 'ПЯТНИЦА', 'СУББОТА'];
+// ---- Виджет: «Сейчас и далее» (выбор пользователя 25 ноября 2026, после «Ленты дня»): сверху — сколько сделано, большая карточка
+//      ближайшего дела («через 25 мин · 15:30», название, микрофон), ниже — следующие дела. Маленький — карточка на весь виджет.
+//      Большой — то же, дел больше, внизу привычки с названиями. Нажатие — записать голосом.
 const hex = s => /^#[0-9a-f]{6}$/i.test(s || '') ? s : '';
-const catC = x => hex(x.c) ? new Color(x.c) : C.acc;
+const WH = Color.white(), WH2 = new Color('#ffffff', 0.82);
+const CARD = Color.dynamic(new Color('#5b5bd6'), new Color('#6366f1'));
 function txt(st, s, font, color, lines) { const t = st.addText(s); t.font = font; t.textColor = color; if (lines) t.lineLimit = lines; return t; }
 function img(st, name, size, color) { const i = st.addImage(SFSymbol.named(name).image); i.imageSize = new Size(size, size); i.tintColor = color; return i; }
-function dayOf(sum) { const d = new Date(sum.day + 'T12:00:00'); return { wd: WD[d.getDay()], n: String(d.getDate()) }; }
-// Какие дела показать: с последнего перед ближайшим и дальше по времени (всё сделано — последние)
-function pick(items, max, now) {
-  let i = items.findIndex(x => !x.done && x.tm && x.tm >= now);
-  if (i < 0) i = items.findIndex(x => !x.done);
-  if (i < 0) i = items.length;
-  let from = Math.max(0, i - 1); if (items.length - from < max) from = Math.max(0, items.length - max);
-  return { rows: items.slice(from, from + max), next: items[i] || null, end: Math.min(items.length, from + max) };
+const tmin = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
+const pl = (n, f) => f[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
+// Несделанные по порядку: что идёт сейчас, потом предстоящие по времени, потом без времени, потом прошедшие
+function queue(items, now) {
+  const u = items.filter(x => !x.done), on = x => x.tm && x.tm <= now && x.tm2 && x.tm2 > now;
+  return u.filter(on).concat(u.filter(x => x.tm && x.tm > now), u.filter(x => x.tm && x.tm === now && !on(x)), u.filter(x => !x.tm), u.filter(x => x.tm && x.tm < now && !on(x)));
 }
-// Несделанные для маленького виджета: сначала предстоящие, потом без времени, потом прошедшие
-const undone = (items, now) => { const u = items.filter(x => !x.done); return u.filter(x => x.tm && x.tm >= now).concat(u.filter(x => !x.tm), u.filter(x => x.tm && x.tm < now)); };
-function dots(st, hs) {   // привычки кружками: закрашен — отмечена, по 7 в ряд
-  const all = hs.slice(0, 12);
-  for (let r = 0; r < all.length; r += 7) {
-    if (r) st.addSpacer(3);
-    const row = st.addStack(); row.spacing = 2;
-    all.slice(r, r + 7).forEach(h => img(row, h.done ? 'circle.fill' : 'circle', 8, h.done ? C.ok : C.dim));
-  }
+function whenTxt2(x, nowM) {
+  if (!x.tm) return 'сегодня · без времени';
+  const m = tmin(x.tm) - nowM;
+  if (m > 0) return 'через ' + (m < 60 ? m + ' мин' : Math.floor(m / 60) + ' ч' + (m % 60 ? ' ' + (m % 60) + ' мин' : ''));
+  if (x.tm2 && tmin(x.tm2) > nowM) return 'идёт сейчас';
+  return m === 0 ? 'сейчас' : 'уже началось';
 }
-function dayCol(st, sum, big) {
-  const c = st.addStack(); c.layoutVertically(); c.size = new Size(big ? 74 : 70, 0);
-  const d = dayOf(sum);
-  txt(c, d.wd, Font.boldSystemFont(11), C.red, 1).minimumScaleFactor = 0.6;
-  txt(c, d.n, Font.lightSystemFont(big ? 44 : 38), C.tx, 1);
-  if (sum.n) { c.addSpacer(6); txt(c, 'дела ' + sum.done + '/' + sum.n, Font.mediumSystemFont(11), C.mut, 1); }
-  if (sum.hn && !big) { c.addSpacer(7); dots(c, sum.habits); c.addSpacer(4); txt(c, 'привычки', Font.systemFont(11), C.mut, 1); }
-  c.addSpacer();
+const counts = (sum, habits) => [sum.n ? 'дела ' + sum.done + '/' + sum.n : '', habits && sum.hn ? 'привычки ' + sum.hdone + '/' + sum.hn : ''].filter(Boolean).join(' · ');
+function micBtn(st, size) {
+  const m = st.addStack(); m.size = new Size(size, size); m.cornerRadius = size / 2; m.backgroundColor = new Color('#ffffff', 0.22); m.centerAlignContent();
+  m.addSpacer(); img(m, 'mic.fill', Math.round(size * 0.5), WH); m.addSpacer();
+}
+function bigCard(w, x, sum, nowM, big) {
+  const c = w.addStack(); c.backgroundColor = CARD; c.cornerRadius = 15; c.setPadding(big ? 12 : 9, 13, big ? 12 : 9, 10); c.centerAlignContent();
+  const v = c.addStack(); v.layoutVertically(); v.spacing = 1;
+  if (x) { txt(v, whenTxt2(x, nowM) + (x.tm ? ' · ' + x.tm : ''), Font.mediumSystemFont(11), WH2, 1); txt(v, x.t, Font.boldSystemFont(big ? 18 : 16), WH, 1).minimumScaleFactor = 0.8; }
+  else { txt(v, sum.n ? 'Всё на сегодня сделано' : 'На сегодня пусто', Font.boldSystemFont(16), WH, 1); txt(v, 'Нажмите и скажите, что добавить', Font.systemFont(11), WH2, 1); }
+  c.addSpacer(8); micBtn(c, big ? 34 : 30);
+}
+function nextRow(w, x, size) {
+  const r = w.addStack(); r.centerAlignContent(); r.spacing = 8;
+  const t = r.addStack(); t.size = new Size(44, 0); txt(t, x.tm || '—', x.tm ? Font.semiboldSystemFont(size) : Font.systemFont(size), x.tm ? C.tx : C.mut, 1);
+  const d = r.addStack(); d.size = new Size(7, 7); d.cornerRadius = 3.5; d.backgroundColor = hex(x.c) ? new Color(x.c) : C.dim;
+  txt(r, x.t, Font.systemFont(size), C.tx, 1); r.addSpacer();
 }
 function habBlock(w, sum, hb) {
   txt(w, 'ПРИВЫЧКИ  ' + sum.hdone + '/' + sum.hn, Font.boldSystemFont(11), C.mut, 1);
   w.addSpacer(6);
   for (let i = 0; i < hb.length; i += 2) {
-    if (i) w.addSpacer(6);
+    if (i) w.addSpacer(5);
     const r = w.addStack(); r.spacing = 10;
     hb.slice(i, i + 2).forEach(h => { const c = r.addStack(); c.size = new Size(148, 0); c.centerAlignContent(); c.spacing = 6;
       img(c, h.done ? 'checkmark.circle.fill' : 'circle', 13, h.done ? C.ok : C.dim); txt(c, (h.e ? h.e + ' ' : '') + h.n, Font.systemFont(13), h.done ? C.mut : C.tx, 1); c.addSpacer(); });
   }
   if (sum.hn > hb.length) { w.addSpacer(4); txt(w, 'и ещё ' + (sum.hn - hb.length), Font.systemFont(11), C.mut, 1); }
 }
-function lineRow(st, x, isNext, size) {
-  const r = st.addStack(); r.centerAlignContent(); r.spacing = 7;
-  if (isNext) { const h = hex(x.c) || '#5b5bd6'; r.backgroundColor = Color.dynamic(new Color(h, 0.14), new Color(h, 0.32)); r.cornerRadius = 9; r.setPadding(4, 6, 4, 6); }
-  else r.setPadding(0, 6, 0, 6);
-  const t = r.addStack(); t.size = new Size(36, 0);
-  txt(t, x.tm || '—', isNext ? Font.boldSystemFont(11) : Font.systemFont(11), isNext ? catC(x) : C.mut, 1);
-  const ic = r.addStack(); ic.size = new Size(12, 12); ic.centerAlignContent(); ic.addSpacer();
-  if (x.done) img(ic, 'checkmark.circle.fill', 12, C.ok); else img(ic, 'circle.fill', 9, catC(x));
-  ic.addSpacer();
-  txt(r, x.t, isNext ? Font.semiboldSystemFont(size) : Font.systemFont(size), x.done ? C.mut : C.tx, 1);
-  r.addSpacer();
-}
-function barRow(st, x) {
-  const r = st.addStack(); r.spacing = 7; r.centerAlignContent();
-  const b = r.addStack(); b.size = new Size(3, 30); b.backgroundColor = catC(x); b.cornerRadius = 1.5;
-  const v = r.addStack(); v.layoutVertically();
-  txt(v, x.tm || 'без времени', Font.semiboldSystemFont(11), catC(x), 1);
-  txt(v, x.t, Font.semiboldSystemFont(13), C.tx, 1);
-}
 function buildWidget(sum, err) {
-  const fam = config.widgetFamily || 'medium', w = new ListWidget(), now = hm(new Date());
+  const fam = config.widgetFamily || 'medium', w = new ListWidget(), d0 = new Date(), now = hm(d0), nowM = d0.getHours() * 60 + d0.getMinutes();
   w.url = URLScheme.forRunningScript() + '?act=say';
+  const q = sum ? queue(sum.items, now) : [], x = q[0] || null, rest = q.slice(1);
+  // Обновить к началу ближайшего дела, а если оно в пределах часа — почаще («через N мин»)
   let refresh = Date.now() + 15 * 60e3;
-  if (fam.startsWith('accessory')) {   // экран блокировки
-    if (err) { txt(w, 'Parsimony: нет связи', Font.semiboldSystemFont(12), Color.white(), 2); return w; }
-    const u = undone(sum.items, now), n = u[0];
-    if (fam === 'accessoryCircular') { const t = txt(w, sum.done + '/' + sum.n, Font.boldRoundedSystemFont(17), Color.white(), 1); t.centerAlignText(); t.minimumScaleFactor = 0.6; const l = txt(w, 'дела', Font.systemFont(10), Color.white(), 1); l.centerAlignText(); return w; }
-    if (fam === 'accessoryInline') { txt(w, n ? (n.tm ? n.tm + ' ' : '') + n.t : 'Дела ' + sum.done + '/' + sum.n, Font.systemFont(12), Color.white(), 1); return w; }
-    txt(w, 'Дела ' + sum.done + '/' + sum.n + (sum.hn ? ' · привычки ' + sum.hdone + '/' + sum.hn : ''), Font.semiboldSystemFont(12), Color.white(), 1).minimumScaleFactor = 0.7;
-    if (n) txt(w, (n.tm ? n.tm + ' ' : '') + n.t, Font.systemFont(13), Color.white(), 2);
-    return w;
-  }
-  // Фон — не чёрный (пользователь: «сам виджет все еще черный»): светлый лавандовый / глубокий фиолетовый. Сплошной цвет, не градиент:
-  // цвет «по теме iPhone» (Color.dynamic) Scriptable надёжно применяет к фону, а у градиента — не наверняка (в тёмной теме мог выйти белым).
-  w.backgroundColor = Color.dynamic(new Color('#f6f5ff'), new Color('#211c4e'));
-  if (err) { w.setPadding(14, 15, 14, 15); txt(w, 'Parsimony', Font.semiboldSystemFont(13), C.acc, 1); w.addSpacer(6); txt(w, err, Font.systemFont(12), C.mut, 4); w.addSpacer(); return w; }
-  if (fam === 'small') {
-    w.setPadding(13, 14, 13, 14);
-    const d = dayOf(sum);
-    txt(w, d.wd, Font.boldSystemFont(11), C.red, 1).minimumScaleFactor = 0.6;
-    txt(w, d.n, Font.lightSystemFont(34), C.tx, 1);
-    w.addSpacer();
-    const u = undone(sum.items, now);
-    if (!u.length) txt(w, sum.n ? 'Всё сделано' : 'На сегодня пусто', Font.semiboldSystemFont(13), sum.n ? C.ok : C.mut, 2);
-    u.slice(0, 2).forEach((x, i) => { if (i) w.addSpacer(5); barRow(w, x); });
-    const nx = u.find(x => x.tm && x.tm >= now); if (nx) refresh = Math.min(refresh, +new Date(sum.day + 'T' + nx.tm + ':00') + 60e3);
-    w.refreshAfterDate = new Date(Math.max(Date.now() + 60e3, refresh));
-    return w;
-  }
-  const big = fam === 'large' || fam === 'extraLarge';
-  w.setPadding(14, 15, 14, 13);
-  const top = w.addStack(); top.topAlignContent(); top.spacing = 12;
-  dayCol(top, sum, big);
-  const col = top.addStack(); col.layoutVertically(); col.spacing = big ? 8 : 5;
-  const hb = big ? sum.habits.slice(0, 8) : [], p = pick(sum.items, big ? (hb.length > 4 ? 7 : hb.length ? 8 : 10) : 4, now);
-  if (!p.rows.length) { col.addSpacer(4); txt(col, 'На сегодня пусто', Font.semiboldSystemFont(14), C.tx, 1); txt(col, 'Нажмите и скажите, что запланировать', Font.systemFont(12), C.mut, 2); }
-  p.rows.forEach(x => lineRow(col, x, x === p.next, big ? 14 : 13));
-  if (sum.n > p.end) { const m = col.addStack(); m.setPadding(0, 6, 0, 6); txt(m, 'и ещё ' + (sum.n - p.end), Font.systemFont(11), C.mut, 1); }
-  w.addSpacer();
-  if (hb.length) habBlock(w, sum, hb);   // большой: привычки с названиями (в колонке дня их тогда нет)
-  if (p.next && p.next.tm && p.next.tm >= now) refresh = Math.min(refresh, +new Date(sum.day + 'T' + p.next.tm + ':00') + 60e3);
+  if (x && x.tm && tmin(x.tm) > nowM) { const at = +new Date(sum.day + 'T' + x.tm + ':00') + 30e3; refresh = Math.min(refresh, tmin(x.tm) - nowM <= 60 ? Date.now() + 5 * 60e3 : refresh, at); }
   w.refreshAfterDate = new Date(Math.max(Date.now() + 60e3, refresh));
+  if (fam.startsWith('accessory')) {   // экран блокировки
+    if (err) { txt(w, 'Parsimony: нет связи', Font.semiboldSystemFont(12), WH, 2); return w; }
+    if (fam === 'accessoryCircular') { const t = txt(w, sum.done + '/' + sum.n, Font.boldRoundedSystemFont(17), WH, 1); t.centerAlignText(); t.minimumScaleFactor = 0.6; const l = txt(w, 'дела', Font.systemFont(10), WH, 1); l.centerAlignText(); return w; }
+    if (fam === 'accessoryInline') { txt(w, x ? (x.tm ? x.tm + ' ' : '') + x.t : 'Дела ' + sum.done + '/' + sum.n, Font.systemFont(12), WH, 1); return w; }
+    txt(w, x ? whenTxt2(x, nowM) + (x.tm ? ' · ' + x.tm : '') : counts(sum, true), Font.semiboldSystemFont(12), WH, 1).minimumScaleFactor = 0.7;
+    if (x) txt(w, x.t, Font.systemFont(13), WH, 2);
+    return w;
+  }
+  if (err) { w.backgroundColor = C.bg; w.setPadding(14, 15, 14, 15); txt(w, 'Parsimony', Font.semiboldSystemFont(13), C.acc, 1); w.addSpacer(6); txt(w, err, Font.systemFont(12), C.mut, 4); w.addSpacer(); return w; }
+  if (fam === 'small') {   // карточка на весь виджет
+    w.backgroundColor = CARD; w.setPadding(13, 14, 13, 13);
+    const top = w.addStack(); top.centerAlignContent();
+    txt(top, x ? whenTxt2(x, nowM) : 'Parsimony', Font.mediumSystemFont(11), WH2, 1).minimumScaleFactor = 0.8; top.addSpacer(); img(top, 'mic.fill', 13, WH);
+    w.addSpacer(6);
+    if (x) { if (x.tm) txt(w, x.tm, Font.boldRoundedSystemFont(30), WH, 1); txt(w, x.t, Font.semiboldSystemFont(x.tm ? 14 : 17), WH, x.tm ? 2 : 3); }
+    else { txt(w, sum.n ? 'Всё сделано' : 'Пусто', Font.boldRoundedSystemFont(24), WH, 1); txt(w, 'Нажмите и скажите, что добавить', Font.systemFont(12), WH2, 2); }
+    w.addSpacer();
+    const more = [rest.length ? 'ещё ' + rest.length + ' ' + pl(rest.length, ['дело', 'дела', 'дел']) : '', sum.hn ? 'привычки ' + sum.hdone + '/' + sum.hn : ''].filter(Boolean).join(' · ');
+    if (more) txt(w, more, Font.systemFont(11), WH2, 2);
+    return w;
+  }
+  const big = fam === 'large' || fam === 'extraLarge', hb = big ? sum.habits.slice(0, 6) : [];
+  w.backgroundColor = C.bg; w.setPadding(13, 14, 12, 14);
+  const top = w.addStack(); top.centerAlignContent();
+  txt(top, 'Parsimony', Font.semiboldSystemFont(13), C.acc, 1); top.addSpacer();
+  txt(top, counts(sum, !hb.length), Font.systemFont(12), C.mut, 1).minimumScaleFactor = 0.8;
+  w.addSpacer(big ? 10 : 7);
+  bigCard(w, x, sum, nowM, big);
+  const max = big ? (hb.length > 2 ? 5 : hb.length ? 7 : 9) : 2;
+  if (rest.length) w.addSpacer(big ? 10 : 7);
+  rest.slice(0, max).forEach((y, i) => { if (i) w.addSpacer(big ? 7 : 4); nextRow(w, y, big ? 14 : 13); });
+  if (rest.length > max) { w.addSpacer(3); txt(w, 'и ещё ' + (rest.length - max), Font.systemFont(11), C.mut, 1); }
+  w.addSpacer();
+  if (hb.length) habBlock(w, sum, hb);
   return w;
 }
 
