@@ -98,7 +98,8 @@ html[data-skin=pixel][data-tod=night]::after{top:0;height:100%;width:auto;right:
 /* Техно: приветствие иногда «глючит» */
 html[data-skin=techno] .h2-greet{animation:skGlitch 7s steps(1) infinite}
 /* Календарь: линии фона там мешают сетке — у Чертежа, Тетради и Синего чертежа второй слой тоже убираем */
-:is(html[data-skin=craft],html[data-skin=note],html[data-skin=blueprint]):has(body[data-sec=cal])::after,html[data-skin=blueprint] body[data-sec=cal]::after{display:none}
+:is(html[data-skin=craft],html[data-skin=note],html[data-skin=blueprint]):has(body[data-sec=cal])::after{display:none}
+html[data-skin=blueprint]:not(.touring) body[data-sec=cal]::after{display:none}
 ${up('skUp400', 400)}${up('skUp520', 520)}
 @keyframes skDown640{to{transform:translateY(640px)}}
 @keyframes skLeft480{to{transform:translateX(-480px)}}
@@ -129,7 +130,7 @@ ${up('skUp400', 400)}${up('skUp520', 520)}
 @keyframes skbRise{from{transform:translate(-50%,-60%);opacity:1}to{transform:translate(-50%,-260%);opacity:0}}
 @keyframes skbStar{0%{transform:translate(-50%,-50%) scale(.3) rotate(-30deg);opacity:0}30%{transform:translate(-50%,-120%) scale(1.15) rotate(8deg);opacity:1}100%{transform:translate(-50%,-170%) scale(1) rotate(0);opacity:0}}
 /* Уменьшить движение (настройка iPhone / системы): фон стоит, эффектов нет */
-@media (prefers-reduced-motion:reduce){html[data-skin]::after,html[data-skin] body::after,html[data-skin] .h2-greet{animation:none!important}.skb{display:none}}
+@media (prefers-reduced-motion:reduce){html[data-skin]::after,html[data-skin] body::after,html[data-skin] .h2-greet{animation:none!important}html[data-skin=techno]::after,.skb{display:none}}
 ${B}`;
 let cur = fs.readFileSync(F, 'utf8'); const nl = cur.includes('\r\n') ? '\r\n' : '\n';
 cur = cur.split(/\r?\n/).join('\n');
